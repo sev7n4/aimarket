@@ -1,0 +1,11 @@
+:root {
+  --am-bg: #050505;
+  --am-surface: rgba(255, 255, 255, 0.04);
+  --am-surface-strong: rgba(255, 255, 255, 0.08);
+  --am-border: rgba(255, 255, 255, 0.1);
+  --am-text: #f5f5f5;
+  --am-muted: #9ca3af;
+  --am-accent-from: #f97316;
+  --am-accent-to: #a855f7;
+  --am-glow: rgba(249, 115, 22, 0.35);
+}

@@ -1,0 +1,32 @@
+# dependencies
+node_modules
+.pnpm-store
+
+# build
+dist
+.next
+out
+.turbo
+
+# env
+.env
+.env.*
+!.env.example
+
+# logs & debug
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / IDE
+.DS_Store
+.idea
+.vscode/*
+!.vscode/extensions.json
+
+# test
+coverage
+
+# misc
+*.tsbuildinfo
+next-env.d.ts
