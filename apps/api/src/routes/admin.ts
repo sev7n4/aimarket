@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import { db } from "../db/index.js";
 import { getProviderStatus } from "../providers/registry.js";
 import { requireAdmin } from "../middleware/admin.js";
@@ -61,6 +62,42 @@ admin.get("/orders", (c) => {
     )
     .all();
   return c.json({ data: rows });
+});
+
+admin.get("/reports", (c) => {
+  const status = c.req.query("status") ?? "pending";
+  const rows = db
+    .prepare(
+      `SELECT r.id, r.reason, r.content_url, r.status, r.admin_note, r.created_at,
+              r.session_id, r.job_id, u.email as reporter_email
+       FROM content_reports r
+       JOIN users u ON u.id = r.user_id
+       WHERE r.status = ?
+       ORDER BY r.created_at DESC LIMIT 50`,
+    )
+    .all(status);
+  return c.json({ data: rows });
+});
+
+admin.patch("/reports/:id", async (c) => {
+  const id = c.req.param("id");
+  const body = z
+    .object({
+      status: z.enum(["pending", "reviewed", "dismissed"]),
+      adminNote: z.string().max(500).optional(),
+    })
+    .parse(await c.req.json());
+
+  const row = db.prepare("SELECT id FROM content_reports WHERE id = ?").get(id);
+  if (!row) {
+    return c.json({ error: { code: "NOT_FOUND", message: "举报不存在" } }, 404);
+  }
+
+  db.prepare(
+    `UPDATE content_reports SET status = ?, admin_note = ?, reviewed_at = datetime('now') WHERE id = ?`,
+  ).run(body.status, body.adminNote ?? null, id);
+
+  return c.json({ data: { id, status: body.status } });
 });
 
 admin.get("/jobs", (c) => {

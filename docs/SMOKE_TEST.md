@@ -58,6 +58,27 @@
 
 详见 [STAGING.md](./STAGING.md)。
 
+## Phase 6（合规与多租户）
+
+- [ ] 生成 prompt 含敏感词 → API 返回 `CONTENT_BLOCKED`
+- [ ] Studio 顶栏可打开「举报」并提交成功
+- [ ] Admin 后台「内容举报」列表可见待处理项，可标记已处理/驳回
+- [ ] 登录后工作区名称显示（个人工作区自动创建）
+- [ ] 窄屏（&lt;768px）工作台默认收起，点击「工作台」展开底部 Sheet
+
+## Sprint 7（埋点，可选）
+
+- [ ] 登录进入 Studio 后 `studio_open` 事件写入（Admin 可查 DB `analytics_events`）
+- [ ] 提交生成后 `generation_submit` 事件写入
+
+## 自动化冒烟
+
+```bash
+node scripts/smoke-api.mjs
+```
+
+需 API 已启动且代码变更后已重启；期望 **20/20** 通过。
+
 ## 回归注意
 
 - 重命名 / 删除依赖 CORS 允许 `PATCH`、`DELETE`

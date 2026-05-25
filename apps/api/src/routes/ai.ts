@@ -13,6 +13,8 @@ import {
 } from "../lib/references.js";
 import { db } from "../db/index.js";
 import { AppError } from "../lib/errors.js";
+import { assertPromptAllowed } from "../lib/content-moderation.js";
+import { rateLimit } from "../lib/rate-limit.js";
 
 const ai = new Hono<{ Variables: AuthVariables }>();
 
@@ -58,6 +60,7 @@ ai.post("/estimatePointsBatch", async (c) => {
 
 ai.post("/generate", async (c) => {
   const userId = c.get("userId");
+  rateLimit(`generate:${userId}`, 40, 60_000);
   const body = z
     .object({
       sessionId: z.string().uuid(),
@@ -110,6 +113,7 @@ ai.post("/generate", async (c) => {
     ...refUrls,
     ...assetUrls,
   ]);
+  assertPromptAllowed(prompt);
 
   const { jobId, pointsCost } = createGenerationJob({
     sessionId: body.sessionId,
@@ -143,6 +147,7 @@ ai.get("/jobs/:jobId", (c) => {
 
 ai.post("/generate/video", async (c) => {
   const userId = c.get("userId");
+  rateLimit(`video:${userId}`, 20, 60_000);
   const body = z
     .object({
       sessionId: z.string().uuid(),
@@ -152,6 +157,8 @@ ai.post("/generate/video", async (c) => {
       resolution: z.enum(["1k", "2k"]).default("1k"),
     })
     .parse(await c.req.json());
+
+  assertPromptAllowed(body.prompt);
 
   const { jobId, pointsCost } = createGenerationJob({
     sessionId: body.sessionId,

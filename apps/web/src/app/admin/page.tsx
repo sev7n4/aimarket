@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { GlassPanel, Button } from "@aimarket/ui";
-import { fetchAdminStats, fetchAdminUsers } from "@/lib/api-client";
+import {
+  fetchAdminStats,
+  fetchAdminUsers,
+  fetchAdminReports,
+  updateAdminReport,
+} from "@/lib/api-client";
 import Link from "next/link";
 
 const ADMIN_KEY = "aimarket_admin_secret";
@@ -12,6 +17,8 @@ export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
   const [stats, setStats] = useState<Record<string, unknown> | null>(null);
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
+  const [reports, setReports] = useState<Record<string, unknown>[]>([]);
+  const [reportStatus, setReportStatus] = useState<"pending" | "reviewed" | "dismissed">("pending");
   const [error, setError] = useState<string | null>(null);
 
   async function handleLogin(e: React.FormEvent) {
@@ -20,8 +27,10 @@ export default function AdminPage() {
     try {
       const s = await fetchAdminStats(secret);
       const u = await fetchAdminUsers(secret);
+      const r = await fetchAdminReports(secret, "pending");
       setStats(s.data);
       setUsers(u);
+      setReports(r);
       sessionStorage.setItem(ADMIN_KEY, secret);
       setAuthed(true);
     } catch (err) {
@@ -38,13 +47,16 @@ export default function AdminPage() {
     const s = sessionStorage.getItem(ADMIN_KEY);
     if (s) {
       setSecret(s);
-      void Promise.all([fetchAdminStats(s), fetchAdminUsers(s)]).then(
-        ([statsRes, userList]) => {
-          setStats(statsRes.data);
-          setUsers(userList);
-          setAuthed(true);
-        },
-      );
+      void Promise.all([
+        fetchAdminStats(s),
+        fetchAdminUsers(s),
+        fetchAdminReports(s, "pending"),
+      ]).then(([statsRes, userList, reportList]) => {
+        setStats(statsRes.data);
+        setUsers(userList);
+        setReports(reportList);
+        setAuthed(true);
+      });
     }
   }
 
@@ -55,7 +67,7 @@ export default function AdminPage() {
           ← 返回首页
         </Link>
         <h1 className="mt-4 text-2xl font-bold">管理后台</h1>
-        <p className="mt-1 text-sm text-zinc-500">Phase 4 · 需 X-Admin-Secret</p>
+        <p className="mt-1 text-sm text-zinc-500">Phase 4–6 · 需 X-Admin-Secret</p>
 
         {!authed ? (
           <GlassPanel className="mt-6 p-6">
@@ -101,6 +113,102 @@ export default function AdminPage() {
                 {JSON.stringify(stats.provider as object)}
               </GlassPanel>
             ) : null}
+            <GlassPanel className="p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="font-medium">内容举报</h2>
+                <select
+                  value={reportStatus}
+                  onChange={(e) => {
+                    const next = e.target.value as typeof reportStatus;
+                    setReportStatus(next);
+                    const s = sessionStorage.getItem(ADMIN_KEY);
+                    if (s) {
+                      void fetchAdminReports(s, next).then(setReports);
+                    }
+                  }}
+                  className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs"
+                >
+                  <option value="pending">待处理</option>
+                  <option value="reviewed">已处理</option>
+                  <option value="dismissed">已驳回</option>
+                </select>
+              </div>
+              {reports.length === 0 ? (
+                <p className="mt-3 text-sm text-zinc-500">暂无举报</p>
+              ) : (
+                <ul className="mt-3 space-y-3 text-sm">
+                  {reports.map((r) => (
+                    <li
+                      key={r.id as string}
+                      className="rounded-xl border border-white/5 p-3"
+                    >
+                      <p className="text-zinc-300">{r.reason as string}</p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {r.reporter_email as string} ·{" "}
+                        {r.created_at as string}
+                      </p>
+                      {r.content_url ? (
+                        <a
+                          href={r.content_url as string}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 block truncate text-xs text-blue-400 hover:underline"
+                        >
+                          {r.content_url as string}
+                        </a>
+                      ) : null}
+                      {r.status === "pending" ? (
+                        <div className="mt-2 flex gap-2">
+                          <Button
+                            type="button"
+                            variant="primary"
+                            className="text-xs"
+                            onClick={() => {
+                              const s = sessionStorage.getItem(ADMIN_KEY);
+                              if (!s) return;
+                              void updateAdminReport(s, r.id as string, {
+                                status: "reviewed",
+                              }).then(() =>
+                                fetchAdminReports(s, reportStatus).then(
+                                  setReports,
+                                ),
+                              );
+                            }}
+                          >
+                            标记已处理
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="text-xs"
+                            onClick={() => {
+                              const s = sessionStorage.getItem(ADMIN_KEY);
+                              if (!s) return;
+                              void updateAdminReport(s, r.id as string, {
+                                status: "dismissed",
+                              }).then(() =>
+                                fetchAdminReports(s, reportStatus).then(
+                                  setReports,
+                                ),
+                              );
+                            }}
+                          >
+                            驳回
+                          </Button>
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-xs text-zinc-500">
+                          状态：{r.status as string}
+                          {r.admin_note
+                            ? ` · ${r.admin_note as string}`
+                            : ""}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </GlassPanel>
             <GlassPanel className="p-6">
               <h2 className="font-medium">最近用户</h2>
               <ul className="mt-3 space-y-2 text-sm">

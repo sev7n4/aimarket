@@ -369,6 +369,44 @@ export async function submitVideoGeneration(body: {
   return res.data;
 }
 
+export async function submitContentReport(body: {
+  sessionId: string;
+  jobId?: string;
+  reason: string;
+  contentUrl?: string;
+}) {
+  const res = await request<{ data: { id: string; status: string } }>(
+    "/api/v1/reports",
+    { method: "POST", body: JSON.stringify(body) },
+  );
+  return res.data;
+}
+
+export async function fetchWorkspaces() {
+  const res = await request<{
+    data: {
+      id: string;
+      name: string;
+      is_personal: number;
+      role: string;
+      created_at: string;
+    }[];
+  }>("/api/v1/workspaces/list");
+  return res.data;
+}
+
+export async function trackEvent(
+  name: string,
+  props?: Record<string, string | number | boolean>,
+  options?: { auth?: boolean },
+) {
+  await request("/api/v1/events", {
+    method: "POST",
+    body: JSON.stringify({ name, props }),
+    auth: options?.auth ?? true,
+  }).catch(() => {});
+}
+
 export async function fetchAdminStats(adminSecret: string) {
   const res = await fetch(`${API_BASE}/api/v1/admin/stats`, {
     headers: { "X-Admin-Secret": adminSecret },
@@ -385,6 +423,40 @@ export async function fetchAdminUsers(adminSecret: string) {
   const json = await res.json();
   if (!res.ok) throw new Error((json as ApiErrorBody).error?.message ?? "失败");
   return (json as { data: Record<string, unknown>[] }).data;
+}
+
+export async function fetchAdminReports(
+  adminSecret: string,
+  status = "pending",
+) {
+  const res = await fetch(
+    `${API_BASE}/api/v1/admin/reports?status=${status}`,
+    { headers: { "X-Admin-Secret": adminSecret } },
+  );
+  const json = await res.json();
+  if (!res.ok) throw new Error((json as ApiErrorBody).error?.message ?? "失败");
+  return (json as { data: Record<string, unknown>[] }).data;
+}
+
+export async function updateAdminReport(
+  adminSecret: string,
+  id: string,
+  body: { status: "pending" | "reviewed" | "dismissed"; adminNote?: string },
+) {
+  const res = await fetch(`${API_BASE}/api/v1/admin/reports/${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Admin-Secret": adminSecret,
+    },
+    body: JSON.stringify({
+      status: body.status,
+      adminNote: body.adminNote,
+    }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error((json as ApiErrorBody).error?.message ?? "失败");
+  return json;
 }
 
 export async function runTool(

@@ -61,7 +61,7 @@ export function WorkbenchPanel({
       <button
         type="button"
         onClick={onToggle}
-        className="absolute right-3 top-20 z-30 flex items-center gap-1 rounded-full border border-white/10 bg-[#141414] px-3 py-2 text-xs text-zinc-400 shadow-lg hover:text-white"
+        className="fixed bottom-4 right-4 z-40 flex items-center gap-1 rounded-full border border-white/10 bg-[#141414]/95 px-4 py-2.5 text-xs text-zinc-300 shadow-lg backdrop-blur hover:text-white md:absolute md:bottom-auto md:right-3 md:top-20"
       >
         <PanelRightOpen className="size-4" />
         工作台
@@ -70,7 +70,18 @@ export function WorkbenchPanel({
   }
 
   return (
-    <aside className="relative flex w-full shrink-0 flex-col border-l border-white/5 bg-[#0a0a0a] md:w-[min(420px,38vw)]">
+    <>
+      <button
+        type="button"
+        aria-label="关闭工作台"
+        className="fixed inset-0 z-40 bg-black/50 md:hidden"
+        onClick={onToggle}
+      />
+      <aside className="relative z-50 flex w-full shrink-0 flex-col border-l border-white/5 bg-[#0a0a0a] max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:max-h-[min(78vh,560px)] max-md:rounded-t-2xl max-md:border-t max-md:shadow-2xl md:w-[min(420px,38vw)]">
+      <div
+        className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-white/20 max-md:block md:hidden"
+        aria-hidden
+      />
       <button
         type="button"
         onClick={onToggle}
@@ -210,5 +221,6 @@ export function WorkbenchPanel({
         ) : null}
       </div>
     </aside>
+    </>
   );
 }

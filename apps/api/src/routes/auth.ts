@@ -6,6 +6,8 @@ import { hashPassword, signToken, verifyPassword } from "../lib/auth.js";
 import { REGISTER_BONUS } from "../lib/growth.js";
 import { applyInviteOnRegister } from "../lib/invite.js";
 import { AppError } from "../lib/errors.js";
+import { rateLimit } from "../lib/rate-limit.js";
+import { ensurePersonalWorkspace } from "../lib/workspaces.js";
 
 const auth = new Hono();
 
@@ -21,6 +23,8 @@ const loginSchema = z.object({
 });
 
 auth.post("/register", async (c) => {
+  const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
+  rateLimit(`register:${ip}`, 10, 60 * 60 * 1000);
   const body = registerSchema.parse(await c.req.json());
   const existing = db
     .prepare("SELECT id FROM users WHERE email = ?")
@@ -36,6 +40,7 @@ auth.post("/register", async (c) => {
   ).run(id, body.email.toLowerCase(), passwordHash, REGISTER_BONUS);
 
   const inviteResult = applyInviteOnRegister(id, body.inviteCode);
+  ensurePersonalWorkspace(id);
 
   const token = await signToken(id);
   const user = db

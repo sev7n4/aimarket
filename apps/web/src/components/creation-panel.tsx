@@ -28,6 +28,7 @@ import {
   submitVideoGeneration,
   suggestModel,
   uploadAsset,
+  trackEvent,
 } from "@/lib/api-client";
 import { polishPrompt } from "@/lib/prompt-polish";
 import type { ImageModel, ProductSetInit } from "@/lib/types";
@@ -321,6 +322,7 @@ export function CreationPanel({
       setUploadPreviews([]);
       setSelectedRefs([]);
       await refreshUser();
+      void trackEvent("generation_submit", { mode, sessionId });
       onJobStarted?.(jobId);
       if (sessionId) {
         const refs = await fetchReferences(sessionId);

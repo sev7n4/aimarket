@@ -30,6 +30,9 @@ import { noticeAuthed, noticePublic } from "./routes/notice.js";
 import { versionPublic } from "./routes/version.js";
 import { brandKit } from "./routes/brandKit.js";
 import { admin } from "./routes/admin.js";
+import { reports } from "./routes/reports.js";
+import { workspacesRoute } from "./routes/workspaces.js";
+import { events } from "./routes/events.js";
 
 ensureUploadDir();
 
@@ -72,7 +75,7 @@ app.onError((err, c) => {
 });
 
 app.get("/health", (c) =>
-  c.json({ ok: true, service: "aimarket-api", version: "0.5.0" }),
+  c.json({ ok: true, service: "aimarket-api", version: "0.7.0" }),
 );
 
 app.use(
@@ -89,6 +92,7 @@ app.route("/api/v1/auth", auth);
 app.route("/api/v1/productSet", productSetPublic);
 app.route("/api/v1/notice", noticePublic);
 app.route("/api/v1/version", versionPublic);
+app.route("/api/v1/events", events);
 app.route("/api/v1/admin", admin);
 
 const authed = new Hono();
@@ -104,11 +108,13 @@ authed.route("/sign", sign);
 authed.route("/inviteUser", invite);
 authed.route("/notice", noticeAuthed);
 authed.route("/brandKit", brandKit);
+authed.route("/reports", reports);
+authed.route("/workspaces", workspacesRoute);
 
 app.route("/api/v1", authed);
 
 const port = Number(process.env.PORT ?? 4000);
 
 serve({ fetch: app.fetch, port }, () => {
-  console.log(`AIMarket API v0.6 listening on http://localhost:${port}`);
+  console.log(`AIMarket API v0.7 listening on http://localhost:${port}`);
 });

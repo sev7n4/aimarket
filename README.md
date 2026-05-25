@@ -58,7 +58,10 @@ pnpm dev:api   # http://localhost:4000
 - `DELETE /api/v1/imageSession/:id` — 删除会话/项目
 - `GET|PUT /api/v1/imageSession/:id/canvas` — 画布布局持久化
 - `GET /api/v1/imageSession/:id/export` — 会话导出
-- `GET /api/v1/admin/*` — 管理统计（`X-Admin-Secret`）
+- `GET /api/v1/workspaces/list` — 用户工作区列表
+- `POST /api/v1/reports` — 内容举报
+- `POST /api/v1/events` — 埋点（匿名或带 Token）
+- `GET /api/v1/admin/*` — 管理统计与举报审核（`X-Admin-Secret`）
 - `POST /api/v1/product/checkout` — 创建待支付订单
 - `POST /api/v1/product/orders/:id/confirm` — Mock 收银台确认
 - `POST /api/v1/product/webhook/stripe` — Stripe 回调
@@ -80,7 +83,8 @@ pnpm dev:api   # http://localhost:4000
 - [x] Phase 4：Provider 抽象、SSE 任务流、视频 Mock、品牌 Kit、管理后台、会话导出
 - [x] Phase 5：Checkout 支付（Mock/Stripe）、Redis/BullMQ 队列、视频 HTTP Provider
 - [x] Sprint 1（体验收尾）：画布/工作台拆分、项目重命名删除、新建入口统一
-- [ ] Phase 6：合规审核、多租户、移动端优化
+- [x] Phase 6：合规审核（敏感词拦截、内容举报）、多租户工作区、移动端工作台 Sheet
+- [x] Sprint 7：轻量埋点 `POST /api/v1/events`（可选 Bearer 关联用户）
 - [x] Sprint 2：真实图像 Provider（OpenAI 落盘、比例尺寸、Staging 文档）
 - [x] Sprint 3：画布 2.0（布局持久化、拖拽、删除、上传上画布）
 - [x] Sprint 4：session.kind 画布/项目 + 项目库筛选 + 电商套图完整表单

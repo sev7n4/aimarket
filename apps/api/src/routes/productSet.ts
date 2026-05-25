@@ -7,6 +7,8 @@ import { suggestModel } from "../lib/router.js";
 import { enrichPromptWithReferences } from "../lib/references.js";
 import { db } from "../db/index.js";
 import { AppError } from "../lib/errors.js";
+import { assertPromptAllowed } from "../lib/content-moderation.js";
+import { rateLimit } from "../lib/rate-limit.js";
 
 export const productSetPublic = new Hono();
 
@@ -35,6 +37,7 @@ productSetAuthed.get("/models", (c) =>
 
 productSetAuthed.post("/generate", async (c) => {
   const userId = c.get("userId");
+  rateLimit(`ecommerce:${userId}`, 15, 60_000);
   const body = z
     .object({
       sessionId: z.string().uuid(),
@@ -55,6 +58,8 @@ productSetAuthed.post("/generate", async (c) => {
     .prepare("SELECT id FROM image_sessions WHERE id = ? AND user_id = ?")
     .get(body.sessionId, userId);
   if (!session) throw new AppError(404, "NOT_FOUND", "会话不存在");
+
+  assertPromptAllowed(body.productInfo);
 
   let prompt = buildEcommercePrompt({
     brand: body.brand,

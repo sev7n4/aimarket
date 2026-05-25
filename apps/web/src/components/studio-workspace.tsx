@@ -11,6 +11,8 @@ import { DesignCanvas } from "@/components/design-canvas";
 import { WorkbenchPanel } from "@/components/workbench-panel";
 import { StudioHeader } from "@/components/studio-header";
 import { ProviderStatusBanner } from "@/components/provider-status-banner";
+import { ContentReportDialog } from "@/components/content-report-dialog";
+import { fetchWorkspaces, trackEvent } from "@/lib/api-client";
 import { type CreationMode } from "@aimarket/ui";
 import type { ImageSession, StudioTool } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
@@ -67,6 +69,11 @@ export function StudioWorkspace({
     setMode(initialMode);
   }, [initialMode]);
 
+  useEffect(() => {
+    if (!user) return;
+    void trackEvent("studio_open", { sessionId, mode });
+  }, [user, sessionId, mode]);
+
   const {
     items: canvasItems,
     setItems: setCanvasItems,
@@ -80,6 +87,7 @@ export function StudioWorkspace({
   const [ready, setReady] = useState(false);
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
   const [toolPending, setToolPending] = useState(false);
+  const [workspaceName, setWorkspaceName] = useState<string | null>(null);
 
   const currentSession = sessions.find((s) => s.id === sessionId);
   const sessionKind: SessionKind =
@@ -114,6 +122,12 @@ export function StudioWorkspace({
       return;
     }
     initSession().catch(() => setReady(true));
+    fetchWorkspaces()
+      .then((list) => {
+        const personal = list.find((w) => w.is_personal);
+        setWorkspaceName(personal?.name ?? list[0]?.name ?? null);
+      })
+      .catch(() => setWorkspaceName(null));
   }, [authLoading, user, initSession]);
 
   useEffect(() => {
@@ -344,6 +358,11 @@ export function StudioWorkspace({
               </span>
             </p>
             <ProviderStatusBanner />
+            {user && workspaceName ? (
+              <p className="mb-1 px-1 text-[10px] text-zinc-600">
+                工作区：{workspaceName}
+              </p>
+            ) : null}
             <DesignCanvas
               items={canvasItems}
               selectedId={selectedCanvasId}
@@ -354,6 +373,11 @@ export function StudioWorkspace({
               onDeleteSelected={handleDeleteCanvasItem}
               emptyHint={canvasEmptyHint}
             />
+            {user ? (
+              <div className="mt-2 px-1">
+                <ContentReportDialog sessionId={sessionId} jobId={pollingJobId} />
+              </div>
+            ) : null}
           </div>
 
           <WorkbenchPanel

@@ -11,6 +11,7 @@ import {
   serializeCanvasLayout,
 } from "../lib/canvas-layout.js";
 import { sessionKindSchema } from "../lib/session-kind.js";
+import { getUserDefaultWorkspaceId } from "../lib/workspaces.js";
 
 const SESSION_SELECT =
   "id, title, mode, kind, status, created_at, updated_at";
@@ -49,9 +50,10 @@ sessions.post("/ensure", async (c) => {
     body.title ??
     (body.kind === "project" ? "新建项目" : body.kind === "canvas" ? "新建画布" : "未命名");
 
+  const workspaceId = getUserDefaultWorkspaceId(userId);
   db.prepare(
-    `INSERT INTO image_sessions (id, user_id, title, mode, kind) VALUES (?, ?, ?, ?, ?)`,
-  ).run(body.sessionId, userId, title, body.mode, body.kind);
+    `INSERT INTO image_sessions (id, user_id, workspace_id, title, mode, kind) VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(body.sessionId, userId, workspaceId, title, body.mode, body.kind);
 
   const session = db
     .prepare(`SELECT ${SESSION_SELECT} FROM image_sessions WHERE id = ?`)
@@ -66,18 +68,19 @@ sessions.post("/create", async (c) => {
     .object({
       mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
       title: z.string().max(100).optional(),
+      kind: sessionKindSchema.default("canvas"),
     })
     .parse(await c.req.json().catch(() => ({})));
 
   const id = randomUUID();
+  const title = body.title ?? "未命名";
+  const workspaceId = getUserDefaultWorkspaceId(userId);
   db.prepare(
-    `INSERT INTO image_sessions (id, user_id, title, mode) VALUES (?, ?, ?, ?)`,
-  ).run(id, userId, body.title ?? "未命名", body.mode);
+    `INSERT INTO image_sessions (id, user_id, workspace_id, title, mode, kind) VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(id, userId, workspaceId, title, body.mode, body.kind);
 
   const session = db
-    .prepare(
-      "SELECT id, title, mode, status, created_at, updated_at FROM image_sessions WHERE id = ?",
-    )
+    .prepare(`SELECT ${SESSION_SELECT} FROM image_sessions WHERE id = ?`)
     .get(id);
 
   return c.json({ data: session }, 201);
