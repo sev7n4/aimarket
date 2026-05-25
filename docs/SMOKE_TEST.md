@@ -34,6 +34,16 @@
 - [ ] 积分套餐 → Mock 收银台 → 支付确认 → 积分增加
 - [ ] Admin（`X-Admin-Secret`）可打开统计页
 
+## 真实出图（Sprint 2，可选）
+
+配置 `OPENAI_API_KEY` 且 `IMAGE_PROVIDER=openai` 时：
+
+- [ ] Studio 横幅显示「真实出图」而非 Mock 演示提示
+- [ ] 生成完成后图片 URL 为 `/uploads/...` 可访问
+- [ ] 故意错误 Key 时任务失败且积分退回
+
+详见 [STAGING.md](./STAGING.md)。
+
 ## 回归注意
 
 - 重命名 / 删除依赖 CORS 允许 `PATCH`、`DELETE`

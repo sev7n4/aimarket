@@ -4,8 +4,11 @@ import { ECOMMERCE_SLIDES } from "./ecommerce.js";
 import { estimatePoints } from "./pricing.js";
 import { getModel } from "./models.js";
 import { AppError } from "./errors.js";
-import { generateImages } from "../providers/registry.js";
-import { generateVideos } from "../providers/video/registry.js";
+import { generateImages, resolveProvider } from "../providers/registry.js";
+import {
+  generateVideos,
+  resolveVideoProvider,
+} from "../providers/video/registry.js";
 import { enqueueJob } from "./queue/index.js";
 import type { JobQueuePayload } from "./queue/types.js";
 
@@ -48,6 +51,11 @@ export function createGenerationJob(input: CreateJobInput) {
 
   if (!session || session.user_id !== input.userId) {
     throw new AppError(404, "NOT_FOUND", "会话不存在");
+  }
+
+  const modelMeta = getModel(input.modelId);
+  if (modelMeta?.type !== "video") {
+    resolveProvider(input.modelId);
   }
 
   const jobId = randomUUID();
@@ -136,10 +144,18 @@ export async function processGenerationJob({
     jobId,
   );
 
-  await new Promise((r) => setTimeout(r, delayMs));
+  const model = getModel(job.model_id);
+  const useMockDelay =
+    model?.type === "video"
+      ? resolveVideoProvider(job.model_id).name === "mock"
+      : resolveProvider(job.model_id).name === "mock";
+  if (useMockDelay) {
+    await new Promise((r) => setTimeout(r, delayMs));
+  }
+
+  let imageProvider: string | null = null;
 
   try {
-    const model = getModel(job.model_id);
     const labels =
       slideLabels ??
       (job.mode === "ecommerce"
@@ -166,6 +182,7 @@ export async function processGenerationJob({
           aspectRatio: job.aspect_ratio ?? "1:1",
         });
         urls.push(part.urls[0]);
+        imageProvider = part.provider;
       }
     } else {
       const result = await generateImages({
@@ -176,6 +193,7 @@ export async function processGenerationJob({
         aspectRatio: job.aspect_ratio ?? "1:1",
       });
       urls = result.urls;
+      imageProvider = result.provider;
     }
 
     const outputs = urls.map((url, i) => ({
@@ -213,8 +231,8 @@ export async function processGenerationJob({
       }
 
       db.prepare(
-        `UPDATE generation_jobs SET status = 'succeeded', completed_at = datetime('now') WHERE id = ?`,
-      ).run(jobId);
+        `UPDATE generation_jobs SET status = 'succeeded', image_provider = ?, completed_at = datetime('now') WHERE id = ?`,
+      ).run(imageProvider, jobId);
 
       db.prepare(
         `UPDATE image_sessions SET status = 'idle', updated_at = datetime('now') WHERE id = ?`,

@@ -51,3 +51,26 @@ function mimeToExt(mime: string) {
 export function getUploadDir() {
   return UPLOAD_DIR;
 }
+
+/** 将生成结果写入本地 uploads，返回可长期访问的 `/uploads/...` 路径 */
+export function saveGeneratedImage(
+  buffer: Buffer,
+  mimeType = "image/png",
+) {
+  if (buffer.length > MAX_BYTES) {
+    throw new Error("GENERATED_IMAGE_TOO_LARGE");
+  }
+  return saveUpload(buffer, mimeType, `generated${mimeToExt(mimeType)}`);
+}
+
+/** 拉取远程图片并落盘（OpenAI 临时 URL 等） */
+export async function persistRemoteImageUrl(url: string): Promise<string> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
+  if (!res.ok) {
+    throw new Error(`下载生成图失败 (${res.status})`);
+  }
+  const mime =
+    res.headers.get("content-type")?.split(";")[0]?.trim() ?? "image/png";
+  const buffer = Buffer.from(await res.arrayBuffer());
+  return saveGeneratedImage(buffer, mime).url;
+}

@@ -29,7 +29,9 @@ export default function SettingsPage() {
       setFontHint((kit.font_hint as string) ?? "");
     });
     fetchProviderStatus().then((p) =>
-      setProvider(`${p.activeProvider}（OpenAI: ${p.openaiConfigured ? "已配置" : "未配置"}）`),
+      setProvider(
+        `${p.activeProvider} · ${p.hint ?? ""}（模式: ${p.mode}，Key: ${p.openaiConfigured ? "已配置" : "未配置"}）`,
+      ),
     );
   }, [user]);
 

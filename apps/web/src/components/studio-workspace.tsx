@@ -10,6 +10,7 @@ import { AppLeftRail } from "@/components/app-left-rail";
 import { DesignCanvas } from "@/components/design-canvas";
 import { WorkbenchPanel } from "@/components/workbench-panel";
 import { StudioHeader } from "@/components/studio-header";
+import { ProviderStatusBanner } from "@/components/provider-status-banner";
 import { type CreationMode } from "@aimarket/ui";
 import type { ImageSession, StudioTool } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
@@ -314,6 +315,7 @@ export function StudioWorkspace({
             <p className="mb-2 shrink-0 px-1 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
               画布区 · {sessionTitle}
             </p>
+            <ProviderStatusBanner />
             <DesignCanvas
               items={canvasItems}
               selectedId={selectedCanvasId}

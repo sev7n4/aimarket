@@ -295,7 +295,15 @@ export async function exportSession(sessionId: string) {
 
 export async function fetchProviderStatus() {
   const res = await request<{
-    data: { mode: string; openaiConfigured: boolean; activeProvider: string };
+    data: {
+      mode: string;
+      openaiConfigured: boolean;
+      activeProvider: string;
+      usingMock?: boolean;
+      hint?: string;
+      openaiBaseUrl?: string;
+      openaiImageModel?: string;
+    };
   }>("/api/v1/ai/providerStatus");
   return res.data;
 }

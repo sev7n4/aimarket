@@ -80,7 +80,7 @@ pnpm dev:api   # http://localhost:4000
 - [x] Phase 5：Checkout 支付（Mock/Stripe）、Redis/BullMQ 队列、视频 HTTP Provider
 - [x] Sprint 1（体验收尾）：画布/工作台拆分、项目重命名删除、新建入口统一
 - [ ] Phase 6：合规审核、多租户、移动端优化
-- [ ] Sprint 2：真实图像 Provider 上线（staging）
+- [x] Sprint 2：真实图像 Provider（OpenAI 落盘、比例尺寸、Staging 文档）
 - [ ] Sprint 3：画布 2.0（拖拽、上传上画布）
 - [ ] Sprint 4：项目 kind 字段 + 电商套图完整表单
 

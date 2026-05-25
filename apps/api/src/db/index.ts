@@ -126,6 +126,13 @@ try {
 } catch {
   /* column exists */
 }
+try {
+  database.exec(
+    `ALTER TABLE generation_jobs ADD COLUMN image_provider TEXT`,
+  );
+} catch {
+  /* column exists */
+}
 
 database.exec(`
   CREATE TABLE IF NOT EXISTS credit_packages (
