@@ -177,5 +177,30 @@ database.exec(`
     read_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (user_id, notice_id)
   );
+
+  CREATE TABLE IF NOT EXISTS brand_kits (
+    user_id TEXT PRIMARY KEY REFERENCES users(id),
+    brand_name TEXT,
+    primary_color TEXT NOT NULL DEFAULT '#f97316',
+    secondary_color TEXT NOT NULL DEFAULT '#a855f7',
+    logo_url TEXT,
+    font_hint TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
+
+const orderMigrations = [
+  `ALTER TABLE credit_orders ADD COLUMN provider TEXT DEFAULT 'mock'`,
+  `ALTER TABLE credit_orders ADD COLUMN external_id TEXT`,
+  `ALTER TABLE credit_orders ADD COLUMN checkout_url TEXT`,
+  `ALTER TABLE credit_orders ADD COLUMN paid_at TEXT`,
+];
+
+for (const sql of orderMigrations) {
+  try {
+    database.exec(sql);
+  } catch {
+    /* column exists */
+  }
+}
 

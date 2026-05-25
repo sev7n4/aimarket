@@ -1,7 +1,9 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AuthVariables } from "../middleware/auth.js";
-import { IMAGE_MODELS } from "../lib/models.js";
+import { ALL_MODELS, getModel } from "../lib/models.js";
+import { getProviderStatus } from "../providers/registry.js";
+import { streamSSE } from "hono/streaming";
 import { estimatePoints } from "../lib/pricing.js";
 import { createGenerationJob, getJob } from "../lib/jobs.js";
 import { suggestModel } from "../lib/router.js";
@@ -14,7 +16,9 @@ import { AppError } from "../lib/errors.js";
 
 const ai = new Hono<{ Variables: AuthVariables }>();
 
-ai.get("/queryModels", (c) => c.json({ data: IMAGE_MODELS }));
+ai.get("/queryModels", (c) => c.json({ data: ALL_MODELS }));
+
+ai.get("/providerStatus", (c) => c.json({ data: getProviderStatus() }));
 
 ai.post("/suggestModel", async (c) => {
   const body = z
@@ -67,6 +71,11 @@ ai.post("/generate", async (c) => {
       autoRoute: z.boolean().default(false),
     })
     .parse(await c.req.json());
+
+  const modelMeta = getModel(body.modelId ?? "");
+  if (modelMeta?.type === "video") {
+    throw new AppError(400, "USE_VIDEO_ENDPOINT", "视频生成请使用 /ai/generate/video");
+  }
 
   if (body.assetIds?.length) {
     for (const assetId of body.assetIds) {
@@ -125,6 +134,66 @@ ai.get("/jobs/:jobId", (c) => {
   const jobId = c.req.param("jobId");
   const job = getJob(jobId, userId);
   return c.json({ data: job });
+});
+
+ai.post("/generate/video", async (c) => {
+  const userId = c.get("userId");
+  const body = z
+    .object({
+      sessionId: z.string().uuid(),
+      prompt: z.string().min(1).max(4000),
+      modelId: z.enum(["seedance-2", "wan-2.6"]).default("seedance-2"),
+      count: z.number().int().min(1).max(2).default(1),
+      resolution: z.enum(["1k", "2k"]).default("1k"),
+    })
+    .parse(await c.req.json());
+
+  const { jobId, pointsCost } = createGenerationJob({
+    sessionId: body.sessionId,
+    userId,
+    prompt: body.prompt,
+    modelId: body.modelId,
+    mode: "chat",
+    count: body.count,
+    resolution: body.resolution,
+    toolType: "video",
+  });
+
+  return c.json({
+    data: { jobId, estimatedPoints: pointsCost, status: "queued" },
+  });
+});
+
+ai.get("/jobs/:jobId/stream", (c) => {
+  const userId = c.get("userId");
+  const jobId = c.req.param("jobId");
+
+  return streamSSE(c, async (stream) => {
+    let lastStatus = "";
+    for (let i = 0; i < 120; i++) {
+      const job = getJob(jobId, userId);
+      if (job.status !== lastStatus) {
+        lastStatus = job.status as string;
+        await stream.writeSSE({
+          event: "status",
+          data: JSON.stringify({
+            status: job.status,
+            error: job.error,
+            outputs: job.outputs,
+            outputType: job.outputType,
+          }),
+        });
+      }
+      if (job.status === "succeeded" || job.status === "failed") {
+        await stream.writeSSE({
+          event: "done",
+          data: JSON.stringify({ status: job.status }),
+        });
+        break;
+      }
+      await stream.sleep(800);
+    }
+  });
 });
 
 export { ai };

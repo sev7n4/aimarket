@@ -140,4 +140,32 @@ sessions.get("/:sessionId/messages", (c) => {
   return c.json({ data });
 });
 
+sessions.get("/:sessionId/export", (c) => {
+  const userId = c.get("userId");
+  const sessionId = c.req.param("sessionId");
+  const session = db
+    .prepare("SELECT id, title FROM image_sessions WHERE id = ? AND user_id = ?")
+    .get(sessionId, userId);
+  if (!session) throw new AppError(404, "NOT_FOUND", "会话不存在");
+
+  const assets = db
+    .prepare(
+      `SELECT mo.url, mo.sort_order, m.created_at, m.role
+       FROM message_outputs mo
+       JOIN messages m ON m.id = mo.message_id
+       WHERE m.session_id = ? AND m.role = 'assistant'
+       ORDER BY m.created_at ASC, mo.sort_order ASC`,
+    )
+    .all(sessionId);
+
+  return c.json({
+    data: {
+      sessionId,
+      title: (session as { title: string }).title,
+      files: assets,
+      count: assets.length,
+    },
+  });
+});
+
 export { sessions };

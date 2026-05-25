@@ -5,7 +5,7 @@
 | 产品名称 | AIMarket |
 | 文档版本 | v1.0 |
 | 更新日期 | 2026-05-24 |
-| 状态 | Phase 3 已完成（模拟支付） |
+| 状态 | Phase 5 已完成（Checkout 支付 / Redis 队列 / 视频 HTTP Provider） |
 
 ---
 
@@ -111,6 +111,25 @@ P0 营销首页 ──► P0 对话修图 ──► P0 账户积分
 | 增长 | GRW-01 | 邀请有礼、签到 |
 | 运营 | OPS-01 | 公告、版本更新提示 |
 
+### 3.6 Phase 5 — 支付与基础设施
+
+| 模块 | 需求 ID | 描述 |
+|------|---------|------|
+| 支付 | PAY-02 | Checkout 待支付订单 + Mock/Stripe 收银台 |
+| 队列 | QUE-01 | BullMQ + Redis 可选任务队列 |
+| 视频 | VID-02 | 视频 HTTP Provider 对接第三方 API |
+
+### 3.5 Phase 4 — Provider 与运营能力
+
+| 模块 | 需求 ID | 描述 |
+|------|---------|------|
+| 引擎 | PRV-01 | 图像 Provider 抽象（mock / OpenAI / auto） |
+| 任务 | JOB-01 | SSE 推送任务状态（替代轮询） |
+| 视频 | VID-01 | 视频模型与 Mock 生成 |
+| 品牌 | BRD-01 | 品牌 Kit 存储与编辑 |
+| 运营 | ADM-01 | 管理后台统计（用户/订单/任务） |
+| 导出 | EXP-01 | 会话内生成物批量导出 |
+
 ---
 
 ## 4. 三种创作模式（对标规格）
@@ -175,4 +194,8 @@ P0 营销首页 ──► P0 对话修图 ──► P0 账户积分
 | Phase 0 | 已完成 | 首页 + Studio 骨架 + API 占位 |
 | **Phase 1** | **当前** | 登录、上传、对话生成、积分、历史 |
 | Phase 2 | +4 周 | 电商 Agent、工具栏、模型路由 |
-| Phase 3 | +3 周 | 支付、邀请、运营后台 |
+| Phase 3 | 已完成 | 支付（模拟）、邀请、签到、公告 |
+| Phase 4 | 已完成 | Provider、SSE、视频 Mock、品牌 Kit、Admin |
+| Phase 4 | 已完成 | Provider、SSE、视频 Mock、品牌 Kit、Admin |
+| Phase 5 | 已完成 | Checkout（Mock/Stripe）、BullMQ 队列、视频 HTTP API |
+| Phase 6 | +4 周 | 合规审核、多租户、性能优化 |

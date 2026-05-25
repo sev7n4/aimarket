@@ -2,14 +2,14 @@ import { randomUUID } from "node:crypto";
 import { db } from "../db/index.js";
 import { ECOMMERCE_SLIDES } from "./ecommerce.js";
 import { estimatePoints } from "./pricing.js";
+import { getModel } from "./models.js";
 import { AppError } from "./errors.js";
+import { generateImages } from "../providers/registry.js";
+import { generateVideos } from "../providers/video/registry.js";
+import { enqueueJob } from "./queue/index.js";
+import type { JobQueuePayload } from "./queue/types.js";
 
 const delayMs = Number(process.env.MOCK_GENERATION_DELAY_MS ?? 2500);
-
-function placeholderUrl(seed: string, index: number, width = 1024, height = 1024) {
-  const s = encodeURIComponent(seed.slice(0, 48) || "aimarket");
-  return `https://picsum.photos/seed/${s}-${index}/${width}/${height}`;
-}
 
 export interface CreateJobInput {
   sessionId: string;
@@ -91,17 +91,18 @@ export function createGenerationJob(input: CreateJobInput) {
     }
   });
 
-  queueMicrotask(() =>
-    runJob(jobId, input.slideLabels),
-  );
+  void enqueueJob({ jobId, slideLabels: input.slideLabels });
 
   return { jobId, pointsCost, userMessageId };
 }
 
-async function runJob(jobId: string, slideLabels?: string[]) {
+export async function processGenerationJob({
+  jobId,
+  slideLabels,
+}: JobQueuePayload) {
   const job = db
     .prepare(
-      `SELECT id, session_id, user_id, prompt, count, points_cost, status, mode, tool_type
+      `SELECT id, session_id, user_id, prompt, count, points_cost, status, mode, tool_type, model_id, resolution
        FROM generation_jobs WHERE id = ?`,
     )
     .get(jobId) as
@@ -115,6 +116,8 @@ async function runJob(jobId: string, slideLabels?: string[]) {
         status: string;
         mode: string;
         tool_type: string | null;
+        model_id: string;
+        resolution: string;
       }
     | undefined;
 
@@ -127,29 +130,58 @@ async function runJob(jobId: string, slideLabels?: string[]) {
   await new Promise((r) => setTimeout(r, delayMs));
 
   try {
+    const model = getModel(job.model_id);
     const labels =
       slideLabels ??
       (job.mode === "ecommerce"
         ? ECOMMERCE_SLIDES.map((s) => s.label)
         : undefined);
 
-    const outputs: { url: string; label?: string }[] = [];
-    for (let i = 0; i < job.count; i++) {
-      const seed = labels?.[i] ?? job.prompt;
-      const label = labels?.[i];
-      outputs.push({
-        url: placeholderUrl(`${seed}-${job.tool_type ?? "gen"}`, i),
-        label,
+    let urls: string[] = [];
+
+    if (model?.type === "video") {
+      const video = await generateVideos({
+        prompt: job.prompt,
+        modelId: job.model_id,
+        count: job.count,
+        resolution: job.resolution,
       });
+      urls = video.urls;
+    } else if (labels && labels.length > 1) {
+      for (const label of labels) {
+        const part = await generateImages({
+          prompt: `${job.prompt}\n【画面】${label}`,
+          modelId: job.model_id,
+          count: 1,
+          resolution: job.resolution,
+        });
+        urls.push(part.urls[0]);
+      }
+    } else {
+      const result = await generateImages({
+        prompt: job.prompt,
+        modelId: job.model_id,
+        count: job.count,
+        resolution: job.resolution,
+      });
+      urls = result.urls;
     }
 
+    const outputs = urls.map((url, i) => ({
+      url,
+      label: labels?.[i],
+    }));
+
     const assistantMessageId = randomUUID();
+    const isVideo = model?.type === "video";
     const summary =
       job.mode === "ecommerce"
         ? `电商套图方案已生成，共 ${outputs.length} 张：${labels?.join("、") ?? ""}`
         : job.tool_type
           ? `「${job.tool_type}」处理完成，共 ${outputs.length} 张。`
-          : `已根据你的描述生成 ${outputs.length} 张图片。`;
+          : isVideo
+            ? `已生成 ${outputs.length} 段视频（${model?.name ?? job.model_id}）。`
+            : `已根据你的描述生成 ${outputs.length} 张图片。`;
 
     db.transaction(() => {
       for (let i = 0; i < outputs.length; i++) {
@@ -202,7 +234,14 @@ async function runJob(jobId: string, slideLabels?: string[]) {
   }
 }
 
-export function getJob(jobId: string, userId: string) {
+export type JobDetail = Record<string, unknown> & {
+  status: string;
+  error: string | null;
+  outputs: { url: string; sort_order: number }[];
+  outputType: "image" | "video";
+};
+
+export function getJob(jobId: string, userId?: string): JobDetail {
   const job = db
     .prepare(
       `SELECT id, session_id, user_id, model_id, prompt, mode, count, resolution,
@@ -211,7 +250,10 @@ export function getJob(jobId: string, userId: string) {
     )
     .get(jobId) as Record<string, unknown> | undefined;
 
-  if (!job || job.user_id !== userId) {
+  if (!job) {
+    throw new AppError(404, "NOT_FOUND", "任务不存在");
+  }
+  if (userId && job.user_id !== userId) {
     throw new AppError(404, "NOT_FOUND", "任务不存在");
   }
 
@@ -221,5 +263,14 @@ export function getJob(jobId: string, userId: string) {
     )
     .all(jobId) as { url: string; sort_order: number }[];
 
-  return { ...job, outputs };
+  const model = getModel(job.model_id as string);
+
+  const detail: JobDetail = {
+    ...job,
+    status: String(job.status),
+    error: job.error != null ? String(job.error) : null,
+    outputs,
+    outputType: (model?.type ?? "image") as "image" | "video",
+  };
+  return detail;
 }

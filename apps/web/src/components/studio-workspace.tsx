@@ -21,12 +21,13 @@ import { useAuth } from "@/lib/auth-context";
 import {
   assetUrl,
   ensureSession,
-  fetchJob,
+  exportSession,
   fetchMessages,
   fetchTools,
   listSessions,
   runTool,
 } from "@/lib/api-client";
+import { streamJob } from "@/lib/job-stream";
 
 const TOOL_ICONS: Record<string, typeof Expand> = {
   expand: Expand,
@@ -89,20 +90,18 @@ export function StudioWorkspace({
 
   useEffect(() => {
     if (!pollingJobId || !user) return;
-    const timer = setInterval(async () => {
-      try {
-        const job = await fetchJob(pollingJobId);
-        if (job.status === "succeeded" || job.status === "failed") {
-          setPollingJobId(null);
-          await loadMessages();
-          await refreshUser();
-          setSessions(await listSessions());
-        }
-      } catch {
+    const stop = streamJob(
+      pollingJobId,
+      () => {},
+      async () => {
         setPollingJobId(null);
-      }
-    }, 1500);
-    return () => clearInterval(timer);
+        await loadMessages();
+        await refreshUser();
+        setSessions(await listSessions());
+      },
+      () => setPollingJobId(null),
+    );
+    return stop;
   }, [pollingJobId, user, loadMessages, refreshUser]);
 
   async function handleRunTool() {
@@ -199,15 +198,37 @@ export function StudioWorkspace({
               </span>
               <span className="ml-2 text-xs text-zinc-600">内容由 AI 生成</span>
             </div>
-            {!user && ready ? (
-              <button
-                type="button"
-                onClick={() => setLoginOpen(true)}
-                className="text-sm text-orange-400 hover:underline"
-              >
-                登录后开始创作
-              </button>
-            ) : null}
+            <div className="flex items-center gap-2">
+              {user ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const data = await exportSession(sessionId);
+                    for (const f of data.files) {
+                      window.open(
+                        f.url.startsWith("http")
+                          ? f.url
+                          : `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"}${f.url}`,
+                        "_blank",
+                      );
+                    }
+                    if (!data.files.length) alert("暂无可导出文件");
+                  }}
+                  className="text-xs text-zinc-500 hover:text-zinc-300"
+                >
+                  导出全部
+                </button>
+              ) : null}
+              {!user && ready ? (
+                <button
+                  type="button"
+                  onClick={() => setLoginOpen(true)}
+                  className="text-sm text-orange-400 hover:underline"
+                >
+                  登录后开始创作
+                </button>
+              ) : null}
+            </div>
           </div>
 
           {activeTool ? (
@@ -314,27 +335,36 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         <p className="whitespace-pre-wrap">{message.content}</p>
         {message.outputs?.length > 0 ? (
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {message.outputs.map((out, i) => (
-              <a
-                key={`${out.url}-${i}`}
-                href={assetUrl(out.url)}
-                target="_blank"
-                rel="noreferrer"
-                className="group block overflow-hidden rounded-xl border border-white/10"
-              >
-                {message.outputs.length === 4 ? (
-                  <span className="block bg-black/50 px-2 py-1 text-[10px] text-zinc-400">
-                    {slideLabels[i] ?? `图 ${i + 1}`}
-                  </span>
-                ) : null}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={assetUrl(out.url)}
-                  alt="生成结果"
-                  className="aspect-square w-full object-cover transition group-hover:scale-[1.02]"
-                />
-              </a>
-            ))}
+            {message.outputs.map((out, i) => {
+              const isVideo = out.url.includes(".mp4") || out.url.includes("video");
+              return (
+                <a
+                  key={`${out.url}-${i}`}
+                  href={assetUrl(out.url)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group block overflow-hidden rounded-xl border border-white/10"
+                >
+                  {message.outputs.length === 4 ? (
+                    <span className="block bg-black/50 px-2 py-1 text-[10px] text-zinc-400">
+                      {slideLabels[i] ?? `图 ${i + 1}`}
+                    </span>
+                  ) : null}
+                  {isVideo ? (
+                    <div className="flex aspect-video w-full items-center justify-center bg-black text-sm text-zinc-400">
+                      ▶ 视频预览（新窗口打开）
+                    </div>
+                  ) : (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={assetUrl(out.url)}
+                      alt="生成结果"
+                      className="aspect-square w-full object-cover transition group-hover:scale-[1.02]"
+                    />
+                  )}
+                </a>
+              );
+            })}
           </div>
         ) : null}
       </div>

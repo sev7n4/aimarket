@@ -12,7 +12,9 @@
   "dependencies": {
     "@hono/node-server": "^1.14.4",
     "bcryptjs": "^3.0.2",
+    "bullmq": "^5.56.0",
     "hono": "^4.8.3",
+    "ioredis": "^5.6.1",
     "jose": "^6.0.11",
     "zod": "^3.25.67"
   },

@@ -7,6 +7,8 @@ import "./db/index.js";
 import { seedDatabase } from "./db/seed.js";
 
 seedDatabase();
+
+void startJobQueue(processGenerationJob);
 import { AppError } from "./lib/errors.js";
 import { ensureUploadDir, getUploadDir } from "./lib/storage.js";
 import { requireAuth } from "./middleware/auth.js";
@@ -17,11 +19,17 @@ import { assets } from "./routes/assets.js";
 import { ai } from "./routes/ai.js";
 import { productSetAuthed, productSetPublic } from "./routes/productSet.js";
 import { tools } from "./routes/tools.js";
-import { product } from "./routes/product.js";
+import { product, productWebhook } from "./routes/product.js";
+import { processGenerationJob } from "./lib/jobs.js";
+import { startJobQueue, getQueueStatus } from "./lib/queue/index.js";
+import { getPaymentStatus } from "./lib/payment/index.js";
+import { getVideoProviderStatus } from "./providers/video/registry.js";
 import { sign } from "./routes/sign.js";
 import { invite } from "./routes/invite.js";
 import { noticeAuthed, noticePublic } from "./routes/notice.js";
 import { versionPublic } from "./routes/version.js";
+import { brandKit } from "./routes/brandKit.js";
+import { admin } from "./routes/admin.js";
 
 ensureUploadDir();
 
@@ -33,8 +41,8 @@ app.use(
   "*",
   cors({
     origin: corsOrigin,
-    allowMethods: ["GET", "POST", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowMethods: ["GET", "POST", "PUT", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization", "X-Admin-Secret"],
   }),
 );
 
@@ -64,7 +72,7 @@ app.onError((err, c) => {
 });
 
 app.get("/health", (c) =>
-  c.json({ ok: true, service: "aimarket-api", version: "0.4.0" }),
+  c.json({ ok: true, service: "aimarket-api", version: "0.5.0" }),
 );
 
 app.use(
@@ -75,10 +83,13 @@ app.use(
   }),
 );
 
+app.route("/api/v1/product/webhook", productWebhook);
+
 app.route("/api/v1/auth", auth);
 app.route("/api/v1/productSet", productSetPublic);
 app.route("/api/v1/notice", noticePublic);
 app.route("/api/v1/version", versionPublic);
+app.route("/api/v1/admin", admin);
 
 const authed = new Hono();
 authed.use("*", requireAuth);
@@ -92,11 +103,12 @@ authed.route("/product", product);
 authed.route("/sign", sign);
 authed.route("/inviteUser", invite);
 authed.route("/notice", noticeAuthed);
+authed.route("/brandKit", brandKit);
 
 app.route("/api/v1", authed);
 
 const port = Number(process.env.PORT ?? 4000);
 
 serve({ fetch: app.fetch, port }, () => {
-  console.log(`AIMarket API v0.4 listening on http://localhost:${port}`);
+  console.log(`AIMarket API v0.6 listening on http://localhost:${port}`);
 });

@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { Check, Loader2, X } from "lucide-react";
 import { Button, GlassPanel } from "@aimarket/ui";
-import { fetchPackages, purchasePackage } from "@/lib/api-client";
+import {
+  checkoutPackage,
+  fetchPackages,
+  fetchPaymentStatus,
+} from "@/lib/api-client";
 import type { CreditPackage } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 
@@ -17,17 +21,21 @@ function formatPrice(cents: number) {
 }
 
 export function CreditsDialog({ open, onClose }: CreditsDialogProps) {
-  const { refreshUser } = useAuth();
+  useAuth();
   const [packages, setPackages] = useState<CreditPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [payProvider, setPayProvider] = useState<string>("mock");
 
   useEffect(() => {
     if (!open) return;
     setSuccess(null);
-    fetchPackages()
-      .then(setPackages)
+    Promise.all([fetchPackages(), fetchPaymentStatus()])
+      .then(([pkgs, pay]) => {
+        setPackages(pkgs);
+        setPayProvider(pay.activeProvider);
+      })
       .catch(() => setPackages([]))
       .finally(() => setLoading(false));
   }, [open]);
@@ -37,11 +45,14 @@ export function CreditsDialog({ open, onClose }: CreditsDialogProps) {
   async function handleBuy(pkg: CreditPackage) {
     setBuying(pkg.id);
     try {
-      const res = await purchasePackage(pkg.id);
-      setSuccess(`已充值 ${res.creditsAdded} 积分`);
-      await refreshUser();
+      const res = await checkoutPackage(pkg.id);
+      if (res.provider === "stripe") {
+        window.location.href = res.checkoutUrl;
+        return;
+      }
+      window.location.href = res.checkoutUrl;
     } catch (err) {
-      alert(err instanceof Error ? err.message : "购买失败");
+      alert(err instanceof Error ? err.message : "创建订单失败");
     } finally {
       setBuying(null);
     }
@@ -60,7 +71,8 @@ export function CreditsDialog({ open, onClose }: CreditsDialogProps) {
         </button>
         <h2 className="text-xl font-semibold">充值积分</h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Phase 3 为模拟支付，点击即到账（不含真实支付网关）
+          Phase 5 Checkout · 当前支付通道：{payProvider}
+          {payProvider === "mock" ? "（跳转收银台确认）" : "（Stripe）"}
         </p>
 
         {success ? (

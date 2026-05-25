@@ -24,9 +24,11 @@ import {
   fetchReferences,
   submitEcommerceGenerate,
   submitGeneration,
+  submitVideoGeneration,
   suggestModel,
   uploadAsset,
 } from "@/lib/api-client";
+import type { ImageModel } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 import { MentionPicker } from "@/components/mention-picker";
 import type { SessionReference } from "@/lib/types";
@@ -63,6 +65,7 @@ export function CreationPanel({
   const [language, setLanguage] = useState("中文");
   const [designer, setDesigner] = useState("Gloria");
   const [modelId, setModelId] = useState("omni-v2");
+  const [models, setModels] = useState<ImageModel[]>([]);
   const [count, setCount] = useState(1);
   const [resolution, setResolution] = useState("1k");
   const [estimated, setEstimated] = useState<number | null>(null);
@@ -75,6 +78,12 @@ export function CreationPanel({
   const [references, setReferences] = useState<SessionReference[]>([]);
   const [selectedRefs, setSelectedRefs] = useState<SessionReference[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
+
+  useEffect(() => {
+    fetchModels()
+      .then(setModels)
+      .catch(() => setModels([]));
+  }, []);
 
   useEffect(() => {
     if (mode === "ecommerce") {
@@ -183,8 +192,17 @@ export function CreationPanel({
 
     setPending(true);
     try {
+      const selectedModel = models.find((m) => m.id === modelId);
       let jobId: string;
-      if (mode === "ecommerce") {
+      if (selectedModel?.type === "video") {
+        const res = await submitVideoGeneration({
+          sessionId,
+          prompt: prompt.trim(),
+          modelId,
+          count,
+        });
+        jobId = res.jobId;
+      } else if (mode === "ecommerce") {
         const res = await submitEcommerceGenerate({
           sessionId,
           brand: brand || undefined,
@@ -365,7 +383,11 @@ export function CreationPanel({
           ) : null}
           {mode !== "ecommerce" ? (
             <>
-              <ModelSelect value={modelId} onChange={setModelId} />
+              <ModelSelect
+            models={models}
+            value={modelId}
+            onChange={setModelId}
+          />
               <Pill>
                 {count} 张
                 <ChevronDown className="size-3 opacity-60" />
@@ -424,19 +446,17 @@ function TagSelect({
 }
 
 function ModelSelect({
+  models,
   value,
   onChange,
 }: {
+  models: ImageModel[];
   value: string;
   onChange: (id: string) => void;
 }) {
-  const [models, setModels] = useState<{ id: string; name: string }[]>([]);
-
-  useEffect(() => {
-    fetchModels()
-      .then((list) => setModels(list.map((m) => ({ id: m.id, name: m.name }))))
-      .catch(() => setModels([{ id: "omni-v2", name: "全能图片 V2" }]));
-  }, []);
+  const list = models.length
+    ? models
+    : [{ id: "omni-v2", name: "全能图片 V2", type: "image" } as ImageModel];
 
   return (
     <select
@@ -445,11 +465,28 @@ function ModelSelect({
       className="appearance-none rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 outline-none"
       aria-label="选择模型"
     >
-      {models.map((m) => (
-        <option key={m.id} value={m.id} className="bg-zinc-900">
-          {m.name}
-        </option>
-      ))}
+      {list.filter((m) => m.type === "image").length > 0 ? (
+        <optgroup label="图片">
+          {list
+            .filter((m) => m.type === "image")
+            .map((m) => (
+              <option key={m.id} value={m.id} className="bg-zinc-900">
+                {m.name}
+              </option>
+            ))}
+        </optgroup>
+      ) : null}
+      {list.filter((m) => m.type === "video").length > 0 ? (
+        <optgroup label="视频">
+          {list
+            .filter((m) => m.type === "video")
+            .map((m) => (
+              <option key={m.id} value={m.id} className="bg-zinc-900">
+                {m.name}
+              </option>
+            ))}
+        </optgroup>
+      ) : null}
     </select>
   );
 }

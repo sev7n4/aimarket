@@ -1,4 +1,4 @@
-export interface ImageModelMeta {
+export interface ModelMeta {
   id: string;
   name: string;
   description: string;
@@ -6,7 +6,7 @@ export interface ImageModelMeta {
   pointsFactor: number;
 }
 
-export const IMAGE_MODELS: ImageModelMeta[] = [
+export const IMAGE_MODELS: ModelMeta[] = [
   {
     id: "omni-v2",
     name: "全能图片 V2",
@@ -30,6 +30,25 @@ export const IMAGE_MODELS: ImageModelMeta[] = [
   },
 ];
 
-export function getModel(id: string): ImageModelMeta | undefined {
-  return IMAGE_MODELS.find((m) => m.id === id);
+export const VIDEO_MODELS: ModelMeta[] = [
+  {
+    id: "seedance-2",
+    name: "Seedance 2.0",
+    description: "目前最强视频模型，给你如导演般的掌控权",
+    type: "video",
+    pointsFactor: 3,
+  },
+  {
+    id: "wan-2.6",
+    name: "万相 2.6",
+    description: "支持角色扮演视频生成，功能全面，画质音效出色",
+    type: "video",
+    pointsFactor: 2.5,
+  },
+];
+
+export const ALL_MODELS = [...IMAGE_MODELS, ...VIDEO_MODELS];
+
+export function getModel(id: string): ModelMeta | undefined {
+  return ALL_MODELS.find((m) => m.id === id);
 }

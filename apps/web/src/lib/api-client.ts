@@ -241,6 +241,74 @@ export async function fetchTools() {
   return res.data;
 }
 
+export async function fetchBrandKit() {
+  const res = await request<{ data: Record<string, unknown> | null }>(
+    "/api/v1/brandKit",
+  );
+  return res.data;
+}
+
+export async function saveBrandKit(body: {
+  brandName?: string;
+  primaryColor: string;
+  secondaryColor: string;
+  logoUrl?: string;
+  fontHint?: string;
+}) {
+  const res = await request<{ data: Record<string, unknown> }>(
+    "/api/v1/brandKit",
+    { method: "PUT", body: JSON.stringify(body) },
+  );
+  return res.data;
+}
+
+export async function exportSession(sessionId: string) {
+  const res = await request<{
+    data: { sessionId: string; title: string; files: { url: string }[]; count: number };
+  }>(`/api/v1/imageSession/${sessionId}/export`);
+  return res.data;
+}
+
+export async function fetchProviderStatus() {
+  const res = await request<{
+    data: { mode: string; openaiConfigured: boolean; activeProvider: string };
+  }>("/api/v1/ai/providerStatus");
+  return res.data;
+}
+
+export async function submitVideoGeneration(body: {
+  sessionId: string;
+  prompt: string;
+  modelId: string;
+  count?: number;
+}) {
+  const res = await request<{
+    data: { jobId: string; estimatedPoints: number };
+  }>("/api/v1/ai/generate/video", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return res.data;
+}
+
+export async function fetchAdminStats(adminSecret: string) {
+  const res = await fetch(`${API_BASE}/api/v1/admin/stats`, {
+    headers: { "X-Admin-Secret": adminSecret },
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error((json as ApiErrorBody).error?.message ?? "失败");
+  return json as { data: Record<string, unknown> };
+}
+
+export async function fetchAdminUsers(adminSecret: string) {
+  const res = await fetch(`${API_BASE}/api/v1/admin/users`, {
+    headers: { "X-Admin-Secret": adminSecret },
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error((json as ApiErrorBody).error?.message ?? "失败");
+  return (json as { data: Record<string, unknown>[] }).data;
+}
+
 export async function runTool(
   toolId: string,
   body: {
@@ -283,6 +351,59 @@ export async function purchasePackage(packageId: string) {
     method: "POST",
     body: JSON.stringify({ packageId }),
   });
+  return res.data;
+}
+
+export async function checkoutPackage(packageId: string) {
+  const res = await request<{
+    data: {
+      orderId: string;
+      checkoutUrl: string;
+      provider: string;
+      packageName: string;
+      credits: number;
+      priceCents: number;
+    };
+  }>("/api/v1/product/checkout", {
+    method: "POST",
+    body: JSON.stringify({ packageId }),
+  });
+  return res.data;
+}
+
+export async function fetchOrder(orderId: string) {
+  const res = await request<{
+    data: {
+      id: string;
+      status: string;
+      credits: number;
+      price_cents: number;
+      package_name: string;
+      checkout_url?: string;
+    };
+  }>(`/api/v1/product/orders/${orderId}`);
+  return res.data;
+}
+
+export async function confirmOrder(orderId: string) {
+  const res = await request<{
+    data: {
+      alreadyPaid: boolean;
+      credits: number;
+      user?: ApiUser;
+      message: string;
+    };
+  }>(`/api/v1/product/orders/${orderId}/confirm`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  return res.data;
+}
+
+export async function fetchPaymentStatus() {
+  const res = await request<{
+    data: { mode: string; activeProvider: string; stripeConfigured: boolean };
+  }>("/api/v1/product/paymentStatus");
   return res.data;
 }
 
