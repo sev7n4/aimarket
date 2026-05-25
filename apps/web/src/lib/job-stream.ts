@@ -1,8 +1,7 @@
+import { resolveApiBase } from "@/lib/api-base";
 import { getToken } from "./api-client";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
-  "http://localhost:4000";
+const API_BASE = resolveApiBase();
 
 export interface JobStreamEvent {
   status: string;

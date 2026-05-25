@@ -14,6 +14,7 @@ import { ProviderStatusBanner } from "@/components/provider-status-banner";
 import { ContentReportDialog } from "@/components/content-report-dialog";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { getActiveWorkspaceId } from "@/lib/active-workspace";
+import { resolveApiBase } from "@/lib/api-base";
 import { trackEvent } from "@/lib/api-client";
 import { type CreationMode } from "@aimarket/ui";
 import type { ImageSession, StudioTool } from "@/lib/types";
@@ -228,7 +229,7 @@ export function StudioWorkspace({
       window.open(
         f.url.startsWith("http")
           ? f.url
-          : `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"}${f.url}`,
+          : `${resolveApiBase()}${f.url}`,
         "_blank",
       );
     }

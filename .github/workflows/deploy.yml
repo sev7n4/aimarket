@@ -31,6 +31,9 @@ jobs:
   build-push:
     name: Build ${{ matrix.image }}
     runs-on: ubuntu-latest
+    environment: production
+    env:
+      PUBLIC_API_URL: http://${{ secrets.TENCENT_CLOUD_IP || secrets.DEPLOY_HOST }}:4100
     strategy:
       fail-fast: false
       matrix:
@@ -54,13 +57,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      - name: Validate NEXT_PUBLIC_API_URL for web image
+        if: matrix.web_image
+        run: |
+          url="${{ env.PUBLIC_API_URL }}"
+          if [[ -z "$url" || "$url" == *"://:"* || "$url" == *"://:4100"* ]]; then
+            echo "::error::Invalid PUBLIC_API_URL='$url'. Set TENCENT_CLOUD_IP in environment production."
+            exit 1
+          fi
+          echo "Web build API URL: $url"
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ${{ matrix.file }}
           push: true
-          build-args: ${{ matrix.web_image && format('NEXT_PUBLIC_API_URL=http://{0}:4100', secrets.TENCENT_CLOUD_IP || secrets.DEPLOY_HOST) || '' }}
+          build-args: ${{ matrix.web_image && format('NEXT_PUBLIC_API_URL={0}', env.PUBLIC_API_URL) || '' }}
           tags: |
             ghcr.io/${{ env.GHCR_OWNER }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}
             ghcr.io/${{ env.GHCR_OWNER }}/${{ matrix.image }}:latest
