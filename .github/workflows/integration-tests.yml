@@ -1,0 +1,71 @@
+name: Integration Tests
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: ./.github/actions/start-api
+        with:
+          moderation_output: "true"
+
+      - name: API smoke
+        env:
+          API_URL: http://localhost:4000
+          ADMIN_SECRET: aimarket-admin-dev
+        run: node scripts/smoke-api.mjs
+
+      - name: Workspace switch
+        env:
+          API_URL: http://localhost:4000
+        run: node scripts/test-workspace-switch.mjs
+
+      - name: Workspace collaboration (方案 B)
+        env:
+          API_URL: http://localhost:4000
+        run: node scripts/test-workspace-collab.mjs
+
+      - name: Moderation P2 and analytics
+        env:
+          API_URL: http://localhost:4000
+          ADMIN_SECRET: aimarket-admin-dev
+        run: node scripts/verify-moderation-p2.mjs
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Integration Tests" >> "$GITHUB_STEP_SUMMARY"
+          echo "API scripts: smoke-api, workspace-switch, workspace-collab, verify-moderation-p2" >> "$GITHUB_STEP_SUMMARY"
+
+  notify:
+    name: Notify Status
+    runs-on: ubuntu-latest
+    needs: [integration-tests]
+    if: always()
+    steps:
+      - run: |
+          echo "## Integration Tests Pipeline" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Job | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----|--------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Integration Tests | ${{ needs.integration-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"

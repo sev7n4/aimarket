@@ -1,0 +1,45 @@
+name: Start API for CI
+description: 使用 mock 依赖在后台启动 API（SQLite 临时目录）
+inputs:
+  moderation_output:
+    description: 是否开启 MODERATION_OUTPUT
+    required: false
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - name: Write CI env and start API
+      shell: bash
+      run: |
+        set -euo pipefail
+        API_DIR="${GITHUB_WORKSPACE}/apps/api"
+        mkdir -p "$API_DIR/data-ci" "$API_DIR/uploads-ci"
+        cat > "$API_DIR/.env" <<EOF
+        PORT=4000
+        JWT_SECRET=ci-jwt-secret-aimarket
+        ADMIN_SECRET=aimarket-admin-dev
+        DATABASE_PATH=./data-ci/aimarket.db
+        UPLOAD_DIR=./uploads-ci
+        CORS_ORIGIN=http://localhost:3000
+        PUBLIC_WEB_URL=http://localhost:3000
+        IMAGE_PROVIDER=mock
+        MODERATION_PROVIDER=local
+        MODERATION_OUTPUT=${{ inputs.moderation_output }}
+        JOB_QUEUE=memory
+        MOCK_GENERATION_DELAY_MS=1200
+        STORAGE_PROVIDER=local
+        PAYMENT_PROVIDER=mock
+        EOF
+        cd "$API_DIR"
+        pnpm exec tsx --env-file=.env src/index.ts >> /tmp/aimarket-api.log 2>&1 &
+        echo $! > /tmp/aimarket-api.pid
+        for i in $(seq 1 45); do
+          if curl -sf http://localhost:4000/health >/dev/null 2>&1; then
+            echo "API ready"
+            exit 0
+          fi
+          sleep 2
+        done
+        echo "API failed to start:"
+        tail -80 /tmp/aimarket-api.log || true
+        exit 1

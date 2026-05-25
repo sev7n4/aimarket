@@ -5,9 +5,11 @@
 | 维度 | pintuotuo | AIMarket（当前） |
 |------|-----------|------------------|
 | **CI 工作流** | `ci-cd.yml` | `ci.yml` |
+| **集成测试** | `integration-tests.yml` | `integration-tests.yml` ✅ |
+| **E2E** | `e2e-tests.yml` | `e2e-tests.yml` ✅ |
 | **部署工作流** | `deploy-tencent.yml`（独立） | `deploy.yml`（独立）✅ 同模式 |
-| **PR 触发** | 仅跑测试/构建，**不部署** | 同 ✅ |
-| **main push** | CI + 部署 | CI + 部署 ✅ |
+| **PR 触发** | CI + Integration + E2E，**不部署** | 同 ✅ |
+| **main push** | CI + 部署（合并后） | CI + 部署 ✅ |
 | **手动部署** | `workflow_dispatch` + 选 `branch` | 同 ✅ |
 | **Environment** | `production` | `production` ✅ 可共用 Secrets |
 | **SSH Secrets** | `TENCENT_CLOUD_*` | 优先读 `TENCENT_CLOUD_*`，兼容 `DEPLOY_*` |
@@ -96,9 +98,44 @@ rsync -avz --exclude node_modules --exclude .git \
   ./ root@119.29.173.89:/opt/aimarket/
 ```
 
+## 分支保护（合并前全绿 + 审核，合并后才部署）
+
+在 **Settings → Branches → Branch protection rules → main** 配置：
+
+1. **Require a pull request before merging**，至少 **1** 名审核人（`Require approvals`）
+2. **Require status checks to pass before merging**，勾选：
+   - `lint-typecheck`（CI）
+   - `docker-build`（CI）
+   - `Integration Tests`（Integration Tests workflow）
+   - `E2E Tests`（E2E Tests workflow）
+3. **Require branches to be up to date before merging**（建议开启）
+4. 勿勾选「合并后仍允许绕过」类选项（按团队规范）
+
+说明：**Deploy** 仅在 **合并到 main 的 push** 时运行；PR 阶段不会部署生产。
+
+## 工作流一览
+
+| Workflow | 触发 | 内容 |
+|----------|------|------|
+| `CI` | PR + push main | typecheck、build、Docker 构建校验 |
+| `Integration Tests` | PR + manual | `smoke-api`、工作区脚本、`verify-moderation-p2` |
+| `E2E Tests` | PR + cron + manual | Playwright 冒烟（`apps/web/e2e/smoke.spec.ts`） |
+| `Deploy` | push main（非仅 docs）+ manual | 构建镜像、scp、上线、curl 验证 |
+
+本地：
+
+```bash
+# 先启动 API（另开终端）
+cd apps/api && cp ../../.env.example .env  # 按需改 mock
+pnpm exec tsx --env-file=.env src/index.ts
+
+pnpm test:integration
+pnpm test:e2e   # 需 API + web dev 或 build+start
+```
+
 ## 日常发布
 
-- **PR**：仅 `CI` workflow（typecheck + Docker 构建校验）
+- **PR**：`CI` + `Integration Tests` + `E2E Tests` 全部通过 + 审核批准
 - **合并 main**：`Deploy to Tencent Cloud (AIMarket)` 自动执行
 - **手动**：Actions → Deploy workflow → Run workflow → 选择分支
 

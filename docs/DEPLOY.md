@@ -6,11 +6,13 @@
 
 ## 1. 架构概览
 
-| 组件 | 默认端口 | 说明 |
-|------|----------|------|
-| `apps/web` | 3000 | Next.js 前端 |
+
+| 组件         | 默认端口 | 说明                             |
+| ---------- | ---- | ------------------------------ |
+| `apps/web` | 3000 | Next.js 前端                     |
 | `apps/api` | 4000 | Hono API + SQLite + 本地 uploads |
-| Redis（可选） | 6379 | `JOB_QUEUE=redis`、分布式限流 |
+| Redis（可选）  | 6379 | `JOB_QUEUE=redis`、分布式限流        |
+
 
 推荐：**Nginx/Caddy** 反代 HTTPS，API 与 Web 分域名或同域 `/api` 转发。
 
@@ -72,13 +74,13 @@ cd apps/web && pnpm start
 
 ## 4. 部署前检查
 
-- [ ] `JWT_SECRET`、`ADMIN_SECRET` 已更换默认值
-- [ ] `CORS_ORIGIN` 与前端域名完全一致（含 `https`）
-- [ ] `DATABASE_PATH`、`UPLOAD_DIR` 目录可写且已备份策略
-- [ ] API 代码或 env 变更后**已重启**
-- [ ] Redis 可用（若启用 `JOB_QUEUE=redis` / `RATE_LIMIT_STORE=redis`）
-- [ ] Stripe Webhook 指向 `https://api.../api/v1/product/webhook/stripe`
-- [ ] `MODERATION_PROVIDER` 非纯 `local`（生产建议 `openai` 或 `http`）
+- `JWT_SECRET`、`ADMIN_SECRET` 已更换默认值
+- `CORS_ORIGIN` 与前端域名完全一致（含 `https`）
+- `DATABASE_PATH`、`UPLOAD_DIR` 目录可写且已备份策略
+- API 代码或 env 变更后**已重启**
+- Redis 可用（若启用 `JOB_QUEUE=redis` / `RATE_LIMIT_STORE=redis`）
+- Stripe Webhook 指向 `https://api.../api/v1/product/webhook/stripe`
+- `MODERATION_PROVIDER` 非纯 `local`（生产建议 `openai` 或 `http`）
 
 ## 5. 冒烟与回归
 
@@ -188,3 +190,4 @@ S3_PREFIX=uploads/
 - Studio 侧栏：切换个人 / 团队工作区、新建团队、生成邀请链接
 - 成员打开 `https://www.yourdomain.com/join?code=XXXXXXXX`
 - API：`POST /workspaces/join`、`GET /workspaces/:id/members`
+

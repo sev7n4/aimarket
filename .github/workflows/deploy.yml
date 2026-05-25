@@ -1,9 +1,13 @@
-# 对齐 pintuotuo deploy-tencent.yml：main push + 手动选分支；Secrets 用 TENCENT_CLOUD_*
+# 对齐 pintuotuo deploy-tencent.yml：仅在 main 合并 push 后部署（PR 不触发）。
+# 合并前须在分支保护中强制：CI + Integration Tests + E2E Tests 全绿 + PR 审核。
 name: Deploy to Tencent Cloud (AIMarket)
 
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
   workflow_dispatch:
     inputs:
       branch:

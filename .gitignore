@@ -27,6 +27,10 @@ pnpm-debug.log*
 
 # test
 coverage
+playwright-report/
+test-results/
+apps/api/data-ci/
+apps/api/uploads-ci/
 
 # misc
 *.tsbuildinfo

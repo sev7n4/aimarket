@@ -1,0 +1,108 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+    inputs:
+      test_tier:
+        description: E2E test tier
+        required: false
+        default: smoke
+        type: choice
+        options:
+          - smoke
+          - full
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: ./.github/actions/start-api
+
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build web
+        run: pnpm --filter @aimarket/web build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000
+
+      - name: Start web server
+        working-directory: apps/web
+        run: |
+          pnpm start --port 3000 >> /tmp/aimarket-web.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/ >/dev/null 2>&1; then
+              echo "Web ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          tail -50 /tmp/aimarket-web.log || true
+          exit 1
+
+      - name: Run E2E (smoke)
+        if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.test_tier == 'smoke') || github.event_name == 'schedule'
+        working-directory: apps/web
+        env:
+          CI: true
+          E2E_BASE_URL: http://localhost:3000
+        run: pnpm exec playwright test --project=chromium
+
+      - name: Run E2E (full)
+        if: github.event_name == 'workflow_dispatch' && inputs.test_tier == 'full'
+        working-directory: apps/web
+        env:
+          CI: true
+          E2E_BASE_URL: http://localhost:3000
+        run: pnpm exec playwright test
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
+
+      - name: Upload test screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-screenshots
+          path: apps/web/test-results/
+          retention-days: 7
+
+  notify:
+    name: Notify Status
+    runs-on: ubuntu-latest
+    needs: [e2e-tests]
+    if: always()
+    steps:
+      - run: |
+          echo "## E2E Tests Pipeline" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Trigger: ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Job | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----|--------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| E2E Tests | ${{ needs.e2e-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"
