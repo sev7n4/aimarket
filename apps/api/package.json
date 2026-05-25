@@ -11,10 +11,13 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.14.4",
+    "bcryptjs": "^3.0.2",
     "hono": "^4.8.3",
+    "jose": "^6.0.11",
     "zod": "^3.25.67"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^22.15.32",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"

@@ -30,3 +30,7 @@ coverage
 # misc
 *.tsbuildinfo
 next-env.d.ts
+
+# api runtime
+apps/api/data/
+apps/api/uploads/

@@ -1,0 +1,178 @@
+import type {
+  ApiErrorBody,
+  ApiUser,
+  ChatMessage,
+  GenerationJob,
+  ImageModel,
+  ImageSession,
+} from "./types";
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
+  "http://localhost:4000";
+
+export function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("aimarket_token");
+}
+
+export function setToken(token: string | null) {
+  if (typeof window === "undefined") return;
+  if (token) localStorage.setItem("aimarket_token", token);
+  else localStorage.removeItem("aimarket_token");
+}
+
+async function request<T>(
+  path: string,
+  init?: RequestInit & { auth?: boolean },
+): Promise<T> {
+  const headers: Record<string, string> = {
+    ...(init?.headers as Record<string, string>),
+  };
+  if (init?.body && !(init.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
+  if (init?.auth !== false) {
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    const err = json as ApiErrorBody;
+    throw new Error(err.error?.message ?? `请求失败 (${res.status})`);
+  }
+  return json as T;
+}
+
+export function assetUrl(path: string) {
+  if (path.startsWith("http")) return path;
+  return `${API_BASE}${path}`;
+}
+
+export async function register(email: string, password: string) {
+  const res = await request<{ data: { token: string; user: ApiUser } }>(
+    "/api/v1/auth/register",
+    {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+      auth: false,
+    },
+  );
+  setToken(res.data.token);
+  return res.data;
+}
+
+export async function login(email: string, password: string) {
+  const res = await request<{ data: { token: string; user: ApiUser } }>(
+    "/api/v1/auth/login",
+    {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+      auth: false,
+    },
+  );
+  setToken(res.data.token);
+  return res.data;
+}
+
+export function logout() {
+  setToken(null);
+}
+
+export async function fetchUser() {
+  const res = await request<{ data: ApiUser }>("/api/v1/user/getInfo");
+  return res.data;
+}
+
+export async function fetchPoints() {
+  const res = await request<{ data: { credits: number } }>(
+    "/api/v1/user/queryPoints",
+  );
+  return res.data.credits;
+}
+
+export async function ensureSession(sessionId: string, mode: string) {
+  const res = await request<{ data: ImageSession }>(
+    "/api/v1/imageSession/ensure",
+    {
+      method: "POST",
+      body: JSON.stringify({ sessionId, mode }),
+    },
+  );
+  return res.data;
+}
+
+export async function listSessions(limit = 20) {
+  const res = await request<{ data: ImageSession[] }>(
+    `/api/v1/imageSession/list?limit=${limit}`,
+  );
+  return res.data;
+}
+
+export async function fetchMessages(sessionId: string) {
+  const res = await request<{ data: ChatMessage[] }>(
+    `/api/v1/imageSession/${sessionId}/messages`,
+  );
+  return res.data;
+}
+
+export async function fetchModels() {
+  const res = await request<{ data: ImageModel[] }>("/api/v1/ai/queryModels");
+  return res.data;
+}
+
+export async function estimatePoints(
+  modelId: string,
+  count: number,
+  resolution: string,
+) {
+  const res = await request<{ data: { totalPoints: number } }>(
+    "/api/v1/ai/estimatePointsBatch",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        items: [{ modelId, count, resolution }],
+      }),
+    },
+  );
+  return res.data.totalPoints;
+}
+
+export async function submitGeneration(body: {
+  sessionId: string;
+  prompt: string;
+  modelId: string;
+  count: number;
+  resolution: string;
+  mode: string;
+  assetIds?: string[];
+}) {
+  const res = await request<{
+    data: { jobId: string; estimatedPoints: number; status: string };
+  }>("/api/v1/ai/generate", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return res.data;
+}
+
+export async function fetchJob(jobId: string) {
+  const res = await request<{ data: GenerationJob }>(`/api/v1/ai/jobs/${jobId}`);
+  return res.data;
+}
+
+export async function uploadAsset(file: File, sessionId?: string) {
+  const form = new FormData();
+  form.append("file", file);
+  if (sessionId) form.append("sessionId", sessionId);
+  const res = await request<{
+    data: { id: string; url: string; mimeType: string };
+  }>("/api/v1/assets/upload", {
+    method: "POST",
+    body: form,
+  });
+  return res.data;
+}

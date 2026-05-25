@@ -1,0 +1,96 @@
+"use client";
+
+import { useState } from "react";
+import { Button, GlassPanel } from "@aimarket/ui";
+import { useAuth } from "@/lib/auth-context";
+
+interface LoginDialogProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export function LoginDialog({ open, onClose }: LoginDialogProps) {
+  const { login, register } = useAuth();
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  if (!open) return null;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setPending(true);
+    try {
+      if (mode === "login") await login(email, password);
+      else await register(email, password);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "操作失败");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <GlassPanel className="w-full max-w-md p-6">
+        <h2 className="text-xl font-semibold">
+          {mode === "login" ? "登录 AIMarket" : "注册 AIMarket"}
+        </h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          新用户注册即赠 100 积分
+        </p>
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="邮箱"
+            className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none focus:border-orange-500/50"
+          />
+          <input
+            type="password"
+            required
+            minLength={8}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="密码（至少 8 位）"
+            className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none focus:border-orange-500/50"
+          />
+          {error ? (
+            <p className="text-sm text-red-400">{error}</p>
+          ) : null}
+          <Button
+            type="submit"
+            variant="primary"
+            className="w-full"
+            disabled={pending}
+          >
+            {pending ? "处理中…" : mode === "login" ? "登录" : "注册"}
+          </Button>
+        </form>
+        <p className="mt-4 text-center text-sm text-zinc-500">
+          {mode === "login" ? "还没有账号？" : "已有账号？"}
+          <button
+            type="button"
+            className="ml-1 text-orange-400 hover:underline"
+            onClick={() => setMode(mode === "login" ? "register" : "login")}
+          >
+            {mode === "login" ? "立即注册" : "去登录"}
+          </button>
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-4 w-full text-sm text-zinc-500 hover:text-zinc-300"
+        >
+          关闭
+        </button>
+      </GlassPanel>
+    </div>
+  );
+}

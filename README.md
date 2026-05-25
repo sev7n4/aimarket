@@ -41,10 +41,16 @@ pnpm dev:api   # http://localhost:4000
 - `GET /api/v1/imageSession/queryImageSessionRequestMode?sessionId=`
 - `GET /api/v1/productSet/init`
 
+## 文档
+
+- [产品需求规格书（PRD）](./docs/PRD.md)
+- [产品文档](./docs/PRODUCT.md)
+- [技术规格书](./docs/TECH_SPEC.md)
+
 ## 路线图
 
 - [x] Phase 0：Monorepo + Design System + 首页/Studio 骨架
-- [ ] Phase 1：真实生成任务队列 + 上传 + 登录
+- [x] Phase 1：登录、上传、对话生成、积分扣费、会话历史
 - [ ] Phase 2：电商 Agent 工作流 + 工具栏能力
 - [ ] Phase 3：积分/套餐/邀请增长
 

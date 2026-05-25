@@ -1,7 +1,19 @@
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { z } from "zod";
+import { ZodError } from "zod";
+import "./db/index.js";
+import { AppError } from "./lib/errors.js";
+import { ensureUploadDir, getUploadDir } from "./lib/storage.js";
+import { requireAuth } from "./middleware/auth.js";
+import { auth } from "./routes/auth.js";
+import { user } from "./routes/user.js";
+import { sessions } from "./routes/sessions.js";
+import { assets } from "./routes/assets.js";
+import { ai } from "./routes/ai.js";
+
+ensureUploadDir();
 
 const app = new Hono();
 
@@ -16,64 +28,47 @@ app.use(
   }),
 );
 
+app.onError((err, c) => {
+  if (err instanceof AppError) {
+    return c.json(
+      { error: { code: err.code, message: err.message } },
+      err.status as 400,
+    );
+  }
+  if (err instanceof ZodError) {
+    return c.json(
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: err.errors[0]?.message ?? "参数错误",
+        },
+      },
+      400,
+    );
+  }
+  console.error(err);
+  return c.json(
+    { error: { code: "INTERNAL_ERROR", message: "服务器错误" } },
+    500,
+  );
+});
+
 app.get("/health", (c) =>
-  c.json({ ok: true, service: "aimarket-api", version: "0.1.0" }),
+  c.json({ ok: true, service: "aimarket-api", version: "0.2.0" }),
 );
 
-const imageModels = [
-  {
-    id: "omni-v2",
-    name: "全能图片 V2",
-    description: "顶尖图像生成模型，极致速度和超高性价比",
-    type: "image",
-  },
-  {
-    id: "latest-v2-pro",
-    name: "最新图片 V2 Pro",
-    description: "更稳定更快速，擅长复杂电商场景",
-    type: "image",
-  },
-  {
-    id: "seedream-5",
-    name: "Seedream 5.0",
-    description: "多角色超强一致性，中文处理能力极强",
-    type: "image",
-  },
-] as const;
+app.use("/uploads/*", serveStatic({ root: getUploadDir(), rewriteRequestPath: (p) => p.replace(/^\/uploads/, "") }));
 
-app.get("/api/v1/ai/queryModels", (c) => c.json({ data: imageModels }));
+app.route("/api/v1/auth", auth);
 
-app.post("/api/v1/ai/estimatePointsBatch", async (c) => {
-  const body = await c.req.json().catch(() => ({}));
-  const parsed = z
-    .object({
-      modelId: z.string().optional(),
-      count: z.number().int().positive().default(1),
-      resolution: z.string().optional(),
-    })
-    .safeParse(body);
+const authed = new Hono();
+authed.use("*", requireAuth);
+authed.route("/user", user);
+authed.route("/imageSession", sessions);
+authed.route("/assets", assets);
+authed.route("/ai", ai);
 
-  const count = parsed.success ? parsed.data.count : 1;
-  const points = count * 10;
-
-  return c.json({
-    data: { estimatedPoints: points, currency: "credits" },
-  });
-});
-
-app.get("/api/v1/imageSession/queryImageSessionRequestMode", (c) => {
-  const sessionId = c.req.query("sessionId");
-  if (!sessionId) {
-    return c.json({ error: "sessionId required" }, 400);
-  }
-  return c.json({
-    data: {
-      sessionId,
-      mode: "chat",
-      status: "idle",
-    },
-  });
-});
+app.route("/api/v1", authed);
 
 app.get("/api/v1/productSet/init", (c) =>
   c.json({
@@ -89,5 +84,5 @@ app.get("/api/v1/productSet/init", (c) =>
 const port = Number(process.env.PORT ?? 4000);
 
 serve({ fetch: app.fetch, port }, () => {
-  console.log(`AIMarket API listening on http://localhost:${port}`);
+  console.log(`AIMarket API v0.2 listening on http://localhost:${port}`);
 });
