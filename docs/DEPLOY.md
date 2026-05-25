@@ -37,6 +37,7 @@ OPENAI_API_KEY=sk-...
 MODERATION_PROVIDER=openai
 # 或第三方 HTTP：MODERATION_PROVIDER=http + MODERATION_HTTP_URL=...
 OPENAI_MODERATION_MODEL=omni-moderation-latest
+MODERATION_OUTPUT=true
 
 # 任务队列（推荐 redis）
 JOB_QUEUE=redis

@@ -158,6 +158,7 @@ export function StudioWorkspace({
 
   useEffect(() => {
     if (!pollingJobId || !user) return;
+    const t0 = performance.now();
     const stop = streamJob(
       pollingJobId,
       () => {},
@@ -169,10 +170,17 @@ export function StudioWorkspace({
           await listSessions(20, undefined, activeWorkspaceId ?? undefined),
         );
       },
-      () => setPollingJobId(null),
+      () => {
+        void trackEvent("generation_fail", {
+          job_id: pollingJobId,
+          error_code: "STREAM_ERROR",
+          duration_ms: Math.round(performance.now() - t0),
+        });
+        setPollingJobId(null);
+      },
     );
     return stop;
-  }, [pollingJobId, user, loadCanvas, refreshUser]);
+  }, [pollingJobId, user, loadCanvas, refreshUser, activeWorkspaceId]);
 
   function handleModeChange(next: CreationMode) {
     setMode(next);

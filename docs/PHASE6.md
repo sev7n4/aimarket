@@ -7,6 +7,7 @@ Phase 6 总目标：合规审核、多租户、性能与可运维性。
 | 能力 | 状态 | 说明 |
 |------|------|------|
 | 生成前内容审核 | ✅ | `MODERATION_PROVIDER`：`local` / `openai` / `http` / `auto` |
+| 出图后结果审核 | ✅ | `MODERATION_OUTPUT`；OpenAI omni / HTTP `image_url`；mock 相对路径跳过 |
 | OpenAI Moderations API | ✅ | 与 `OPENAI_API_KEY` 共用；失败回落本地规则 |
 | 自定义 HTTP 审核 | ✅ | `MODERATION_HTTP_URL` + `MODERATION_HTTP_KEY` |
 | 用户内容举报 | ✅ | `POST /api/v1/reports` |
@@ -50,6 +51,7 @@ Phase 6 总目标：合规审核、多租户、性能与可运维性。
 - `POST /api/v1/events` 轻量埋点
 - `studio_open`、`generation_submit`
 - 首页匿名 `page_view`
+- `generation_success` / `generation_fail`（服务端任务完成时写入，含 `job_id`、`duration_ms`）
 
 ## Sprint 8（本次）
 

@@ -5,6 +5,8 @@ import { estimatePoints } from "./pricing.js";
 import { getModel } from "./models.js";
 import { AppError } from "./errors.js";
 import { assertSessionWrite, assertSessionRead } from "./session-access.js";
+import { recordAnalyticsEvent } from "./analytics.js";
+import { assertOutputsAllowed } from "./content-moderation.js";
 import { generateImages, resolveProvider } from "../providers/registry.js";
 import {
   generateVideos,
@@ -135,6 +137,19 @@ export async function processGenerationJob({
 
   if (!job || job.status !== "queued") return;
 
+  let startedMs = Date.now();
+  const createdRow = db
+    .prepare("SELECT created_at FROM generation_jobs WHERE id = ?")
+    .get(jobId) as { created_at: string } | undefined;
+  if (createdRow?.created_at) {
+    const parsed = Date.parse(
+      createdRow.created_at.includes("T")
+        ? createdRow.created_at
+        : `${createdRow.created_at.replace(" ", "T")}Z`,
+    );
+    if (!Number.isNaN(parsed)) startedMs = parsed;
+  }
+
   db.prepare("UPDATE generation_jobs SET status = 'running' WHERE id = ?").run(
     jobId,
   );
@@ -191,11 +206,14 @@ export async function processGenerationJob({
       imageProvider = result.provider;
     }
 
+    await assertOutputsAllowed(urls);
+
     const outputs = urls.map((url, i) => ({
       url,
       label: labels?.[i],
     }));
 
+    const durationMs = Math.max(0, Date.now() - startedMs);
     const assistantMessageId = randomUUID();
     const isVideo = model?.type === "video";
     const summary =
@@ -233,8 +251,23 @@ export async function processGenerationJob({
         `UPDATE image_sessions SET status = 'idle', updated_at = datetime('now') WHERE id = ?`,
       ).run(job.session_id);
     });
+
+    recordAnalyticsEvent(job.user_id, "generation_success", {
+      job_id: jobId,
+      duration_ms: durationMs,
+      points: job.points_cost,
+      mode: job.mode,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "生成失败";
+    const errorCode =
+      err instanceof AppError ? err.code : "GENERATION_ERROR";
+    const durationMs = Math.max(0, Date.now() - startedMs);
+    recordAnalyticsEvent(job.user_id, "generation_fail", {
+      job_id: jobId,
+      error_code: errorCode,
+      duration_ms: durationMs,
+    });
     db.transaction(() => {
       db.prepare(
         `UPDATE generation_jobs SET status = 'failed', error = ?, completed_at = datetime('now') WHERE id = ?`,

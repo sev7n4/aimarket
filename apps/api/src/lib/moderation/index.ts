@@ -2,6 +2,7 @@ import { httpModerationProvider } from "./http.js";
 import { localModerationProvider } from "./local.js";
 import { openaiModerationProvider } from "./openai.js";
 import type { ModerationProvider } from "./types.js";
+import { isOutputModerationEnabled } from "./output.js";
 
 export function resolveModerationProvider(): ModerationProvider {
   const mode = process.env.MODERATION_PROVIDER ?? "auto";
@@ -17,11 +18,18 @@ export function resolveModerationProvider(): ModerationProvider {
 
 export function getModerationStatus() {
   const active = resolveModerationProvider();
+  const outputEnv = process.env.MODERATION_OUTPUT;
+  const outputEnabled =
+    outputEnv === "true" ||
+    (outputEnv !== "false" &&
+      (active.name !== "local" ||
+        Boolean(process.env.OPENAI_API_KEY || process.env.MODERATION_HTTP_URL)));
   return {
     provider: active.name,
     mode: process.env.MODERATION_PROVIDER ?? "auto",
     openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
     httpConfigured: Boolean(process.env.MODERATION_HTTP_URL),
+    outputModeration: isOutputModerationEnabled(),
     fallback: "local",
   };
 }
