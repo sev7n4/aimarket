@@ -11,9 +11,7 @@ test.describe("smoke", () => {
   test("注册后可看到积分", async ({ page }) => {
     const email = `e2e_${Date.now()}@test.local`;
     await page.goto("/");
-    await page.evaluate(() =>
-      document.dispatchEvent(new Event("aimarket:open-login")),
-    );
+    await page.getByRole("banner").getByRole("button", { name: "免费开始" }).click();
     await page.getByRole("button", { name: "立即注册" }).click();
     await expect(
       page.getByRole("heading", { name: "注册 AIMarket" }),
@@ -28,10 +26,6 @@ test.describe("smoke", () => {
   test("项目页可打开", async ({ page }) => {
     await page.goto("/projects");
     await expect(page).toHaveURL(/\/projects/);
-    await expect(
-      page
-        .getByRole("heading", { name: "项目库" })
-        .or(page.getByRole("button", { name: "登录" })),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "项目库" })).toBeVisible();
   });
 });
