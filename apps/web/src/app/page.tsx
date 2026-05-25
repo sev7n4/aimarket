@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import { CreationPanel } from "@/components/creation-panel";
 import { HeroSection } from "@/components/hero-section";
 import { InspirationGallery } from "@/components/inspiration-gallery";
+import { InviteCapture } from "@/components/invite-capture";
 import { PromoBanner } from "@/components/promo-banner";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -8,6 +10,9 @@ import { SiteHeader } from "@/components/site-header";
 export default function HomePage() {
   return (
     <div className="min-h-dvh">
+      <Suspense fallback={null}>
+        <InviteCapture />
+      </Suspense>
       <PromoBanner />
       <SiteHeader />
       <main>

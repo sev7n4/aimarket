@@ -2,12 +2,16 @@ import type {
   ApiErrorBody,
   ApiUser,
   ChatMessage,
+  CreditPackage,
   GenerationJob,
   ImageModel,
   ImageSession,
+  InviteInfo,
+  Notice,
   ProductSetInit,
   RouteSuggestion,
   SessionReference,
+  SignStatus,
   StudioTool,
 } from "./types";
 
@@ -56,15 +60,22 @@ export function assetUrl(path: string) {
   return `${API_BASE}${path}`;
 }
 
-export async function register(email: string, password: string) {
-  const res = await request<{ data: { token: string; user: ApiUser } }>(
-    "/api/v1/auth/register",
-    {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-      auth: false,
-    },
-  );
+export async function register(
+  email: string,
+  password: string,
+  inviteCode?: string,
+) {
+  const res = await request<{
+    data: {
+      token: string;
+      user: ApiUser;
+      inviteBonus?: { reward: number; message: string } | null;
+    };
+  }>("/api/v1/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ email, password, inviteCode }),
+    auth: false,
+  });
   setToken(res.data.token);
   return res.data;
 }
@@ -251,6 +262,62 @@ export async function runTool(
 export async function fetchJob(jobId: string) {
   const res = await request<{ data: GenerationJob }>(`/api/v1/ai/jobs/${jobId}`);
   return res.data;
+}
+
+export async function fetchPackages() {
+  const res = await request<{ data: CreditPackage[] }>(
+    "/api/v1/product/packages",
+  );
+  return res.data;
+}
+
+export async function purchasePackage(packageId: string) {
+  const res = await request<{
+    data: {
+      orderId: string;
+      creditsAdded: number;
+      user: ApiUser;
+      message: string;
+    };
+  }>("/api/v1/product/purchase", {
+    method: "POST",
+    body: JSON.stringify({ packageId }),
+  });
+  return res.data;
+}
+
+export async function fetchSignStatus() {
+  const res = await request<{ data: SignStatus }>("/api/v1/sign/check");
+  return res.data;
+}
+
+export async function signIn() {
+  const res = await request<{
+    data: { creditsAdded: number; credits: number; message: string };
+  }>("/api/v1/sign/in", { method: "POST", body: JSON.stringify({}) });
+  return res.data;
+}
+
+export async function fetchInviteInfo() {
+  const res = await request<{ data: InviteInfo }>(
+    "/api/v1/inviteUser/generateCode",
+  );
+  return res.data;
+}
+
+export async function fetchLatestNotice() {
+  const res = await request<{ data: Notice | null }>(
+    "/api/v1/notice/latestNotice",
+    { auth: false },
+  );
+  return res.data;
+}
+
+export async function dismissNotice(noticeId: string) {
+  await request(`/api/v1/notice/${noticeId}/dismiss`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
 }
 
 export async function uploadAsset(file: File, sessionId?: string) {

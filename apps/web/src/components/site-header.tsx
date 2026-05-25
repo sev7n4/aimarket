@@ -1,15 +1,52 @@
 "use client";
 
 import Link from "next/link";
-import { Menu } from "lucide-react";
-import { useState } from "react";
+import { Menu, Gift } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "@aimarket/ui";
 import { useAuth } from "@/lib/auth-context";
 import { LoginDialog } from "@/components/login-dialog";
+import { CreditsDialog } from "@/components/credits-dialog";
+import { fetchSignStatus, signIn } from "@/lib/api-client";
 
 export function SiteHeader() {
-  const { user, logout, loading } = useAuth();
+  const { user, logout, loading, refreshUser } = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
+  const [signedToday, setSignedToday] = useState(true);
+  const [signing, setSigning] = useState(false);
+
+  useEffect(() => {
+    const openLogin = () => setLoginOpen(true);
+    document.addEventListener("aimarket:open-login", openLogin);
+    return () =>
+      document.removeEventListener("aimarket:open-login", openLogin);
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchSignStatus()
+      .then((s) => setSignedToday(s.signedToday))
+      .catch(() => setSignedToday(true));
+  }, [user]);
+
+  async function handleSignIn() {
+    if (!user) {
+      setLoginOpen(true);
+      return;
+    }
+    setSigning(true);
+    try {
+      const res = await signIn();
+      setSignedToday(true);
+      await refreshUser();
+      alert(res.message);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "签到失败");
+    } finally {
+      setSigning(false);
+    }
+  }
 
   return (
     <>
@@ -36,12 +73,28 @@ export function SiteHeader() {
           <div className="flex items-center gap-2">
             {!loading && user ? (
               <>
-                <span className="hidden rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-300 sm:inline">
+                <button
+                  type="button"
+                  onClick={() => void handleSignIn()}
+                  disabled={signedToday || signing}
+                  className="hidden rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-300 hover:bg-white/5 disabled:opacity-40 sm:inline"
+                >
+                  {signedToday ? "已签到" : signing ? "签到中…" : "每日签到"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreditsOpen(true)}
+                  className="rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1 text-xs text-orange-200 hover:bg-orange-500/20"
+                >
                   积分 {user.credits}
-                </span>
-                <span className="hidden max-w-[120px] truncate text-xs text-zinc-500 sm:inline">
-                  {user.email}
-                </span>
+                </button>
+                <Link
+                  href="/invite"
+                  className="hidden items-center gap-1 rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-400 hover:text-white sm:inline-flex"
+                >
+                  <Gift className="size-3.5" />
+                  邀请
+                </Link>
                 <Button variant="ghost" onClick={logout}>
                   退出
                 </Button>
@@ -60,6 +113,7 @@ export function SiteHeader() {
         </div>
       </header>
       <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
+      <CreditsDialog open={creditsOpen} onClose={() => setCreditsOpen(false)} />
     </>
   );
 }

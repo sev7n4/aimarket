@@ -44,6 +44,10 @@ pnpm dev:api   # http://localhost:4000
 - `POST /api/v1/ai/suggestModel` — 智能路由建议
 - `GET /api/v1/imageSession/:id/references` — @ 可引用历史图
 - `GET /api/v1/tools/list` · `POST /api/v1/tools/:id/run`
+- `GET /api/v1/product/packages` · `POST /api/v1/product/purchase`（模拟支付）
+- `GET /api/v1/sign/check` · `POST /api/v1/sign/in`
+- `GET /api/v1/inviteUser/generateCode`
+- `GET /api/v1/notice/latestNotice`
 
 ## 文档
 
@@ -56,7 +60,7 @@ pnpm dev:api   # http://localhost:4000
 - [x] Phase 0：Monorepo + Design System + 首页/Studio 骨架
 - [x] Phase 1：登录、上传、对话生成、积分扣费、会话历史
 - [x] Phase 2：电商套图 Agent、智能路由、Studio 工具、@ 引用历史图
-- [ ] Phase 3：支付、邀请、运营后台
+- [x] Phase 3：积分套餐（模拟充值）、每日签到、邀请有礼、运营公告
 - [ ] Phase 3：积分/套餐/邀请增长
 
 ## License

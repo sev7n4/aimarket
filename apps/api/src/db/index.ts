@@ -119,3 +119,63 @@ try {
 } catch {
   /* column exists */
 }
+
+database.exec(`
+  CREATE TABLE IF NOT EXISTS credit_packages (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    credits INTEGER NOT NULL,
+    price_cents INTEGER NOT NULL,
+    badge TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS credit_orders (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    package_id TEXT NOT NULL REFERENCES credit_packages(id),
+    credits INTEGER NOT NULL,
+    price_cents INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'paid',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS sign_records (
+    user_id TEXT NOT NULL REFERENCES users(id),
+    sign_date TEXT NOT NULL,
+    credits INTEGER NOT NULL,
+    PRIMARY KEY (user_id, sign_date)
+  );
+
+  CREATE TABLE IF NOT EXISTS invite_codes (
+    user_id TEXT PRIMARY KEY REFERENCES users(id),
+    code TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS invite_redemptions (
+    id TEXT PRIMARY KEY,
+    invitee_id TEXT NOT NULL UNIQUE REFERENCES users(id),
+    inviter_id TEXT NOT NULL REFERENCES users(id),
+    code TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS notices (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    link_label TEXT,
+    link_path TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS user_notice_reads (
+    user_id TEXT NOT NULL REFERENCES users(id),
+    notice_id TEXT NOT NULL REFERENCES notices(id),
+    read_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, notice_id)
+  );
+`);
+

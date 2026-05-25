@@ -6,7 +6,6 @@ import {
   Crop,
   Eraser,
   Expand,
-  Film,
   Layers,
   Loader2,
   Palette,

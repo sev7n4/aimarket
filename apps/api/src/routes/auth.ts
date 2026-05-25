@@ -3,17 +3,25 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { db } from "../db/index.js";
 import { hashPassword, signToken, verifyPassword } from "../lib/auth.js";
+import { REGISTER_BONUS } from "../lib/growth.js";
+import { applyInviteOnRegister } from "../lib/invite.js";
 import { AppError } from "../lib/errors.js";
 
 const auth = new Hono();
 
-const credentialsSchema = z.object({
+const registerSchema = z.object({
+  email: z.string().email("邮箱格式不正确"),
+  password: z.string().min(8, "密码至少 8 位"),
+  inviteCode: z.string().optional(),
+});
+
+const loginSchema = z.object({
   email: z.string().email("邮箱格式不正确"),
   password: z.string().min(8, "密码至少 8 位"),
 });
 
 auth.post("/register", async (c) => {
-  const body = credentialsSchema.parse(await c.req.json());
+  const body = registerSchema.parse(await c.req.json());
   const existing = db
     .prepare("SELECT id FROM users WHERE email = ?")
     .get(body.email);
@@ -24,19 +32,32 @@ auth.post("/register", async (c) => {
   const id = randomUUID();
   const passwordHash = await hashPassword(body.password);
   db.prepare(
-    "INSERT INTO users (id, email, password_hash, credits) VALUES (?, ?, ?, 100)",
-  ).run(id, body.email.toLowerCase(), passwordHash);
+    "INSERT INTO users (id, email, password_hash, credits) VALUES (?, ?, ?, ?)",
+  ).run(id, body.email.toLowerCase(), passwordHash, REGISTER_BONUS);
+
+  const inviteResult = applyInviteOnRegister(id, body.inviteCode);
 
   const token = await signToken(id);
   const user = db
     .prepare("SELECT id, email, credits, created_at FROM users WHERE id = ?")
     .get(id);
 
-  return c.json({ data: { token, user } }, 201);
+  return c.json(
+    {
+      data: {
+        token,
+        user,
+        inviteBonus: inviteResult
+          ? { reward: inviteResult.reward, message: "邀请奖励已发放" }
+          : null,
+      },
+    },
+    201,
+  );
 });
 
 auth.post("/login", async (c) => {
-  const body = credentialsSchema.parse(await c.req.json());
+  const body = loginSchema.parse(await c.req.json());
   const row = db
     .prepare(
       "SELECT id, email, password_hash, credits, created_at FROM users WHERE email = ?",

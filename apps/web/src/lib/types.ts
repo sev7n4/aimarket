@@ -73,3 +73,36 @@ export interface StudioTool {
   description: string;
   defaultPrompt: string;
 }
+
+export interface CreditPackage {
+  id: string;
+  name: string;
+  credits: number;
+  price_cents: number;
+  badge: string | null;
+  sort_order: number;
+}
+
+export interface Notice {
+  id: string;
+  title: string;
+  content: string;
+  link_label: string | null;
+  link_path: string | null;
+  created_at?: string;
+}
+
+export interface SignStatus {
+  signedToday: boolean;
+  todayReward: number;
+  recentSignDays: number;
+  signDate: string;
+}
+
+export interface InviteInfo {
+  code: string;
+  inviteCount: number;
+  rewardPerInvite: number;
+  totalEarned: number;
+  inviteUrl: string;
+}

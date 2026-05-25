@@ -4,6 +4,9 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { ZodError } from "zod";
 import "./db/index.js";
+import { seedDatabase } from "./db/seed.js";
+
+seedDatabase();
 import { AppError } from "./lib/errors.js";
 import { ensureUploadDir, getUploadDir } from "./lib/storage.js";
 import { requireAuth } from "./middleware/auth.js";
@@ -14,6 +17,11 @@ import { assets } from "./routes/assets.js";
 import { ai } from "./routes/ai.js";
 import { productSetAuthed, productSetPublic } from "./routes/productSet.js";
 import { tools } from "./routes/tools.js";
+import { product } from "./routes/product.js";
+import { sign } from "./routes/sign.js";
+import { invite } from "./routes/invite.js";
+import { noticeAuthed, noticePublic } from "./routes/notice.js";
+import { versionPublic } from "./routes/version.js";
 
 ensureUploadDir();
 
@@ -56,7 +64,7 @@ app.onError((err, c) => {
 });
 
 app.get("/health", (c) =>
-  c.json({ ok: true, service: "aimarket-api", version: "0.3.0" }),
+  c.json({ ok: true, service: "aimarket-api", version: "0.4.0" }),
 );
 
 app.use(
@@ -69,6 +77,8 @@ app.use(
 
 app.route("/api/v1/auth", auth);
 app.route("/api/v1/productSet", productSetPublic);
+app.route("/api/v1/notice", noticePublic);
+app.route("/api/v1/version", versionPublic);
 
 const authed = new Hono();
 authed.use("*", requireAuth);
@@ -78,11 +88,15 @@ authed.route("/assets", assets);
 authed.route("/ai", ai);
 authed.route("/productSet", productSetAuthed);
 authed.route("/tools", tools);
+authed.route("/product", product);
+authed.route("/sign", sign);
+authed.route("/inviteUser", invite);
+authed.route("/notice", noticeAuthed);
 
 app.route("/api/v1", authed);
 
 const port = Number(process.env.PORT ?? 4000);
 
 serve({ fetch: app.fetch, port }, () => {
-  console.log(`AIMarket API v0.3 listening on http://localhost:${port}`);
+  console.log(`AIMarket API v0.4 listening on http://localhost:${port}`);
 });
