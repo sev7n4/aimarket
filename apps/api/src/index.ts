@@ -12,6 +12,8 @@ import { user } from "./routes/user.js";
 import { sessions } from "./routes/sessions.js";
 import { assets } from "./routes/assets.js";
 import { ai } from "./routes/ai.js";
+import { productSetAuthed, productSetPublic } from "./routes/productSet.js";
+import { tools } from "./routes/tools.js";
 
 ensureUploadDir();
 
@@ -54,12 +56,19 @@ app.onError((err, c) => {
 });
 
 app.get("/health", (c) =>
-  c.json({ ok: true, service: "aimarket-api", version: "0.2.0" }),
+  c.json({ ok: true, service: "aimarket-api", version: "0.3.0" }),
 );
 
-app.use("/uploads/*", serveStatic({ root: getUploadDir(), rewriteRequestPath: (p) => p.replace(/^\/uploads/, "") }));
+app.use(
+  "/uploads/*",
+  serveStatic({
+    root: getUploadDir(),
+    rewriteRequestPath: (p) => p.replace(/^\/uploads/, ""),
+  }),
+);
 
 app.route("/api/v1/auth", auth);
+app.route("/api/v1/productSet", productSetPublic);
 
 const authed = new Hono();
 authed.use("*", requireAuth);
@@ -67,22 +76,13 @@ authed.route("/user", user);
 authed.route("/imageSession", sessions);
 authed.route("/assets", assets);
 authed.route("/ai", ai);
+authed.route("/productSet", productSetAuthed);
+authed.route("/tools", tools);
 
 app.route("/api/v1", authed);
-
-app.get("/api/v1/productSet/init", (c) =>
-  c.json({
-    data: {
-      platforms: ["淘宝", "京东", "抖音", "Amazon"],
-      markets: ["中国", "美国", "东南亚"],
-      languages: ["中文", "English"],
-      designers: ["Gloria", "Alex", "Mia"],
-    },
-  }),
-);
 
 const port = Number(process.env.PORT ?? 4000);
 
 serve({ fetch: app.fetch, port }, () => {
-  console.log(`AIMarket API v0.2 listening on http://localhost:${port}`);
+  console.log(`AIMarket API v0.3 listening on http://localhost:${port}`);
 });

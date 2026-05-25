@@ -113,3 +113,9 @@ database.exec(`
   CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, created_at ASC);
   CREATE INDEX IF NOT EXISTS idx_jobs_session ON generation_jobs(session_id, created_at DESC);
 `);
+
+try {
+  database.exec(`ALTER TABLE generation_jobs ADD COLUMN tool_type TEXT`);
+} catch {
+  /* column exists */
+}

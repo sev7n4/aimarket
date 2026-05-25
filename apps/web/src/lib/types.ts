@@ -46,3 +46,30 @@ export interface GenerationJob {
 export interface ApiErrorBody {
   error: { code: string; message: string };
 }
+
+export interface SessionReference {
+  id: string;
+  url: string;
+  label: string;
+  createdAt: string;
+}
+
+export interface RouteSuggestion {
+  modelId: string;
+  reason: string;
+}
+
+export interface ProductSetInit {
+  platforms: string[];
+  markets: string[];
+  languages: string[];
+  designers: string[];
+  slides: { key: string; label: string }[];
+}
+
+export interface StudioTool {
+  id: string;
+  name: string;
+  description: string;
+  defaultPrompt: string;
+}

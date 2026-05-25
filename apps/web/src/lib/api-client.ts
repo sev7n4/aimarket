@@ -5,6 +5,10 @@ import type {
   GenerationJob,
   ImageModel,
   ImageSession,
+  ProductSetInit,
+  RouteSuggestion,
+  SessionReference,
+  StudioTool,
 } from "./types";
 
 const API_BASE =
@@ -141,18 +145,103 @@ export async function estimatePoints(
   return res.data.totalPoints;
 }
 
+export async function suggestModel(mode: string, prompt: string) {
+  const res = await request<{ data: RouteSuggestion }>(
+    "/api/v1/ai/suggestModel",
+    {
+      method: "POST",
+      body: JSON.stringify({ mode, prompt }),
+    },
+  );
+  return res.data;
+}
+
+export async function fetchReferences(sessionId: string) {
+  const res = await request<{ data: SessionReference[] }>(
+    `/api/v1/imageSession/${sessionId}/references`,
+  );
+  return res.data;
+}
+
+export async function fetchProductSetInit() {
+  const res = await request<{ data: ProductSetInit }>(
+    "/api/v1/productSet/init",
+    { auth: false },
+  );
+  return res.data;
+}
+
 export async function submitGeneration(body: {
   sessionId: string;
   prompt: string;
-  modelId: string;
+  modelId?: string;
   count: number;
   resolution: string;
   mode: string;
   assetIds?: string[];
+  referenceOutputIds?: string[];
+  autoRoute?: boolean;
 }) {
   const res = await request<{
-    data: { jobId: string; estimatedPoints: number; status: string };
+    data: {
+      jobId: string;
+      estimatedPoints: number;
+      status: string;
+      modelId?: string;
+      routeReason?: string;
+    };
   }>("/api/v1/ai/generate", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return res.data;
+}
+
+export async function submitEcommerceGenerate(body: {
+  sessionId: string;
+  brand?: string;
+  platform: string;
+  market: string;
+  language: string;
+  productInfo: string;
+  designer?: string;
+  modelId?: string;
+  resolution?: string;
+  productAssetId?: string;
+  referenceAssetId?: string;
+}) {
+  const res = await request<{
+    data: {
+      jobId: string;
+      estimatedPoints: number;
+      modelId: string;
+      routeReason: string;
+      slideCount: number;
+    };
+  }>("/api/v1/productSet/generate", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return res.data;
+}
+
+export async function fetchTools() {
+  const res = await request<{ data: StudioTool[] }>("/api/v1/tools/list");
+  return res.data;
+}
+
+export async function runTool(
+  toolId: string,
+  body: {
+    sessionId: string;
+    prompt?: string;
+    resolution?: string;
+    referenceOutputIds?: string[];
+  },
+) {
+  const res = await request<{
+    data: { jobId: string; estimatedPoints: number; tool: string };
+  }>(`/api/v1/tools/${toolId}/run`, {
     method: "POST",
     body: JSON.stringify(body),
   });

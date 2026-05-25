@@ -1,16 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { db } from "../db/index.js";
+import { ECOMMERCE_SLIDES } from "./ecommerce.js";
 import { estimatePoints } from "./pricing.js";
 import { AppError } from "./errors.js";
 
 const delayMs = Number(process.env.MOCK_GENERATION_DELAY_MS ?? 2500);
 
-function placeholderUrl(prompt: string, index: number) {
-  const seed = encodeURIComponent(prompt.slice(0, 40) || "aimarket");
-  return `https://picsum.photos/seed/${seed}-${index}/1024/1024`;
+function placeholderUrl(seed: string, index: number, width = 1024, height = 1024) {
+  const s = encodeURIComponent(seed.slice(0, 48) || "aimarket");
+  return `https://picsum.photos/seed/${s}-${index}/${width}/${height}`;
 }
 
-export function createGenerationJob(input: {
+export interface CreateJobInput {
   sessionId: string;
   userId: string;
   prompt: string;
@@ -18,7 +19,11 @@ export function createGenerationJob(input: {
   mode: string;
   count: number;
   resolution: string;
-}) {
+  toolType?: string;
+  slideLabels?: string[];
+}
+
+export function createGenerationJob(input: CreateJobInput) {
   const pointsCost = estimatePoints(
     input.modelId,
     input.count,
@@ -54,8 +59,8 @@ export function createGenerationJob(input: {
 
     db.prepare(
       `INSERT INTO generation_jobs
-       (id, session_id, user_id, model_id, prompt, mode, count, resolution, status, points_cost)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?)`,
+       (id, session_id, user_id, model_id, prompt, mode, count, resolution, status, points_cost, tool_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?)`,
     ).run(
       jobId,
       input.sessionId,
@@ -66,6 +71,7 @@ export function createGenerationJob(input: {
       input.count,
       input.resolution,
       pointsCost,
+      input.toolType ?? null,
     );
 
     db.prepare(
@@ -76,17 +82,26 @@ export function createGenerationJob(input: {
     db.prepare(
       "UPDATE image_sessions SET status = 'running', updated_at = datetime('now') WHERE id = ?",
     ).run(input.sessionId);
+
+    if (input.mode === "ecommerce") {
+      db.prepare("UPDATE image_sessions SET title = ? WHERE id = ?").run(
+        "电商套图",
+        input.sessionId,
+      );
+    }
   });
 
-  queueMicrotask(() => runJob(jobId));
+  queueMicrotask(() =>
+    runJob(jobId, input.slideLabels),
+  );
 
   return { jobId, pointsCost, userMessageId };
 }
 
-async function runJob(jobId: string) {
+async function runJob(jobId: string, slideLabels?: string[]) {
   const job = db
     .prepare(
-      `SELECT id, session_id, user_id, prompt, count, points_cost, status
+      `SELECT id, session_id, user_id, prompt, count, points_cost, status, mode, tool_type
        FROM generation_jobs WHERE id = ?`,
     )
     .get(jobId) as
@@ -98,6 +113,8 @@ async function runJob(jobId: string) {
         count: number;
         points_cost: number;
         status: string;
+        mode: string;
+        tool_type: string | null;
       }
     | undefined;
 
@@ -110,34 +127,46 @@ async function runJob(jobId: string) {
   await new Promise((r) => setTimeout(r, delayMs));
 
   try {
-    const outputs: string[] = [];
+    const labels =
+      slideLabels ??
+      (job.mode === "ecommerce"
+        ? ECOMMERCE_SLIDES.map((s) => s.label)
+        : undefined);
+
+    const outputs: { url: string; label?: string }[] = [];
     for (let i = 0; i < job.count; i++) {
-      outputs.push(placeholderUrl(job.prompt, i));
+      const seed = labels?.[i] ?? job.prompt;
+      const label = labels?.[i];
+      outputs.push({
+        url: placeholderUrl(`${seed}-${job.tool_type ?? "gen"}`, i),
+        label,
+      });
     }
 
     const assistantMessageId = randomUUID();
+    const summary =
+      job.mode === "ecommerce"
+        ? `电商套图方案已生成，共 ${outputs.length} 张：${labels?.join("、") ?? ""}`
+        : job.tool_type
+          ? `「${job.tool_type}」处理完成，共 ${outputs.length} 张。`
+          : `已根据你的描述生成 ${outputs.length} 张图片。`;
 
     db.transaction(() => {
       for (let i = 0; i < outputs.length; i++) {
         db.prepare(
           `INSERT INTO job_outputs (id, job_id, url, sort_order) VALUES (?, ?, ?, ?)`,
-        ).run(randomUUID(), jobId, outputs[i], i);
+        ).run(randomUUID(), jobId, outputs[i].url, i);
       }
 
       db.prepare(
         `INSERT INTO messages (id, session_id, role, content, job_id)
          VALUES (?, ?, 'assistant', ?, ?)`,
-      ).run(
-        assistantMessageId,
-        job.session_id,
-        `已根据你的描述生成 ${outputs.length} 张图片。`,
-        jobId,
-      );
+      ).run(assistantMessageId, job.session_id, summary, jobId);
 
       for (let i = 0; i < outputs.length; i++) {
         db.prepare(
           `INSERT INTO message_outputs (id, message_id, url, sort_order) VALUES (?, ?, ?, ?)`,
-        ).run(randomUUID(), assistantMessageId, outputs[i], i);
+        ).run(randomUUID(), assistantMessageId, outputs[i].url, i);
       }
 
       db.prepare(
@@ -177,7 +206,7 @@ export function getJob(jobId: string, userId: string) {
   const job = db
     .prepare(
       `SELECT id, session_id, user_id, model_id, prompt, mode, count, resolution,
-              status, points_cost, error, created_at, completed_at
+              status, points_cost, error, tool_type, created_at, completed_at
        FROM generation_jobs WHERE id = ?`,
     )
     .get(jobId) as Record<string, unknown> | undefined;

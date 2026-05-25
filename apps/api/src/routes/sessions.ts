@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "../db/index.js";
 import type { AuthVariables } from "../middleware/auth.js";
 import { AppError } from "../lib/errors.js";
+import { listSessionReferences } from "../lib/references.js";
 
 const sessions = new Hono<{ Variables: AuthVariables }>();
 
@@ -94,6 +95,16 @@ sessions.get("/queryImageSessionRequestMode", (c) => {
     .get(sessionId, userId);
   if (!row) throw new AppError(404, "NOT_FOUND", "会话不存在");
   return c.json({ data: { sessionId, ...row } });
+});
+
+sessions.get("/:sessionId/references", (c) => {
+  const userId = c.get("userId");
+  const sessionId = c.req.param("sessionId");
+  const session = db
+    .prepare("SELECT id FROM image_sessions WHERE id = ? AND user_id = ?")
+    .get(sessionId, userId);
+  if (!session) throw new AppError(404, "NOT_FOUND", "会话不存在");
+  return c.json({ data: listSessionReferences(sessionId) });
 });
 
 sessions.get("/:sessionId/messages", (c) => {
