@@ -12,6 +12,7 @@ out
 .env
 .env.*
 !.env.example
+!deploy/.env.production.example
 
 # logs & debug
 *.log

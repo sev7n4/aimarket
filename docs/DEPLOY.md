@@ -2,6 +2,8 @@
 
 面向首次上线或版本升级。假设使用 Linux 主机 + Node 20+ + pnpm。
 
+容器化与 CI/CD 详见 [DEPLOY_CI.md](./DEPLOY_CI.md)（国内机 `3100`/`4100`，独立 `/opt/aimarket`）。
+
 ## 1. 架构概览
 
 | 组件 | 默认端口 | 说明 |

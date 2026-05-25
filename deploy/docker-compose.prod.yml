@@ -1,0 +1,74 @@
+# 生产 compose — 独立网络，不接入 pintuotuo 栈
+# 用法（在仓库根目录）:
+#   cp deploy/.env.production.example .env
+#   docker compose -f deploy/docker-compose.prod.yml up -d --build
+
+name: aimarket
+
+services:
+  api:
+    image: ${AIMARKET_API_IMAGE:-aimarket-api:local}
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.api
+    container_name: aimarket-api
+    restart: unless-stopped
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      PORT: "4000"
+      DATABASE_PATH: /app/data/aimarket.db
+      UPLOAD_DIR: /app/uploads
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      ADMIN_SECRET: ${ADMIN_SECRET:-aimarket-admin-dev}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://119.29.173.89:3100}
+      PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-http://119.29.173.89:3100}
+      IMAGE_PROVIDER: ${IMAGE_PROVIDER:-mock}
+      MODERATION_PROVIDER: ${MODERATION_PROVIDER:-local}
+      MODERATION_OUTPUT: ${MODERATION_OUTPUT:-true}
+      JOB_QUEUE: ${JOB_QUEUE:-memory}
+    ports:
+      - "4100:4000"
+    volumes:
+      - aimarket-data:/app/data
+      - aimarket-uploads:/app/uploads
+    networks:
+      - aimarket
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+
+  web:
+    image: ${AIMARKET_WEB_IMAGE:-aimarket-web:local}
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://119.29.173.89:4100}
+    container_name: aimarket-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3100:3000"
+    networks:
+      - aimarket
+
+networks:
+  aimarket:
+    name: aimarket-net
+
+volumes:
+  aimarket-data:
+  aimarket-uploads:
