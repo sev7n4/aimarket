@@ -46,6 +46,8 @@ import {
   GenerationSettingsPopover,
   type AspectRatio,
 } from "@/components/generation-settings-popover";
+import { ModelPicker, AUTO_MODEL_ID } from "@/components/model-picker";
+import { CountPicker } from "@/components/count-picker";
 
 interface CreationPanelProps {
   initialMode?: CreationMode;
@@ -111,7 +113,7 @@ export function CreationPanel({
   const [market, setMarket] = useState("中国");
   const [language, setLanguage] = useState("中文");
   const [designer, setDesigner] = useState("Gloria");
-  const [modelId, setModelId] = useState("omni-v2");
+  const [modelId, setModelId] = useState(AUTO_MODEL_ID);
   const [models, setModels] = useState<ImageModel[]>([]);
   const [count, setCount] = useState(1);
   const [resolution, setResolution] = useState("1k");
@@ -139,8 +141,11 @@ export function CreationPanel({
     mode,
     !rotatingPlaceholder || prompt.trim().length > 0,
   );
-  const selectedModel = models.find((m) => m.id === modelId);
+  const isDock = variant === "dock";
+  const selectedModel =
+    modelId === AUTO_MODEL_ID ? undefined : models.find((m) => m.id === modelId);
   const isVideoModel = selectedModel?.type === "video";
+  const showStackUpload = (leadingUpload || isDock) && mode !== "ecommerce";
 
   useEffect(() => {
     fetchModels()
@@ -174,7 +179,11 @@ export function CreationPanel({
     }
     const effectiveCount = mode === "ecommerce" ? 4 : count;
     const effectiveModel =
-      mode === "ecommerce" ? "latest-v2-pro" : modelId;
+      mode === "ecommerce"
+        ? "latest-v2-pro"
+        : modelId === AUTO_MODEL_ID
+          ? "omni-v2"
+          : modelId;
     const effectiveRes = mode === "ecommerce" ? "2k" : resolution;
     estimatePoints(effectiveModel, effectiveCount, effectiveRes)
       .then(setEstimated)
@@ -186,13 +195,16 @@ export function CreationPanel({
     const t = setTimeout(() => {
       suggestModel(mode, prompt)
         .then((s) => {
-          if (mode === "quick") setModelId(s.modelId);
-          setRouteHint(s.reason);
+          if (modelId === AUTO_MODEL_ID) {
+            setRouteHint(s.reason ? `Auto → ${s.reason}` : "Auto 路由");
+          } else {
+            setRouteHint(s.reason);
+          }
         })
         .catch(() => setRouteHint(null));
     }, 400);
     return () => clearTimeout(t);
-  }, [user, mode, prompt]);
+  }, [user, mode, prompt, modelId]);
 
   async function handleUpload(files: FileList | null) {
     if (!files?.length || !sessionId) return;
@@ -319,21 +331,22 @@ export function CreationPanel({
         setProductPreviewUrl(null);
         setReferencePreviewUrl(null);
       } else {
+        const useAuto = modelId === AUTO_MODEL_ID;
         const res = await submitGeneration({
           sessionId,
           prompt: prompt.trim(),
-          modelId,
+          modelId: useAuto ? undefined : modelId,
           count,
           resolution,
           aspectRatio,
           mode,
           assetIds: assetIds.length ? assetIds : undefined,
           referenceOutputIds: selectedRefs.map((r) => r.id),
-          autoRoute: mode === "quick",
+          autoRoute: useAuto || mode === "quick",
         });
         jobId = res.jobId;
         if (res.routeReason) setRouteHint(res.routeReason);
-        if (res.modelId) setModelId(res.modelId);
+        if (res.modelId && useAuto) setModelId(res.modelId);
       }
       setPrompt("");
       setAssetIds([]);
@@ -363,8 +376,6 @@ export function CreationPanel({
     (mode === "ecommerce"
       ? prompt.trim().length >= 10 && Boolean(productAssetId)
       : prompt.trim().length > 0);
-
-  const isDock = variant === "dock";
 
   const body = (
     <>
@@ -432,7 +443,7 @@ export function CreationPanel({
           }
         >
           <div className="relative flex gap-3">
-            {(leadingUpload || isDock) && mode !== "ecommerce" ? (
+            {showStackUpload ? (
               <UploadPreviewStack
                 items={uploadPreviews}
                 uploading={uploading}
@@ -515,7 +526,7 @@ export function CreationPanel({
               : "flex flex-wrap items-center gap-2"
           }
         >
-          {!leadingUpload ? (
+          {!showStackUpload ? (
             <button
               type="button"
               onClick={() => openUpload("general")}
@@ -541,12 +552,12 @@ export function CreationPanel({
           ) : null}
           {mode !== "ecommerce" ? (
             <>
-              <ModelSelect
+              <ModelPicker
                 models={models}
                 value={modelId}
                 onChange={setModelId}
               />
-              <CountSelect value={count} onChange={setCount} max={4} />
+              <CountPicker value={count} onChange={setCount} max={4} />
             </>
           ) : (
             <Pill>最新图片 V2 Pro · 4 张 · 2K</Pill>
@@ -606,31 +617,6 @@ export function CreationPanel({
   );
 }
 
-function CountSelect({
-  value,
-  onChange,
-  max,
-}: {
-  value: number;
-  onChange: (n: number) => void;
-  max: number;
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(Number(e.target.value))}
-      className="shrink-0 appearance-none rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 outline-none"
-      aria-label="生成数量"
-    >
-      {Array.from({ length: max }, (_, i) => i + 1).map((n) => (
-        <option key={n} value={n} className="bg-zinc-900">
-          {n}张
-        </option>
-      ))}
-    </select>
-  );
-}
-
 function TagSelect({
   value,
   options,
@@ -651,52 +637,6 @@ function TagSelect({
           {o}
         </option>
       ))}
-    </select>
-  );
-}
-
-function ModelSelect({
-  models,
-  value,
-  onChange,
-}: {
-  models: ImageModel[];
-  value: string;
-  onChange: (id: string) => void;
-}) {
-  const list = models.length
-    ? models
-    : [{ id: "omni-v2", name: "全能图片 V2", type: "image" } as ImageModel];
-
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="max-w-[9rem] shrink-0 appearance-none truncate rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 outline-none sm:max-w-[11rem]"
-      aria-label="选择模型"
-    >
-      {list.filter((m) => m.type === "image").length > 0 ? (
-        <optgroup label="图片">
-          {list
-            .filter((m) => m.type === "image")
-            .map((m) => (
-              <option key={m.id} value={m.id} className="bg-zinc-900">
-                {m.name}
-              </option>
-            ))}
-        </optgroup>
-      ) : null}
-      {list.filter((m) => m.type === "video").length > 0 ? (
-        <optgroup label="视频">
-          {list
-            .filter((m) => m.type === "video")
-            .map((m) => (
-              <option key={m.id} value={m.id} className="bg-zinc-900">
-                {m.name}
-              </option>
-            ))}
-        </optgroup>
-      ) : null}
     </select>
   );
 }

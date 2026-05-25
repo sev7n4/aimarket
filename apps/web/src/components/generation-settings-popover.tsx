@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ChevronDown, Sparkles } from "lucide-react";
 import type { CreationMode } from "@aimarket/ui";
+import { CompactDockSheet } from "@/components/compact-dock-sheet";
 
 /** 对齐椒图 / Gemini 图片常见比例 */
 export type AspectRatio =
@@ -54,18 +55,6 @@ export function GenerationSettingsPopover({
   videoMode,
 }: GenerationSettingsPopoverProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDoc(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
 
   const smartLabel = mode === "quick" ? "智能" : "标准";
   const resOptions = videoMode
@@ -73,66 +62,70 @@ export function GenerationSettingsPopover({
     : resolutions;
 
   return (
-    <div className="relative shrink-0" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="inline-flex max-w-[9.5rem] items-center gap-1 truncate rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/10 sm:max-w-none"
-      >
-        <Sparkles className="size-3 shrink-0 text-orange-400" />
-        <span className="truncate">
-          {smartLabel} · {aspectRatio} · {resolution.toUpperCase()}
-        </span>
-        <ChevronDown
-          className={`size-3 shrink-0 opacity-60 transition ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-
-      {open ? (
-        <div className="absolute bottom-full left-0 z-50 mb-2 w-64 rounded-2xl border border-white/10 bg-[#1a1a1a] p-3 shadow-xl">
-          <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
-            生成比例
-          </p>
-          <div className="grid max-h-40 grid-cols-5 gap-1.5 overflow-y-auto">
-            {aspects.map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                onClick={() => onAspectRatioChange(a.id)}
-                className={`rounded-lg px-1.5 py-1.5 text-[11px] transition ${
-                  aspectRatio === a.id
-                    ? "bg-white text-black"
-                    : "bg-white/5 text-zinc-400 hover:bg-white/10"
-                }`}
-              >
-                {a.label}
-              </button>
-            ))}
-          </div>
-          <p className="mb-2 mt-3 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
-            分辨率
-          </p>
-          <div className="flex gap-1.5">
-            {resOptions.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => {
-                  onResolutionChange(r.id);
-                  setOpen(false);
-                }}
-                className={`flex-1 rounded-lg py-1.5 text-xs transition ${
-                  resolution === r.id
-                    ? "bg-orange-500 text-white"
-                    : "bg-white/5 text-zinc-400 hover:bg-white/10"
-                }`}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </div>
+    <CompactDockSheet
+      open={open}
+      onClose={() => setOpen(false)}
+      title="图片质量"
+      desktopWidthClass="w-60"
+      trigger={
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="inline-flex max-w-[8.5rem] shrink-0 items-center gap-1 truncate rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/10 sm:max-w-none"
+          aria-label="图片尺寸与分辨率"
+        >
+          <Sparkles className="size-3 shrink-0 text-orange-400" />
+          <span className="truncate">
+            {aspectRatio} · {resolution.toUpperCase()}
+          </span>
+          <ChevronDown
+            className={`size-3 shrink-0 opacity-60 transition ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+      }
+    >
+      <p className="mb-2 text-[10px] text-zinc-500">{smartLabel}模式</p>
+      <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+        比例
+      </p>
+      <div className="grid grid-cols-5 gap-1.5">
+        {aspects.map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            onClick={() => onAspectRatioChange(a.id)}
+            className={`rounded-lg px-1 py-2 text-[11px] transition ${
+              aspectRatio === a.id
+                ? "bg-white text-black"
+                : "bg-white/5 text-zinc-400 hover:bg-white/10"
+            }`}
+          >
+            {a.label}
+          </button>
+        ))}
+      </div>
+      <p className="mb-1.5 mt-3 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+        分辨率
+      </p>
+      <div className="flex gap-1.5">
+        {resOptions.map((r) => (
+          <button
+            key={r.id}
+            type="button"
+            onClick={() => {
+              onResolutionChange(r.id);
+              setOpen(false);
+            }}
+            className={`flex-1 rounded-lg py-2 text-xs transition ${
+              resolution === r.id
+                ? "bg-orange-500 text-white"
+                : "bg-white/5 text-zinc-400 hover:bg-white/10"
+            }`}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
+    </CompactDockSheet>
   );
 }
