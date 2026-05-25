@@ -135,23 +135,22 @@ jobs:
             done
             IMAGE_TAG="$IMAGE_TAG" $COMPOSE up -d --no-build
             echo "Pruning dangling images..."
-            set +e
+            set +euo
             docker image prune -f >/dev/null 2>&1
             echo "Removing stale AIMarket image tags on server..."
             for REPO in "ghcr.io/${GHCR_OWNER}/aimarket-api" "ghcr.io/${GHCR_OWNER}/aimarket-web"; do
-              mapfile -t TAGS < <(docker images "$REPO" --format '{{.Tag}}' 2>/dev/null)
-              for tag in "${TAGS[@]}"; do
+              docker images "$REPO" --format '{{.Tag}}' 2>/dev/null | while read -r tag; do
                 [[ -z "$tag" || "$tag" == "<none>" ]] && continue
                 [[ "$tag" == "$IMAGE_TAG" || "$tag" == "latest" ]] && continue
-                docker rmi "${REPO}:${tag}" 2>/dev/null
-              done
+                docker rmi "${REPO}:${tag}" 2>/dev/null || true
+              done || true
             done
             echo "Removing legacy local release tags (pre-GHCR deploy)..."
             for LEGACY in aimarket-api:release aimarket-web:release aimarket-api:local aimarket-web:local; do
-              docker rmi "$LEGACY" 2>/dev/null
+              docker rmi "$LEGACY" 2>/dev/null || true
             done
-            docker builder prune -f --filter "until=72h" 2>/dev/null
-            set -e
+            docker builder prune -f --filter "until=72h" 2>/dev/null || true
+            set -euo pipefail
             echo "Deployment completed (IMAGE_TAG=$IMAGE_TAG)"
 
       - name: Verify deployment
