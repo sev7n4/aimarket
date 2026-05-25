@@ -59,6 +59,8 @@ pnpm dev:api   # http://localhost:4000
 - `GET|PUT /api/v1/imageSession/:id/canvas` — 画布布局持久化
 - `GET /api/v1/imageSession/:id/export` — 会话导出
 - `GET /api/v1/workspaces/list` — 用户工作区列表
+- `POST /api/v1/workspaces/create` · `POST /api/v1/workspaces/join` — 团队空间与邀请加入
+- `POST /api/v1/workspaces/:id/invites` · `GET .../members` — 邀请链接与成员管理
 - `POST /api/v1/reports` — 内容举报
 - `POST /api/v1/events` — 埋点（匿名或带 Token）
 - `GET /api/v1/admin/*` — 管理统计与举报审核（`X-Admin-Secret`）
@@ -86,6 +88,7 @@ pnpm dev:api   # http://localhost:4000
 - [x] Phase 6：6A 外部内容审核、6B 多租户工作区、6C Redis 限流（见 [docs/PHASE6.md](./docs/PHASE6.md)）
 - [x] Sprint 7：轻量埋点 + 首页匿名 `page_view`
 - [x] Sprint 8：Admin 埋点看板 + [生产部署清单](./docs/DEPLOY.md)
+- [x] Sprint 9：工作区邀请/切换、S3 CDN 对象存储、PostgreSQL 迁移脚本
 - [x] Sprint 2：真实图像 Provider（OpenAI 落盘、比例尺寸、Staging 文档）
 - [x] Sprint 3：画布 2.0（布局持久化、拖拽、删除、上传上画布）
 - [x] Sprint 4：session.kind 画布/项目 + 项目库筛选 + 电商套图完整表单

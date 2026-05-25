@@ -4,7 +4,11 @@ import { persistRemoteImageUrl } from "./storage.js";
 export async function persistOutputUrls(urls: string[]): Promise<string[]> {
   const persisted: string[] = [];
   for (const url of urls) {
-    if (url.startsWith("/uploads/")) {
+    const cdn = process.env.S3_PUBLIC_URL?.replace(/\/$/, "");
+    if (
+      url.startsWith("/uploads/") ||
+      (cdn && url.startsWith(cdn))
+    ) {
       persisted.push(url);
       continue;
     }

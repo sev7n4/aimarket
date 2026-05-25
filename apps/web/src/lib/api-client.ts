@@ -112,7 +112,11 @@ export async function fetchPoints() {
 export async function ensureSession(
   sessionId: string,
   mode: string,
-  options?: { title?: string; kind?: "canvas" | "project" },
+  options?: {
+    title?: string;
+    kind?: "canvas" | "project";
+    workspaceId?: string;
+  },
 ) {
   const res = await request<{ data: ImageSession }>(
     "/api/v1/imageSession/ensure",
@@ -123,6 +127,7 @@ export async function ensureSession(
         mode,
         title: options?.title,
         kind: options?.kind,
+        workspaceId: options?.workspaceId,
       }),
     },
   );
@@ -132,9 +137,11 @@ export async function ensureSession(
 export async function listSessions(
   limit = 20,
   kind?: "canvas" | "project",
+  workspaceId?: string,
 ) {
   const params = new URLSearchParams({ limit: String(limit) });
   if (kind) params.set("kind", kind);
+  if (workspaceId) params.set("workspaceId", workspaceId);
   const res = await request<{ data: ImageSession[] }>(
     `/api/v1/imageSession/list?${params.toString()}`,
   );
@@ -453,6 +460,47 @@ export async function createWorkspace(name: string) {
     body: JSON.stringify({ name }),
   });
   return res.data;
+}
+
+export async function joinWorkspace(code: string) {
+  const res = await request<{
+    data: {
+      workspaceId: string;
+      workspaceName: string;
+      role: string;
+      alreadyMember: boolean;
+    };
+  }>("/api/v1/workspaces/join", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+  return res.data;
+}
+
+export async function createWorkspaceInvite(workspaceId: string) {
+  const res = await request<{
+    data: { code: string; joinUrl: string; role: string };
+  }>(`/api/v1/workspaces/${workspaceId}/invites`, {
+    method: "POST",
+    body: JSON.stringify({ role: "member", expiresInDays: 7 }),
+  });
+  return res.data;
+}
+
+export async function fetchWorkspaceMembers(workspaceId: string) {
+  const res = await request<{
+    data: { id: string; email: string; role: string }[];
+  }>(`/api/v1/workspaces/${workspaceId}/members`);
+  return res.data;
+}
+
+export async function removeWorkspaceMember(
+  workspaceId: string,
+  memberId: string,
+) {
+  await request(`/api/v1/workspaces/${workspaceId}/members/${memberId}`, {
+    method: "DELETE",
+  });
 }
 
 export async function fetchAdminReports(

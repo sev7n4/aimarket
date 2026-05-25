@@ -12,7 +12,7 @@ import {
 } from "../lib/canvas-layout.js";
 import { sessionKindSchema } from "../lib/session-kind.js";
 import {
-  getUserDefaultWorkspaceId,
+  resolveWorkspaceIdForUser,
   userHasWorkspaceAccess,
 } from "../lib/workspaces.js";
 
@@ -29,6 +29,7 @@ sessions.post("/ensure", async (c) => {
       mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
       title: z.string().max(100).optional(),
       kind: sessionKindSchema.default("canvas"),
+      workspaceId: z.string().uuid().optional(),
     })
     .parse(await c.req.json());
 
@@ -53,7 +54,7 @@ sessions.post("/ensure", async (c) => {
     body.title ??
     (body.kind === "project" ? "新建项目" : body.kind === "canvas" ? "新建画布" : "未命名");
 
-  const workspaceId = getUserDefaultWorkspaceId(userId);
+  const workspaceId = resolveWorkspaceIdForUser(userId, body.workspaceId);
   db.prepare(
     `INSERT INTO image_sessions (id, user_id, workspace_id, title, mode, kind) VALUES (?, ?, ?, ?, ?, ?)`,
   ).run(body.sessionId, userId, workspaceId, title, body.mode, body.kind);
@@ -72,12 +73,13 @@ sessions.post("/create", async (c) => {
       mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
       title: z.string().max(100).optional(),
       kind: sessionKindSchema.default("canvas"),
+      workspaceId: z.string().uuid().optional(),
     })
     .parse(await c.req.json().catch(() => ({})));
 
   const id = randomUUID();
   const title = body.title ?? "未命名";
-  const workspaceId = getUserDefaultWorkspaceId(userId);
+  const workspaceId = resolveWorkspaceIdForUser(userId, body.workspaceId);
   db.prepare(
     `INSERT INTO image_sessions (id, user_id, workspace_id, title, mode, kind) VALUES (?, ?, ?, ?, ?, ?)`,
   ).run(id, userId, workspaceId, title, body.mode, body.kind);

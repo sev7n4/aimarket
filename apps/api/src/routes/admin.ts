@@ -5,6 +5,8 @@ import { getProviderStatus } from "../providers/registry.js";
 import { requireAdmin } from "../middleware/admin.js";
 import { getModerationStatus } from "../lib/moderation/index.js";
 import { getRateLimitStatus } from "../lib/rate-limit.js";
+import { getStorageStatus } from "../lib/object-storage/index.js";
+import { sqlAnalyticsSinceDays, sqlNow } from "../db/dialect.js";
 
 export const admin = new Hono();
 
@@ -40,6 +42,7 @@ admin.get("/stats", (c) => {
       provider: getProviderStatus(),
       moderation: getModerationStatus(),
       rateLimit: getRateLimitStatus(),
+      storage: getStorageStatus(),
       queue: process.env.JOB_QUEUE ?? "memory",
     },
   });
@@ -47,11 +50,12 @@ admin.get("/stats", (c) => {
 
 admin.get("/analytics", (c) => {
   const days = Math.min(Math.max(Number(c.req.query("days") ?? 7), 1), 30);
+  const sinceSql = sqlAnalyticsSinceDays();
   const byName = db
     .prepare(
       `SELECT name, COUNT(*) as count
        FROM analytics_events
-       WHERE created_at >= datetime('now', printf('-%d days', ?))
+       WHERE ${sinceSql}
        GROUP BY name
        ORDER BY count DESC`,
     )
@@ -60,7 +64,7 @@ admin.get("/analytics", (c) => {
   const total = db
     .prepare(
       `SELECT COUNT(*) as c FROM analytics_events
-       WHERE created_at >= datetime('now', printf('-%d days', ?))`,
+       WHERE ${sinceSql}`,
     )
     .get(days) as { c: number };
 
@@ -135,7 +139,7 @@ admin.patch("/reports/:id", async (c) => {
   }
 
   db.prepare(
-    `UPDATE content_reports SET status = ?, admin_note = ?, reviewed_at = datetime('now') WHERE id = ?`,
+    `UPDATE content_reports SET status = ?, admin_note = ?, reviewed_at = ${sqlNow()} WHERE id = ?`,
   ).run(body.status, body.adminNote ?? null, id);
 
   return c.json({ data: { id, status: body.status } });

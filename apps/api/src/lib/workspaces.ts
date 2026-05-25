@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { db } from "../db/index.js";
+import { AppError } from "./errors.js";
 
 /** 为用户创建默认个人工作区（Phase 6 多租户基础） */
 export function ensurePersonalWorkspace(userId: string): string {
@@ -26,6 +27,19 @@ export function ensurePersonalWorkspace(userId: string): string {
 
 export function getUserDefaultWorkspaceId(userId: string): string {
   return ensurePersonalWorkspace(userId);
+}
+
+export function resolveWorkspaceIdForUser(
+  userId: string,
+  requestedId?: string,
+): string {
+  if (requestedId) {
+    if (!userHasWorkspaceAccess(userId, requestedId)) {
+      throw new AppError(403, "FORBIDDEN", "无权访问该工作区");
+    }
+    return requestedId;
+  }
+  return getUserDefaultWorkspaceId(userId);
 }
 
 export function userHasWorkspaceAccess(

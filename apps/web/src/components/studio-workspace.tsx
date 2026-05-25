@@ -12,7 +12,9 @@ import { WorkbenchPanel } from "@/components/workbench-panel";
 import { StudioHeader } from "@/components/studio-header";
 import { ProviderStatusBanner } from "@/components/provider-status-banner";
 import { ContentReportDialog } from "@/components/content-report-dialog";
-import { fetchWorkspaces, trackEvent } from "@/lib/api-client";
+import { WorkspaceSwitcher } from "@/components/workspace-switcher";
+import { getActiveWorkspaceId } from "@/lib/active-workspace";
+import { trackEvent } from "@/lib/api-client";
 import { type CreationMode } from "@aimarket/ui";
 import type { ImageSession, StudioTool } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
@@ -87,7 +89,9 @@ export function StudioWorkspace({
   const [ready, setReady] = useState(false);
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
   const [toolPending, setToolPending] = useState(false);
-  const [workspaceName, setWorkspaceName] = useState<string | null>(null);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(
+    null,
+  );
 
   const currentSession = sessions.find((s) => s.id === sessionId);
   const sessionKind: SessionKind =
@@ -100,19 +104,21 @@ export function StudioWorkspace({
 
   const initSession = useCallback(async () => {
     if (!user) return;
+    const wsId = activeWorkspaceId ?? getActiveWorkspaceId() ?? undefined;
     await ensureSession(sessionId, mode, {
       title: initialTitle,
       kind: initialKind ?? "canvas",
+      workspaceId: wsId,
     });
     await loadCanvas();
     const [list, toolList] = await Promise.all([
-      listSessions(),
+      listSessions(20, undefined, wsId),
       fetchTools().catch(() => []),
     ]);
     setSessions(list);
     setTools(toolList);
     setReady(true);
-  }, [user, sessionId, mode, initialTitle, initialKind, loadCanvas]);
+  }, [user, sessionId, mode, initialTitle, initialKind, loadCanvas, activeWorkspaceId]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -121,13 +127,9 @@ export function StudioWorkspace({
       fetchTools().then(setTools).catch(() => setTools([]));
       return;
     }
+    const stored = getActiveWorkspaceId();
+    if (stored) setActiveWorkspaceId(stored);
     initSession().catch(() => setReady(true));
-    fetchWorkspaces()
-      .then((list) => {
-        const personal = list.find((w) => w.is_personal);
-        setWorkspaceName(personal?.name ?? list[0]?.name ?? null);
-      })
-      .catch(() => setWorkspaceName(null));
   }, [authLoading, user, initSession]);
 
   useEffect(() => {
@@ -153,7 +155,9 @@ export function StudioWorkspace({
         setPollingJobId(null);
         await loadCanvas();
         await refreshUser();
-        setSessions(await listSessions());
+        setSessions(
+          await listSessions(20, undefined, activeWorkspaceId ?? undefined),
+        );
       },
       () => setPollingJobId(null),
     );
@@ -250,7 +254,9 @@ export function StudioWorkspace({
   const handleSessionDeleted = useCallback(
     (deletedId?: string) => {
       const id = deletedId ?? sessionId;
-      void listSessions().then(setSessions);
+      void listSessions(20, undefined, activeWorkspaceId ?? undefined).then(
+        setSessions,
+      );
       if (id === sessionId) {
         router.push(buildStudioUrl("canvas", { mode }));
       }
@@ -308,7 +314,15 @@ export function StudioWorkspace({
               <X className="size-4" />
             </button>
           </div>
-          <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+          {user ? (
+            <WorkspaceSwitcher
+              onWorkspaceChange={(id) => {
+                setActiveWorkspaceId(id);
+                void listSessions(20, undefined, id).then(setSessions);
+              }}
+            />
+          ) : null}
+          <p className="mb-2 mt-3 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
             历史会话
           </p>
           <ul className="flex max-h-[40vh] flex-col gap-0.5 overflow-y-auto">
@@ -358,11 +372,6 @@ export function StudioWorkspace({
               </span>
             </p>
             <ProviderStatusBanner />
-            {user && workspaceName ? (
-              <p className="mb-1 px-1 text-[10px] text-zinc-600">
-                工作区：{workspaceName}
-              </p>
-            ) : null}
             <DesignCanvas
               items={canvasItems}
               selectedId={selectedCanvasId}

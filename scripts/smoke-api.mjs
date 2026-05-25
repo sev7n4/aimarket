@@ -235,6 +235,43 @@ async function main() {
     body: JSON.stringify({ name: "冒烟团队空间" }),
   });
   ok("POST workspaces/create", teamWs.res.status === 201);
+  const teamId = teamWs.json?.data?.id;
+
+  if (teamId) {
+    const invite = await req(`/api/v1/workspaces/${teamId}/invites`, {
+      method: "POST",
+      headers: authH,
+      body: JSON.stringify({ role: "member", expiresInDays: 7 }),
+    });
+    const inviteCode = invite.json?.data?.code;
+    ok("POST workspaces/invites", invite.res.status === 201 && !!inviteCode);
+
+    const email2 = `smoke2_${Date.now()}@test.local`;
+    const reg2 = await req("/api/v1/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ email: email2, password }),
+    });
+    const token2 = reg2.json?.data?.token;
+    if (inviteCode && token2) {
+      const join = await req("/api/v1/workspaces/join", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token2}` },
+        body: JSON.stringify({ code: inviteCode }),
+      });
+      ok(
+        "POST workspaces/join",
+        join.res.ok && join.json?.data?.workspaceId === teamId,
+      );
+      const members = await req(`/api/v1/workspaces/${teamId}/members`, {
+        headers: authH,
+      });
+      ok(
+        "GET workspaces/members",
+        members.res.ok && members.json?.data?.length >= 2,
+        `count=${members.json?.data?.length}`,
+      );
+    }
+  }
 
   const adminAnalytics = await req("/api/v1/admin/analytics?days=7", {
     headers: { "X-Admin-Secret": ADMIN },

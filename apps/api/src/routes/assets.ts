@@ -21,7 +21,7 @@ assets.post("/upload", async (c) => {
   const buffer = Buffer.from(await file.arrayBuffer());
   let saved: { filename: string; url: string; sizeBytes: number };
   try {
-    saved = saveUpload(buffer, file.type, file.name);
+    saved = await saveUpload(buffer, file.type, file.name);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "UPLOAD_FAILED";
     if (msg === "UNSUPPORTED_MIME") {

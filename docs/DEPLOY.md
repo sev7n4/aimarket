@@ -152,8 +152,36 @@ WantedBy=multi-user.target
 - Admin `GET /api/v1/admin/analytics?days=7`：埋点汇总
 - 日志：生成失败、审核 API 降级、Redis 连接失败
 
-## 10. 已知限制（后续迭代）
+## 10. PostgreSQL（可选）
 
-- SQLite 单实例，高并发需迁 PostgreSQL
-- `uploads/` 本地盘，多机需对象存储
-- 团队工作区暂无成员邀请 API（仅创建团队空间）
+默认使用 SQLite（`DATABASE_PATH`）。多实例 / 高并发可改用 PostgreSQL：
+
+```bash
+export DATABASE_URL=postgresql://user:pass@host:5432/aimarket
+cd apps/api && pnpm exec tsx src/db/postgres-bootstrap.ts
+```
+
+完整 schema 见 `apps/api/src/db/migrations/postgres.sql`。  
+将 API 主库切换为 Postgres 需在后续版本接通 `DATABASE_URL`（当前运行仍以 SQLite 为准）。
+
+## 11. 对象存储 / CDN
+
+```bash
+STORAGE_PROVIDER=s3
+S3_BUCKET=your-bucket
+S3_REGION=ap-guangzhou
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+# 腾讯云 COS / MinIO 等兼容 S3：
+S3_ENDPOINT=https://cos.ap-guangzhou.myqcloud.com
+S3_PUBLIC_URL=https://cdn.yourdomain.com   # CDN 加速域名
+S3_PREFIX=uploads/
+```
+
+上传与生成图 URL 将直接返回 `S3_PUBLIC_URL` 前缀，前端 `assetUrl()` 已支持 `http(s)` 绝对地址。
+
+## 12. 工作区协作
+
+- Studio 侧栏：切换个人 / 团队工作区、新建团队、生成邀请链接
+- 成员打开 `https://www.yourdomain.com/join?code=XXXXXXXX`
+- API：`POST /workspaces/join`、`GET /workspaces/:id/members`

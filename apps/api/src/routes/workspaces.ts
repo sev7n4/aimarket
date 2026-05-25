@@ -3,6 +3,14 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { db } from "../db/index.js";
 import type { AuthVariables } from "../middleware/auth.js";
+import { AppError } from "../lib/errors.js";
+import {
+  createWorkspaceInvite,
+  joinWorkspaceByCode,
+  listWorkspaceMembers,
+  removeWorkspaceMember,
+  requireWorkspaceRole,
+} from "../lib/workspace-members.js";
 import { getUserDefaultWorkspaceId } from "../lib/workspaces.js";
 
 export const workspacesRoute = new Hono<{ Variables: AuthVariables }>();
@@ -51,3 +59,59 @@ workspacesRoute.post("/create", async (c) => {
   );
 });
 
+workspacesRoute.post("/join", async (c) => {
+  const userId = c.get("userId");
+  const body = z
+    .object({ code: z.string().min(4).max(32) })
+    .parse(await c.req.json());
+
+  const result = joinWorkspaceByCode(userId, body.code);
+  return c.json({ data: result });
+});
+
+workspacesRoute.get("/:workspaceId/members", (c) => {
+  const userId = c.get("userId");
+  const workspaceId = c.req.param("workspaceId");
+  const members = listWorkspaceMembers(workspaceId, userId);
+  return c.json({ data: members });
+});
+
+workspacesRoute.post("/:workspaceId/invites", async (c) => {
+  const userId = c.get("userId");
+  const workspaceId = c.req.param("workspaceId");
+  const body = z
+    .object({
+      role: z.enum(["member", "admin"]).default("member"),
+      maxUses: z.number().int().min(1).max(100).optional(),
+      expiresInDays: z.number().int().min(1).max(90).optional(),
+    })
+    .parse(await c.req.json());
+
+  const invite = createWorkspaceInvite(workspaceId, userId, {
+    role: body.role,
+    maxUses: body.maxUses,
+    expiresInDays: body.expiresInDays,
+  });
+
+  const webBase =
+    process.env.PUBLIC_WEB_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
+  const joinUrl = `${webBase}/join?code=${invite.code}`;
+
+  return c.json(
+    {
+      data: {
+        ...invite,
+        joinUrl,
+      },
+    },
+    201,
+  );
+});
+
+workspacesRoute.delete("/:workspaceId/members/:memberId", (c) => {
+  const userId = c.get("userId");
+  const workspaceId = c.req.param("workspaceId");
+  const memberId = c.req.param("memberId");
+  removeWorkspaceMember(workspaceId, userId, memberId);
+  return c.json({ data: { ok: true } });
+});

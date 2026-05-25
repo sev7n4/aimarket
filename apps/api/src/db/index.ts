@@ -1,6 +1,7 @@
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import fs from "node:fs";
 import path from "node:path";
+export { getDbDialect, sqlNow, sqlAnalyticsSinceDays } from "./dialect.js";
 
 const dbPath =
   process.env.DATABASE_PATH ??
@@ -166,6 +167,20 @@ database.exec(`
     role TEXT NOT NULL DEFAULT 'member',
     PRIMARY KEY (workspace_id, user_id)
   );
+
+  CREATE TABLE IF NOT EXISTS workspace_invites (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    code TEXT NOT NULL UNIQUE,
+    created_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role TEXT NOT NULL DEFAULT 'member',
+    max_uses INTEGER,
+    use_count INTEGER NOT NULL DEFAULT 0,
+    expires_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_workspace_invites_code ON workspace_invites(code);
 
   CREATE TABLE IF NOT EXISTS content_reports (
     id TEXT PRIMARY KEY,

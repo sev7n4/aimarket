@@ -27,7 +27,7 @@ Phase 6 总目标：合规审核、多租户、性能与可运维性。
 | 创建团队工作区 | ✅ | `POST /api/v1/workspaces/create` |
 | 按工作区筛会话 | ✅ | `GET /imageSession/list?workspaceId=` |
 | Studio 展示工作区名 | ✅ | 顶栏「工作区：个人空间」 |
-| 成员邀请 / 切换工作区 UI | ⏳ | 后续 Phase |
+| 成员邀请 / 切换工作区 UI | ✅ | `/join?code=`、Studio 侧栏工作区切换器 |
 
 ## 6C — 性能与限流
 
@@ -37,7 +37,8 @@ Phase 6 总目标：合规审核、多租户、性能与可运维性。
 | Redis 分布式限流 | ✅ | `RATE_LIMIT_STORE=redis` 或 `JOB_QUEUE=redis` |
 | Redis 任务队列 | ✅ | Phase 5 `JOB_QUEUE=redis` |
 | 移动端工作台 Sheet | ✅ | `<768px` 默认收起 |
-| CDN / 对象存储 | ⏳ | 见 DEPLOY.md 已知限制 |
+| CDN / 对象存储 | ✅ | `STORAGE_PROVIDER=s3` + `S3_PUBLIC_URL` CDN |
+| PostgreSQL | ✅ 迁移就绪 | `db/migrations/postgres.sql` + bootstrap；默认仍 SQLite |
 
 ## Sprint 7（已完成）
 

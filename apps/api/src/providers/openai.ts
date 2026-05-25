@@ -70,7 +70,7 @@ export const openaiProvider: ImageProvider = {
       const item = json.data?.[0];
       if (useB64 && item?.b64_json) {
         const buffer = Buffer.from(item.b64_json, "base64");
-        urls.push(saveGeneratedImage(buffer, "image/png").url);
+        urls.push((await saveGeneratedImage(buffer, "image/png")).url);
       } else if (item?.url) {
         urls.push(item.url);
       } else {

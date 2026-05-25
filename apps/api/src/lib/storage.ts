@@ -1,9 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
-
-const UPLOAD_DIR =
-  process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
+import { getObjectStorage } from "./object-storage/index.js";
 
 const ALLOWED_MIME = new Set([
   "image/jpeg",
@@ -13,11 +10,14 @@ const ALLOWED_MIME = new Set([
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
+const UPLOAD_DIR =
+  process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
+
 export function ensureUploadDir() {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-export function saveUpload(
+export async function saveUpload(
   buffer: Buffer,
   mimeType: string,
   originalName: string,
@@ -29,41 +29,34 @@ export function saveUpload(
     throw new Error("FILE_TOO_LARGE");
   }
 
-  ensureUploadDir();
-  const ext = path.extname(originalName) || mimeToExt(mimeType);
-  const filename = `${randomUUID()}${ext}`;
-  const fullPath = path.join(UPLOAD_DIR, filename);
-  fs.writeFileSync(fullPath, buffer);
-
+  const stored = await getObjectStorage().put(buffer, mimeType, originalName);
   return {
-    filename,
-    url: `/uploads/${filename}`,
-    sizeBytes: buffer.length,
+    filename: stored.key,
+    url: stored.url,
+    sizeBytes: stored.sizeBytes,
   };
-}
-
-function mimeToExt(mime: string) {
-  if (mime === "image/png") return ".png";
-  if (mime === "image/webp") return ".webp";
-  return ".jpg";
 }
 
 export function getUploadDir() {
   return UPLOAD_DIR;
 }
 
-/** 将生成结果写入本地 uploads，返回可长期访问的 `/uploads/...` 路径 */
-export function saveGeneratedImage(
+export async function saveGeneratedImage(
   buffer: Buffer,
   mimeType = "image/png",
 ) {
   if (buffer.length > MAX_BYTES) {
     throw new Error("GENERATED_IMAGE_TOO_LARGE");
   }
-  return saveUpload(buffer, mimeType, `generated${mimeToExt(mimeType)}`);
+  const ext =
+    mimeType === "image/png"
+      ? ".png"
+      : mimeType === "image/webp"
+        ? ".webp"
+        : ".jpg";
+  return saveUpload(buffer, mimeType, `generated${ext}`);
 }
 
-/** 拉取远程图片并落盘（OpenAI 临时 URL 等） */
 export async function persistRemoteImageUrl(url: string): Promise<string> {
   const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
   if (!res.ok) {
@@ -72,5 +65,5 @@ export async function persistRemoteImageUrl(url: string): Promise<string> {
   const mime =
     res.headers.get("content-type")?.split(";")[0]?.trim() ?? "image/png";
   const buffer = Buffer.from(await res.arrayBuffer());
-  return saveGeneratedImage(buffer, mime).url;
+  return (await saveGeneratedImage(buffer, mime)).url;
 }
