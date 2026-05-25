@@ -1,6 +1,5 @@
 import type { CreationMode } from "@aimarket/ui";
 import { StudioWorkspace } from "@/components/studio-workspace";
-import { SiteHeader } from "@/components/site-header";
 
 export const metadata = {
   title: "工作台",
@@ -20,6 +19,8 @@ type PageProps = {
     sessionId?: string;
     mode?: string;
     q?: string;
+    jobId?: string;
+    tool?: string;
   }>;
 };
 
@@ -30,12 +31,13 @@ export default async function StudioPage({ searchParams }: PageProps) {
   const initialPrompt = params.q ?? "";
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#030303]">
-      <SiteHeader />
+    <div className="flex h-dvh flex-col overflow-hidden bg-[#030303] md:pl-14">
       <StudioWorkspace
         sessionId={sessionId}
         initialMode={mode}
         initialPrompt={initialPrompt}
+        initialJobId={params.jobId}
+        initialToolId={params.tool}
       />
     </div>
   );

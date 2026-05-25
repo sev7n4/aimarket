@@ -19,6 +19,7 @@ export interface CreateJobInput {
   mode: string;
   count: number;
   resolution: string;
+  aspectRatio?: string;
   toolType?: string;
   slideLabels?: string[];
 }
@@ -59,8 +60,8 @@ export function createGenerationJob(input: CreateJobInput) {
 
     db.prepare(
       `INSERT INTO generation_jobs
-       (id, session_id, user_id, model_id, prompt, mode, count, resolution, status, points_cost, tool_type)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?)`,
+       (id, session_id, user_id, model_id, prompt, mode, count, resolution, aspect_ratio, status, points_cost, tool_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?)`,
     ).run(
       jobId,
       input.sessionId,
@@ -70,6 +71,7 @@ export function createGenerationJob(input: CreateJobInput) {
       input.mode,
       input.count,
       input.resolution,
+      input.aspectRatio ?? "1:1",
       pointsCost,
       input.toolType ?? null,
     );
@@ -102,7 +104,7 @@ export async function processGenerationJob({
 }: JobQueuePayload) {
   const job = db
     .prepare(
-      `SELECT id, session_id, user_id, prompt, count, points_cost, status, mode, tool_type, model_id, resolution
+      `SELECT id, session_id, user_id, prompt, count, points_cost, status, mode, tool_type, model_id, resolution, aspect_ratio
        FROM generation_jobs WHERE id = ?`,
     )
     .get(jobId) as
@@ -118,6 +120,7 @@ export async function processGenerationJob({
         tool_type: string | null;
         model_id: string;
         resolution: string;
+        aspect_ratio: string;
       }
     | undefined;
 
@@ -154,6 +157,7 @@ export async function processGenerationJob({
           modelId: job.model_id,
           count: 1,
           resolution: job.resolution,
+          aspectRatio: job.aspect_ratio ?? "1:1",
         });
         urls.push(part.urls[0]);
       }
@@ -163,6 +167,7 @@ export async function processGenerationJob({
         modelId: job.model_id,
         count: job.count,
         resolution: job.resolution,
+        aspectRatio: job.aspect_ratio ?? "1:1",
       });
       urls = result.urls;
     }

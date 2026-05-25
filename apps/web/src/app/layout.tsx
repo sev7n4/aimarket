@@ -20,6 +20,19 @@ export const metadata: Metadata = {
   },
   description:
     "一句话完成修图、电商海报、虚拟试衣、抠图扩图与照片修复。对话式改图，多模型智能路由。",
+  openGraph: {
+    title: "AIMarket - 中文 AI 修图神器",
+    description:
+      "让每个人都能轻松创作出专业级图片和视频。对话修图、电商套图 Agent、AI 工具一站完成。",
+    type: "website",
+    locale: "zh_CN",
+    siteName: "AIMarket",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AIMarket - 中文 AI 修图与电商设计",
+    description: "对话式改图、电商套图、多模型智能路由",
+  },
 };
 
 export default function RootLayout({

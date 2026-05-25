@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button, GlassPanel } from "@aimarket/ui";
 import { useAuth } from "@/lib/auth-context";
@@ -19,6 +20,7 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
   const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   useEffect(() => {
     if (open && mode === "register") {
@@ -34,6 +36,10 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (mode === "register" && !agreed) {
+      setError("请先阅读并同意服务条款与隐私政策");
+      return;
+    }
     setError(null);
     setPending(true);
     try {
@@ -92,6 +98,29 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
               className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm uppercase outline-none focus:border-purple-500/50"
             />
           ) : null}
+          {mode === "register" ? (
+            <label className="flex items-start gap-2 text-xs text-zinc-500">
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                我已阅读并同意
+                <Link href="/terms" className="text-orange-400 hover:underline">
+                  服务条款
+                </Link>
+                与
+                <Link
+                  href="/privacy"
+                  className="text-orange-400 hover:underline"
+                >
+                  隐私政策
+                </Link>
+              </span>
+            </label>
+          ) : null}
           {error ? (
             <p className="text-sm text-red-400">{error}</p>
           ) : null}
@@ -99,7 +128,7 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
             type="submit"
             variant="primary"
             className="w-full"
-            disabled={pending}
+            disabled={pending || (mode === "register" && !agreed)}
           >
             {pending ? "处理中…" : mode === "login" ? "登录" : "注册"}
           </Button>

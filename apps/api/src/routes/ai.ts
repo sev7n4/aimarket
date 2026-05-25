@@ -65,6 +65,9 @@ ai.post("/generate", async (c) => {
       modelId: z.string().optional(),
       count: z.number().int().min(1).max(4).default(1),
       resolution: z.enum(["1k", "2k", "4k"]).default("1k"),
+      aspectRatio: z
+        .enum(["1:1", "4:3", "3:4", "16:9", "9:16"])
+        .default("1:1"),
       mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
       assetIds: z.array(z.string().uuid()).optional(),
       referenceOutputIds: z.array(z.string().uuid()).optional(),
@@ -116,6 +119,7 @@ ai.post("/generate", async (c) => {
     mode: body.mode,
     count: body.count,
     resolution: body.resolution,
+    aspectRatio: body.aspectRatio,
   });
 
   return c.json({
@@ -124,6 +128,7 @@ ai.post("/generate", async (c) => {
       estimatedPoints: pointsCost,
       status: "queued",
       modelId,
+      aspectRatio: body.aspectRatio,
       routeReason: body.autoRoute ? route.reason : undefined,
     },
   });

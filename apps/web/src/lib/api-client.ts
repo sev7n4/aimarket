@@ -188,6 +188,7 @@ export async function submitGeneration(body: {
   modelId?: string;
   count: number;
   resolution: string;
+  aspectRatio?: string;
   mode: string;
   assetIds?: string[];
   referenceOutputIds?: string[];

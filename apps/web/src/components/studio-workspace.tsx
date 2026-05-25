@@ -1,21 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import {
-  Crop,
-  Eraser,
-  Expand,
-  Layers,
-  Loader2,
-  Palette,
-  Pencil,
-  Type,
-  Wand2,
-} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, Maximize2, Minimize2, X } from "lucide-react";
 import { CreationPanel } from "@/components/creation-panel";
 import { LoginDialog } from "@/components/login-dialog";
-import type { CreationMode } from "@aimarket/ui";
+import { AppLeftRail } from "@/components/app-left-rail";
+import { StudioHeader } from "@/components/studio-header";
+import { StudioToolGrid } from "@/components/studio-tool-grid";
+import { ModeTabs, type CreationMode } from "@aimarket/ui";
+import { modeTabs } from "@/lib/modes";
 import type { ChatMessage, ImageSession, StudioTool } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -29,28 +23,31 @@ import {
 } from "@/lib/api-client";
 import { streamJob } from "@/lib/job-stream";
 
-const TOOL_ICONS: Record<string, typeof Expand> = {
-  expand: Expand,
-  erase: Eraser,
-  inpaint: Pencil,
-  text: Type,
-  crop: Crop,
-  blend: Layers,
-};
-
 interface StudioWorkspaceProps {
   sessionId: string;
   initialMode: CreationMode;
   initialPrompt: string;
+  initialJobId?: string;
+  initialToolId?: string;
 }
 
 export function StudioWorkspace({
   sessionId,
   initialMode,
   initialPrompt,
+  initialJobId,
+  initialToolId,
 }: StudioWorkspaceProps) {
   const { user, loading: authLoading, refreshUser } = useAuth();
+  const canvasRef = useRef<HTMLDivElement>(null);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [mode, setMode] = useState<CreationMode>(initialMode);
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessions, setSessions] = useState<ImageSession[]>([]);
   const [tools, setTools] = useState<StudioTool[]>([]);
@@ -60,6 +57,14 @@ export function StudioWorkspace({
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
   const [toolPending, setToolPending] = useState(false);
 
+  const currentSession = sessions.find((s) => s.id === sessionId);
+  const sessionTitle =
+    currentSession?.title && currentSession.title !== "未命名"
+      ? currentSession.title
+      : mode === "ecommerce"
+        ? "电商套图"
+        : "未命名";
+
   const loadMessages = useCallback(async () => {
     const data = await fetchMessages(sessionId);
     setMessages(data);
@@ -67,7 +72,7 @@ export function StudioWorkspace({
 
   const initSession = useCallback(async () => {
     if (!user) return;
-    await ensureSession(sessionId, initialMode);
+    await ensureSession(sessionId, mode);
     await loadMessages();
     const [list, toolList] = await Promise.all([
       listSessions(),
@@ -76,7 +81,7 @@ export function StudioWorkspace({
     setSessions(list);
     setTools(toolList);
     setReady(true);
-  }, [user, sessionId, initialMode, loadMessages]);
+  }, [user, sessionId, mode, loadMessages]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -87,6 +92,20 @@ export function StudioWorkspace({
     }
     initSession().catch(() => setReady(true));
   }, [authLoading, user, initSession]);
+
+  useEffect(() => {
+    if (!initialJobId || !user) return;
+    setPollingJobId(initialJobId);
+  }, [initialJobId, user]);
+
+  useEffect(() => {
+    if (!initialToolId || !tools.length) return;
+    const tool = tools.find((t) => t.id === initialToolId);
+    if (tool) {
+      setActiveTool(tool);
+      setToolPrompt(tool.defaultPrompt);
+    }
+  }, [initialToolId, tools]);
 
   useEffect(() => {
     if (!pollingJobId || !user) return;
@@ -103,6 +122,14 @@ export function StudioWorkspace({
     );
     return stop;
   }, [pollingJobId, user, loadMessages, refreshUser]);
+
+  function handleModeChange(next: CreationMode) {
+    setMode(next);
+    const params = new URLSearchParams(window.location.search);
+    params.set("mode", next);
+    params.set("sessionId", sessionId);
+    window.history.replaceState(null, "", `/studio?${params.toString()}`);
+  }
 
   async function handleRunTool() {
     if (!activeTool || !user) {
@@ -126,194 +153,254 @@ export function StudioWorkspace({
     }
   }
 
-  const isEcommerce = initialMode === "ecommerce";
+  function toggleFullscreen() {
+    const el = canvasRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      void el.requestFullscreen().then(() => setFullscreen(true));
+    } else {
+      void document.exitFullscreen().then(() => setFullscreen(false));
+    }
+  }
+
+  useEffect(() => {
+    const onFs = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onFs);
+    return () => document.removeEventListener("fullscreenchange", onFs);
+  }, []);
+
   const showEmpty = messages.length === 0 && !pollingJobId;
+  const isEcommerce = mode === "ecommerce";
 
   return (
     <>
-      <div className="mx-auto flex w-full max-w-6xl flex-1 gap-4 px-4 py-6">
-        <aside className="hidden w-52 shrink-0 flex-col gap-3 lg:flex">
-          <div className="text-xs font-medium uppercase tracking-wider text-zinc-600">
-            历史会话
+      <AppLeftRail />
+      <StudioHeader
+        sessionTitle={sessionTitle}
+        onMenuClick={() => setSidebarOpen(true)}
+      />
+
+      <div className="relative flex min-h-0 flex-1">
+        {sidebarOpen ? (
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+            aria-label="关闭侧栏"
+            onClick={() => setSidebarOpen(false)}
+          />
+        ) : null}
+
+        <aside
+          className={`fixed inset-y-12 left-0 z-50 flex w-64 flex-col border-r border-white/5 bg-[#080808] p-3 transition-transform md:left-14 lg:static lg:z-0 lg:translate-x-0 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <div className="mb-2 flex items-center justify-between lg:hidden">
+            <span className="text-xs font-medium text-zinc-500">菜单</span>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="rounded-lg p-1 text-zinc-500 hover:text-white"
+            >
+              <X className="size-4" />
+            </button>
           </div>
-          <div className="flex max-h-[32vh] flex-col gap-1 overflow-y-auto">
+          <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+            历史会话
+          </p>
+          <div className="flex max-h-[40vh] flex-col gap-0.5 overflow-y-auto">
             {sessions.map((s) => (
               <Link
                 key={s.id}
                 href={`/studio?sessionId=${s.id}&mode=${s.mode}`}
-                className={`rounded-lg px-3 py-2 text-left text-sm transition ${
+                onClick={() => setSidebarOpen(false)}
+                className={`rounded-lg px-3 py-2 text-sm transition ${
                   s.id === sessionId
                     ? "bg-white/10 text-white"
                     : "text-zinc-500 hover:bg-white/5"
                 }`}
               >
                 <div className="truncate font-medium">{s.title}</div>
-                <div className="text-xs text-zinc-600">{s.mode}</div>
+                <div className="text-[10px] text-zinc-600">{s.mode}</div>
               </Link>
             ))}
           </div>
-          <div className="text-xs font-medium uppercase tracking-wider text-zinc-600">
-            AI 工具
-          </div>
-          <div className="flex flex-col gap-1">
-            {initialMode === "ecommerce" ? (
-              <button
-                type="button"
-                className="flex items-center gap-2 rounded-xl border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-xs text-orange-300"
-              >
-                <Palette className="size-3.5" />
-                套图模式
-              </button>
-            ) : null}
-            {tools.map((tool) => {
-              const Icon = TOOL_ICONS[tool.id] ?? Wand2;
-              return (
+          {user ? (
+            <button
+              type="button"
+              onClick={async () => {
+                const data = await exportSession(sessionId);
+                for (const f of data.files) {
+                  window.open(
+                    f.url.startsWith("http")
+                      ? f.url
+                      : `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"}${f.url}`,
+                    "_blank",
+                  );
+                }
+                if (!data.files.length) alert("暂无可导出文件");
+              }}
+              className="mt-4 text-left text-xs text-zinc-500 hover:text-zinc-300"
+            >
+              导出本会话全部图片
+            </button>
+          ) : null}
+        </aside>
+
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col p-3 md:p-4">
+          <div
+            ref={canvasRef}
+            className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a]"
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-white/5 px-4 py-3">
+              <span className="text-sm font-medium text-zinc-200">
+                {sessionTitle}
+              </span>
+              <div className="flex items-center gap-1">
+                {user ? null : ready ? (
+                  <button
+                    type="button"
+                    onClick={() => setLoginOpen(true)}
+                    className="mr-2 text-xs text-orange-400 hover:underline"
+                  >
+                    登录后开始
+                  </button>
+                ) : null}
                 <button
-                  key={tool.id}
                   type="button"
-                  onClick={() => {
+                  onClick={toggleFullscreen}
+                  className="rounded-lg p-2 text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
+                  aria-label={fullscreen ? "退出全屏" : "全屏"}
+                >
+                  {fullscreen ? (
+                    <Minimize2 className="size-4" />
+                  ) : (
+                    <Maximize2 className="size-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 justify-center border-b border-white/5 px-4 py-3">
+              <ModeTabs
+                items={modeTabs}
+                value={mode}
+                onChange={handleModeChange}
+                className="max-w-full overflow-x-auto"
+              />
+            </div>
+
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-6">
+              {activeTool ? (
+                <div className="mx-auto mb-4 w-full max-w-2xl rounded-2xl border border-purple-500/30 bg-purple-500/5 p-4">
+                  <h3 className="font-medium text-purple-200">
+                    {activeTool.name}
+                  </h3>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {activeTool.description}
+                  </p>
+                  <textarea
+                    value={toolPrompt}
+                    onChange={(e) => setToolPrompt(e.target.value)}
+                    rows={2}
+                    className="mt-3 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none"
+                  />
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleRunTool()}
+                      disabled={toolPending}
+                      className="rounded-full bg-gradient-to-r from-orange-500 to-purple-600 px-4 py-1.5 text-sm font-medium disabled:opacity-50"
+                    >
+                      {toolPending ? "执行中…" : "运行工具"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTool(null)}
+                      className="text-sm text-zinc-500 hover:text-zinc-300"
+                    >
+                      取消
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {showEmpty ? (
+                <div className="flex flex-1 flex-col items-center justify-center py-8 text-center">
+                  {isEcommerce ? (
+                    <>
+                      <span className="text-5xl" aria-hidden>
+                        🎨
+                      </span>
+                      <h2 className="mt-6 text-2xl font-semibold tracking-tight text-white">
+                        电商套图 Agent
+                      </h2>
+                      <p className="mt-3 max-w-md text-sm leading-relaxed text-zinc-500">
+                        上传商品图并填写卖点，一句话生成主图、卖点、场景、详情
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-4xl" aria-hidden>
+                        😊
+                      </p>
+                      <h2 className="mt-4 text-2xl font-semibold tracking-tight text-white">
+                        Hi，我是 AIMarket
+                      </h2>
+                      <p className="mt-3 max-w-md text-sm leading-relaxed text-zinc-500">
+                        说说今天你想做点什么，一句话让我帮你创作！
+                      </p>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+                  {messages.map((msg) => (
+                    <MessageBubble key={msg.id} message={msg} />
+                  ))}
+                </div>
+              )}
+
+              {pollingJobId ? (
+                <div className="mx-auto mt-4 flex w-full max-w-3xl items-center gap-2 text-sm text-zinc-500">
+                  <Loader2 className="size-4 animate-spin text-orange-400" />
+                  正在生成中…
+                </div>
+              ) : null}
+            </div>
+
+            <div className="shrink-0 border-t border-white/5 bg-[#0a0a0a] px-4 py-4">
+              <CreationPanel
+                variant="dock"
+                showModeTabs={false}
+                rotatingPlaceholder
+                mode={mode}
+                onModeChange={handleModeChange}
+                sessionId={sessionId}
+                initialMode={initialMode}
+                initialPrompt={initialPrompt}
+                onAuthRequired={() => setLoginOpen(true)}
+                onJobStarted={(jobId) => {
+                  setPollingJobId(jobId);
+                  void loadMessages();
+                }}
+              />
+              {mode !== "ecommerce" ? (
+                <StudioToolGrid
+                  tools={tools}
+                  activeToolId={activeTool?.id}
+                  disabled={toolPending || Boolean(pollingJobId)}
+                  onSelect={(tool) => {
                     setActiveTool(tool);
                     setToolPrompt(tool.defaultPrompt);
                   }}
-                  className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs transition ${
-                    activeTool?.id === tool.id
-                      ? "border-purple-500/40 bg-purple-500/10 text-white"
-                      : "border-white/10 text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
-                  }`}
-                >
-                  <Icon className="size-3.5 shrink-0" />
-                  {tool.name}
-                </button>
-              );
-            })}
-          </div>
-        </aside>
-
-        <div className="flex min-h-[50vh] min-w-0 flex-1 flex-col">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm">
-              <span className="text-zinc-500">项目 · </span>
-              <span className="font-medium">
-                {isEcommerce ? "电商套图" : "未命名"}
-              </span>
-              <span className="ml-2 text-xs text-zinc-600">内容由 AI 生成</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {user ? (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const data = await exportSession(sessionId);
-                    for (const f of data.files) {
-                      window.open(
-                        f.url.startsWith("http")
-                          ? f.url
-                          : `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"}${f.url}`,
-                        "_blank",
-                      );
-                    }
-                    if (!data.files.length) alert("暂无可导出文件");
-                  }}
-                  className="text-xs text-zinc-500 hover:text-zinc-300"
-                >
-                  导出全部
-                </button>
-              ) : null}
-              {!user && ready ? (
-                <button
-                  type="button"
-                  onClick={() => setLoginOpen(true)}
-                  className="text-sm text-orange-400 hover:underline"
-                >
-                  登录后开始创作
-                </button>
+                />
               ) : null}
             </div>
           </div>
-
-          {activeTool ? (
-            <div className="mb-3 rounded-2xl border border-purple-500/30 bg-purple-500/5 p-4">
-              <h3 className="font-medium text-purple-200">{activeTool.name}</h3>
-              <p className="mt-1 text-xs text-zinc-500">{activeTool.description}</p>
-              <textarea
-                value={toolPrompt}
-                onChange={(e) => setToolPrompt(e.target.value)}
-                rows={2}
-                className="mt-3 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none"
-              />
-              <div className="mt-2 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleRunTool()}
-                  disabled={toolPending}
-                  className="rounded-full bg-gradient-to-r from-orange-500 to-purple-600 px-4 py-1.5 text-sm font-medium disabled:opacity-50"
-                >
-                  {toolPending ? "执行中…" : "运行工具"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTool(null)}
-                  className="text-sm text-zinc-500 hover:text-zinc-300"
-                >
-                  取消
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          <div className="flex flex-1 flex-col gap-4 overflow-y-auto rounded-3xl border border-white/10 bg-white/[0.02] p-4">
-            {showEmpty ? (
-              <div className="flex flex-1 flex-col items-center justify-center py-12 text-center">
-                {isEcommerce ? (
-                  <>
-                    <span className="text-4xl" aria-hidden>
-                      🎨
-                    </span>
-                    <h2 className="mt-4 text-2xl font-semibold">套图模式</h2>
-                    <p className="mt-2 max-w-md text-sm text-zinc-500">
-                      上传商品图并填写卖点，一键生成 4 张电商套图
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="size-10 text-orange-400/80" />
-                    <h2 className="mt-4 text-2xl font-semibold">
-                      Hi，我是 AIMarket
-                    </h2>
-                    <p className="mt-2 max-w-md text-sm text-zinc-500">
-                      对话改图、@ 引用历史图，或使用左侧 AI 工具
-                    </p>
-                  </>
-                )}
-              </div>
-            ) : (
-              messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} />
-              ))
-            )}
-            {pollingJobId ? (
-              <div className="flex items-center gap-2 text-sm text-zinc-500">
-                <Loader2 className="size-4 animate-spin text-orange-400" />
-                正在生成中…
-              </div>
-            ) : null}
-          </div>
-
-          <div className="mt-4">
-            <CreationPanel
-              compact
-              sessionId={sessionId}
-              initialMode={initialMode}
-              initialPrompt={initialPrompt}
-              onAuthRequired={() => setLoginOpen(true)}
-              onJobStarted={(jobId) => {
-                setPollingJobId(jobId);
-                void loadMessages();
-              }}
-            />
-          </div>
-        </div>
+        </main>
       </div>
+
       <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
     </>
   );
@@ -326,34 +413,43 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm ${
+        className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm sm:max-w-[85%] ${
           isUser
-            ? "bg-gradient-to-br from-orange-600/80 to-purple-700/80 text-white"
-            : "border border-white/10 bg-white/[0.04] text-zinc-200"
+            ? "bg-white/10 text-zinc-100"
+            : "border border-white/8 bg-white/[0.03] text-zinc-200"
         }`}
       >
-        <p className="whitespace-pre-wrap">{message.content}</p>
+        <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
         {message.outputs?.length > 0 ? (
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div
+            className={`mt-3 gap-2 ${
+              message.outputs.length >= 4
+                ? "grid grid-cols-2"
+                : "grid grid-cols-1 sm:grid-cols-2"
+            }`}
+          >
             {message.outputs.map((out, i) => {
-              const isVideo = out.url.includes(".mp4") || out.url.includes("video");
+              const isVideo =
+                out.url.includes(".mp4") || out.url.includes("video");
               return (
                 <a
                   key={`${out.url}-${i}`}
                   href={assetUrl(out.url)}
                   target="_blank"
                   rel="noreferrer"
-                  className="group block overflow-hidden rounded-xl border border-white/10"
+                  className="group overflow-hidden rounded-xl border border-white/10 bg-black/40"
                 >
                   {message.outputs.length === 4 ? (
-                    <span className="block bg-black/50 px-2 py-1 text-[10px] text-zinc-400">
+                    <span className="block bg-black/60 px-2 py-1 text-[10px] text-zinc-400">
                       {slideLabels[i] ?? `图 ${i + 1}`}
                     </span>
                   ) : null}
                   {isVideo ? (
-                    <div className="flex aspect-video w-full items-center justify-center bg-black text-sm text-zinc-400">
-                      ▶ 视频预览（新窗口打开）
-                    </div>
+                    <video
+                      src={assetUrl(out.url)}
+                      controls
+                      className="aspect-video w-full bg-black object-contain"
+                    />
                   ) : (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img

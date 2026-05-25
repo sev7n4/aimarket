@@ -7,6 +7,7 @@ import { Button } from "@aimarket/ui";
 import { useAuth } from "@/lib/auth-context";
 import { LoginDialog } from "@/components/login-dialog";
 import { CreditsDialog } from "@/components/credits-dialog";
+import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
 import { fetchSignStatus, signIn } from "@/lib/api-client";
 
 export function SiteHeader() {
@@ -15,6 +16,7 @@ export function SiteHeader() {
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [signedToday, setSignedToday] = useState(true);
   const [signing, setSigning] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const openLogin = () => setLoginOpen(true);
@@ -55,6 +57,7 @@ export function SiteHeader() {
           <div className="flex items-center gap-3">
             <button
               type="button"
+              onClick={() => setMenuOpen(true)}
               className="rounded-lg p-2 text-zinc-400 hover:bg-white/5 hover:text-white lg:hidden"
               aria-label="打开菜单"
             >
@@ -118,6 +121,7 @@ export function SiteHeader() {
           </div>
         </div>
       </header>
+      <MobileNavDrawer open={menuOpen} onClose={() => setMenuOpen(false)} />
       <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
       <CreditsDialog open={creditsOpen} onClose={() => setCreditsOpen(false)} />
     </>

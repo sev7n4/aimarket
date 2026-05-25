@@ -3,6 +3,7 @@ export interface GenerateParams {
   modelId: string;
   count: number;
   resolution: string;
+  aspectRatio?: string;
   referenceUrls?: string[];
 }
 

@@ -5,10 +5,10 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowUp,
   AtSign,
-  ChevronDown,
   ImagePlus,
   Loader2,
   Sparkles,
+  Wand2,
 } from "lucide-react";
 import {
   Button,
@@ -18,6 +18,7 @@ import {
 } from "@aimarket/ui";
 import { modeTabs, placeholders } from "@/lib/modes";
 import {
+  ensureSession,
   estimatePoints,
   fetchModels,
   fetchProductSetInit,
@@ -28,36 +29,73 @@ import {
   suggestModel,
   uploadAsset,
 } from "@/lib/api-client";
+import { polishPrompt } from "@/lib/prompt-polish";
 import type { ImageModel } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 import { MentionPicker } from "@/components/mention-picker";
 import type { SessionReference } from "@/lib/types";
+import { useRotatingPlaceholder } from "@/hooks/use-rotating-placeholder";
+import {
+  UploadPreviewStack,
+  type UploadPreviewItem,
+} from "@/components/upload-preview-stack";
+import {
+  GenerationSettingsPopover,
+  type AspectRatio,
+} from "@/components/generation-settings-popover";
 
 interface CreationPanelProps {
   initialMode?: CreationMode;
   initialPrompt?: string;
   compact?: boolean;
+  variant?: "default" | "dock";
+  mode?: CreationMode;
+  onModeChange?: (mode: CreationMode) => void;
+  showModeTabs?: boolean;
   sessionId?: string;
   onAuthRequired?: () => void;
   onJobStarted?: (jobId: string) => void;
   navigateOnSubmit?: boolean;
+  /** 首页：左侧虚线上传位 */
+  leadingUpload?: boolean;
+  /** 首页：Prompt 润色按钮 */
+  enablePolish?: boolean;
+  /** 登录后首页直接提交并跳转 Studio */
+  homeDirectSubmit?: boolean;
+  /** 轮播「试试输入：…」占位（对标椒图） */
+  rotatingPlaceholder?: boolean;
 }
 
 export function CreationPanel({
   initialMode = "chat",
   initialPrompt = "",
   compact = false,
+  variant = "default",
+  mode: controlledMode,
+  onModeChange,
+  showModeTabs = true,
   sessionId,
   onAuthRequired,
   onJobStarted,
-  navigateOnSubmit = !sessionId,
+  homeDirectSubmit = false,
+  navigateOnSubmit,
+  leadingUpload = false,
+  enablePolish = false,
+  rotatingPlaceholder = false,
 }: CreationPanelProps) {
+  const shouldNavigateOnSubmit =
+    navigateOnSubmit ?? (!sessionId && !homeDirectSubmit);
   const router = useRouter();
   const { user, refreshUser } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const uploadTargetRef = useRef<"product" | "reference" | "general">("general");
 
-  const [mode, setMode] = useState<CreationMode>(initialMode);
+  const [internalMode, setInternalMode] = useState<CreationMode>(initialMode);
+  const mode = controlledMode ?? internalMode;
+  const setMode = (m: CreationMode) => {
+    setInternalMode(m);
+    onModeChange?.(m);
+  };
   const [prompt, setPrompt] = useState(initialPrompt);
   const [brand, setBrand] = useState("");
   const [platform, setPlatform] = useState("淘宝");
@@ -68,6 +106,7 @@ export function CreationPanel({
   const [models, setModels] = useState<ImageModel[]>([]);
   const [count, setCount] = useState(1);
   const [resolution, setResolution] = useState("1k");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
   const [estimated, setEstimated] = useState<number | null>(null);
   const [routeHint, setRouteHint] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -78,6 +117,14 @@ export function CreationPanel({
   const [references, setReferences] = useState<SessionReference[]>([]);
   const [selectedRefs, setSelectedRefs] = useState<SessionReference[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
+  const [uploadPreviews, setUploadPreviews] = useState<UploadPreviewItem[]>([]);
+
+  const rotatingText = useRotatingPlaceholder(
+    mode,
+    !rotatingPlaceholder || prompt.trim().length > 0,
+  );
+  const selectedModel = models.find((m) => m.id === modelId);
+  const isVideoModel = selectedModel?.type === "video";
 
   useEffect(() => {
     fetchModels()
@@ -144,7 +191,11 @@ export function CreationPanel({
       } else if (uploadTargetRef.current === "reference") {
         setReferenceAssetId(asset.id);
       } else {
+        const url = URL.createObjectURL(file);
         setAssetIds((prev) => [...prev, asset.id].slice(0, 4));
+        setUploadPreviews((prev) =>
+          [...prev, { id: asset.id, url }].slice(0, 4),
+        );
       }
     } finally {
       setUploading(false);
@@ -176,10 +227,19 @@ export function CreationPanel({
       return;
     }
 
-    if (navigateOnSubmit) {
-      const id = crypto.randomUUID();
+    const shouldNavigate =
+      shouldNavigateOnSubmit || (homeDirectSubmit && !user);
+
+    if (shouldNavigate) {
+      const id = sessionId ?? crypto.randomUUID();
       const params = new URLSearchParams({ sessionId: id, mode });
       if (prompt.trim()) params.set("q", prompt.trim());
+      if (assetIds.length) {
+        sessionStorage.setItem(
+          `aimarket_pending_assets_${id}`,
+          JSON.stringify(assetIds),
+        );
+      }
       router.push(`/studio?${params.toString()}`);
       return;
     }
@@ -192,9 +252,9 @@ export function CreationPanel({
 
     setPending(true);
     try {
-      const selectedModel = models.find((m) => m.id === modelId);
+      await ensureSession(sessionId, mode);
       let jobId: string;
-      if (selectedModel?.type === "video") {
+      if (isVideoModel) {
         const res = await submitVideoGeneration({
           sessionId,
           prompt: prompt.trim(),
@@ -223,6 +283,7 @@ export function CreationPanel({
           modelId,
           count,
           resolution,
+          aspectRatio,
           mode,
           assetIds: assetIds.length ? assetIds : undefined,
           referenceOutputIds: selectedRefs.map((r) => r.id),
@@ -234,12 +295,18 @@ export function CreationPanel({
       }
       setPrompt("");
       setAssetIds([]);
+      setUploadPreviews([]);
       setSelectedRefs([]);
       await refreshUser();
       onJobStarted?.(jobId);
       if (sessionId) {
         const refs = await fetchReferences(sessionId);
         setReferences(refs);
+      }
+      if (homeDirectSubmit) {
+        router.push(
+          `/studio?sessionId=${sessionId}&mode=${mode}&jobId=${jobId}`,
+        );
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : "提交失败");
@@ -251,13 +318,15 @@ export function CreationPanel({
   const canSubmit =
     mode === "ecommerce" ? prompt.trim().length >= 10 : prompt.trim().length > 0;
 
-  return (
-    <GlassPanel
-      className={`mx-auto w-full max-w-3xl p-4 sm:p-5 ${compact ? "" : "shadow-orange-500/5"}`}
-    >
-      <div className="mb-4 flex justify-center overflow-x-auto">
-        <ModeTabs items={modeTabs} value={mode} onChange={setMode} />
-      </div>
+  const isDock = variant === "dock";
+
+  const body = (
+    <>
+      {showModeTabs && variant === "default" ? (
+        <div className="mb-4 flex justify-center overflow-x-auto">
+          <ModeTabs items={modeTabs} value={mode} onChange={setMode} />
+        </div>
+      ) : null}
 
       {mode === "ecommerce" ? (
         <div className="space-y-3">
@@ -314,34 +383,77 @@ export function CreationPanel({
         onChange={(e) => handleUpload(e.target.files)}
       />
 
-      <div className="relative mt-3">
+      <div className={`relative ${isDock ? "" : "mt-3"}`}>
         <MentionPicker
           references={references}
           open={mentionOpen}
           onSelect={insertMention}
           onClose={() => setMentionOpen(false)}
         />
-        <textarea
-          value={prompt}
-          onChange={(e) => {
-            const v = e.target.value;
-            setPrompt(v);
-            if (v.endsWith("@") && mode === "chat") setMentionOpen(true);
-          }}
-          placeholder={
-            mode === "chat"
-              ? "输入修改效果（@ 引用历史图）"
-              : placeholders[mode]
+        <div
+          className={
+            isDock
+              ? "rounded-2xl border border-white/10 bg-[#141414] px-3 pb-3 pt-3 sm:px-4 sm:pt-4"
+              : ""
           }
-          rows={mode === "ecommerce" ? 4 : 2}
-          className="w-full resize-none rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm outline-none focus:border-purple-500/40"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault();
-              void handleSubmit();
-            }
-          }}
-        />
+        >
+          <div className="relative flex gap-3">
+            {(leadingUpload || isDock) && mode !== "ecommerce" ? (
+              <UploadPreviewStack
+                items={uploadPreviews}
+                uploading={uploading}
+                onAdd={() => openUpload("general")}
+                onRemove={(id) => {
+                  setUploadPreviews((prev) => prev.filter((p) => p.id !== id));
+                  setAssetIds((prev) => prev.filter((a) => a !== id));
+                }}
+              />
+            ) : null}
+            <div className="relative min-w-0 flex-1">
+              <textarea
+                value={prompt}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setPrompt(v);
+                  if (v.endsWith("@") && mode === "chat") setMentionOpen(true);
+                }}
+                placeholder={
+                  rotatingPlaceholder && !prompt.trim()
+                    ? rotatingText
+                    : mode === "ecommerce"
+                      ? placeholders.ecommerce
+                      : mode === "chat"
+                        ? "输入您想要的修改效果（@ 选择生成图片）"
+                        : placeholders[mode]
+                }
+                rows={mode === "ecommerce" ? 3 : isDock ? 2 : 2}
+                className={`w-full resize-none bg-transparent text-sm outline-none placeholder:text-zinc-600 ${
+                  isDock
+                    ? "min-h-[56px] pr-9 text-zinc-100"
+                    : "rounded-2xl border border-white/10 bg-black/40 px-4 py-3 focus:border-purple-500/40"
+                }`}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    void handleSubmit();
+                  }
+                }}
+              />
+              {enablePolish ? (
+                <button
+                  type="button"
+                  title="润色 Prompt"
+                  onClick={() =>
+                    setPrompt((p) => polishPrompt(mode, p || placeholders[mode]))
+                  }
+                  className="absolute bottom-1 right-1 rounded-lg p-1.5 text-zinc-500 hover:bg-white/10 hover:text-orange-300"
+                  aria-label="润色描述"
+                >
+                  <Wand2 className="size-4" />
+                </button>
+              ) : null}
+            </div>
+          </div>
         {selectedRefs.length > 0 ? (
           <p className="mt-1 text-xs text-purple-400">
             已引用 {selectedRefs.length} 张历史图
@@ -355,22 +467,25 @@ export function CreationPanel({
         {routeHint ? (
           <p className="mt-1 text-xs text-orange-400/80">路由：{routeHint}</p>
         ) : null}
-      </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => openUpload("general")}
-            className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
-            aria-label="上传图片"
+          <div
+            className={`flex flex-wrap items-center justify-between gap-2 ${isDock ? "mt-3" : "mt-3"}`}
           >
-            {uploading ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <ImagePlus className="size-4" />
-            )}
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {!leadingUpload ? (
+            <button
+              type="button"
+              onClick={() => openUpload("general")}
+              className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
+              aria-label="上传图片"
+            >
+              {uploading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <ImagePlus className="size-4" />
+              )}
+            </button>
+          ) : null}
           {mode === "chat" && sessionId ? (
             <button
               type="button"
@@ -384,40 +499,90 @@ export function CreationPanel({
           {mode !== "ecommerce" ? (
             <>
               <ModelSelect
-            models={models}
-            value={modelId}
-            onChange={setModelId}
-          />
-              <Pill>
-                {count} 张
-                <ChevronDown className="size-3 opacity-60" />
-              </Pill>
+                models={models}
+                value={modelId}
+                onChange={setModelId}
+              />
+              <CountSelect value={count} onChange={setCount} max={4} />
             </>
           ) : (
             <Pill>最新图片 V2 Pro · 4 张 · 2K</Pill>
           )}
-          <Pill>
-            <Sparkles className="size-3 text-orange-400" />
-            {mode === "quick" ? "智能路由" : "智能"} ·{" "}
-            {mode === "ecommerce" ? "2K" : resolution.toUpperCase()}
-            {estimated !== null ? ` · 约 ${estimated} 积分` : ""}
-          </Pill>
-        </div>
-        <Button
-          variant="primary"
-          className="size-10 rounded-full p-0"
-          onClick={() => void handleSubmit()}
-          disabled={pending || !canSubmit}
-          aria-label="开始生成"
-        >
-          {pending ? (
-            <Loader2 className="size-5 animate-spin" />
+          {mode === "ecommerce" ? (
+            <Pill>智能 · 2K · 1:1 套图</Pill>
           ) : (
-            <ArrowUp className="size-5" />
+            <GenerationSettingsPopover
+              mode={mode}
+              resolution={resolution}
+              aspectRatio={aspectRatio}
+              onResolutionChange={setResolution}
+              onAspectRatioChange={setAspectRatio}
+              videoMode={isVideoModel}
+            />
           )}
-        </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          {estimated !== null && user ? (
+            <span className="inline-flex items-center gap-1 text-xs text-pink-400">
+              <Sparkles className="size-3.5 fill-pink-400/30" />
+              {estimated}
+            </span>
+          ) : null}
+          <Button
+            variant="primary"
+            className="size-9 shrink-0 rounded-full p-0 sm:size-10"
+            onClick={() => void handleSubmit()}
+            disabled={pending || !canSubmit}
+            aria-label="开始生成"
+          >
+            {pending ? (
+              <Loader2 className="size-5 animate-spin" />
+            ) : (
+              <ArrowUp className="size-5" />
+            )}
+          </Button>
+        </div>
+          </div>
+        </div>
       </div>
+    </>
+  );
+
+  if (isDock) {
+    return <div className="w-full">{body}</div>;
+  }
+
+  return (
+    <GlassPanel
+      className={`mx-auto w-full max-w-3xl p-4 sm:p-5 ${compact ? "" : "shadow-orange-500/5"}`}
+    >
+      {body}
     </GlassPanel>
+  );
+}
+
+function CountSelect({
+  value,
+  onChange,
+  max,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  max: number;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+      className="appearance-none rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 outline-none"
+      aria-label="生成数量"
+    >
+      {Array.from({ length: max }, (_, i) => i + 1).map((n) => (
+        <option key={n} value={n} className="bg-zinc-900">
+          {n}张
+        </option>
+      ))}
+    </select>
   );
 }
 
