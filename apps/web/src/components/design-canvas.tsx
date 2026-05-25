@@ -33,6 +33,10 @@ export function DesignCanvas({
   const [gridOn, setGridOn] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [touchUi, setTouchUi] = useState(false);
+  const zoomStep = touchUi ? 0.28 : 0.15;
+  const wheelZoomStep = touchUi ? 0.22 : 0.08;
+  const panGain = touchUi ? 1.35 : 1;
   const panStart = useRef<{ x: number; y: number; px: number; py: number } | null>(
     null,
   );
@@ -44,10 +48,18 @@ export function DesignCanvas({
     originY: number;
   } | null>(null);
 
+  useEffect(() => {
+    const mq = window.matchMedia("(pointer: coarse), (max-width: 767px)");
+    const sync = () => setTouchUi(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
   const handleTool = useCallback(
     (id: CanvasToolId) => {
-      if (id === "zoom-in") setZoom((z) => Math.min(2, z + 0.15));
-      else if (id === "zoom-out") setZoom((z) => Math.max(0.35, z - 0.15));
+      if (id === "zoom-in") setZoom((z) => Math.min(2, z + zoomStep));
+      else if (id === "zoom-out") setZoom((z) => Math.max(0.35, z - zoomStep));
       else if (id === "fit") {
         setZoom(1);
         setPan({ x: 0, y: 0 });
@@ -61,7 +73,7 @@ export function DesignCanvas({
         else setTool("select");
       } else setTool(id);
     },
-    [onUpload, onDownload, onDeleteSelected, selectedId, readOnly],
+    [onUpload, onDownload, onDeleteSelected, selectedId, readOnly, zoomStep],
   );
 
   function onCanvasPointerDown(e: React.PointerEvent) {
@@ -91,8 +103,12 @@ export function DesignCanvas({
     }
     if (!panStart.current || tool !== "pan") return;
     setPan({
-      x: panStart.current.px + (e.clientX - panStart.current.x),
-      y: panStart.current.py + (e.clientY - panStart.current.y),
+      x:
+        panStart.current.px +
+        (e.clientX - panStart.current.x) * panGain,
+      y:
+        panStart.current.py +
+        (e.clientY - panStart.current.y) * panGain,
     });
   }
 
@@ -120,16 +136,17 @@ export function DesignCanvas({
     const el = containerRef.current;
     if (!el) return;
     function onWheel(e: WheelEvent) {
-      if (e.ctrlKey || e.metaKey) {
+      const pinchZoom = e.ctrlKey || e.metaKey;
+      const touchPinch = touchUi && !pinchZoom;
+      if (pinchZoom || touchPinch) {
         e.preventDefault();
-        setZoom((z) =>
-          Math.min(2, Math.max(0.35, z + (e.deltaY > 0 ? -0.08 : 0.08))),
-        );
+        const delta = e.deltaY > 0 ? -wheelZoomStep : wheelZoomStep;
+        setZoom((z) => Math.min(2, Math.max(0.35, z + delta)));
       }
     }
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, []);
+  }, [touchUi, wheelZoomStep]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -150,7 +167,7 @@ export function DesignCanvas({
 
       <div
         ref={containerRef}
-        className={`relative min-h-0 flex-1 overflow-hidden ${
+        className={`relative min-h-0 flex-1 touch-none overflow-hidden ${
           tool === "pan"
             ? "cursor-grab active:cursor-grabbing"
             : tool === "select"

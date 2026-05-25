@@ -95,6 +95,9 @@ export function CreationPanel({
   const { user, refreshUser } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const uploadTargetRef = useRef<"product" | "reference" | "general">("general");
+  const [uploadTarget, setUploadTarget] = useState<
+    "product" | "reference" | "general"
+  >("general");
 
   const [internalMode, setInternalMode] = useState<CreationMode>(initialMode);
   const mode = controlledMode ?? internalMode;
@@ -197,17 +200,25 @@ export function CreationPanel({
       onAuthRequired?.();
       return;
     }
+    const target = uploadTargetRef.current;
     setUploading(true);
     try {
-      const file = files[0];
-      const asset = await uploadAsset(file, sessionId);
-      if (uploadTargetRef.current === "product") {
+      if (target === "product") {
+        const asset = await uploadAsset(files[0], sessionId);
         setProductAssetId(asset.id);
         setProductPreviewUrl(asset.url);
-      } else if (uploadTargetRef.current === "reference") {
+        return;
+      }
+      if (target === "reference") {
+        const asset = await uploadAsset(files[0], sessionId);
         setReferenceAssetId(asset.id);
         setReferencePreviewUrl(asset.url);
-      } else {
+        return;
+      }
+      const remaining = Math.max(0, 4 - assetIds.length);
+      const batch = Array.from(files).slice(0, remaining);
+      for (const file of batch) {
+        const asset = await uploadAsset(file, sessionId);
         const url = URL.createObjectURL(file);
         setAssetIds((prev) => [...prev, asset.id].slice(0, 4));
         setUploadPreviews((prev) =>
@@ -217,6 +228,7 @@ export function CreationPanel({
     } finally {
       setUploading(false);
       uploadTargetRef.current = "general";
+      setUploadTarget("general");
     }
   }
 
@@ -226,6 +238,7 @@ export function CreationPanel({
       return;
     }
     uploadTargetRef.current = target;
+    setUploadTarget(target);
     fileRef.current?.click();
   }
 
@@ -396,8 +409,12 @@ export function CreationPanel({
         ref={fileRef}
         type="file"
         accept="image/jpeg,image/png,image/webp"
+        multiple={uploadTarget === "general"}
         className="hidden"
-        onChange={(e) => handleUpload(e.target.files)}
+        onChange={(e) => {
+          void handleUpload(e.target.files);
+          e.target.value = "";
+        }}
       />
 
       <div className={`relative ${isDock ? "" : "mt-3"}`}>
@@ -459,12 +476,12 @@ export function CreationPanel({
                   }
                 }}
               />
-              {enablePolish ? (
+              {enablePolish && prompt.trim().length > 0 ? (
                 <button
                   type="button"
                   title="润色 Prompt"
                   onClick={() =>
-                    setPrompt((p) => polishPrompt(mode, p || placeholders[mode]))
+                    setPrompt((p) => polishPrompt(mode, p.trim()))
                   }
                   className="absolute bottom-1 right-1 rounded-lg p-1.5 text-zinc-500 hover:bg-white/10 hover:text-orange-300"
                   aria-label="润色描述"
@@ -489,9 +506,15 @@ export function CreationPanel({
         ) : null}
 
           <div
-            className={`flex flex-wrap items-center justify-between gap-2 ${isDock ? "mt-3" : "mt-3"}`}
+            className={`flex items-center justify-between gap-2 ${isDock ? "mt-3" : "mt-3"}`}
           >
-        <div className="flex flex-wrap items-center gap-2">
+        <div
+          className={
+            isDock
+              ? "flex min-w-0 flex-1 items-center gap-2 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              : "flex flex-wrap items-center gap-2"
+          }
+        >
           {!leadingUpload ? (
             <button
               type="button"
@@ -543,7 +566,7 @@ export function CreationPanel({
             />
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {estimated !== null && user ? (
             <span className="inline-flex items-center gap-1 text-xs text-pink-400">
               <Sparkles className="size-3.5 fill-pink-400/30" />
@@ -596,7 +619,7 @@ function CountSelect({
     <select
       value={value}
       onChange={(e) => onChange(Number(e.target.value))}
-      className="appearance-none rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 outline-none"
+      className="shrink-0 appearance-none rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 outline-none"
       aria-label="生成数量"
     >
       {Array.from({ length: max }, (_, i) => i + 1).map((n) => (
@@ -649,7 +672,7 @@ function ModelSelect({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="appearance-none rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 outline-none"
+      className="max-w-[9rem] shrink-0 appearance-none truncate rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 outline-none sm:max-w-[11rem]"
       aria-label="选择模型"
     >
       {list.filter((m) => m.type === "image").length > 0 ? (

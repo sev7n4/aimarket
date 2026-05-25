@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { FolderOpen, Menu, Plus } from "lucide-react";
+import { FolderOpen, Home, Menu, Plus } from "lucide-react";
 import { buildStudioUrl } from "@/lib/studio-navigation";
 import { useAuth } from "@/lib/auth-context";
 import { LoginDialog } from "@/components/login-dialog";
@@ -64,6 +64,14 @@ export function StudioHeader({
           >
             <Menu className="size-5" />
           </button>
+          <Link
+            href="/"
+            className="flex shrink-0 items-center justify-center rounded-lg p-2 text-zinc-400 hover:bg-white/5 hover:text-white sm:hidden"
+            aria-label="返回首页"
+            title="返回首页"
+          >
+            <Home className="size-5" />
+          </Link>
           <Link
             href="/"
             className="hidden rounded-lg px-2 py-1 text-sm font-semibold text-zinc-300 hover:text-white sm:inline"
