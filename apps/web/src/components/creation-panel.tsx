@@ -37,6 +37,7 @@ import { useAuth } from "@/lib/auth-context";
 import { MentionPicker } from "@/components/mention-picker";
 import type { SessionReference } from "@/lib/types";
 import { useRotatingPlaceholder } from "@/hooks/use-rotating-placeholder";
+import { randomUUID } from "@/lib/uuid";
 import {
   UploadPreviewStack,
   type UploadPreviewItem,
@@ -254,7 +255,7 @@ export function CreationPanel({
       shouldNavigateOnSubmit || (homeDirectSubmit && !user);
 
     if (shouldNavigate) {
-      const id = sessionId ?? crypto.randomUUID();
+      const id = sessionId ?? randomUUID();
       const params = new URLSearchParams({ sessionId: id, mode });
       if (prompt.trim()) params.set("q", prompt.trim());
       if (assetIds.length) {

@@ -6,9 +6,10 @@ import { modeTabs } from "@/lib/modes";
 import { CreationPanel } from "@/components/creation-panel";
 import { LoginDialog } from "@/components/login-dialog";
 import { ScenarioQuickBar } from "@/components/scenario-quick-bar";
+import { randomUUID } from "@/lib/uuid";
 
 export function HomeCreationSection() {
-  const [sessionId] = useState(() => crypto.randomUUID());
+  const [sessionId] = useState(() => randomUUID());
   const [mode, setMode] = useState<CreationMode>("chat");
   const [loginOpen, setLoginOpen] = useState(false);
 

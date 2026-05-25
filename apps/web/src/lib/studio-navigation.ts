@@ -1,3 +1,5 @@
+import { randomUUID } from "@/lib/uuid";
+
 export type StudioKind = "canvas" | "project";
 
 /** 统一新建画布 / 新建项目的跳转参数（与左侧栏、顶栏一致） */
@@ -6,7 +8,7 @@ export function buildStudioUrl(
   options?: { sessionId?: string; mode?: string },
 ): string {
   const params = new URLSearchParams({
-    sessionId: options?.sessionId ?? crypto.randomUUID(),
+    sessionId: options?.sessionId ?? randomUUID(),
     mode: options?.mode ?? "chat",
     kind,
   });
