@@ -14,7 +14,7 @@
 | **Environment** | `production` | `production` ✅ 可共用 Secrets |
 | **SSH Secrets** | `TENCENT_CLOUD_*` | 优先读 `TENCENT_CLOUD_*`，兼容 `DEPLOY_*` |
 | **部署目录** | `TENCENT_CLOUD_PROJECT_DIR` → `/opt/pintuotuo` | 固定 `/opt/aimarket`（勿混用） |
-| **镜像交付** | 推 GHCR，`sha` tag，服务器 `pull` | GHA 构建 → `docker save` → scp → `load` |
+| **镜像交付** | 推 GHCR，`sha` tag，服务器 `pull` | 同 ✅ `ghcr.io/sev7n4/aimarket-{api,web}:${sha}` |
 | **部署后验证** | `/api/v1/health` + catalog | `/health` + Web 200 |
 | **通知** | Summary + 邮件（SMTP） | 同（邮件可选） |
 
@@ -54,22 +54,30 @@ on:
 **不要复用**：
 
 - `TENCENT_CLOUD_PROJECT_DIR`（指向拼兔兔目录）
-- `DOCKER_USERNAME` / GHCR（AIMarket 若改 GHCR 需单独包名，见下）
+- `TENCENT_CLOUD_PROJECT_DIR`（拼兔兔专用；AIMarket 固定 `/opt/aimarket`）
 
 可选 **Repository variable**（仿 pintuotuo `DEPLOY_VERIFY_*`）：
 
 - `DEPLOY_VERIFY_API_URL` — 覆盖默认 `http://IP:4100`（一般不必）
 
-## 建议借鉴、尚未照搬的能力
+## 镜像与磁盘清理
 
-| 能力 | pintuotuo 做法 | AIMarket 建议 |
-|------|----------------|---------------|
-| **GHCR + sha 标签** | 构建 push `ghcr.io/.../pintuotuo-backend:${{ github.sha }}` | 二期可改：省 scp 流量、与 main 部署一致 |
-| **服务器 git pull** | 公有库 + token 登录 GHCR | 私有库需在服务器配 deploy key 或继续 scp 镜像 |
-| **集成测试 / E2E** | `integration-tests.yml`、`e2e-tests.yml` | 有预算再加 |
-| **安全扫描** | Trivy + gosec | 可加 Trivy job（PR） |
-| **LiteLLM 独立部署** | `deploy-litellm.yml` | 不需要；网关已在拼兔兔栈 |
-| **GHCR 标签清理** | 保留最近 15 个版本 | 上 GHCR 后照搬 |
+| 层级 | 策略 |
+|------|------|
+| **GHCR** | 每次部署 push `:${{ github.sha }}` + `:latest`；workflow 末尾保留每包 **15** 个版本 |
+| **服务器** | `pull` 后 `docker image prune -f`；删除非当前 `IMAGE_TAG` / `latest` 的旧 GHCR 本地 tag；移除历史 `aimarket-*:release` 本地镜像 |
+| **构建缓存** | `docker builder prune -f --filter until=72h`（部署脚本内，失败忽略） |
+
+手动回滚（需已登录 GHCR）：
+
+```bash
+cd /opt/aimarket
+export IMAGE_TAG=<previous-sha>
+export GHCR_OWNER=sev7n4
+bash deploy/deploy-remote.sh
+```
+
+访问仍为 **HTTP**（暂不上 HTTPS）：`http://<IP>:3100` / `:4100`。
 
 ## 架构
 
@@ -122,7 +130,7 @@ Agent/开发者 PR 全流程见 **[PR_WORKFLOW.md](./PR_WORKFLOW.md)**（`mydev-
 | `CI` | PR + push main | typecheck、build、Docker 构建校验 |
 | `Integration Tests` | PR + manual | `smoke-api`、工作区脚本、`verify-moderation-p2` |
 | `E2E Tests` | PR + cron + manual | Playwright 冒烟（`apps/web/e2e/smoke.spec.ts`） |
-| `Deploy` | push main（非仅 docs）+ manual | 构建镜像、scp、上线、curl 验证 |
+| `Deploy` | push main（非仅 docs）+ manual | GHCR push、scp compose、服务器 pull、清理、curl 验证 |
 
 本地：
 

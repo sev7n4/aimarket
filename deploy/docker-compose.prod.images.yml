@@ -1,0 +1,10 @@
+# 生产镜像覆盖 — 与 pintuotuo docker-compose.prod.images.yml 同模式
+# 用法: IMAGE_TAG=<git-sha> docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.images.yml pull
+name: aimarket
+
+services:
+  api:
+    image: ghcr.io/${GHCR_OWNER:-sev7n4}/aimarket-api:${IMAGE_TAG}
+
+  web:
+    image: ghcr.io/${GHCR_OWNER:-sev7n4}/aimarket-web:${IMAGE_TAG}
