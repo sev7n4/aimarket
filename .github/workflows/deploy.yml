@@ -1,5 +1,5 @@
-# 对齐 pintuotuo deploy-tencent.yml：仅在 main 合并 push 后部署（PR 不触发）。
-# 合并前须在分支保护中强制：CI + Integration Tests + E2E Tests 全绿 + PR 审核。
+# 对齐 pintuotuo deploy-tencent.yml：GHCR 构建推送 + 服务器 pull（无大体积 scp）。
+# 合并前须在 PR 上通过 CI + Integration + E2E；合并 main 后自动部署。暂不上 HTTPS。
 name: Deploy to Tencent Cloud (AIMarket)
 
 on:
@@ -17,10 +17,11 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 concurrency:
   group: aimarket-deploy-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -32,6 +33,8 @@ jobs:
       SSH_USER: ${{ secrets.TENCENT_CLOUD_USER || secrets.DEPLOY_USER }}
       SSH_KEY: ${{ secrets.TENCENT_CLOUD_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
       DEPLOY_BRANCH: ${{ github.event.inputs.branch || 'main' }}
+      IMAGE_TAG: ${{ github.sha }}
+      GHCR_OWNER: ${{ github.repository_owner }}
       PUBLIC_API_URL: http://${{ secrets.TENCENT_CLOUD_IP || secrets.DEPLOY_HOST }}:4100
       PUBLIC_WEB_URL: http://${{ secrets.TENCENT_CLOUD_IP || secrets.DEPLOY_HOST }}:3100
 
@@ -42,38 +45,47 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Build API image
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push API image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: deploy/docker/Dockerfile.api
-          tags: aimarket-api:release
-          load: true
+          push: true
+          tags: |
+            ghcr.io/${{ env.GHCR_OWNER }}/aimarket-api:${{ env.IMAGE_TAG }}
+            ghcr.io/${{ env.GHCR_OWNER }}/aimarket-api:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build Web image
+      - name: Build and push Web image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: deploy/docker/Dockerfile.web
           build-args: |
             NEXT_PUBLIC_API_URL=${{ env.PUBLIC_API_URL }}
-          tags: aimarket-web:release
-          load: true
+          push: true
+          tags: |
+            ghcr.io/${{ env.GHCR_OWNER }}/aimarket-web:${{ env.IMAGE_TAG }}
+            ghcr.io/${{ env.GHCR_OWNER }}/aimarket-web:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Save images
-        run: docker save aimarket-api:release aimarket-web:release | gzip > aimarket-images.tar.gz
-
-      - name: Copy deploy assets to server
+      - name: Copy deploy compose files to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ env.SSH_HOST }}
           username: ${{ env.SSH_USER }}
           key: ${{ env.SSH_KEY }}
-          source: aimarket-images.tar.gz,deploy/docker-compose.prod.yml,deploy/.env.production.example
+          timeout: 120s
+          source: deploy/docker-compose.prod.yml,deploy/docker-compose.prod.images.yml,deploy/.env.production.example
           target: /tmp/aimarket-deploy/
 
       - name: Deploy on server
@@ -82,18 +94,22 @@ jobs:
           host: ${{ env.SSH_HOST }}
           username: ${{ env.SSH_USER }}
           key: ${{ env.SSH_KEY }}
-          script_stop: true
+          timeout: 120s
           command_timeout: 30m
+          script_stop: true
           script: |
             set -euo pipefail
             AIMARKET_DIR="/opt/aimarket"
+            IMAGE_TAG="${{ env.IMAGE_TAG }}"
+            GHCR_OWNER="${{ env.GHCR_OWNER }}"
             mkdir -p "$AIMARKET_DIR/deploy"
             cp /tmp/aimarket-deploy/deploy/docker-compose.prod.yml "$AIMARKET_DIR/deploy/"
+            cp /tmp/aimarket-deploy/deploy/docker-compose.prod.images.yml "$AIMARKET_DIR/deploy/"
             cp /tmp/aimarket-deploy/deploy/.env.production.example "$AIMARKET_DIR/deploy/" 2>/dev/null || true
             if [[ -d "$AIMARKET_DIR/.git" ]]; then
               cd "$AIMARKET_DIR"
-              git fetch origin "${{ env.DEPLOY_BRANCH }}"
-              git reset --hard "origin/${{ env.DEPLOY_BRANCH }}"
+              git fetch origin "${{ env.DEPLOY_BRANCH }}" 2>/dev/null || true
+              git reset --hard "origin/${{ env.DEPLOY_BRANCH }}" 2>/dev/null || true
             fi
             cd "$AIMARKET_DIR"
             if [[ ! -f .env ]]; then
@@ -101,12 +117,35 @@ jobs:
               sed -i "s/请替换为随机长字符串/$(openssl rand -hex 24)/" .env
               sed -i "s/请替换为随机管理密钥/$(openssl rand -hex 16)/" .env
             fi
-            gunzip -c /tmp/aimarket-deploy/aimarket-images.tar.gz | docker load
+            echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            COMPOSE="docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.images.yml"
+            for i in 1 2 3 4 5; do
+              if IMAGE_TAG="$IMAGE_TAG" $COMPOSE pull; then
+                break
+              fi
+              if [[ "$i" -eq 5 ]]; then
+                echo "ERROR: docker compose pull failed after $i attempts"
+                exit 1
+              fi
+              sleep $((i * 20))
+            done
+            IMAGE_TAG="$IMAGE_TAG" $COMPOSE up -d --no-build
+            echo "Pruning dangling images..."
             docker image prune -f >/dev/null || true
-            export AIMARKET_API_IMAGE=aimarket-api:release
-            export AIMARKET_WEB_IMAGE=aimarket-web:release
-            docker compose -f deploy/docker-compose.prod.yml up -d --no-build
-            echo "Deployment completed"
+            echo "Removing stale AIMarket image tags on server..."
+            for REPO in "ghcr.io/${GHCR_OWNER}/aimarket-api" "ghcr.io/${GHCR_OWNER}/aimarket-web"; do
+              docker images "$REPO" --format '{{.Tag}}' 2>/dev/null | while read -r tag; do
+                [[ -z "$tag" || "$tag" == "<none>" ]] && continue
+                [[ "$tag" == "$IMAGE_TAG" || "$tag" == "latest" ]] && continue
+                docker rmi "${REPO}:${tag}" 2>/dev/null || true
+              done
+            done
+            echo "Removing legacy local release tags (pre-GHCR deploy)..."
+            for LEGACY in aimarket-api:release aimarket-web:release aimarket-api:local aimarket-web:local; do
+              docker rmi "$LEGACY" 2>/dev/null || true
+            done
+            docker builder prune -f --filter "until=72h" 2>/dev/null || true
+            echo "Deployment completed (IMAGE_TAG=$IMAGE_TAG)"
 
       - name: Verify deployment
         run: |
@@ -140,10 +179,47 @@ jobs:
             echo "|------|-------|"
             echo "| Status | ${{ job.status }} |"
             echo "| Branch | ${{ env.DEPLOY_BRANCH }} |"
+            echo "| Image tag | \`${{ env.IMAGE_TAG }}\` |"
             echo "| Server | ${{ env.SSH_HOST }} |"
             echo "| Web | ${{ env.PUBLIC_WEB_URL }} |"
             echo "| API | ${{ env.PUBLIC_API_URL }} |"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup GHCR tags (keep latest 15 per package)
+        if: always()
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          script: |
+            const keep = 15;
+            const owner = context.repo.owner;
+            const packages = ['aimarket-api', 'aimarket-web'];
+
+            for (const pkg of packages) {
+              const versions = await github.paginate(
+                github.rest.packages.getAllPackageVersionsForPackageOwnedByUser,
+                {
+                  package_type: 'container',
+                  package_name: pkg,
+                  username: owner,
+                  per_page: 100,
+                }
+              );
+
+              versions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+              const stale = versions.slice(keep);
+
+              core.info(`${pkg}: total=${versions.length}, delete=${stale.length}`);
+              for (const v of stale) {
+                await github.rest.packages.deletePackageVersionForUser({
+                  package_type: 'container',
+                  package_name: pkg,
+                  username: owner,
+                  package_version_id: v.id,
+                });
+                core.info(`deleted ${pkg}@${v.name} (${v.id})`);
+              }
+            }
 
       - name: Send email notification
         if: always()
@@ -158,6 +234,7 @@ jobs:
           body: |
             Status: ${{ job.status }}
             Branch: ${{ env.DEPLOY_BRANCH }}
+            Image: ghcr.io/${{ env.GHCR_OWNER }}/aimarket-*:${{ env.IMAGE_TAG }}
             Server: ${{ env.SSH_HOST }}
             Web: ${{ env.PUBLIC_WEB_URL }}
             API: ${{ env.PUBLIC_API_URL }}
