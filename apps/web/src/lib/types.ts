@@ -9,6 +9,7 @@ export interface ImageSession {
   id: string;
   title: string;
   mode: string;
+  kind?: "canvas" | "project";
   status: string;
   updated_at: string;
 }

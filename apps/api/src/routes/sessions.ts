@@ -10,6 +10,10 @@ import {
   parseCanvasLayout,
   serializeCanvasLayout,
 } from "../lib/canvas-layout.js";
+import { sessionKindSchema } from "../lib/session-kind.js";
+
+const SESSION_SELECT =
+  "id, title, mode, kind, status, created_at, updated_at";
 
 const sessions = new Hono<{ Variables: AuthVariables }>();
 
@@ -20,12 +24,13 @@ sessions.post("/ensure", async (c) => {
       sessionId: z.string().uuid(),
       mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
       title: z.string().max(100).optional(),
+      kind: sessionKindSchema.default("canvas"),
     })
     .parse(await c.req.json());
 
   const existing = db
     .prepare(
-      "SELECT id, title, mode, status, created_at, updated_at FROM image_sessions WHERE id = ? AND user_id = ?",
+      `SELECT ${SESSION_SELECT} FROM image_sessions WHERE id = ? AND user_id = ?`,
     )
     .get(body.sessionId, userId);
 
@@ -40,14 +45,16 @@ sessions.post("/ensure", async (c) => {
     throw new AppError(400, "SESSION_TAKEN", "会话 ID 冲突，请刷新页面");
   }
 
+  const title =
+    body.title ??
+    (body.kind === "project" ? "新建项目" : body.kind === "canvas" ? "新建画布" : "未命名");
+
   db.prepare(
-    `INSERT INTO image_sessions (id, user_id, title, mode) VALUES (?, ?, ?, ?)`,
-  ).run(body.sessionId, userId, body.title ?? "未命名", body.mode);
+    `INSERT INTO image_sessions (id, user_id, title, mode, kind) VALUES (?, ?, ?, ?, ?)`,
+  ).run(body.sessionId, userId, title, body.mode, body.kind);
 
   const session = db
-    .prepare(
-      "SELECT id, title, mode, status, created_at, updated_at FROM image_sessions WHERE id = ?",
-    )
+    .prepare(`SELECT ${SESSION_SELECT} FROM image_sessions WHERE id = ?`)
     .get(body.sessionId);
 
   return c.json({ data: session }, 201);
@@ -79,13 +86,30 @@ sessions.post("/create", async (c) => {
 sessions.get("/list", (c) => {
   const userId = c.get("userId");
   const limit = Math.min(Number(c.req.query("limit") ?? 20), 50);
-  const rows = db
-    .prepare(
-      `SELECT id, title, mode, status, updated_at
-       FROM image_sessions WHERE user_id = ?
-       ORDER BY updated_at DESC LIMIT ?`,
-    )
-    .all(userId, limit);
+  const kindRaw = c.req.query("kind");
+  const kindParsed = kindRaw
+    ? sessionKindSchema.safeParse(kindRaw)
+    : null;
+  if (kindRaw && kindParsed && !kindParsed.success) {
+    throw new AppError(400, "VALIDATION_ERROR", "kind 须为 canvas 或 project");
+  }
+  const kind = kindParsed?.success ? kindParsed.data : undefined;
+
+  const rows = kind
+    ? db
+        .prepare(
+          `SELECT id, title, mode, kind, status, updated_at
+           FROM image_sessions WHERE user_id = ? AND kind = ?
+           ORDER BY updated_at DESC LIMIT ?`,
+        )
+        .all(userId, kind, limit)
+    : db
+        .prepare(
+          `SELECT id, title, mode, kind, status, updated_at
+           FROM image_sessions WHERE user_id = ?
+           ORDER BY updated_at DESC LIMIT ?`,
+        )
+        .all(userId, limit);
   return c.json({ data: rows });
 });
 
@@ -119,9 +143,7 @@ sessions.patch("/:sessionId", async (c) => {
   ).run(body.title, sessionId);
 
   const session = db
-    .prepare(
-      "SELECT id, title, mode, status, created_at, updated_at FROM image_sessions WHERE id = ?",
-    )
+    .prepare(`SELECT ${SESSION_SELECT} FROM image_sessions WHERE id = ?`)
     .get(sessionId);
 
   return c.json({ data: session });

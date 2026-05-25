@@ -12,6 +12,21 @@ export function buildStudioUrl(
   });
   if (kind === "project") {
     params.set("title", "新建项目");
+  } else {
+    params.set("title", "新建画布");
   }
+  return `/studio?${params.toString()}`;
+}
+
+export function studioUrlForSession(session: {
+  id: string;
+  mode: string;
+  kind?: string;
+}): string {
+  const params = new URLSearchParams({
+    sessionId: session.id,
+    mode: session.mode,
+    kind: session.kind === "project" ? "project" : "canvas",
+  });
   return `/studio?${params.toString()}`;
 }

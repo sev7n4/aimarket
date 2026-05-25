@@ -12,6 +12,7 @@ import {
   Wand2,
 } from "lucide-react";
 import type { CreationMode } from "@aimarket/ui";
+import { buildStudioUrl, type StudioKind } from "@/lib/studio-navigation";
 
 interface QuickItem {
   label: string;
@@ -19,6 +20,7 @@ interface QuickItem {
   mode: CreationMode;
   prompt: string;
   toolId?: string;
+  kind?: StudioKind;
 }
 
 const items: QuickItem[] = [
@@ -65,6 +67,7 @@ const items: QuickItem[] = [
     label: "电商套图",
     icon: Wand2,
     mode: "ecommerce",
+    kind: "project" as const,
     prompt:
       "核心卖点：轻便防水；尺寸：20cm；材质：尼龙；受众：年轻户外人群；使用场景：徒步露营",
   },
@@ -84,12 +87,9 @@ export function ScenarioQuickBar({ className = "" }: ScenarioQuickBarProps) {
   const router = useRouter();
 
   function go(item: QuickItem) {
-    const id = crypto.randomUUID();
-    const params = new URLSearchParams({
-      sessionId: id,
-      mode: item.mode,
-      q: item.prompt,
-    });
+    const url = buildStudioUrl(item.kind ?? "canvas", { mode: item.mode });
+    const params = new URLSearchParams(url.split("?")[1] ?? "");
+    params.set("q", item.prompt);
     if (item.toolId) params.set("tool", item.toolId);
     router.push(`/studio?${params.toString()}`);
   }

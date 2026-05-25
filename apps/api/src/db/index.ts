@@ -138,6 +138,13 @@ try {
 } catch {
   /* column exists */
 }
+try {
+  database.exec(
+    `ALTER TABLE image_sessions ADD COLUMN kind TEXT NOT NULL DEFAULT 'canvas'`,
+  );
+} catch {
+  /* column exists */
+}
 
 database.exec(`
   CREATE TABLE IF NOT EXISTS credit_packages (

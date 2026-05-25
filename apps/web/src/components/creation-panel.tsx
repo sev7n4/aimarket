@@ -30,7 +30,8 @@ import {
   uploadAsset,
 } from "@/lib/api-client";
 import { polishPrompt } from "@/lib/prompt-polish";
-import type { ImageModel } from "@/lib/types";
+import type { ImageModel, ProductSetInit } from "@/lib/types";
+import { EcommerceAgentForm } from "@/components/ecommerce-agent-form";
 import { useAuth } from "@/lib/auth-context";
 import { MentionPicker } from "@/components/mention-picker";
 import type { SessionReference } from "@/lib/types";
@@ -113,6 +114,13 @@ export function CreationPanel({
   const [assetIds, setAssetIds] = useState<string[]>([]);
   const [productAssetId, setProductAssetId] = useState<string | null>(null);
   const [referenceAssetId, setReferenceAssetId] = useState<string | null>(null);
+  const [productPreviewUrl, setProductPreviewUrl] = useState<string | null>(null);
+  const [referencePreviewUrl, setReferencePreviewUrl] = useState<string | null>(
+    null,
+  );
+  const [productSetInit, setProductSetInit] = useState<ProductSetInit | null>(
+    null,
+  );
   const [uploading, setUploading] = useState(false);
   const [references, setReferences] = useState<SessionReference[]>([]);
   const [selectedRefs, setSelectedRefs] = useState<SessionReference[]>([]);
@@ -136,7 +144,9 @@ export function CreationPanel({
     if (mode === "ecommerce") {
       setResolution("2k");
       setCount(4);
-      fetchProductSetInit().catch(() => null);
+      fetchProductSetInit()
+        .then(setProductSetInit)
+        .catch(() => setProductSetInit(null));
     } else if (mode === "quick") {
       setCount(1);
     }
@@ -188,8 +198,10 @@ export function CreationPanel({
       const asset = await uploadAsset(file, sessionId);
       if (uploadTargetRef.current === "product") {
         setProductAssetId(asset.id);
+        setProductPreviewUrl(asset.url);
       } else if (uploadTargetRef.current === "reference") {
         setReferenceAssetId(asset.id);
+        setReferencePreviewUrl(asset.url);
       } else {
         const url = URL.createObjectURL(file);
         setAssetIds((prev) => [...prev, asset.id].slice(0, 4));
@@ -222,9 +234,15 @@ export function CreationPanel({
 
   async function handleSubmit() {
     if (!prompt.trim() && mode !== "ecommerce") return;
-    if (mode === "ecommerce" && prompt.trim().length < 10) {
-      alert("请填写至少 10 字的产品信息");
-      return;
+    if (mode === "ecommerce") {
+      if (prompt.trim().length < 10) {
+        alert("请填写至少 10 字的产品卖点/描述");
+        return;
+      }
+      if (!productAssetId) {
+        alert("请先上传产品图");
+        return;
+      }
     }
 
     const shouldNavigate =
@@ -271,11 +289,16 @@ export function CreationPanel({
           language,
           productInfo: prompt.trim(),
           designer,
+          resolution,
           productAssetId: productAssetId ?? undefined,
           referenceAssetId: referenceAssetId ?? undefined,
         });
         jobId = res.jobId;
         setRouteHint(res.routeReason);
+        setProductAssetId(null);
+        setReferenceAssetId(null);
+        setProductPreviewUrl(null);
+        setReferencePreviewUrl(null);
       } else {
         const res = await submitGeneration({
           sessionId,
@@ -316,7 +339,9 @@ export function CreationPanel({
   }
 
   const canSubmit =
-    mode === "ecommerce" ? prompt.trim().length >= 10 : prompt.trim().length > 0;
+    mode === "ecommerce"
+      ? prompt.trim().length >= 10 && Boolean(productAssetId)
+      : prompt.trim().length > 0;
 
   const isDock = variant === "dock";
 
@@ -329,50 +354,34 @@ export function CreationPanel({
       ) : null}
 
       {mode === "ecommerce" ? (
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-3">
-            <UploadSlot
-              label={productAssetId ? "产品图 ✓" : "产品图"}
-              onClick={() => openUpload("product")}
-              loading={uploading}
-            />
-            <UploadSlot
-              label={referenceAssetId ? "参考图 ✓" : "参考图"}
-              onClick={() => openUpload("reference")}
-            />
-          </div>
-          <input
-            value={brand}
-            onChange={(e) => setBrand(e.target.value)}
-            placeholder="品牌名（可选）"
-            className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-orange-500/50"
-          />
-          <div className="flex flex-wrap gap-2">
-            <TagSelect
-              value={platform}
-              options={["淘宝", "京东", "抖音", "Amazon"]}
-              onChange={setPlatform}
-            />
-            <TagSelect
-              value={market}
-              options={["中国", "美国", "东南亚"]}
-              onChange={setMarket}
-            />
-            <TagSelect
-              value={language}
-              options={["中文", "English"]}
-              onChange={setLanguage}
-            />
-            <TagSelect
-              value={designer}
-              options={["Gloria", "Alex", "Mia"]}
-              onChange={setDesigner}
-            />
-          </div>
-          <p className="text-xs text-zinc-500">
-            将生成 4 张套图：主图、卖点海报、场景图、详情头图
-          </p>
-        </div>
+        <EcommerceAgentForm
+          init={productSetInit}
+          brand={brand}
+          onBrandChange={setBrand}
+          platform={platform}
+          onPlatformChange={setPlatform}
+          market={market}
+          onMarketChange={setMarket}
+          language={language}
+          onLanguageChange={setLanguage}
+          designer={designer}
+          onDesignerChange={setDesigner}
+          resolution={resolution}
+          onResolutionChange={setResolution}
+          productPreviewUrl={productPreviewUrl}
+          referencePreviewUrl={referencePreviewUrl}
+          uploading={uploading}
+          onUploadProduct={() => openUpload("product")}
+          onUploadReference={() => openUpload("reference")}
+          onClearProduct={() => {
+            setProductAssetId(null);
+            setProductPreviewUrl(null);
+          }}
+          onClearReference={() => {
+            setReferenceAssetId(null);
+            setReferencePreviewUrl(null);
+          }}
+        />
       ) : null}
 
       <input
@@ -509,7 +518,9 @@ export function CreationPanel({
             <Pill>最新图片 V2 Pro · 4 张 · 2K</Pill>
           )}
           {mode === "ecommerce" ? (
-            <Pill>智能 · 2K · 1:1 套图</Pill>
+            <Pill>
+              智能 · {resolution.toUpperCase()} · 1:1 套图
+            </Pill>
           ) : (
             <GenerationSettingsPopover
               mode={mode}

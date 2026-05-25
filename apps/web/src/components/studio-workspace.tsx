@@ -26,13 +26,15 @@ import {
 import { createUploadCanvasItem } from "@/lib/canvas-tools";
 import { useSessionCanvas } from "@/hooks/use-session-canvas";
 import { streamJob } from "@/lib/job-stream";
-import { buildStudioUrl } from "@/lib/studio-navigation";
+import { SESSION_KIND_LABEL, type SessionKind } from "@/lib/session-kind";
+import { buildStudioUrl, studioUrlForSession } from "@/lib/studio-navigation";
 
 interface StudioWorkspaceProps {
   sessionId: string;
   initialMode: CreationMode;
   initialPrompt: string;
   initialTitle?: string;
+  initialKind?: SessionKind;
   initialJobId?: string;
   initialToolId?: string;
 }
@@ -42,6 +44,7 @@ export function StudioWorkspace({
   initialMode,
   initialPrompt,
   initialTitle,
+  initialKind,
   initialJobId,
   initialToolId,
 }: StudioWorkspaceProps) {
@@ -79,6 +82,8 @@ export function StudioWorkspace({
   const [toolPending, setToolPending] = useState(false);
 
   const currentSession = sessions.find((s) => s.id === sessionId);
+  const sessionKind: SessionKind =
+    currentSession?.kind ?? initialKind ?? "canvas";
   const sessionTitle =
     currentSession?.title && currentSession.title !== "未命名"
       ? currentSession.title
@@ -87,7 +92,10 @@ export function StudioWorkspace({
 
   const initSession = useCallback(async () => {
     if (!user) return;
-    await ensureSession(sessionId, mode, initialTitle);
+    await ensureSession(sessionId, mode, {
+      title: initialTitle,
+      kind: initialKind ?? "canvas",
+    });
     await loadCanvas();
     const [list, toolList] = await Promise.all([
       listSessions(),
@@ -96,7 +104,7 @@ export function StudioWorkspace({
     setSessions(list);
     setTools(toolList);
     setReady(true);
-  }, [user, sessionId, mode, initialTitle, loadCanvas]);
+  }, [user, sessionId, mode, initialTitle, initialKind, loadCanvas]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -293,7 +301,11 @@ export function StudioWorkspace({
             {sessions.map((s) => (
               <li key={s.id} className="group">
                 <Link
-                  href={`/studio?sessionId=${s.id}&mode=${s.mode}`}
+                  href={studioUrlForSession({
+                    id: s.id,
+                    mode: s.mode,
+                    kind: s.kind,
+                  })}
                   onClick={() => setSidebarOpen(false)}
                   className={`block rounded-lg px-3 py-2 text-sm transition ${
                     s.id === sessionId
@@ -313,7 +325,10 @@ export function StudioWorkspace({
                     }}
                     onDeleted={() => handleSessionDeleted(s.id)}
                   />
-                  <div className="text-[10px] text-zinc-600">{s.mode}</div>
+                  <div className="text-[10px] text-zinc-600">
+                    {SESSION_KIND_LABEL[s.kind === "project" ? "project" : "canvas"]}{" "}
+                    · {s.mode}
+                  </div>
                 </Link>
               </li>
             ))}
@@ -324,6 +339,9 @@ export function StudioWorkspace({
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <p className="mb-2 shrink-0 px-1 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
               画布区 · {sessionTitle}
+              <span className="ml-2 rounded bg-white/10 px-1.5 py-0.5 text-[9px] normal-case text-zinc-400">
+                {SESSION_KIND_LABEL[sessionKind]}
+              </span>
             </p>
             <ProviderStatusBanner />
             <DesignCanvas

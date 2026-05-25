@@ -83,7 +83,7 @@ pnpm dev:api   # http://localhost:4000
 - [ ] Phase 6：合规审核、多租户、移动端优化
 - [x] Sprint 2：真实图像 Provider（OpenAI 落盘、比例尺寸、Staging 文档）
 - [x] Sprint 3：画布 2.0（布局持久化、拖拽、删除、上传上画布）
-- [ ] Sprint 4：项目 kind 字段 + 电商套图完整表单
+- [x] Sprint 4：session.kind 画布/项目 + 项目库筛选 + 电商套图完整表单
 
 发版前冒烟见 [docs/SMOKE_TEST.md](./docs/SMOKE_TEST.md)。
 

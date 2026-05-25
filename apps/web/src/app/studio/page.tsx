@@ -1,5 +1,6 @@
 import type { CreationMode } from "@aimarket/ui";
 import { StudioWorkspace } from "@/components/studio-workspace";
+import { parseSessionKind } from "@/lib/session-kind";
 
 export const metadata = {
   title: "工作台",
@@ -42,6 +43,7 @@ export default async function StudioPage({ searchParams }: PageProps) {
         initialMode={mode}
         initialPrompt={initialPrompt}
         initialTitle={initialTitle}
+        initialKind={parseSessionKind(params.kind)}
         initialJobId={params.jobId}
         initialToolId={params.tool}
       />

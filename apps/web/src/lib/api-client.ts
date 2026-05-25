@@ -112,21 +112,31 @@ export async function fetchPoints() {
 export async function ensureSession(
   sessionId: string,
   mode: string,
-  title?: string,
+  options?: { title?: string; kind?: "canvas" | "project" },
 ) {
   const res = await request<{ data: ImageSession }>(
     "/api/v1/imageSession/ensure",
     {
       method: "POST",
-      body: JSON.stringify({ sessionId, mode, title }),
+      body: JSON.stringify({
+        sessionId,
+        mode,
+        title: options?.title,
+        kind: options?.kind,
+      }),
     },
   );
   return res.data;
 }
 
-export async function listSessions(limit = 20) {
+export async function listSessions(
+  limit = 20,
+  kind?: "canvas" | "project",
+) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (kind) params.set("kind", kind);
   const res = await request<{ data: ImageSession[] }>(
-    `/api/v1/imageSession/list?limit=${limit}`,
+    `/api/v1/imageSession/list?${params.toString()}`,
   );
   return res.data;
 }
