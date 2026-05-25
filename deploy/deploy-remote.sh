@@ -25,11 +25,11 @@ IMAGE_TAG="$IMAGE_TAG" $COMPOSE up -d --no-build
 
 docker image prune -f >/dev/null || true
 for REPO in "ghcr.io/${GHCR_OWNER}/aimarket-api" "ghcr.io/${GHCR_OWNER}/aimarket-web"; do
-  docker images "$REPO" --format '{{.Tag}}' 2>/dev/null | while read -r tag; do
+  while read -r tag; do
     [[ -z "$tag" || "$tag" == "<none>" ]] && continue
     [[ "$tag" == "$IMAGE_TAG" || "$tag" == "latest" ]] && continue
     docker rmi "${REPO}:${tag}" 2>/dev/null || true
-  done
+  done < <(docker images "$REPO" --format '{{.Tag}}' 2>/dev/null || true)
 done
 
 echo "等待健康检查..."

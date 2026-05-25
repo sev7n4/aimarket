@@ -134,11 +134,11 @@ jobs:
             docker image prune -f >/dev/null || true
             echo "Removing stale AIMarket image tags on server..."
             for REPO in "ghcr.io/${GHCR_OWNER}/aimarket-api" "ghcr.io/${GHCR_OWNER}/aimarket-web"; do
-              docker images "$REPO" --format '{{.Tag}}' 2>/dev/null | while read -r tag; do
+              while read -r tag; do
                 [[ -z "$tag" || "$tag" == "<none>" ]] && continue
                 [[ "$tag" == "$IMAGE_TAG" || "$tag" == "latest" ]] && continue
                 docker rmi "${REPO}:${tag}" 2>/dev/null || true
-              done
+              done < <(docker images "$REPO" --format '{{.Tag}}' 2>/dev/null || true)
             done
             echo "Removing legacy local release tags (pre-GHCR deploy)..."
             for LEGACY in aimarket-api:release aimarket-web:release aimarket-api:local aimarket-web:local; do
