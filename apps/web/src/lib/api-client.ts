@@ -1,3 +1,4 @@
+import { resolveApiBase } from "@/lib/api-base";
 import type {
   ApiErrorBody,
   ApiUser,
@@ -16,9 +17,7 @@ import type {
   StudioTool,
 } from "./types";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
-  "http://localhost:4000";
+const API_BASE = resolveApiBase();
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
