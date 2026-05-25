@@ -1,22 +1,32 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FolderOpen, Menu, Plus } from "lucide-react";
+import { buildStudioUrl } from "@/lib/studio-navigation";
 import { useAuth } from "@/lib/auth-context";
 import { LoginDialog } from "@/components/login-dialog";
 import { CreditsDialog } from "@/components/credits-dialog";
+import { SessionTitleActions } from "@/components/session-title-actions";
 import { fetchSignStatus, signIn } from "@/lib/api-client";
 
 interface StudioHeaderProps {
+  sessionId?: string;
   sessionTitle?: string;
   onMenuClick?: () => void;
+  onTitleSaved?: (title: string) => void;
+  onSessionDeleted?: () => void;
 }
 
 export function StudioHeader({
+  sessionId,
   sessionTitle = "未命名",
   onMenuClick,
+  onTitleSaved,
+  onSessionDeleted,
 }: StudioHeaderProps) {
+  const router = useRouter();
   const { user, logout, loading, refreshUser } = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
@@ -36,9 +46,8 @@ export function StudioHeader({
       .catch(() => setSignedToday(true));
   }, [user]);
 
-  function newSession() {
-    const id = crypto.randomUUID();
-    window.location.href = `/studio?sessionId=${id}&mode=chat`;
+  function newProject() {
+    router.push(buildStudioUrl("project"));
   }
 
   return (
@@ -59,12 +68,22 @@ export function StudioHeader({
           >
             AIMarket
           </Link>
-          <div className="flex min-w-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5">
+          <div className="group flex min-w-0 max-w-[min(100%,280px)] items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5 sm:max-w-xs">
             <FolderOpen className="size-4 shrink-0 text-zinc-500" />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-zinc-100">
-                {sessionTitle}
-              </p>
+            <div className="min-w-0 flex-1">
+              {sessionId && user ? (
+                <SessionTitleActions
+                  sessionId={sessionId}
+                  title={sessionTitle}
+                  variant="header"
+                  onTitleSaved={onTitleSaved}
+                  onDeleted={onSessionDeleted}
+                />
+              ) : (
+                <p className="truncate text-sm font-medium text-zinc-100">
+                  {sessionTitle}
+                </p>
+              )}
               <p className="truncate text-[10px] text-zinc-600">
                 内容由 AI 生成
               </p>
@@ -75,7 +94,7 @@ export function StudioHeader({
         <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             type="button"
-            onClick={newSession}
+            onClick={newProject}
             className="rounded-lg p-2 text-zinc-400 hover:bg-white/5 hover:text-white"
             aria-label="新建项目"
             title="新建项目"

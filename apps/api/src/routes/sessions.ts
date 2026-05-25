@@ -97,6 +97,48 @@ sessions.get("/queryImageSessionRequestMode", (c) => {
   return c.json({ data: { sessionId, ...row } });
 });
 
+sessions.patch("/:sessionId", async (c) => {
+  const userId = c.get("userId");
+  const sessionId = c.req.param("sessionId");
+  const body = z
+    .object({ title: z.string().trim().min(1).max(100) })
+    .parse(await c.req.json());
+
+  const existing = db
+    .prepare("SELECT id FROM image_sessions WHERE id = ? AND user_id = ?")
+    .get(sessionId, userId);
+  if (!existing) throw new AppError(404, "NOT_FOUND", "会话不存在");
+
+  db.prepare(
+    `UPDATE image_sessions SET title = ?, updated_at = datetime('now') WHERE id = ?`,
+  ).run(body.title, sessionId);
+
+  const session = db
+    .prepare(
+      "SELECT id, title, mode, status, created_at, updated_at FROM image_sessions WHERE id = ?",
+    )
+    .get(sessionId);
+
+  return c.json({ data: session });
+});
+
+sessions.delete("/:sessionId", (c) => {
+  const userId = c.get("userId");
+  const sessionId = c.req.param("sessionId");
+
+  const existing = db
+    .prepare("SELECT id FROM image_sessions WHERE id = ? AND user_id = ?")
+    .get(sessionId, userId);
+  if (!existing) throw new AppError(404, "NOT_FOUND", "会话不存在");
+
+  db.prepare("DELETE FROM image_sessions WHERE id = ? AND user_id = ?").run(
+    sessionId,
+    userId,
+  );
+
+  return c.json({ data: { deleted: true, sessionId } });
+});
+
 sessions.get("/:sessionId/references", (c) => {
   const userId = c.get("userId");
   const sessionId = c.req.param("sessionId");

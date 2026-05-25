@@ -41,7 +41,7 @@ app.use(
   "*",
   cors({
     origin: corsOrigin,
-    allowMethods: ["GET", "POST", "PUT", "OPTIONS"],
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization", "X-Admin-Secret"],
   }),
 );

@@ -86,10 +86,16 @@ export function createGenerationJob(input: CreateJobInput) {
     ).run(input.sessionId);
 
     if (input.mode === "ecommerce") {
-      db.prepare("UPDATE image_sessions SET title = ? WHERE id = ?").run(
-        "电商套图",
-        input.sessionId,
-      );
+      const session = db
+        .prepare("SELECT title FROM image_sessions WHERE id = ?")
+        .get(input.sessionId) as { title: string } | undefined;
+      const autoTitles = new Set(["未命名", "新建项目", "新建画布"]);
+      if (session && autoTitles.has(session.title)) {
+        db.prepare("UPDATE image_sessions SET title = ? WHERE id = ?").run(
+          "电商套图",
+          input.sessionId,
+        );
+      }
     }
   });
 

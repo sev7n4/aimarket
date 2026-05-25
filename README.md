@@ -54,6 +54,8 @@ pnpm dev:api   # http://localhost:4000
 - `GET /api/v1/ai/jobs/:jobId/stream` — SSE 任务状态
 - `POST /api/v1/ai/generate/video` — 视频生成（Mock）
 - `GET|PUT /api/v1/brandKit` — 品牌 Kit
+- `PATCH /api/v1/imageSession/:id` — 重命名会话/项目
+- `DELETE /api/v1/imageSession/:id` — 删除会话/项目
 - `GET /api/v1/imageSession/:id/export` — 会话导出
 - `GET /api/v1/admin/*` — 管理统计（`X-Admin-Secret`）
 - `POST /api/v1/product/checkout` — 创建待支付订单
@@ -76,7 +78,13 @@ pnpm dev:api   # http://localhost:4000
 - [x] Phase 3：积分套餐（模拟充值）、每日签到、邀请有礼、运营公告
 - [x] Phase 4：Provider 抽象、SSE 任务流、视频 Mock、品牌 Kit、管理后台、会话导出
 - [x] Phase 5：Checkout 支付（Mock/Stripe）、Redis/BullMQ 队列、视频 HTTP Provider
+- [x] Sprint 1（体验收尾）：画布/工作台拆分、项目重命名删除、新建入口统一
 - [ ] Phase 6：合规审核、多租户、移动端优化
+- [ ] Sprint 2：真实图像 Provider 上线（staging）
+- [ ] Sprint 3：画布 2.0（拖拽、上传上画布）
+- [ ] Sprint 4：项目 kind 字段 + 电商套图完整表单
+
+发版前冒烟见 [docs/SMOKE_TEST.md](./docs/SMOKE_TEST.md)。
 
 ## License
 

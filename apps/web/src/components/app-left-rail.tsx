@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { FolderKanban, LayoutGrid, Plus } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { buildStudioUrl, type StudioKind } from "@/lib/studio-navigation";
 
 /** 对标椒图：左侧固定快捷栏（新建画布 / 新建项目 / 项目库） */
 export function AppLeftRail() {
@@ -11,17 +12,8 @@ export function AppLeftRail() {
   const pathname = usePathname();
   const { user } = useAuth();
 
-  function openStudio(kind: "canvas" | "project") {
-    const id = crypto.randomUUID();
-    const params = new URLSearchParams({
-      sessionId: id,
-      mode: "chat",
-      kind,
-    });
-    if (kind === "project") {
-      params.set("title", "新建项目");
-    }
-    router.push(`/studio?${params.toString()}`);
+  function openStudio(kind: StudioKind) {
+    router.push(buildStudioUrl(kind));
   }
 
   return (

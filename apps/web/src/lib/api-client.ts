@@ -131,6 +131,25 @@ export async function listSessions(limit = 20) {
   return res.data;
 }
 
+export async function updateSessionTitle(sessionId: string, title: string) {
+  const res = await request<{ data: ImageSession }>(
+    `/api/v1/imageSession/${sessionId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ title }),
+    },
+  );
+  return res.data;
+}
+
+export async function deleteSession(sessionId: string) {
+  const res = await request<{ data: { deleted: boolean; sessionId: string } }>(
+    `/api/v1/imageSession/${sessionId}`,
+    { method: "DELETE" },
+  );
+  return res.data;
+}
+
 export async function fetchMessages(sessionId: string) {
   const res = await request<{ data: ChatMessage[] }>(
     `/api/v1/imageSession/${sessionId}/messages`,

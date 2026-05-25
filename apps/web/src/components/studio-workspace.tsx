@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { SessionTitleActions } from "@/components/session-title-actions";
 import { X } from "lucide-react";
 import { LoginDialog } from "@/components/login-dialog";
 import { AppLeftRail } from "@/components/app-left-rail";
@@ -23,6 +25,7 @@ import {
 } from "@/lib/api-client";
 import { buildCanvasItemsFromMessages } from "@/lib/canvas-tools";
 import { streamJob } from "@/lib/job-stream";
+import { buildStudioUrl } from "@/lib/studio-navigation";
 
 interface StudioWorkspaceProps {
   sessionId: string;
@@ -41,6 +44,7 @@ export function StudioWorkspace({
   initialJobId,
   initialToolId,
 }: StudioWorkspaceProps) {
+  const router = useRouter();
   const { user, loading: authLoading, refreshUser } = useAuth();
   const uploadRef = useRef<HTMLInputElement>(null);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -204,6 +208,23 @@ export function StudioWorkspace({
     }
   }
 
+  const handleTitleSaved = useCallback((title: string) => {
+    setSessions((prev) =>
+      prev.map((s) => (s.id === sessionId ? { ...s, title } : s)),
+    );
+  }, [sessionId]);
+
+  const handleSessionDeleted = useCallback(
+    (deletedId?: string) => {
+      const id = deletedId ?? sessionId;
+      void listSessions().then(setSessions);
+      if (id === sessionId) {
+        router.push(buildStudioUrl("canvas", { mode }));
+      }
+    },
+    [sessionId, mode, router],
+  );
+
   const showEmpty = messages.length === 0 && !pollingJobId;
   const isEcommerce = mode === "ecommerce";
   const canvasEmptyHint = isEcommerce
@@ -214,8 +235,11 @@ export function StudioWorkspace({
     <>
       <AppLeftRail />
       <StudioHeader
+        sessionId={user ? sessionId : undefined}
         sessionTitle={sessionTitle}
         onMenuClick={() => setSidebarOpen(true)}
+        onTitleSaved={handleTitleSaved}
+        onSessionDeleted={() => handleSessionDeleted()}
       />
 
       <input
@@ -254,23 +278,35 @@ export function StudioWorkspace({
           <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
             历史会话
           </p>
-          <div className="flex max-h-[40vh] flex-col gap-0.5 overflow-y-auto">
+          <ul className="flex max-h-[40vh] flex-col gap-0.5 overflow-y-auto">
             {sessions.map((s) => (
-              <Link
-                key={s.id}
-                href={`/studio?sessionId=${s.id}&mode=${s.mode}`}
-                onClick={() => setSidebarOpen(false)}
-                className={`rounded-lg px-3 py-2 text-sm transition ${
-                  s.id === sessionId
-                    ? "bg-white/10 text-white"
-                    : "text-zinc-500 hover:bg-white/5"
-                }`}
-              >
-                <div className="truncate font-medium">{s.title}</div>
-                <div className="text-[10px] text-zinc-600">{s.mode}</div>
-              </Link>
+              <li key={s.id} className="group">
+                <Link
+                  href={`/studio?sessionId=${s.id}&mode=${s.mode}`}
+                  onClick={() => setSidebarOpen(false)}
+                  className={`block rounded-lg px-3 py-2 text-sm transition ${
+                    s.id === sessionId
+                      ? "bg-white/10 text-white"
+                      : "text-zinc-500 hover:bg-white/5"
+                  }`}
+                >
+                  <SessionTitleActions
+                    sessionId={s.id}
+                    title={s.title}
+                    variant="row"
+                    disabled={!user}
+                    onTitleSaved={(title) => {
+                      setSessions((prev) =>
+                        prev.map((x) => (x.id === s.id ? { ...x, title } : x)),
+                      );
+                    }}
+                    onDeleted={() => handleSessionDeleted(s.id)}
+                  />
+                  <div className="text-[10px] text-zinc-600">{s.mode}</div>
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
         </aside>
 
         <div className="relative flex min-h-0 min-w-0 flex-1 gap-0 p-3 md:p-4">
