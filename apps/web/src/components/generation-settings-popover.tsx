@@ -4,19 +4,30 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Sparkles } from "lucide-react";
 import type { CreationMode } from "@aimarket/ui";
 
+/** 对齐椒图 / Gemini 图片常见比例 */
 export type AspectRatio =
   | "1:1"
   | "4:3"
   | "3:4"
   | "16:9"
-  | "9:16";
+  | "9:16"
+  | "3:2"
+  | "2:3"
+  | "4:5"
+  | "5:4"
+  | "21:9";
 
 const aspects: { id: AspectRatio; label: string }[] = [
   { id: "1:1", label: "1:1" },
   { id: "4:3", label: "4:3" },
   { id: "3:4", label: "3:4" },
+  { id: "3:2", label: "3:2" },
+  { id: "2:3", label: "2:3" },
   { id: "16:9", label: "16:9" },
   { id: "9:16", label: "9:16" },
+  { id: "4:5", label: "4:5" },
+  { id: "5:4", label: "5:4" },
+  { id: "21:9", label: "21:9" },
 ];
 
 const resolutions = [
@@ -62,31 +73,33 @@ export function GenerationSettingsPopover({
     : resolutions;
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative shrink-0" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/10"
+        className="inline-flex max-w-[9.5rem] items-center gap-1 truncate rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/10 sm:max-w-none"
       >
-        <Sparkles className="size-3 text-orange-400" />
-        {smartLabel} · {resolution.toUpperCase()}
+        <Sparkles className="size-3 shrink-0 text-orange-400" />
+        <span className="truncate">
+          {smartLabel} · {aspectRatio} · {resolution.toUpperCase()}
+        </span>
         <ChevronDown
-          className={`size-3 opacity-60 transition ${open ? "rotate-180" : ""}`}
+          className={`size-3 shrink-0 opacity-60 transition ${open ? "rotate-180" : ""}`}
         />
       </button>
 
       {open ? (
-        <div className="absolute bottom-full left-0 z-50 mb-2 w-56 rounded-2xl border border-white/10 bg-[#1a1a1a] p-3 shadow-xl">
+        <div className="absolute bottom-full left-0 z-50 mb-2 w-64 rounded-2xl border border-white/10 bg-[#1a1a1a] p-3 shadow-xl">
           <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
             生成比例
           </p>
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid max-h-40 grid-cols-5 gap-1.5 overflow-y-auto">
             {aspects.map((a) => (
               <button
                 key={a.id}
                 type="button"
                 onClick={() => onAspectRatioChange(a.id)}
-                className={`rounded-lg px-2 py-1.5 text-xs transition ${
+                className={`rounded-lg px-1.5 py-1.5 text-[11px] transition ${
                   aspectRatio === a.id
                     ? "bg-white text-black"
                     : "bg-white/5 text-zinc-400 hover:bg-white/10"

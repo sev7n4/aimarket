@@ -77,7 +77,18 @@ ai.post("/generate", async (c) => {
       count: z.number().int().min(1).max(4).default(1),
       resolution: z.enum(["1k", "2k", "4k"]).default("1k"),
       aspectRatio: z
-        .enum(["1:1", "4:3", "3:4", "16:9", "9:16"])
+        .enum([
+          "1:1",
+          "4:3",
+          "3:4",
+          "16:9",
+          "9:16",
+          "3:2",
+          "2:3",
+          "4:5",
+          "5:4",
+          "21:9",
+        ])
         .default("1:1"),
       mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
       assetIds: z.array(z.string().uuid()).optional(),

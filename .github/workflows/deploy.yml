@@ -23,21 +23,23 @@ concurrency:
   group: aimarket-deploy-production
   cancel-in-progress: true
 
-jobs:
-  deploy:
-    name: Deploy AIMarket
-    runs-on: ubuntu-latest
-    environment: production
-    env:
-      SSH_HOST: ${{ secrets.TENCENT_CLOUD_IP || secrets.DEPLOY_HOST }}
-      SSH_USER: ${{ secrets.TENCENT_CLOUD_USER || secrets.DEPLOY_USER }}
-      SSH_KEY: ${{ secrets.TENCENT_CLOUD_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
-      DEPLOY_BRANCH: ${{ github.event.inputs.branch || 'main' }}
-      IMAGE_TAG: ${{ github.sha }}
-      GHCR_OWNER: ${{ github.repository_owner }}
-      PUBLIC_API_URL: http://${{ secrets.TENCENT_CLOUD_IP || secrets.DEPLOY_HOST }}:4100
-      PUBLIC_WEB_URL: http://${{ secrets.TENCENT_CLOUD_IP || secrets.DEPLOY_HOST }}:3100
+env:
+  IMAGE_TAG: ${{ github.sha }}
+  GHCR_OWNER: ${{ github.repository_owner }}
 
+jobs:
+  build-push:
+    name: Build ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: aimarket-api
+            file: deploy/docker/Dockerfile.api
+          - image: aimarket-web
+            file: deploy/docker/Dockerfile.web
+            web_image: true
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,31 +54,36 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Build and push API image
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: deploy/docker/Dockerfile.api
+          file: ${{ matrix.file }}
           push: true
+          build-args: ${{ matrix.web_image && format('NEXT_PUBLIC_API_URL=http://{0}:4100', secrets.TENCENT_CLOUD_IP || secrets.DEPLOY_HOST) || '' }}
           tags: |
-            ghcr.io/${{ env.GHCR_OWNER }}/aimarket-api:${{ env.IMAGE_TAG }}
-            ghcr.io/${{ env.GHCR_OWNER }}/aimarket-api:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ghcr.io/${{ env.GHCR_OWNER }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}
+            ghcr.io/${{ env.GHCR_OWNER }}/${{ matrix.image }}:latest
+          cache-from: type=gha,scope=aimarket-${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=aimarket-${{ matrix.image }}
 
-      - name: Build and push Web image
-        uses: docker/build-push-action@v6
+  deploy:
+    name: Deploy AIMarket
+    needs: build-push
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      SSH_HOST: ${{ secrets.TENCENT_CLOUD_IP || secrets.DEPLOY_HOST }}
+      SSH_USER: ${{ secrets.TENCENT_CLOUD_USER || secrets.DEPLOY_USER }}
+      SSH_KEY: ${{ secrets.TENCENT_CLOUD_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_BRANCH: ${{ github.event.inputs.branch || 'main' }}
+      PUBLIC_API_URL: http://${{ secrets.TENCENT_CLOUD_IP || secrets.DEPLOY_HOST }}:4100
+      PUBLIC_WEB_URL: http://${{ secrets.TENCENT_CLOUD_IP || secrets.DEPLOY_HOST }}:3100
+
+    steps:
+      - uses: actions/checkout@v4
         with:
-          context: .
-          file: deploy/docker/Dockerfile.web
-          build-args: |
-            NEXT_PUBLIC_API_URL=${{ env.PUBLIC_API_URL }}
-          push: true
-          tags: |
-            ghcr.io/${{ env.GHCR_OWNER }}/aimarket-web:${{ env.IMAGE_TAG }}
-            ghcr.io/${{ env.GHCR_OWNER }}/aimarket-web:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          ref: ${{ github.event.inputs.branch || github.ref }}
 
       - name: Copy deploy compose files to server
         uses: appleboy/scp-action@v0.1.7
@@ -95,22 +102,19 @@ jobs:
           username: ${{ env.SSH_USER }}
           key: ${{ env.SSH_KEY }}
           timeout: 120s
-          command_timeout: 30m
+          command_timeout: 20m
           script_stop: true
           script: |
             set -euo pipefail
             AIMARKET_DIR="/opt/aimarket"
             IMAGE_TAG="${{ env.IMAGE_TAG }}"
             GHCR_OWNER="${{ env.GHCR_OWNER }}"
+            export COMPOSE_HTTP_TIMEOUT=300
+            export DOCKER_CLIENT_TIMEOUT=300
             mkdir -p "$AIMARKET_DIR/deploy"
             cp /tmp/aimarket-deploy/deploy/docker-compose.prod.yml "$AIMARKET_DIR/deploy/"
             cp /tmp/aimarket-deploy/deploy/docker-compose.prod.images.yml "$AIMARKET_DIR/deploy/"
             cp /tmp/aimarket-deploy/deploy/.env.production.example "$AIMARKET_DIR/deploy/" 2>/dev/null || true
-            if [[ -d "$AIMARKET_DIR/.git" ]]; then
-              cd "$AIMARKET_DIR"
-              git fetch origin "${{ env.DEPLOY_BRANCH }}" 2>/dev/null || true
-              git reset --hard "origin/${{ env.DEPLOY_BRANCH }}" 2>/dev/null || true
-            fi
             cd "$AIMARKET_DIR"
             if [[ ! -f .env ]]; then
               cp deploy/.env.production.example .env
@@ -119,15 +123,15 @@ jobs:
             fi
             echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
             COMPOSE="docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.images.yml"
-            for i in 1 2 3 4 5; do
-              if IMAGE_TAG="$IMAGE_TAG" $COMPOSE pull; then
+            for i in 1 2 3; do
+              if IMAGE_TAG="$IMAGE_TAG" $COMPOSE pull --parallel; then
                 break
               fi
-              if [[ "$i" -eq 5 ]]; then
+              if [[ "$i" -eq 3 ]]; then
                 echo "ERROR: docker compose pull failed after $i attempts"
                 exit 1
               fi
-              sleep $((i * 20))
+              sleep $((i * 15))
             done
             IMAGE_TAG="$IMAGE_TAG" $COMPOSE up -d --no-build
             echo "Pruning dangling images..."
@@ -186,7 +190,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Cleanup GHCR tags (keep latest 15 per package)
-        if: always()
+        if: success()
         uses: actions/github-script@v7
         continue-on-error: true
         with:

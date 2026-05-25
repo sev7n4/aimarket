@@ -212,6 +212,7 @@ export function WorkbenchPanel({
           variant="dock"
           showModeTabs={false}
           rotatingPlaceholder
+          enablePolish
           mode={mode}
           onModeChange={onModeChange}
           sessionId={sessionId}

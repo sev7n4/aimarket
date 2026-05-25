@@ -38,7 +38,7 @@ export function ModeTabs({ items, value, onChange, className }: ModeTabsProps) {
             aria-selected={active}
             onClick={() => onChange(item.id)}
             className={cn(
-              "relative flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition",
+              "flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition",
               active
                 ? "bg-white text-black shadow"
                 : "text-zinc-400 hover:text-zinc-200",
@@ -47,7 +47,7 @@ export function ModeTabs({ items, value, onChange, className }: ModeTabsProps) {
             {item.icon}
             <span>{item.label}</span>
             {item.badge ? (
-              <span className="absolute -right-1 -top-2 rounded-full bg-purple-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+              <span className="ml-0.5 shrink-0 rounded-full bg-purple-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
                 {item.badge}
               </span>
             ) : null}
