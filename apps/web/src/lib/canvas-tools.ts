@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { randomUUID } from "@/lib/uuid";
 import {
   Download,
   Grid3x3,
@@ -122,7 +123,7 @@ export function mergeCanvasItems(
     if (urlSeen.has(item.url)) continue;
     let id = item.id;
     if (idSeen.has(id)) {
-      id = `${item.id}-${crypto.randomUUID().slice(0, 8)}`;
+      id = `${item.id}-${randomUUID().slice(0, 8)}`;
     }
     const slot = nextCanvasPosition(merged, item.width, item.height);
     merged.push({
@@ -140,7 +141,7 @@ export function mergeCanvasItems(
 export function createUploadCanvasItem(url: string, items: CanvasItem[]): CanvasItem {
   const pos = nextCanvasPosition(items);
   return {
-    id: `upload-${crypto.randomUUID()}`,
+    id: `upload-${randomUUID()}`,
     url,
     ...pos,
     isVideo: false,

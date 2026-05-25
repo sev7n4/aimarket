@@ -1,6 +1,7 @@
 import type { CreationMode } from "@aimarket/ui";
 import { StudioWorkspace } from "@/components/studio-workspace";
 import { parseSessionKind } from "@/lib/session-kind";
+import { randomUUID } from "@/lib/uuid";
 
 export const metadata = {
   title: "工作台",
@@ -29,7 +30,7 @@ type PageProps = {
 
 export default async function StudioPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const sessionId = params.sessionId ?? crypto.randomUUID();
+  const sessionId = params.sessionId ?? randomUUID();
   const mode = parseMode(params.mode);
   const initialPrompt = params.q ?? "";
   const initialTitle =

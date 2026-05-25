@@ -8,6 +8,7 @@ import {
   inspirationItems,
   type InspirationCategory,
 } from "@/lib/inspiration";
+import { randomUUID } from "@/lib/uuid";
 
 const PAGE_SIZE = 12;
 
@@ -57,7 +58,7 @@ export function InspirationGallery() {
             key={item.id}
             type="button"
             onClick={() => {
-              const sessionId = crypto.randomUUID();
+              const sessionId = randomUUID();
               router.push(
                 `/studio?sessionId=${sessionId}&mode=chat&q=${encodeURIComponent(item.prompt)}`,
               );
