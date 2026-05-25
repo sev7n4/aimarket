@@ -2,9 +2,15 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
   pull_request:
-    branches: [main, master]
+    branches: [main]
+
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -55,3 +61,15 @@ jobs:
             NEXT_PUBLIC_API_URL=http://119.29.173.89:4100
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  ci-summary:
+    runs-on: ubuntu-latest
+    needs: [lint-typecheck, docker-build]
+    if: always()
+    steps:
+      - run: |
+          echo "## CI Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Job | Result |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----|--------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| lint-typecheck | ${{ needs.lint-typecheck.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| docker-build | ${{ needs.docker-build.result }} |" >> "$GITHUB_STEP_SUMMARY"
