@@ -3,6 +3,8 @@ import { z } from "zod";
 import { db } from "../db/index.js";
 import { getProviderStatus } from "../providers/registry.js";
 import { requireAdmin } from "../middleware/admin.js";
+import { getModerationStatus } from "../lib/moderation/index.js";
+import { getRateLimitStatus } from "../lib/rate-limit.js";
 
 export const admin = new Hono();
 
@@ -36,7 +38,46 @@ admin.get("/stats", (c) => {
       revenueCents: orders.revenue,
       totalCredits: credits.total,
       provider: getProviderStatus(),
+      moderation: getModerationStatus(),
+      rateLimit: getRateLimitStatus(),
       queue: process.env.JOB_QUEUE ?? "memory",
+    },
+  });
+});
+
+admin.get("/analytics", (c) => {
+  const days = Math.min(Math.max(Number(c.req.query("days") ?? 7), 1), 30);
+  const byName = db
+    .prepare(
+      `SELECT name, COUNT(*) as count
+       FROM analytics_events
+       WHERE created_at >= datetime('now', printf('-%d days', ?))
+       GROUP BY name
+       ORDER BY count DESC`,
+    )
+    .all(days) as { name: string; count: number }[];
+
+  const total = db
+    .prepare(
+      `SELECT COUNT(*) as c FROM analytics_events
+       WHERE created_at >= datetime('now', printf('-%d days', ?))`,
+    )
+    .get(days) as { c: number };
+
+  const recent = db
+    .prepare(
+      `SELECT id, name, user_id, props_json, created_at
+       FROM analytics_events
+       ORDER BY created_at DESC LIMIT 30`,
+    )
+    .all();
+
+  return c.json({
+    data: {
+      days,
+      total: total.c,
+      byName,
+      recent,
     },
   });
 });

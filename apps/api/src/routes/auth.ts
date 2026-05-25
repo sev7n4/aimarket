@@ -24,7 +24,7 @@ const loginSchema = z.object({
 
 auth.post("/register", async (c) => {
   const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-  rateLimit(`register:${ip}`, 10, 60 * 60 * 1000);
+  await rateLimit(`register:${ip}`, 10, 60 * 60 * 1000);
   const body = registerSchema.parse(await c.req.json());
   const existing = db
     .prepare("SELECT id FROM users WHERE email = ?")

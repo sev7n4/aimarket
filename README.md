@@ -83,11 +83,15 @@ pnpm dev:api   # http://localhost:4000
 - [x] Phase 4：Provider 抽象、SSE 任务流、视频 Mock、品牌 Kit、管理后台、会话导出
 - [x] Phase 5：Checkout 支付（Mock/Stripe）、Redis/BullMQ 队列、视频 HTTP Provider
 - [x] Sprint 1（体验收尾）：画布/工作台拆分、项目重命名删除、新建入口统一
-- [x] Phase 6：合规审核（敏感词拦截、内容举报）、多租户工作区、移动端工作台 Sheet
-- [x] Sprint 7：轻量埋点 `POST /api/v1/events`（可选 Bearer 关联用户）
+- [x] Phase 6：6A 外部内容审核、6B 多租户工作区、6C Redis 限流（见 [docs/PHASE6.md](./docs/PHASE6.md)）
+- [x] Sprint 7：轻量埋点 + 首页匿名 `page_view`
+- [x] Sprint 8：Admin 埋点看板 + [生产部署清单](./docs/DEPLOY.md)
 - [x] Sprint 2：真实图像 Provider（OpenAI 落盘、比例尺寸、Staging 文档）
 - [x] Sprint 3：画布 2.0（布局持久化、拖拽、删除、上传上画布）
 - [x] Sprint 4：session.kind 画布/项目 + 项目库筛选 + 电商套图完整表单
+
+- [Phase 6 子阶段说明](./docs/PHASE6.md)
+- [生产部署清单](./docs/DEPLOY.md)
 
 发版前冒烟见 [docs/SMOKE_TEST.md](./docs/SMOKE_TEST.md)。
 

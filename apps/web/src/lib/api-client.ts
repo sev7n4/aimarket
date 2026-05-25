@@ -425,6 +425,36 @@ export async function fetchAdminUsers(adminSecret: string) {
   return (json as { data: Record<string, unknown>[] }).data;
 }
 
+export async function fetchAdminAnalytics(
+  adminSecret: string,
+  days = 7,
+) {
+  const res = await fetch(
+    `${API_BASE}/api/v1/admin/analytics?days=${days}`,
+    { headers: { "X-Admin-Secret": adminSecret } },
+  );
+  const json = await res.json();
+  if (!res.ok) throw new Error((json as ApiErrorBody).error?.message ?? "失败");
+  return json as {
+    data: {
+      days: number;
+      total: number;
+      byName: { name: string; count: number }[];
+      recent: Record<string, unknown>[];
+    };
+  };
+}
+
+export async function createWorkspace(name: string) {
+  const res = await request<{
+    data: { id: string; name: string; is_personal: number; role: string };
+  }>("/api/v1/workspaces/create", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+  return res.data;
+}
+
 export async function fetchAdminReports(
   adminSecret: string,
   status = "pending",

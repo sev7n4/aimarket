@@ -161,7 +161,13 @@ async function main() {
   }
 
   const provider = await req("/api/v1/ai/providerStatus", { headers: authH });
-  ok("GET providerStatus", provider.res.ok && provider.json?.data?.hint);
+  ok(
+    "GET providerStatus",
+    provider.res.ok &&
+      provider.json?.data?.hint &&
+      provider.json?.data?.moderation?.provider,
+    `moderation=${provider.json?.data?.moderation?.provider}`,
+  );
 
   const del = await req(`/api/v1/imageSession/${sessionProject}`, {
     method: "DELETE",
@@ -221,6 +227,21 @@ async function main() {
   ok(
     "GET admin/reports",
     adminReports.res.ok && Array.isArray(adminReports.json?.data),
+  );
+
+  const teamWs = await req("/api/v1/workspaces/create", {
+    method: "POST",
+    headers: authH,
+    body: JSON.stringify({ name: "冒烟团队空间" }),
+  });
+  ok("POST workspaces/create", teamWs.res.status === 201);
+
+  const adminAnalytics = await req("/api/v1/admin/analytics?days=7", {
+    headers: { "X-Admin-Secret": ADMIN },
+  });
+  ok(
+    "GET admin/analytics",
+    adminAnalytics.res.ok && typeof adminAnalytics.json?.data?.total === "number",
   );
 
   const failed = results.filter((r) => !r.pass).length;

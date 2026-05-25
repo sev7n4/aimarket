@@ -11,7 +11,10 @@ import {
   serializeCanvasLayout,
 } from "../lib/canvas-layout.js";
 import { sessionKindSchema } from "../lib/session-kind.js";
-import { getUserDefaultWorkspaceId } from "../lib/workspaces.js";
+import {
+  getUserDefaultWorkspaceId,
+  userHasWorkspaceAccess,
+} from "../lib/workspaces.js";
 
 const SESSION_SELECT =
   "id, title, mode, kind, status, created_at, updated_at";
@@ -97,22 +100,48 @@ sessions.get("/list", (c) => {
     throw new AppError(400, "VALIDATION_ERROR", "kind 须为 canvas 或 project");
   }
   const kind = kindParsed?.success ? kindParsed.data : undefined;
+  const workspaceId = c.req.query("workspaceId");
 
-  const rows = kind
-    ? db
-        .prepare(
-          `SELECT id, title, mode, kind, status, updated_at
-           FROM image_sessions WHERE user_id = ? AND kind = ?
-           ORDER BY updated_at DESC LIMIT ?`,
-        )
-        .all(userId, kind, limit)
-    : db
-        .prepare(
-          `SELECT id, title, mode, kind, status, updated_at
-           FROM image_sessions WHERE user_id = ?
-           ORDER BY updated_at DESC LIMIT ?`,
-        )
-        .all(userId, limit);
+  if (workspaceId) {
+    if (!userHasWorkspaceAccess(userId, workspaceId)) {
+      throw new AppError(403, "FORBIDDEN", "无权访问该工作区");
+    }
+  }
+
+  let rows: Record<string, unknown>[];
+  if (workspaceId && kind) {
+    rows = db
+      .prepare(
+        `SELECT id, title, mode, kind, status, updated_at
+         FROM image_sessions WHERE user_id = ? AND workspace_id = ? AND kind = ?
+         ORDER BY updated_at DESC LIMIT ?`,
+      )
+      .all(userId, workspaceId, kind, limit) as Record<string, unknown>[];
+  } else if (workspaceId) {
+    rows = db
+      .prepare(
+        `SELECT id, title, mode, kind, status, updated_at
+         FROM image_sessions WHERE user_id = ? AND workspace_id = ?
+         ORDER BY updated_at DESC LIMIT ?`,
+      )
+      .all(userId, workspaceId, limit) as Record<string, unknown>[];
+  } else if (kind) {
+    rows = db
+      .prepare(
+        `SELECT id, title, mode, kind, status, updated_at
+         FROM image_sessions WHERE user_id = ? AND kind = ?
+         ORDER BY updated_at DESC LIMIT ?`,
+      )
+      .all(userId, kind, limit) as Record<string, unknown>[];
+  } else {
+    rows = db
+      .prepare(
+        `SELECT id, title, mode, kind, status, updated_at
+         FROM image_sessions WHERE user_id = ?
+         ORDER BY updated_at DESC LIMIT ?`,
+      )
+      .all(userId, limit) as Record<string, unknown>[];
+  }
   return c.json({ data: rows });
 });
 

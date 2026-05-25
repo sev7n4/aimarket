@@ -1,4 +1,5 @@
 import { db } from "./index.js";
+import { backfillWorkspaces } from "../lib/workspaces.js";
 
 const PACKAGES = [
   {
@@ -56,4 +57,6 @@ export function seedDatabase() {
        VALUES ('default-promo', '推荐官活动', '邀请好友注册，双方各得 100 积分', '立即查看', '/invite', 1)`,
     ).run();
   }
+
+  backfillWorkspaces();
 }

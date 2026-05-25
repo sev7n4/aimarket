@@ -37,7 +37,7 @@ productSetAuthed.get("/models", (c) =>
 
 productSetAuthed.post("/generate", async (c) => {
   const userId = c.get("userId");
-  rateLimit(`ecommerce:${userId}`, 15, 60_000);
+  await rateLimit(`ecommerce:${userId}`, 15, 60_000);
   const body = z
     .object({
       sessionId: z.string().uuid(),
@@ -59,7 +59,7 @@ productSetAuthed.post("/generate", async (c) => {
     .get(body.sessionId, userId);
   if (!session) throw new AppError(404, "NOT_FOUND", "会话不存在");
 
-  assertPromptAllowed(body.productInfo);
+  await assertPromptAllowed(body.productInfo);
 
   let prompt = buildEcommercePrompt({
     brand: body.brand,

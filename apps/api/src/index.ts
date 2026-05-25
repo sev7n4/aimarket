@@ -75,7 +75,7 @@ app.onError((err, c) => {
 });
 
 app.get("/health", (c) =>
-  c.json({ ok: true, service: "aimarket-api", version: "0.7.0" }),
+  c.json({ ok: true, service: "aimarket-api", version: "0.8.0" }),
 );
 
 app.use(
@@ -116,5 +116,5 @@ app.route("/api/v1", authed);
 const port = Number(process.env.PORT ?? 4000);
 
 serve({ fetch: app.fetch, port }, () => {
-  console.log(`AIMarket API v0.7 listening on http://localhost:${port}`);
+  console.log(`AIMarket API v0.8 listening on http://localhost:${port}`);
 });

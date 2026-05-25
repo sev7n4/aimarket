@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { AuthVariables } from "../middleware/auth.js";
 import { ALL_MODELS, getModel } from "../lib/models.js";
 import { getProviderStatus } from "../providers/registry.js";
+import { getModerationStatus } from "../lib/moderation/index.js";
 import { streamSSE } from "hono/streaming";
 import { estimatePoints } from "../lib/pricing.js";
 import { createGenerationJob, getJob } from "../lib/jobs.js";
@@ -20,7 +21,14 @@ const ai = new Hono<{ Variables: AuthVariables }>();
 
 ai.get("/queryModels", (c) => c.json({ data: ALL_MODELS }));
 
-ai.get("/providerStatus", (c) => c.json({ data: getProviderStatus() }));
+ai.get("/providerStatus", (c) =>
+  c.json({
+    data: {
+      ...getProviderStatus(),
+      moderation: getModerationStatus(),
+    },
+  }),
+);
 
 ai.post("/suggestModel", async (c) => {
   const body = z
@@ -60,7 +68,7 @@ ai.post("/estimatePointsBatch", async (c) => {
 
 ai.post("/generate", async (c) => {
   const userId = c.get("userId");
-  rateLimit(`generate:${userId}`, 40, 60_000);
+  await rateLimit(`generate:${userId}`, 40, 60_000);
   const body = z
     .object({
       sessionId: z.string().uuid(),
@@ -113,7 +121,7 @@ ai.post("/generate", async (c) => {
     ...refUrls,
     ...assetUrls,
   ]);
-  assertPromptAllowed(prompt);
+  await assertPromptAllowed(prompt);
 
   const { jobId, pointsCost } = createGenerationJob({
     sessionId: body.sessionId,
@@ -147,7 +155,7 @@ ai.get("/jobs/:jobId", (c) => {
 
 ai.post("/generate/video", async (c) => {
   const userId = c.get("userId");
-  rateLimit(`video:${userId}`, 20, 60_000);
+  await rateLimit(`video:${userId}`, 20, 60_000);
   const body = z
     .object({
       sessionId: z.string().uuid(),
@@ -158,7 +166,7 @@ ai.post("/generate/video", async (c) => {
     })
     .parse(await c.req.json());
 
-  assertPromptAllowed(body.prompt);
+  await assertPromptAllowed(body.prompt);
 
   const { jobId, pointsCost } = createGenerationJob({
     sessionId: body.sessionId,

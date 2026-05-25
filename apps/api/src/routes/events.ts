@@ -3,11 +3,18 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { db } from "../db/index.js";
 import { verifyToken } from "../lib/auth.js";
+import { rateLimit } from "../lib/rate-limit.js";
 
 /** Sprint 7：轻量埋点（PRD 最小集） */
 export const events = new Hono();
 
 events.post("/", async (c) => {
+  const ip =
+    c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
+    c.req.header("x-real-ip") ??
+    "anon";
+  await rateLimit(`events:${ip}`, 120, 60_000);
+
   const body = z
     .object({
       name: z.string().min(1).max(64),

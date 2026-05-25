@@ -6,6 +6,7 @@ import {
   fetchAdminStats,
   fetchAdminUsers,
   fetchAdminReports,
+  fetchAdminAnalytics,
   updateAdminReport,
 } from "@/lib/api-client";
 import Link from "next/link";
@@ -19,6 +20,11 @@ export default function AdminPage() {
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
   const [reports, setReports] = useState<Record<string, unknown>[]>([]);
   const [reportStatus, setReportStatus] = useState<"pending" | "reviewed" | "dismissed">("pending");
+  const [analytics, setAnalytics] = useState<{
+    days: number;
+    total: number;
+    byName: { name: string; count: number }[];
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleLogin(e: React.FormEvent) {
@@ -28,9 +34,11 @@ export default function AdminPage() {
       const s = await fetchAdminStats(secret);
       const u = await fetchAdminUsers(secret);
       const r = await fetchAdminReports(secret, "pending");
+      const a = await fetchAdminAnalytics(secret, 7);
       setStats(s.data);
       setUsers(u);
       setReports(r);
+      setAnalytics(a.data);
       sessionStorage.setItem(ADMIN_KEY, secret);
       setAuthed(true);
     } catch (err) {
@@ -51,10 +59,12 @@ export default function AdminPage() {
         fetchAdminStats(s),
         fetchAdminUsers(s),
         fetchAdminReports(s, "pending"),
-      ]).then(([statsRes, userList, reportList]) => {
+        fetchAdminAnalytics(s, 7),
+      ]).then(([statsRes, userList, reportList, analyticsRes]) => {
         setStats(statsRes.data);
         setUsers(userList);
         setReports(reportList);
+        setAnalytics(analyticsRes.data);
         setAuthed(true);
       });
     }
@@ -67,7 +77,7 @@ export default function AdminPage() {
           ← 返回首页
         </Link>
         <h1 className="mt-4 text-2xl font-bold">管理后台</h1>
-        <p className="mt-1 text-sm text-zinc-500">Phase 4–6 · 需 X-Admin-Secret</p>
+        <p className="mt-1 text-sm text-zinc-500">Phase 4–8 · 需 X-Admin-Secret</p>
 
         {!authed ? (
           <GlassPanel className="mt-6 p-6">
@@ -109,8 +119,38 @@ export default function AdminPage() {
             </GlassPanel>
             {stats?.provider ? (
               <GlassPanel className="p-4 text-sm text-zinc-400">
-                Provider:{" "}
-                {JSON.stringify(stats.provider as object)}
+                <p>图像引擎：{JSON.stringify(stats.provider as object)}</p>
+                {stats.moderation ? (
+                  <p className="mt-2">
+                    内容审核：{JSON.stringify(stats.moderation as object)}
+                  </p>
+                ) : null}
+                {stats.rateLimit ? (
+                  <p className="mt-2">
+                    限流存储：{JSON.stringify(stats.rateLimit as object)}
+                  </p>
+                ) : null}
+              </GlassPanel>
+            ) : null}
+            {analytics ? (
+              <GlassPanel className="p-6">
+                <h2 className="font-medium">
+                  埋点统计（近 {analytics.days} 天）
+                </h2>
+                <p className="mt-1 text-sm text-zinc-500">
+                  共 {analytics.total} 条事件
+                </p>
+                <ul className="mt-3 space-y-2 text-sm">
+                  {analytics.byName.map((row) => (
+                    <li
+                      key={row.name}
+                      className="flex justify-between border-b border-white/5 py-2"
+                    >
+                      <span className="font-mono text-zinc-300">{row.name}</span>
+                      <span className="text-zinc-500">{row.count}</span>
+                    </li>
+                  ))}
+                </ul>
               </GlassPanel>
             ) : null}
             <GlassPanel className="p-6">

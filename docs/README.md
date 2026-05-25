@@ -5,5 +5,9 @@
 | [PRD.md](./PRD.md) | 产品需求规格书：用户故事、功能矩阵、里程碑 |
 | [PRODUCT.md](./PRODUCT.md) | 产品文档：页面、模式规则、积分与合规 |
 | [TECH_SPEC.md](./TECH_SPEC.md) | 技术规格书：架构、数据模型、API、环境变量 |
+| [PHASE6.md](./PHASE6.md) | Phase 6 子阶段（6A 合规 / 6B 多租户 / 6C 性能） |
+| [DEPLOY.md](./DEPLOY.md) | 生产部署清单 |
+| [SMOKE_TEST.md](./SMOKE_TEST.md) | 发版冒烟清单 |
+| [STAGING.md](./STAGING.md) | Staging 真实出图配置 |
 
-**当前版本**：Phase 5 已完成；Sprint 1 收尾（见 [SMOKE_TEST.md](./SMOKE_TEST.md)）
+**当前版本**：Phase 6 + Sprint 8 已完成（见 [PHASE6.md](./PHASE6.md)）

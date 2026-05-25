@@ -27,3 +27,37 @@ export function ensurePersonalWorkspace(userId: string): string {
 export function getUserDefaultWorkspaceId(userId: string): string {
   return ensurePersonalWorkspace(userId);
 }
+
+export function userHasWorkspaceAccess(
+  userId: string,
+  workspaceId: string,
+): boolean {
+  const row = db
+    .prepare(
+      `SELECT 1 FROM workspace_members WHERE workspace_id = ? AND user_id = ?`,
+    )
+    .get(workspaceId, userId);
+  return Boolean(row);
+}
+
+/** 启动时为历史用户/会话补齐工作区（Phase 6B） */
+export function backfillWorkspaces() {
+  const users = db.prepare("SELECT id FROM users").all() as { id: string }[];
+  for (const { id } of users) {
+    ensurePersonalWorkspace(id);
+  }
+
+  const orphanSessions = db
+    .prepare(
+      `SELECT id, user_id FROM image_sessions WHERE workspace_id IS NULL OR workspace_id = ''`,
+    )
+    .all() as { id: string; user_id: string }[];
+
+  for (const session of orphanSessions) {
+    const workspaceId = getUserDefaultWorkspaceId(session.user_id);
+    db.prepare(`UPDATE image_sessions SET workspace_id = ? WHERE id = ?`).run(
+      workspaceId,
+      session.id,
+    );
+  }
+}
