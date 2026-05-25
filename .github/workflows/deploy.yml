@@ -115,7 +115,7 @@ jobs:
           username: ${{ env.SSH_USER }}
           key: ${{ env.SSH_KEY }}
           timeout: 120s
-          command_timeout: 20m
+          command_timeout: 40m
           script_stop: true
           script: |
             set -euo pipefail
@@ -137,7 +137,7 @@ jobs:
             echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
             COMPOSE="docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.images.yml"
             for i in 1 2 3; do
-              if IMAGE_TAG="$IMAGE_TAG" $COMPOSE pull --parallel; then
+              if IMAGE_TAG="$IMAGE_TAG" $COMPOSE pull; then
                 break
               fi
               if [[ "$i" -eq 3 ]]; then
