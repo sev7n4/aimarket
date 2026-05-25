@@ -109,12 +109,16 @@ export async function fetchPoints() {
   return res.data.credits;
 }
 
-export async function ensureSession(sessionId: string, mode: string) {
+export async function ensureSession(
+  sessionId: string,
+  mode: string,
+  title?: string,
+) {
   const res = await request<{ data: ImageSession }>(
     "/api/v1/imageSession/ensure",
     {
       method: "POST",
-      body: JSON.stringify({ sessionId, mode }),
+      body: JSON.stringify({ sessionId, mode, title }),
     },
   );
   return res.data;

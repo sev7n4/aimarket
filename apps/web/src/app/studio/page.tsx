@@ -21,6 +21,8 @@ type PageProps = {
     q?: string;
     jobId?: string;
     tool?: string;
+    title?: string;
+    kind?: string;
   }>;
 };
 
@@ -29,6 +31,9 @@ export default async function StudioPage({ searchParams }: PageProps) {
   const sessionId = params.sessionId ?? crypto.randomUUID();
   const mode = parseMode(params.mode);
   const initialPrompt = params.q ?? "";
+  const initialTitle =
+    params.title ??
+    (params.kind === "project" ? "新建项目" : params.kind === "canvas" ? "新建画布" : undefined);
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-[#030303] md:pl-14">
@@ -36,6 +41,7 @@ export default async function StudioPage({ searchParams }: PageProps) {
         sessionId={sessionId}
         initialMode={mode}
         initialPrompt={initialPrompt}
+        initialTitle={initialTitle}
         initialJobId={params.jobId}
         initialToolId={params.tool}
       />

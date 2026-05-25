@@ -1,0 +1,214 @@
+"use client";
+
+import { ChevronRight, Loader2, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { CreationPanel } from "@/components/creation-panel";
+import { StudioToolGrid } from "@/components/studio-tool-grid";
+import { ModeTabs, type CreationMode } from "@aimarket/ui";
+import { modeTabs } from "@/lib/modes";
+import type { ChatMessage, StudioTool } from "@/lib/types";
+
+interface WorkbenchPanelProps {
+  open: boolean;
+  onToggle: () => void;
+  sessionTitle: string;
+  mode: CreationMode;
+  onModeChange: (m: CreationMode) => void;
+  sessionId: string;
+  initialPrompt: string;
+  messages: ChatMessage[];
+  showEmpty: boolean;
+  pollingJobId: string | null;
+  tools: StudioTool[];
+  activeTool: StudioTool | null;
+  toolPrompt: string;
+  toolPending: boolean;
+  onToolPromptChange: (v: string) => void;
+  onToolSelect: (t: StudioTool) => void;
+  onToolCancel: () => void;
+  onToolRun: () => void;
+  onAuthRequired: () => void;
+  onJobStarted: (jobId: string) => void;
+  userReady: boolean;
+  onLogin: () => void;
+}
+
+export function WorkbenchPanel({
+  open,
+  onToggle,
+  sessionTitle,
+  mode,
+  onModeChange,
+  sessionId,
+  initialPrompt,
+  messages,
+  showEmpty,
+  pollingJobId,
+  tools,
+  activeTool,
+  toolPrompt,
+  toolPending,
+  onToolPromptChange,
+  onToolSelect,
+  onToolCancel,
+  onToolRun,
+  onAuthRequired,
+  onJobStarted,
+  userReady,
+  onLogin,
+}: WorkbenchPanelProps) {
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        className="absolute right-3 top-20 z-30 flex items-center gap-1 rounded-full border border-white/10 bg-[#141414] px-3 py-2 text-xs text-zinc-400 shadow-lg hover:text-white"
+      >
+        <PanelRightOpen className="size-4" />
+        工作台
+      </button>
+    );
+  }
+
+  return (
+    <aside className="relative flex w-full shrink-0 flex-col border-l border-white/5 bg-[#0a0a0a] md:w-[min(420px,38vw)]">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="absolute -left-3 top-4 z-10 flex size-6 items-center justify-center rounded-full border border-white/10 bg-[#141414] text-zinc-500 hover:text-white"
+        title="收起工作台"
+      >
+        <ChevronRight className="size-3.5" />
+      </button>
+
+      <div className="flex shrink-0 items-center justify-between border-b border-white/5 px-4 py-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-zinc-600">
+            工作台
+          </p>
+          <p className="text-sm font-medium text-zinc-200">{sessionTitle}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onToggle}
+          className="rounded-lg p-2 text-zinc-500 hover:bg-white/5"
+          title="收起"
+        >
+          <PanelRightClose className="size-4" />
+        </button>
+      </div>
+
+      <div className="shrink-0 border-b border-white/5 px-3 py-2">
+        <ModeTabs
+          items={modeTabs}
+          value={mode}
+          onChange={onModeChange}
+          className="w-full justify-center"
+        />
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-3">
+        {activeTool ? (
+          <div className="mb-3 rounded-xl border border-purple-500/30 bg-purple-500/5 p-3">
+            <h3 className="text-sm font-medium text-purple-200">
+              {activeTool.name}
+            </h3>
+            <p className="mt-1 text-xs text-zinc-500">{activeTool.description}</p>
+            <textarea
+              value={toolPrompt}
+              onChange={(e) => onToolPromptChange(e.target.value)}
+              rows={2}
+              className="mt-2 w-full rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-xs outline-none"
+            />
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={onToolRun}
+                disabled={toolPending}
+                className="rounded-full bg-gradient-to-r from-orange-500 to-purple-600 px-3 py-1 text-xs font-medium disabled:opacity-50"
+              >
+                {toolPending ? "执行中…" : "运行"}
+              </button>
+              <button
+                type="button"
+                onClick={onToolCancel}
+                className="text-xs text-zinc-500"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {showEmpty ? (
+          <div className="flex flex-1 flex-col items-center justify-center py-6 text-center">
+            <p className="text-3xl" aria-hidden>
+              😊
+            </p>
+            <h2 className="mt-3 text-lg font-semibold">Hi，我是 AIMarket</h2>
+            <p className="mt-2 text-xs text-zinc-500">
+              在右侧描述需求，结果会出现在左侧画布
+            </p>
+          </div>
+        ) : (
+          <ul className="space-y-3">
+            {messages.map((msg) => (
+              <li
+                key={msg.id}
+                className={`rounded-xl px-3 py-2 text-xs ${
+                  msg.role === "user"
+                    ? "ml-4 bg-white/10 text-zinc-200"
+                    : "mr-2 border border-white/5 bg-white/[0.02] text-zinc-400"
+                }`}
+              >
+                <p className="line-clamp-4 whitespace-pre-wrap">{msg.content}</p>
+                {msg.outputs?.length ? (
+                  <p className="mt-1 text-[10px] text-orange-400/80">
+                    → {msg.outputs.length} 张已上画布
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {pollingJobId ? (
+          <div className="mt-3 flex items-center gap-2 text-xs text-zinc-500">
+            <Loader2 className="size-3.5 animate-spin text-orange-400" />
+            生成中…
+          </div>
+        ) : null}
+      </div>
+
+      <div className="shrink-0 border-t border-white/5 p-3">
+        {!userReady ? (
+          <button
+            type="button"
+            onClick={onLogin}
+            className="mb-2 w-full text-center text-xs text-orange-400"
+          >
+            登录后开始创作
+          </button>
+        ) : null}
+        <CreationPanel
+          variant="dock"
+          showModeTabs={false}
+          rotatingPlaceholder
+          mode={mode}
+          onModeChange={onModeChange}
+          sessionId={sessionId}
+          initialPrompt={initialPrompt}
+          onAuthRequired={onAuthRequired}
+          onJobStarted={onJobStarted}
+        />
+        {mode !== "ecommerce" ? (
+          <StudioToolGrid
+            tools={tools}
+            activeToolId={activeTool?.id}
+            disabled={toolPending || Boolean(pollingJobId)}
+            onSelect={onToolSelect}
+          />
+        ) : null}
+      </div>
+    </aside>
+  );
+}
