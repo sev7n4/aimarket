@@ -81,6 +81,8 @@ export function StudioWorkspace({
     setItems: setCanvasItems,
     messages,
     load: loadCanvas,
+    canEdit: canvasCanEdit,
+    setCanEdit,
   } = useSessionCanvas(sessionId, Boolean(user));
   const [sessions, setSessions] = useState<ImageSession[]>([]);
   const [tools, setTools] = useState<StudioTool[]>([]);
@@ -99,6 +101,8 @@ export function StudioWorkspace({
   }, []);
 
   const currentSession = sessions.find((s) => s.id === sessionId);
+  const canEditSession = currentSession?.can_edit ?? canvasCanEdit;
+  const readOnly = Boolean(user && !canEditSession);
   const sessionKind: SessionKind =
     currentSession?.kind ?? initialKind ?? "canvas";
   const sessionTitle =
@@ -110,11 +114,12 @@ export function StudioWorkspace({
   const initSession = useCallback(async () => {
     if (!user) return;
     const wsId = activeWorkspaceId ?? getActiveWorkspaceId() ?? undefined;
-    await ensureSession(sessionId, mode, {
+    const ensured = await ensureSession(sessionId, mode, {
       title: initialTitle,
       kind: initialKind ?? "canvas",
       workspaceId: wsId,
     });
+    setCanEdit(ensured.can_edit ?? true);
     await loadCanvas();
     const [list, toolList] = await Promise.all([
       listSessions(20, undefined, wsId),
@@ -123,7 +128,7 @@ export function StudioWorkspace({
     setSessions(list);
     setTools(toolList);
     setReady(true);
-  }, [user, sessionId, mode, initialTitle, initialKind, loadCanvas, activeWorkspaceId]);
+  }, [user, sessionId, mode, initialTitle, initialKind, loadCanvas, activeWorkspaceId, setCanEdit]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -182,6 +187,7 @@ export function StudioWorkspace({
       setLoginOpen(true);
       return;
     }
+    if (readOnly) return;
     setToolPending(true);
     try {
       const { jobId } = await runTool(activeTool.id, {
@@ -226,13 +232,14 @@ export function StudioWorkspace({
       setLoginOpen(true);
       return;
     }
+    if (readOnly) return;
     uploadRef.current?.click();
   }
 
   async function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file || !user) return;
+    if (!file || !user || readOnly) return;
     try {
       const { url } = await uploadAsset(file, sessionId);
       setCanvasItems((prev) => [
@@ -245,7 +252,7 @@ export function StudioWorkspace({
   }
 
   function handleDeleteCanvasItem() {
-    if (!selectedCanvasId) return;
+    if (readOnly || !selectedCanvasId) return;
     setCanvasItems((prev) => prev.filter((i) => i.id !== selectedCanvasId));
     setSelectedCanvasId(null);
   }
@@ -281,6 +288,7 @@ export function StudioWorkspace({
       <StudioHeader
         sessionId={user ? sessionId : undefined}
         sessionTitle={sessionTitle}
+        sessionReadOnly={readOnly}
         onMenuClick={() => setSidebarOpen(true)}
         onTitleSaved={handleTitleSaved}
         onSessionDeleted={() => handleSessionDeleted()}
@@ -345,7 +353,7 @@ export function StudioWorkspace({
                     sessionId={s.id}
                     title={s.title}
                     variant="row"
-                    disabled={!user}
+                    disabled={!user || s.can_edit === false}
                     onTitleSaved={(title) => {
                       setSessions((prev) =>
                         prev.map((x) => (x.id === s.id ? { ...x, title } : x)),
@@ -356,6 +364,11 @@ export function StudioWorkspace({
                   <div className="text-[10px] text-zinc-600">
                     {SESSION_KIND_LABEL[s.kind === "project" ? "project" : "canvas"]}{" "}
                     · {s.mode}
+                    {s.creator_email && s.user_id !== user?.id ? (
+                      <span className="ml-1 text-zinc-500">
+                        · {s.creator_email}
+                      </span>
+                    ) : null}
                   </div>
                 </Link>
               </li>
@@ -372,6 +385,11 @@ export function StudioWorkspace({
               </span>
             </p>
             <ProviderStatusBanner />
+            {readOnly ? (
+              <p className="mb-2 shrink-0 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200/90">
+                只读：他人会话，仅创建者或管理员可编辑与生成
+              </p>
+            ) : null}
             <DesignCanvas
               items={canvasItems}
               selectedId={selectedCanvasId}
@@ -381,6 +399,7 @@ export function StudioWorkspace({
               onDownload={() => void handleCanvasDownload()}
               onDeleteSelected={handleDeleteCanvasItem}
               emptyHint={canvasEmptyHint}
+              readOnly={readOnly}
             />
             {user ? (
               <div className="mt-2 px-1">
@@ -418,6 +437,7 @@ export function StudioWorkspace({
             }}
             userReady={Boolean(user && ready)}
             onLogin={() => setLoginOpen(true)}
+            readOnly={readOnly}
           />
         </div>
       </div>

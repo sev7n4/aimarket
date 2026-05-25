@@ -30,6 +30,7 @@ interface WorkbenchPanelProps {
   onJobStarted: (jobId: string) => void;
   userReady: boolean;
   onLogin: () => void;
+  readOnly?: boolean;
 }
 
 export function WorkbenchPanel({
@@ -55,6 +56,7 @@ export function WorkbenchPanel({
   onJobStarted,
   userReady,
   onLogin,
+  readOnly = false,
 }: WorkbenchPanelProps) {
   if (!open) {
     return (
@@ -112,7 +114,7 @@ export function WorkbenchPanel({
         <ModeTabs
           items={modeTabs}
           value={mode}
-          onChange={onModeChange}
+          onChange={readOnly ? () => {} : onModeChange}
           className="w-full justify-center"
         />
       </div>
@@ -127,6 +129,7 @@ export function WorkbenchPanel({
             <textarea
               value={toolPrompt}
               onChange={(e) => onToolPromptChange(e.target.value)}
+              readOnly={readOnly}
               rows={2}
               className="mt-2 w-full rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-xs outline-none"
             />
@@ -134,7 +137,7 @@ export function WorkbenchPanel({
               <button
                 type="button"
                 onClick={onToolRun}
-                disabled={toolPending}
+                disabled={readOnly || toolPending}
                 className="rounded-full bg-gradient-to-r from-orange-500 to-purple-600 px-3 py-1 text-xs font-medium disabled:opacity-50"
               >
                 {toolPending ? "执行中…" : "运行"}
@@ -200,6 +203,11 @@ export function WorkbenchPanel({
             登录后开始创作
           </button>
         ) : null}
+        {readOnly ? (
+          <p className="mb-2 text-center text-xs text-amber-400/90">
+            只读会话：无法在此生成或编辑
+          </p>
+        ) : null}
         <CreationPanel
           variant="dock"
           showModeTabs={false}
@@ -210,12 +218,13 @@ export function WorkbenchPanel({
           initialPrompt={initialPrompt}
           onAuthRequired={onAuthRequired}
           onJobStarted={onJobStarted}
+          readOnly={readOnly}
         />
         {mode !== "ecommerce" ? (
           <StudioToolGrid
             tools={tools}
             activeToolId={activeTool?.id}
-            disabled={toolPending || Boolean(pollingJobId)}
+            disabled={readOnly || toolPending || Boolean(pollingJobId)}
             onSelect={onToolSelect}
           />
         ) : null}

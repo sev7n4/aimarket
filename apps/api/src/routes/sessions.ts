@@ -12,14 +12,25 @@ import {
 } from "../lib/canvas-layout.js";
 import { sessionKindSchema } from "../lib/session-kind.js";
 import {
-  resolveWorkspaceIdForUser,
-  userHasWorkspaceAccess,
-} from "../lib/workspaces.js";
+  assertSessionRead,
+  assertSessionWrite,
+  canReadSession,
+  getSessionById,
+  mapSessionForUser,
+} from "../lib/session-access.js";
+import { listSessionsForUser } from "../lib/session-list.js";
+import { resolveWorkspaceIdForUser } from "../lib/workspaces.js";
 
 const SESSION_SELECT =
-  "id, title, mode, kind, status, created_at, updated_at";
+  "id, user_id, workspace_id, title, mode, kind, status, created_at, updated_at";
 
 const sessions = new Hono<{ Variables: AuthVariables }>();
+
+function loadSessionRow(sessionId: string) {
+  return db
+    .prepare(`SELECT ${SESSION_SELECT} FROM image_sessions WHERE id = ?`)
+    .get(sessionId) as Parameters<typeof mapSessionForUser>[0] | undefined;
+}
 
 sessions.post("/ensure", async (c) => {
   const userId = c.get("userId");
@@ -33,14 +44,12 @@ sessions.post("/ensure", async (c) => {
     })
     .parse(await c.req.json());
 
-  const existing = db
-    .prepare(
-      `SELECT ${SESSION_SELECT} FROM image_sessions WHERE id = ? AND user_id = ?`,
-    )
-    .get(body.sessionId, userId);
-
+  const existing = getSessionById(body.sessionId);
   if (existing) {
-    return c.json({ data: existing });
+    if (!canReadSession(userId, existing)) {
+      throw new AppError(400, "SESSION_TAKEN", "会话 ID 冲突，请刷新页面");
+    }
+    return c.json({ data: mapSessionForUser(existing, userId) });
   }
 
   const taken = db
@@ -52,18 +61,19 @@ sessions.post("/ensure", async (c) => {
 
   const title =
     body.title ??
-    (body.kind === "project" ? "新建项目" : body.kind === "canvas" ? "新建画布" : "未命名");
+    (body.kind === "project"
+      ? "新建项目"
+      : body.kind === "canvas"
+        ? "新建画布"
+        : "未命名");
 
   const workspaceId = resolveWorkspaceIdForUser(userId, body.workspaceId);
   db.prepare(
     `INSERT INTO image_sessions (id, user_id, workspace_id, title, mode, kind) VALUES (?, ?, ?, ?, ?, ?)`,
   ).run(body.sessionId, userId, workspaceId, title, body.mode, body.kind);
 
-  const session = db
-    .prepare(`SELECT ${SESSION_SELECT} FROM image_sessions WHERE id = ?`)
-    .get(body.sessionId);
-
-  return c.json({ data: session }, 201);
+  const session = loadSessionRow(body.sessionId);
+  return c.json({ data: mapSessionForUser(session!, userId) }, 201);
 });
 
 sessions.post("/create", async (c) => {
@@ -84,80 +94,48 @@ sessions.post("/create", async (c) => {
     `INSERT INTO image_sessions (id, user_id, workspace_id, title, mode, kind) VALUES (?, ?, ?, ?, ?, ?)`,
   ).run(id, userId, workspaceId, title, body.mode, body.kind);
 
-  const session = db
-    .prepare(`SELECT ${SESSION_SELECT} FROM image_sessions WHERE id = ?`)
-    .get(id);
-
-  return c.json({ data: session }, 201);
+  const session = loadSessionRow(id);
+  return c.json({ data: mapSessionForUser(session!, userId) }, 201);
 });
 
 sessions.get("/list", (c) => {
   const userId = c.get("userId");
   const limit = Math.min(Number(c.req.query("limit") ?? 20), 50);
   const kindRaw = c.req.query("kind");
-  const kindParsed = kindRaw
-    ? sessionKindSchema.safeParse(kindRaw)
-    : null;
+  const kindParsed = kindRaw ? sessionKindSchema.safeParse(kindRaw) : null;
   if (kindRaw && kindParsed && !kindParsed.success) {
     throw new AppError(400, "VALIDATION_ERROR", "kind 须为 canvas 或 project");
   }
   const kind = kindParsed?.success ? kindParsed.data : undefined;
   const workspaceId = c.req.query("workspaceId");
 
-  if (workspaceId) {
-    if (!userHasWorkspaceAccess(userId, workspaceId)) {
-      throw new AppError(403, "FORBIDDEN", "无权访问该工作区");
-    }
-  }
-
-  let rows: Record<string, unknown>[];
-  if (workspaceId && kind) {
-    rows = db
-      .prepare(
-        `SELECT id, title, mode, kind, status, updated_at
-         FROM image_sessions WHERE user_id = ? AND workspace_id = ? AND kind = ?
-         ORDER BY updated_at DESC LIMIT ?`,
-      )
-      .all(userId, workspaceId, kind, limit) as Record<string, unknown>[];
-  } else if (workspaceId) {
-    rows = db
-      .prepare(
-        `SELECT id, title, mode, kind, status, updated_at
-         FROM image_sessions WHERE user_id = ? AND workspace_id = ?
-         ORDER BY updated_at DESC LIMIT ?`,
-      )
-      .all(userId, workspaceId, limit) as Record<string, unknown>[];
-  } else if (kind) {
-    rows = db
-      .prepare(
-        `SELECT id, title, mode, kind, status, updated_at
-         FROM image_sessions WHERE user_id = ? AND kind = ?
-         ORDER BY updated_at DESC LIMIT ?`,
-      )
-      .all(userId, kind, limit) as Record<string, unknown>[];
-  } else {
-    rows = db
-      .prepare(
-        `SELECT id, title, mode, kind, status, updated_at
-         FROM image_sessions WHERE user_id = ?
-         ORDER BY updated_at DESC LIMIT ?`,
-      )
-      .all(userId, limit) as Record<string, unknown>[];
-  }
-  return c.json({ data: rows });
+  const data = listSessionsForUser(userId, {
+    limit,
+    workspaceId: workspaceId || undefined,
+    kind,
+  });
+  return c.json({ data });
 });
 
 sessions.get("/queryImageSessionRequestMode", (c) => {
   const sessionId = c.req.query("sessionId");
   if (!sessionId) {
-    return c.json({ error: { code: "VALIDATION_ERROR", message: "sessionId required" } }, 400);
+    return c.json(
+      { error: { code: "VALIDATION_ERROR", message: "sessionId required" } },
+      400,
+    );
   }
   const userId = c.get("userId");
-  const row = db
-    .prepare("SELECT id, mode, status FROM image_sessions WHERE id = ? AND user_id = ?")
-    .get(sessionId, userId);
-  if (!row) throw new AppError(404, "NOT_FOUND", "会话不存在");
-  return c.json({ data: { sessionId, ...row } });
+  const session = assertSessionRead(userId, sessionId);
+  return c.json({
+    data: {
+      sessionId,
+      id: session.id,
+      mode: session.mode,
+      status: session.status,
+      can_edit: mapSessionForUser(session, userId).can_edit,
+    },
+  });
 });
 
 sessions.patch("/:sessionId", async (c) => {
@@ -167,35 +145,23 @@ sessions.patch("/:sessionId", async (c) => {
     .object({ title: z.string().trim().min(1).max(100) })
     .parse(await c.req.json());
 
-  const existing = db
-    .prepare("SELECT id FROM image_sessions WHERE id = ? AND user_id = ?")
-    .get(sessionId, userId);
-  if (!existing) throw new AppError(404, "NOT_FOUND", "会话不存在");
+  assertSessionWrite(userId, sessionId);
 
   db.prepare(
     `UPDATE image_sessions SET title = ?, updated_at = datetime('now') WHERE id = ?`,
   ).run(body.title, sessionId);
 
-  const session = db
-    .prepare(`SELECT ${SESSION_SELECT} FROM image_sessions WHERE id = ?`)
-    .get(sessionId);
-
-  return c.json({ data: session });
+  const session = loadSessionRow(sessionId);
+  return c.json({ data: mapSessionForUser(session!, userId) });
 });
 
 sessions.delete("/:sessionId", (c) => {
   const userId = c.get("userId");
   const sessionId = c.req.param("sessionId");
 
-  const existing = db
-    .prepare("SELECT id FROM image_sessions WHERE id = ? AND user_id = ?")
-    .get(sessionId, userId);
-  if (!existing) throw new AppError(404, "NOT_FOUND", "会话不存在");
+  assertSessionWrite(userId, sessionId);
 
-  db.prepare("DELETE FROM image_sessions WHERE id = ? AND user_id = ?").run(
-    sessionId,
-    userId,
-  );
+  db.prepare("DELETE FROM image_sessions WHERE id = ?").run(sessionId);
 
   return c.json({ data: { deleted: true, sessionId } });
 });
@@ -203,13 +169,11 @@ sessions.delete("/:sessionId", (c) => {
 sessions.get("/:sessionId/canvas", (c) => {
   const userId = c.get("userId");
   const sessionId = c.req.param("sessionId");
+  assertSessionRead(userId, sessionId);
   const row = db
-    .prepare(
-      "SELECT canvas_layout FROM image_sessions WHERE id = ? AND user_id = ?",
-    )
-    .get(sessionId, userId) as { canvas_layout: string | null } | undefined;
-  if (!row) throw new AppError(404, "NOT_FOUND", "会话不存在");
-  const layout = parseCanvasLayout(row.canvas_layout);
+    .prepare("SELECT canvas_layout FROM image_sessions WHERE id = ?")
+    .get(sessionId) as { canvas_layout: string | null } | undefined;
+  const layout = parseCanvasLayout(row?.canvas_layout ?? null);
   return c.json({ data: layout ?? { version: 1 as const, items: [] } });
 });
 
@@ -218,10 +182,7 @@ sessions.put("/:sessionId/canvas", async (c) => {
   const sessionId = c.req.param("sessionId");
   const body = canvasLayoutSchema.parse(await c.req.json());
 
-  const existing = db
-    .prepare("SELECT id FROM image_sessions WHERE id = ? AND user_id = ?")
-    .get(sessionId, userId);
-  if (!existing) throw new AppError(404, "NOT_FOUND", "会话不存在");
+  assertSessionWrite(userId, sessionId);
 
   db.prepare(
     `UPDATE image_sessions SET canvas_layout = ?, updated_at = datetime('now') WHERE id = ?`,
@@ -233,20 +194,15 @@ sessions.put("/:sessionId/canvas", async (c) => {
 sessions.get("/:sessionId/references", (c) => {
   const userId = c.get("userId");
   const sessionId = c.req.param("sessionId");
-  const session = db
-    .prepare("SELECT id FROM image_sessions WHERE id = ? AND user_id = ?")
-    .get(sessionId, userId);
-  if (!session) throw new AppError(404, "NOT_FOUND", "会话不存在");
+  assertSessionRead(userId, sessionId);
   return c.json({ data: listSessionReferences(sessionId) });
 });
 
 sessions.get("/:sessionId/messages", (c) => {
   const userId = c.get("userId");
   const sessionId = c.req.param("sessionId");
-  const session = db
-    .prepare("SELECT id FROM image_sessions WHERE id = ? AND user_id = ?")
-    .get(sessionId, userId);
-  if (!session) throw new AppError(404, "NOT_FOUND", "会话不存在");
+  const session = assertSessionRead(userId, sessionId);
+  const access = mapSessionForUser(session, userId);
 
   const messages = db
     .prepare(
@@ -270,16 +226,13 @@ sessions.get("/:sessionId/messages", (c) => {
     return { ...m, outputs };
   });
 
-  return c.json({ data });
+  return c.json({ data, meta: access });
 });
 
 sessions.get("/:sessionId/export", (c) => {
   const userId = c.get("userId");
   const sessionId = c.req.param("sessionId");
-  const session = db
-    .prepare("SELECT id, title FROM image_sessions WHERE id = ? AND user_id = ?")
-    .get(sessionId, userId);
-  if (!session) throw new AppError(404, "NOT_FOUND", "会话不存在");
+  const session = assertSessionRead(userId, sessionId);
 
   const assets = db
     .prepare(
@@ -294,7 +247,7 @@ sessions.get("/:sessionId/export", (c) => {
   return c.json({
     data: {
       sessionId,
-      title: (session as { title: string }).title,
+      title: session.title,
       files: assets,
       count: assets.length,
     },

@@ -33,21 +33,23 @@ function toLayoutDto(items: CanvasItem[]): CanvasLayoutDto {
 export function useSessionCanvas(sessionId: string, enabled: boolean) {
   const [items, setItems] = useState<CanvasItem[]>([]);
   const [messages, setMessages] = useState<
-    Awaited<ReturnType<typeof fetchMessages>>
+    Awaited<ReturnType<typeof fetchMessages>>["messages"]
   >([]);
+  const [canEdit, setCanEdit] = useState(true);
   const persistReady = useRef(false);
   const skipNextSave = useRef(true);
 
   const load = useCallback(async () => {
-    const [layout, msgs] = await Promise.all([
+    const [layout, msgRes] = await Promise.all([
       fetchCanvasLayout(sessionId).catch(() => ({
         version: 1 as const,
         items: [],
       })),
       fetchMessages(sessionId),
     ]);
-    setMessages(msgs);
-    const fromMsgs = buildCanvasItemsFromMessages(msgs);
+    setMessages(msgRes.messages);
+    setCanEdit(msgRes.meta?.can_edit ?? true);
+    const fromMsgs = buildCanvasItemsFromMessages(msgRes.messages);
     const saved = (layout.items ?? []) as CanvasItem[];
     const merged =
       saved.length > 0 ? mergeCanvasItems(saved, fromMsgs) : fromMsgs;
@@ -62,16 +64,19 @@ export function useSessionCanvas(sessionId: string, enabled: boolean) {
     void load();
   }, [enabled, load, sessionId]);
 
-  const syncFromMessages = useCallback((msgs: typeof messages) => {
-    setMessages(msgs);
-    setItems((prev) => {
-      const incoming = buildCanvasItemsFromMessages(msgs);
-      return mergeCanvasItems(prev, incoming);
-    });
-  }, []);
+  const syncFromMessages = useCallback(
+    (msgs: typeof messages) => {
+      setMessages(msgs);
+      setItems((prev) => {
+        const incoming = buildCanvasItemsFromMessages(msgs);
+        return mergeCanvasItems(prev, incoming);
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
-    if (!persistReady.current || !enabled) return;
+    if (!persistReady.current || !enabled || !canEdit) return;
     if (skipNextSave.current) {
       skipNextSave.current = false;
       return;
@@ -80,11 +85,15 @@ export function useSessionCanvas(sessionId: string, enabled: boolean) {
       void saveCanvasLayout(sessionId, toLayoutDto(items)).catch(() => {});
     }, 700);
     return () => clearTimeout(timer);
-  }, [items, sessionId, enabled]);
+  }, [items, sessionId, enabled, canEdit]);
 
-  const updateItems = useCallback((next: CanvasItem[] | ((prev: CanvasItem[]) => CanvasItem[])) => {
-    setItems(next);
-  }, []);
+  const updateItems = useCallback(
+    (next: CanvasItem[] | ((prev: CanvasItem[]) => CanvasItem[])) => {
+      if (!canEdit) return;
+      setItems(next);
+    },
+    [canEdit],
+  );
 
   return {
     items,
@@ -93,5 +102,7 @@ export function useSessionCanvas(sessionId: string, enabled: boolean) {
     setMessages,
     load,
     syncFromMessages,
+    canEdit,
+    setCanEdit,
   };
 }

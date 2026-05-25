@@ -12,6 +12,15 @@ export interface ImageSession {
   kind?: "canvas" | "project";
   status: string;
   updated_at: string;
+  user_id?: string;
+  creator_email?: string | null;
+  can_edit?: boolean;
+  is_read_only?: boolean;
+}
+
+export interface SessionAccessMeta {
+  can_edit?: boolean;
+  is_read_only?: boolean;
 }
 
 export interface MessageOutput {

@@ -8,6 +8,7 @@ import { enrichPromptWithReferences } from "../lib/references.js";
 import { db } from "../db/index.js";
 import { AppError } from "../lib/errors.js";
 import { assertPromptAllowed } from "../lib/content-moderation.js";
+import { assertSessionWrite } from "../lib/session-access.js";
 import { rateLimit } from "../lib/rate-limit.js";
 
 export const productSetPublic = new Hono();
@@ -54,10 +55,7 @@ productSetAuthed.post("/generate", async (c) => {
     })
     .parse(await c.req.json());
 
-  const session = db
-    .prepare("SELECT id FROM image_sessions WHERE id = ? AND user_id = ?")
-    .get(body.sessionId, userId);
-  if (!session) throw new AppError(404, "NOT_FOUND", "会话不存在");
+  assertSessionWrite(userId, body.sessionId);
 
   await assertPromptAllowed(body.productInfo);
 

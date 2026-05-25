@@ -17,6 +17,7 @@ interface StudioHeaderProps {
   onMenuClick?: () => void;
   onTitleSaved?: (title: string) => void;
   onSessionDeleted?: () => void;
+  sessionReadOnly?: boolean;
 }
 
 export function StudioHeader({
@@ -25,6 +26,7 @@ export function StudioHeader({
   onMenuClick,
   onTitleSaved,
   onSessionDeleted,
+  sessionReadOnly = false,
 }: StudioHeaderProps) {
   const router = useRouter();
   const { user, logout, loading, refreshUser } = useAuth();
@@ -76,6 +78,7 @@ export function StudioHeader({
                   sessionId={sessionId}
                   title={sessionTitle}
                   variant="header"
+                  disabled={sessionReadOnly}
                   onTitleSaved={onTitleSaved}
                   onDeleted={onSessionDeleted}
                 />

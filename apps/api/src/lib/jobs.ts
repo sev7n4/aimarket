@@ -4,6 +4,7 @@ import { ECOMMERCE_SLIDES } from "./ecommerce.js";
 import { estimatePoints } from "./pricing.js";
 import { getModel } from "./models.js";
 import { AppError } from "./errors.js";
+import { assertSessionWrite, assertSessionRead } from "./session-access.js";
 import { generateImages, resolveProvider } from "../providers/registry.js";
 import {
   generateVideos,
@@ -45,13 +46,7 @@ export function createGenerationJob(input: CreateJobInput) {
     throw new AppError(402, "INSUFFICIENT_CREDITS", "积分不足，请充值后再试");
   }
 
-  const session = db
-    .prepare("SELECT id, user_id FROM image_sessions WHERE id = ?")
-    .get(input.sessionId) as { id: string; user_id: string } | undefined;
-
-  if (!session || session.user_id !== input.userId) {
-    throw new AppError(404, "NOT_FOUND", "会话不存在");
-  }
+  assertSessionWrite(input.userId, input.sessionId);
 
   const modelMeta = getModel(input.modelId);
   if (modelMeta?.type !== "video") {
@@ -282,8 +277,8 @@ export function getJob(jobId: string, userId?: string): JobDetail {
   if (!job) {
     throw new AppError(404, "NOT_FOUND", "任务不存在");
   }
-  if (userId && job.user_id !== userId) {
-    throw new AppError(404, "NOT_FOUND", "任务不存在");
+  if (userId) {
+    assertSessionRead(userId, job.session_id as string);
   }
 
   const outputs = db

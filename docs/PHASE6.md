@@ -28,6 +28,11 @@ Phase 6 总目标：合规审核、多租户、性能与可运维性。
 | 按工作区筛会话 | ✅ | `GET /imageSession/list?workspaceId=` |
 | Studio 展示工作区名 | ✅ | 顶栏「工作区：个人空间」 |
 | 成员邀请 / 切换工作区 UI | ✅ | `/join?code=`、Studio 侧栏工作区切换器 |
+| 团队空间协作（方案 B） | ✅ | 全员可见会话；`member` 对他人只读；`owner`/`admin` 超权可写 |
+| 会话权限 API | ✅ | `session-access.ts`；列表含 `can_edit`；`messages` 返回 `meta` |
+| 协作冒烟 | ✅ | `node scripts/test-workspace-collab.mjs` |
+
+**方案 B 规则**：团队工作区 `list` 返回全部会话（非仅 `user_id`）；写操作需 `canWriteSession`（创建者或 owner/admin）；个人工作区仍仅本人可见可写。
 
 ## 6C — 性能与限流
 

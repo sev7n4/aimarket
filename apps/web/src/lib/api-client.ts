@@ -10,6 +10,7 @@ import type {
   Notice,
   ProductSetInit,
   RouteSuggestion,
+  SessionAccessMeta,
   SessionReference,
   SignStatus,
   StudioTool,
@@ -168,10 +169,11 @@ export async function deleteSession(sessionId: string) {
 }
 
 export async function fetchMessages(sessionId: string) {
-  const res = await request<{ data: ChatMessage[] }>(
-    `/api/v1/imageSession/${sessionId}/messages`,
-  );
-  return res.data;
+  const res = await request<{
+    data: ChatMessage[];
+    meta?: SessionAccessMeta;
+  }>(`/api/v1/imageSession/${sessionId}/messages`);
+  return { messages: res.data, meta: res.meta };
 }
 
 export interface CanvasLayoutDto {

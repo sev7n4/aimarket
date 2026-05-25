@@ -14,6 +14,7 @@ interface DesignCanvasProps {
   onDownload: () => void;
   onDeleteSelected: () => void;
   emptyHint?: string;
+  readOnly?: boolean;
 }
 
 export function DesignCanvas({
@@ -25,6 +26,7 @@ export function DesignCanvas({
   onDownload,
   onDeleteSelected,
   emptyHint = "生成结果将显示在画布上",
+  readOnly = false,
 }: DesignCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tool, setTool] = useState<CanvasToolId>("select");
@@ -50,14 +52,16 @@ export function DesignCanvas({
         setZoom(1);
         setPan({ x: 0, y: 0 });
       } else if (id === "grid") setGridOn((g) => !g);
-      else if (id === "upload") onUpload();
-      else if (id === "download") onDownload();
+      else if (id === "upload") {
+        if (!readOnly) onUpload();
+      } else if (id === "download") onDownload();
       else if (id === "delete") {
+        if (readOnly) return;
         if (selectedId) onDeleteSelected();
         else setTool("select");
       } else setTool(id);
     },
-    [onUpload, onDownload, onDeleteSelected, selectedId],
+    [onUpload, onDownload, onDeleteSelected, selectedId, readOnly],
   );
 
   function onCanvasPointerDown(e: React.PointerEvent) {
@@ -72,7 +76,7 @@ export function DesignCanvas({
   }
 
   function onCanvasPointerMove(e: React.PointerEvent) {
-    if (dragRef.current && tool === "select") {
+    if (!readOnly && dragRef.current && tool === "select") {
       const d = dragRef.current;
       const dx = (e.clientX - d.startX) / zoom;
       const dy = (e.clientY - d.startY) / zoom;
@@ -100,8 +104,9 @@ export function DesignCanvas({
   function onItemPointerDown(e: React.PointerEvent, item: CanvasItem) {
     if (tool !== "select") return;
     e.stopPropagation();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     onSelect(item.id);
+    if (readOnly) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     dragRef.current = {
       id: item.id,
       startX: e.clientX,
@@ -131,14 +136,13 @@ export function DesignCanvas({
       if (e.key !== "Delete" && e.key !== "Backspace") return;
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (selectedId) {
-        e.preventDefault();
-        onDeleteSelected();
-      }
+      if (readOnly || !selectedId) return;
+      e.preventDefault();
+      onDeleteSelected();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId, onDeleteSelected]);
+  }, [selectedId, onDeleteSelected, readOnly]);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d0d]">

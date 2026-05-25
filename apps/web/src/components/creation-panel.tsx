@@ -66,6 +66,8 @@ interface CreationPanelProps {
   homeDirectSubmit?: boolean;
   /** 轮播「试试输入：…」占位（对标椒图） */
   rotatingPlaceholder?: boolean;
+  /** 团队空间只读：禁止在本会话生成 */
+  readOnly?: boolean;
 }
 
 export function CreationPanel({
@@ -84,6 +86,7 @@ export function CreationPanel({
   leadingUpload = false,
   enablePolish = false,
   rotatingPlaceholder = false,
+  readOnly = false,
 }: CreationPanelProps) {
   const shouldNavigateOnSubmit =
     navigateOnSubmit ?? (!sessionId && !homeDirectSubmit);
@@ -234,6 +237,7 @@ export function CreationPanel({
   }
 
   async function handleSubmit() {
+    if (readOnly) return;
     if (!prompt.trim() && mode !== "ecommerce") return;
     if (mode === "ecommerce") {
       if (prompt.trim().length < 10) {
@@ -341,9 +345,10 @@ export function CreationPanel({
   }
 
   const canSubmit =
-    mode === "ecommerce"
+    !readOnly &&
+    (mode === "ecommerce"
       ? prompt.trim().length >= 10 && Boolean(productAssetId)
-      : prompt.trim().length > 0;
+      : prompt.trim().length > 0);
 
   const isDock = variant === "dock";
 
@@ -438,7 +443,10 @@ export function CreationPanel({
                         : placeholders[mode]
                 }
                 rows={mode === "ecommerce" ? 3 : isDock ? 2 : 2}
+                readOnly={readOnly}
                 className={`w-full resize-none bg-transparent text-sm outline-none placeholder:text-zinc-600 ${
+                  readOnly ? "cursor-not-allowed opacity-60" : ""
+                } ${
                   isDock
                     ? "min-h-[56px] pr-9 text-zinc-100"
                     : "rounded-2xl border border-white/10 bg-black/40 px-4 py-3 focus:border-purple-500/40"
@@ -545,7 +553,7 @@ export function CreationPanel({
             variant="primary"
             className="size-9 shrink-0 rounded-full p-0 sm:size-10"
             onClick={() => void handleSubmit()}
-            disabled={pending || !canSubmit}
+            disabled={readOnly || pending || !canSubmit}
             aria-label="开始生成"
           >
             {pending ? (

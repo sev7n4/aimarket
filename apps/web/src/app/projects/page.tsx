@@ -8,6 +8,8 @@ import { SessionTitleActions } from "@/components/session-title-actions";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { listSessions } from "@/lib/api-client";
+import { getActiveWorkspaceId } from "@/lib/active-workspace";
+import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { SESSION_KIND_LABEL, type SessionKind } from "@/lib/session-kind";
 import { buildStudioUrl, studioUrlForSession } from "@/lib/studio-navigation";
 import { useAuth } from "@/lib/auth-context";
@@ -31,14 +33,22 @@ export default function ProjectsPage() {
   const { user, loading } = useAuth();
   const [sessions, setSessions] = useState<ImageSession[]>([]);
   const [filter, setFilter] = useState<FilterKind>("all");
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
 
   const loadSessions = useCallback(() => {
     if (!user) return;
     const kind = filter === "all" ? undefined : filter;
-    listSessions(50, kind)
+    const wsId = workspaceId ?? getActiveWorkspaceId() ?? undefined;
+    listSessions(50, kind, wsId)
       .then(setSessions)
       .catch(() => setSessions([]));
-  }, [user, filter]);
+  }, [user, filter, workspaceId]);
+
+  useEffect(() => {
+    if (!user) return;
+    const stored = getActiveWorkspaceId();
+    if (stored) setWorkspaceId(stored);
+  }, [user]);
 
   useEffect(() => {
     loadSessions();
@@ -71,6 +81,12 @@ export default function ProjectsPage() {
         <p className="mt-1 text-sm text-zinc-500">
           画布用于单轮创作，项目可长期管理多轮会话
         </p>
+
+        {user ? (
+          <div className="mt-4 max-w-xs">
+            <WorkspaceSwitcher onWorkspaceChange={setWorkspaceId} />
+          </div>
+        ) : null}
 
         <div className="mt-6 flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
           {tabs.map((tab) => (
@@ -136,6 +152,7 @@ export default function ProjectsPage() {
                     sessionId={s.id}
                     title={s.title}
                     variant="card"
+                    disabled={s.can_edit === false}
                     onTitleSaved={(title) => {
                       setSessions((prev) =>
                         prev.map((x) =>
