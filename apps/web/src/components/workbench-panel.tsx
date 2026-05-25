@@ -193,7 +193,7 @@ export function WorkbenchPanel({
         ) : null}
       </div>
 
-      <div className="shrink-0 border-t border-white/5 p-3">
+      <div className="shrink-0 overflow-visible border-t border-white/5 p-3">
         {!userReady ? (
           <button
             type="button"
