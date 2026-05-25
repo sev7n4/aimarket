@@ -1,0 +1,20 @@
+{
+  "workflow_id": null,
+  "started_at": null,
+  "current_step": 0,
+  "branch": null,
+  "issue_type": null,
+  "description": null,
+  "current_fix_cases": [],
+  "retry_count": 0,
+  "error_history": [],
+  "local_validation": "pending",
+  "pr_number": null,
+  "merged": false,
+  "ci_status": {
+    "cicd": "pending",
+    "integration": "pending",
+    "e2e": "pending",
+    "deploy": "pending"
+  }
+}

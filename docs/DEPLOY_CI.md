@@ -98,6 +98,8 @@ rsync -avz --exclude node_modules --exclude .git \
   ./ root@119.29.173.89:/opt/aimarket/
 ```
 
+Agent/开发者 PR 全流程见 **[PR_WORKFLOW.md](./PR_WORKFLOW.md)**（`mydev-github-workflow` skill，与 pintuotuo 一致）。
+
 ## 分支保护（合并前全绿 + 审核，合并后才部署）
 
 在 **Settings → Branches → Branch protection rules → main** 配置：

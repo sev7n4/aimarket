@@ -1,0 +1,47 @@
+# AIMarket — Cursor 项目规则
+
+> 完整 PR/CI 流程见 `.cursor/skills/mydev-github-workflow/SKILL.md`（与 pintuotuo 同款 skill 规范）。
+
+## 强制规则（NEVER）
+
+1. **禁止直接 push / 合并到 `main`** — 须经 PR + 审核 + CI 全绿
+2. **禁止跳过本地验证** — `pnpm typecheck` + `pnpm test:integration`（改 API/业务逻辑时）
+3. **禁止在 CI 未通过前合并 PR**
+4. **禁止提交密钥** — `.env`、SSH 私钥、API Key
+
+## 标准顺序
+
+```
+版本/工作区检查 → 功能分支 → 开发(TDD) → 本地验证 → PR → CI+Integration+E2E → 审核合并 → Deploy
+```
+
+## 分支命名
+
+| 类型 | 格式 | 示例 |
+|------|------|------|
+| 功能 | `feature/描述` | `feature/workspace-invite` |
+| 修复 | `fix/描述` | `fix/session-readonly` |
+| 增强 | `enhancement/描述` | `enhancement/ci-e2e` |
+
+## 提交与 PR
+
+- 提交：`type(scope): subject`（`feat` / `fix` / `docs` / `test` / `chore`）
+- 合并方式：**Squash & Merge**
+- PR 须通过检查：`lint-typecheck`、`docker-build`、`Integration Tests`、`E2E Tests`
+
+## 本地验证
+
+```bash
+pnpm install --frozen-lockfile
+pnpm typecheck
+# 终端 1：API
+cd apps/api && pnpm exec tsx --env-file=.env src/index.ts
+# 终端 2
+pnpm test:integration
+```
+
+## 部署（仅合并 main 后）
+
+- Workflow：`Deploy to Tencent Cloud (AIMarket)`（`.github/workflows/deploy.yml`）
+- 路径：`/opt/aimarket`（勿动 `/opt/pintuotuo`）
+- 文档：`docs/DEPLOY_CI.md`
