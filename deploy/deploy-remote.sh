@@ -23,17 +23,16 @@ done
 
 IMAGE_TAG="$IMAGE_TAG" $COMPOSE up -d --no-build
 
-set +e
+set +euo
 docker image prune -f >/dev/null 2>&1
 for REPO in "ghcr.io/${GHCR_OWNER}/aimarket-api" "ghcr.io/${GHCR_OWNER}/aimarket-web"; do
-  mapfile -t TAGS < <(docker images "$REPO" --format '{{.Tag}}' 2>/dev/null)
-  for tag in "${TAGS[@]}"; do
+  docker images "$REPO" --format '{{.Tag}}' 2>/dev/null | while read -r tag; do
     [[ -z "$tag" || "$tag" == "<none>" ]] && continue
     [[ "$tag" == "$IMAGE_TAG" || "$tag" == "latest" ]] && continue
-    docker rmi "${REPO}:${tag}" 2>/dev/null
-  done
+    docker rmi "${REPO}:${tag}" 2>/dev/null || true
+  done || true
 done
-set -e
+set -euo pipefail
 
 echo "等待健康检查..."
 sleep 8
