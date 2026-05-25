@@ -20,7 +20,13 @@
 sudo bash /opt/aimarket/deploy/bootstrap-server.sh
 ```
 
-或手动：
+或手动（仓库为私有时用本机 `rsync` 同步代码，勿依赖 `git clone`）：
+
+```bash
+rsync -avz --exclude node_modules --exclude .git \
+  -e "ssh -i ~/.ssh/tencent_cloud_deploy" \
+  ./ root@119.29.173.89:/opt/aimarket/
+```
 
 ```bash
 sudo mkdir -p /opt/aimarket
@@ -46,6 +52,8 @@ sudo docker compose -f deploy/docker-compose.prod.yml up -d --build
 | `DEPLOY_SSH_KEY` | `tencent_cloud_deploy` 私钥全文 |
 
 并创建 Environment `production`（可选审批）。
+
+若仓库为 **private**，需在服务器配置 `git pull` 凭据，或改为 CI 构建镜像后 `scp` 加载（当前 `deploy.yml` 已采用后者，不依赖服务器 `git clone`）。
 
 ### 手动（服务器）
 
