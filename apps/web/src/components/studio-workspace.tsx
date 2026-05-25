@@ -93,6 +93,11 @@ export function StudioWorkspace({
     null,
   );
 
+  const handleWorkspaceChange = useCallback((id: string) => {
+    setActiveWorkspaceId(id);
+    void listSessions(20, undefined, id).then(setSessions);
+  }, []);
+
   const currentSession = sessions.find((s) => s.id === sessionId);
   const sessionKind: SessionKind =
     currentSession?.kind ?? initialKind ?? "canvas";
@@ -315,12 +320,7 @@ export function StudioWorkspace({
             </button>
           </div>
           {user ? (
-            <WorkspaceSwitcher
-              onWorkspaceChange={(id) => {
-                setActiveWorkspaceId(id);
-                void listSessions(20, undefined, id).then(setSessions);
-              }}
-            />
+            <WorkspaceSwitcher onWorkspaceChange={handleWorkspaceChange} />
           ) : null}
           <p className="mb-2 mt-3 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
             历史会话

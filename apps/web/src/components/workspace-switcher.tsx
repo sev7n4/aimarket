@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@aimarket/ui";
 import {
   createWorkspace,
@@ -32,6 +32,9 @@ interface WorkspaceSwitcherProps {
 }
 
 export function WorkspaceSwitcher({ onWorkspaceChange }: WorkspaceSwitcherProps) {
+  const onWorkspaceChangeRef = useRef(onWorkspaceChange);
+  onWorkspaceChangeRef.current = onWorkspaceChange;
+
   const [list, setList] = useState<Workspace[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -54,7 +57,7 @@ export function WorkspaceSwitcher({ onWorkspaceChange }: WorkspaceSwitcherProps)
       if (next) {
         setActiveId(next);
         setActiveWorkspaceId(next);
-        onWorkspaceChange?.(next);
+        onWorkspaceChangeRef.current?.(next);
         if (!workspaces.find((w) => w.id === next)?.is_personal) {
           const m = await fetchWorkspaceMembers(next);
           setMembers(m);
@@ -65,7 +68,7 @@ export function WorkspaceSwitcher({ onWorkspaceChange }: WorkspaceSwitcherProps)
     } finally {
       setLoading(false);
     }
-  }, [onWorkspaceChange]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -75,7 +78,7 @@ export function WorkspaceSwitcher({ onWorkspaceChange }: WorkspaceSwitcherProps)
     setActiveId(id);
     setActiveWorkspaceId(id);
     setInviteUrl(null);
-    onWorkspaceChange?.(id);
+    onWorkspaceChangeRef.current?.(id);
     const ws = list.find((w) => w.id === id);
     if (ws && !ws.is_personal) {
       setMembers(await fetchWorkspaceMembers(id));
