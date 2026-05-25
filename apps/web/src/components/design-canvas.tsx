@@ -9,8 +9,10 @@ interface DesignCanvasProps {
   items: CanvasItem[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  onItemsChange: (items: CanvasItem[]) => void;
   onUpload: () => void;
   onDownload: () => void;
+  onDeleteSelected: () => void;
   emptyHint?: string;
 }
 
@@ -18,8 +20,10 @@ export function DesignCanvas({
   items,
   selectedId,
   onSelect,
+  onItemsChange,
   onUpload,
   onDownload,
+  onDeleteSelected,
   emptyHint = "生成结果将显示在画布上",
 }: DesignCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -30,6 +34,13 @@ export function DesignCanvas({
   const panStart = useRef<{ x: number; y: number; px: number; py: number } | null>(
     null,
   );
+  const dragRef = useRef<{
+    id: string;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
 
   const handleTool = useCallback(
     (id: CanvasToolId) => {
@@ -41,14 +52,17 @@ export function DesignCanvas({
       } else if (id === "grid") setGridOn((g) => !g);
       else if (id === "upload") onUpload();
       else if (id === "download") onDownload();
-      else setTool(id);
+      else if (id === "delete") {
+        if (selectedId) onDeleteSelected();
+        else setTool("select");
+      } else setTool(id);
     },
-    [onUpload, onDownload],
+    [onUpload, onDownload, onDeleteSelected, selectedId],
   );
 
-  function onPointerDown(e: React.PointerEvent) {
+  function onCanvasPointerDown(e: React.PointerEvent) {
     if (tool !== "pan") return;
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     panStart.current = {
       x: e.clientX,
       y: e.clientY,
@@ -57,7 +71,20 @@ export function DesignCanvas({
     };
   }
 
-  function onPointerMove(e: React.PointerEvent) {
+  function onCanvasPointerMove(e: React.PointerEvent) {
+    if (dragRef.current && tool === "select") {
+      const d = dragRef.current;
+      const dx = (e.clientX - d.startX) / zoom;
+      const dy = (e.clientY - d.startY) / zoom;
+      onItemsChange(
+        items.map((it) =>
+          it.id === d.id
+            ? { ...it, x: d.originX + dx, y: d.originY + dy }
+            : it,
+        ),
+      );
+      return;
+    }
     if (!panStart.current || tool !== "pan") return;
     setPan({
       x: panStart.current.px + (e.clientX - panStart.current.x),
@@ -65,8 +92,23 @@ export function DesignCanvas({
     });
   }
 
-  function onPointerUp() {
+  function endPointer() {
     panStart.current = null;
+    dragRef.current = null;
+  }
+
+  function onItemPointerDown(e: React.PointerEvent, item: CanvasItem) {
+    if (tool !== "select") return;
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    onSelect(item.id);
+    dragRef.current = {
+      id: item.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: item.x,
+      originY: item.y,
+    };
   }
 
   useEffect(() => {
@@ -84,6 +126,20 @@ export function DesignCanvas({
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (selectedId) {
+        e.preventDefault();
+        onDeleteSelected();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedId, onDeleteSelected]);
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d0d]">
       <CanvasToolbar active={tool} gridOn={gridOn} onTool={handleTool} />
@@ -91,12 +147,16 @@ export function DesignCanvas({
       <div
         ref={containerRef}
         className={`relative min-h-0 flex-1 overflow-hidden ${
-          tool === "pan" ? "cursor-grab active:cursor-grabbing" : "cursor-default"
+          tool === "pan"
+            ? "cursor-grab active:cursor-grabbing"
+            : tool === "select"
+              ? "cursor-default"
+              : "cursor-default"
         }`}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerLeave={onPointerUp}
+        onPointerDown={onCanvasPointerDown}
+        onPointerMove={onCanvasPointerMove}
+        onPointerUp={endPointer}
+        onPointerLeave={endPointer}
         onClick={() => tool === "select" && onSelect(null)}
       >
         {gridOn ? (
@@ -114,7 +174,7 @@ export function DesignCanvas({
         )}
 
         <div
-          className="absolute left-0 top-0 origin-top-left transition-transform duration-100"
+          className="absolute left-0 top-0 origin-top-left"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
           }}
@@ -125,20 +185,21 @@ export function DesignCanvas({
             </div>
           ) : (
             items.map((item) => (
-              <button
+              <div
                 key={item.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 style={{
                   position: "absolute",
                   left: item.x,
                   top: item.y,
                   width: item.width,
                 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (tool === "select") onSelect(item.id);
-                }}
+                onPointerDown={(e) => onItemPointerDown(e, item)}
+                onClick={(e) => e.stopPropagation()}
                 className={`overflow-hidden rounded-xl border-2 bg-zinc-900 text-left shadow-lg transition ${
+                  tool === "select" ? "cursor-grab active:cursor-grabbing" : ""
+                } ${
                   selectedId === item.id
                     ? "border-orange-500 ring-2 ring-orange-500/30"
                     : "border-white/10 hover:border-white/25"
@@ -160,18 +221,19 @@ export function DesignCanvas({
                   <img
                     src={assetUrl(item.url)}
                     alt=""
-                    className="w-full object-cover"
+                    className="w-full object-cover pointer-events-none"
                     style={{ height: item.height }}
                     draggable={false}
                   />
                 )}
-              </button>
+              </div>
             ))
           )}
         </div>
 
         <div className="absolute bottom-3 right-3 rounded-lg bg-black/60 px-2 py-1 text-[10px] text-zinc-500">
           {Math.round(zoom * 100)}%
+          {selectedId ? " · 可拖拽 · Del 删除" : ""}
         </div>
       </div>
     </div>

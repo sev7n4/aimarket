@@ -56,6 +56,7 @@ pnpm dev:api   # http://localhost:4000
 - `GET|PUT /api/v1/brandKit` — 品牌 Kit
 - `PATCH /api/v1/imageSession/:id` — 重命名会话/项目
 - `DELETE /api/v1/imageSession/:id` — 删除会话/项目
+- `GET|PUT /api/v1/imageSession/:id/canvas` — 画布布局持久化
 - `GET /api/v1/imageSession/:id/export` — 会话导出
 - `GET /api/v1/admin/*` — 管理统计（`X-Admin-Secret`）
 - `POST /api/v1/product/checkout` — 创建待支付订单
@@ -81,7 +82,7 @@ pnpm dev:api   # http://localhost:4000
 - [x] Sprint 1（体验收尾）：画布/工作台拆分、项目重命名删除、新建入口统一
 - [ ] Phase 6：合规审核、多租户、移动端优化
 - [x] Sprint 2：真实图像 Provider（OpenAI 落盘、比例尺寸、Staging 文档）
-- [ ] Sprint 3：画布 2.0（拖拽、上传上画布）
+- [x] Sprint 3：画布 2.0（布局持久化、拖拽、删除、上传上画布）
 - [ ] Sprint 4：项目 kind 字段 + 电商套图完整表单
 
 发版前冒烟见 [docs/SMOKE_TEST.md](./docs/SMOKE_TEST.md)。

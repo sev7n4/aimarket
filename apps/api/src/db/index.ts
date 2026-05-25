@@ -133,6 +133,11 @@ try {
 } catch {
   /* column exists */
 }
+try {
+  database.exec(`ALTER TABLE image_sessions ADD COLUMN canvas_layout TEXT`);
+} catch {
+  /* column exists */
+}
 
 database.exec(`
   CREATE TABLE IF NOT EXISTS credit_packages (

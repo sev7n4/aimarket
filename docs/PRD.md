@@ -5,7 +5,7 @@
 | 产品名称 | AIMarket |
 | 文档版本 | v1.0 |
 | 更新日期 | 2026-05-24 |
-| 状态 | Phase 5 已完成；Sprint 2 真实出图（OpenAI Provider）已落地 |
+| 状态 | Phase 5 已完成；Sprint 3 画布 2.0（持久化/拖拽/删除）已落地 |
 
 ---
 

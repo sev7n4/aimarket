@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SessionTitleActions } from "@/components/session-title-actions";
 import { X } from "lucide-react";
 import { LoginDialog } from "@/components/login-dialog";
@@ -18,13 +18,13 @@ import {
   assetUrl,
   ensureSession,
   exportSession,
-  fetchMessages,
   fetchTools,
   listSessions,
   runTool,
   uploadAsset,
 } from "@/lib/api-client";
-import { buildCanvasItemsFromMessages } from "@/lib/canvas-tools";
+import { createUploadCanvasItem } from "@/lib/canvas-tools";
+import { useSessionCanvas } from "@/hooks/use-session-canvas";
 import { streamJob } from "@/lib/job-stream";
 import { buildStudioUrl } from "@/lib/studio-navigation";
 
@@ -51,6 +51,12 @@ export function StudioWorkspace({
   const [loginOpen, setLoginOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [workbenchOpen, setWorkbenchOpen] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+      setWorkbenchOpen(false);
+    }
+  }, []);
   const [mode, setMode] = useState<CreationMode>(initialMode);
   const [selectedCanvasId, setSelectedCanvasId] = useState<string | null>(null);
 
@@ -58,7 +64,12 @@ export function StudioWorkspace({
     setMode(initialMode);
   }, [initialMode]);
 
-  const [messages, setMessages] = useState<Awaited<ReturnType<typeof fetchMessages>>>([]);
+  const {
+    items: canvasItems,
+    setItems: setCanvasItems,
+    messages,
+    load: loadCanvas,
+  } = useSessionCanvas(sessionId, Boolean(user));
   const [sessions, setSessions] = useState<ImageSession[]>([]);
   const [tools, setTools] = useState<StudioTool[]>([]);
   const [activeTool, setActiveTool] = useState<StudioTool | null>(null);
@@ -74,20 +85,10 @@ export function StudioWorkspace({
       : initialTitle ??
         (mode === "ecommerce" ? "电商套图" : "未命名");
 
-  const canvasItems = useMemo(
-    () => buildCanvasItemsFromMessages(messages),
-    [messages],
-  );
-
-  const loadMessages = useCallback(async () => {
-    const data = await fetchMessages(sessionId);
-    setMessages(data);
-  }, [sessionId]);
-
   const initSession = useCallback(async () => {
     if (!user) return;
     await ensureSession(sessionId, mode, initialTitle);
-    await loadMessages();
+    await loadCanvas();
     const [list, toolList] = await Promise.all([
       listSessions(),
       fetchTools().catch(() => []),
@@ -95,7 +96,7 @@ export function StudioWorkspace({
     setSessions(list);
     setTools(toolList);
     setReady(true);
-  }, [user, sessionId, mode, initialTitle, loadMessages]);
+  }, [user, sessionId, mode, initialTitle, loadCanvas]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -128,14 +129,14 @@ export function StudioWorkspace({
       () => {},
       async () => {
         setPollingJobId(null);
-        await loadMessages();
+        await loadCanvas();
         await refreshUser();
         setSessions(await listSessions());
       },
       () => setPollingJobId(null),
     );
     return stop;
-  }, [pollingJobId, user, loadMessages, refreshUser]);
+  }, [pollingJobId, user, loadCanvas, refreshUser]);
 
   function handleModeChange(next: CreationMode) {
     setMode(next);
@@ -159,7 +160,7 @@ export function StudioWorkspace({
       setPollingJobId(jobId);
       setActiveTool(null);
       setToolPrompt("");
-      await loadMessages();
+      await loadCanvas();
     } catch (err) {
       alert(err instanceof Error ? err.message : "工具执行失败");
     } finally {
@@ -202,11 +203,20 @@ export function StudioWorkspace({
     e.target.value = "";
     if (!file || !user) return;
     try {
-      await uploadAsset(file, sessionId);
-      await loadMessages();
+      const { url } = await uploadAsset(file, sessionId);
+      setCanvasItems((prev) => [
+        ...prev,
+        createUploadCanvasItem(url, prev),
+      ]);
     } catch (err) {
       alert(err instanceof Error ? err.message : "上传失败");
     }
+  }
+
+  function handleDeleteCanvasItem() {
+    if (!selectedCanvasId) return;
+    setCanvasItems((prev) => prev.filter((i) => i.id !== selectedCanvasId));
+    setSelectedCanvasId(null);
   }
 
   const handleTitleSaved = useCallback((title: string) => {
@@ -320,8 +330,10 @@ export function StudioWorkspace({
               items={canvasItems}
               selectedId={selectedCanvasId}
               onSelect={setSelectedCanvasId}
+              onItemsChange={setCanvasItems}
               onUpload={handleCanvasUpload}
               onDownload={() => void handleCanvasDownload()}
+              onDeleteSelected={handleDeleteCanvasItem}
               emptyHint={canvasEmptyHint}
             />
           </div>
@@ -351,7 +363,7 @@ export function StudioWorkspace({
             onAuthRequired={() => setLoginOpen(true)}
             onJobStarted={(jobId) => {
               setPollingJobId(jobId);
-              void loadMessages();
+              void loadCanvas();
             }}
             userReady={Boolean(user && ready)}
             onLogin={() => setLoginOpen(true)}

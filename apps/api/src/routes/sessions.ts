@@ -5,6 +5,11 @@ import { db } from "../db/index.js";
 import type { AuthVariables } from "../middleware/auth.js";
 import { AppError } from "../lib/errors.js";
 import { listSessionReferences } from "../lib/references.js";
+import {
+  canvasLayoutSchema,
+  parseCanvasLayout,
+  serializeCanvasLayout,
+} from "../lib/canvas-layout.js";
 
 const sessions = new Hono<{ Variables: AuthVariables }>();
 
@@ -137,6 +142,36 @@ sessions.delete("/:sessionId", (c) => {
   );
 
   return c.json({ data: { deleted: true, sessionId } });
+});
+
+sessions.get("/:sessionId/canvas", (c) => {
+  const userId = c.get("userId");
+  const sessionId = c.req.param("sessionId");
+  const row = db
+    .prepare(
+      "SELECT canvas_layout FROM image_sessions WHERE id = ? AND user_id = ?",
+    )
+    .get(sessionId, userId) as { canvas_layout: string | null } | undefined;
+  if (!row) throw new AppError(404, "NOT_FOUND", "会话不存在");
+  const layout = parseCanvasLayout(row.canvas_layout);
+  return c.json({ data: layout ?? { version: 1 as const, items: [] } });
+});
+
+sessions.put("/:sessionId/canvas", async (c) => {
+  const userId = c.get("userId");
+  const sessionId = c.req.param("sessionId");
+  const body = canvasLayoutSchema.parse(await c.req.json());
+
+  const existing = db
+    .prepare("SELECT id FROM image_sessions WHERE id = ? AND user_id = ?")
+    .get(sessionId, userId);
+  if (!existing) throw new AppError(404, "NOT_FOUND", "会话不存在");
+
+  db.prepare(
+    `UPDATE image_sessions SET canvas_layout = ?, updated_at = datetime('now') WHERE id = ?`,
+  ).run(serializeCanvasLayout(body), sessionId);
+
+  return c.json({ data: body });
 });
 
 sessions.get("/:sessionId/references", (c) => {

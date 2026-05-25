@@ -157,6 +157,42 @@ export async function fetchMessages(sessionId: string) {
   return res.data;
 }
 
+export interface CanvasLayoutDto {
+  version: 1;
+  items: {
+    id: string;
+    url: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    label?: string;
+    isVideo?: boolean;
+    source?: "upload" | "generation";
+  }[];
+}
+
+export async function fetchCanvasLayout(sessionId: string) {
+  const res = await request<{ data: CanvasLayoutDto }>(
+    `/api/v1/imageSession/${sessionId}/canvas`,
+  );
+  return res.data;
+}
+
+export async function saveCanvasLayout(
+  sessionId: string,
+  layout: CanvasLayoutDto,
+) {
+  const res = await request<{ data: CanvasLayoutDto }>(
+    `/api/v1/imageSession/${sessionId}/canvas`,
+    {
+      method: "PUT",
+      body: JSON.stringify(layout),
+    },
+  );
+  return res.data;
+}
+
 export async function fetchModels() {
   const res = await request<{ data: ImageModel[] }>("/api/v1/ai/queryModels");
   return res.data;
