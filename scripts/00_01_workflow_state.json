@@ -1,5 +1,6 @@
 {
-  "branch": "feature/inspiration-api",
+  "branch": "feature/p1-upload-prompt",
+  "phase": "P1",
   "current_fix_cases": [
     "INT-API-SMOKE",
     "INT-WS-SWITCH",
@@ -11,5 +12,7 @@
   ],
   "local_validation": "passed",
   "pr_number": null,
-  "ci_status": "pending"
+  "ci_status": "pending",
+  "last_merged_pr": 12,
+  "last_merged_phase": "P0"
 }

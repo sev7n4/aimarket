@@ -32,6 +32,7 @@ import {
   trackEvent,
 } from "@/lib/api-client";
 import { polishPrompt } from "@/lib/prompt-polish";
+import { optimizePromptApi } from "@/lib/api-client";
 import type { ImageModel, ProductSetInit } from "@/lib/types";
 import { EcommerceAgentForm } from "@/components/ecommerce-agent-form";
 import { useAuth } from "@/lib/auth-context";
@@ -538,9 +539,17 @@ export function CreationPanel({
                       : "输入描述后可一键润色"
                   }
                   disabled={!prompt.trim()}
-                  onClick={() =>
-                    setPrompt((p) => polishPrompt(mode, p.trim()))
-                  }
+                  onClick={() => {
+                    const raw = prompt.trim();
+                    if (!raw) return;
+                    if (user && getToken()) {
+                      void optimizePromptApi(raw, mode)
+                        .then(setPrompt)
+                        .catch(() => setPrompt(polishPrompt(mode, raw)));
+                    } else {
+                      setPrompt(polishPrompt(mode, raw));
+                    }
+                  }}
                   className={`absolute bottom-1 right-1 rounded-lg p-1.5 transition ${
                     prompt.trim()
                       ? "text-orange-400 hover:bg-white/10 hover:text-orange-300"
