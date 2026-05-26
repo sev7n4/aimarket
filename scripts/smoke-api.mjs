@@ -151,6 +151,16 @@ async function main() {
   ok("POST /ai/generate", gen.res.ok && !!jobId);
 
   if (jobId) {
+    const taskStatus = await req(
+      `/api/v1/imageTask/taskStatus?taskId=${jobId}`,
+      { headers: authH },
+    );
+    ok(
+      "GET imageTask/taskStatus",
+      taskStatus.res.ok && taskStatus.json?.data?.taskId === jobId,
+      `status=${taskStatus.json?.data?.status}`,
+    );
+
     await new Promise((r) => setTimeout(r, 3500));
     const job = await req(`/api/v1/ai/jobs/${jobId}`, { headers: authH });
     ok(
@@ -271,6 +281,57 @@ async function main() {
         `count=${members.json?.data?.length}`,
       );
     }
+  }
+
+  const optimize = await req("/api/v1/prompt/optimize", {
+    method: "POST",
+    headers: authH,
+    body: JSON.stringify({
+      prompt: "产品白底图",
+      mode: "chat",
+    }),
+  });
+  ok(
+    "POST prompt/optimize",
+    optimize.res.ok && optimize.json?.data?.prompt?.includes("产品白底图"),
+  );
+
+  const uploadUrl = await req("/api/v1/assets/upload-url", {
+    method: "POST",
+    headers: authH,
+    body: JSON.stringify({
+      fileName: "test.png",
+      mimeType: "image/png",
+      sizeBytes: 1024,
+      sessionId,
+    }),
+  });
+  ok(
+    "POST assets/upload-url",
+    uploadUrl.res.ok && !!uploadUrl.json?.data?.assetId,
+    `method=${uploadUrl.json?.data?.method}`,
+  );
+
+  const assetId = uploadUrl.json?.data?.assetId;
+  if (assetId && uploadUrl.json?.data?.method === "POST") {
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    const form = new FormData();
+    form.append("assetId", assetId);
+    form.append("file", new Blob([png], { type: "image/png" }), "test.png");
+    const complete = await fetch(`${API}/api/v1/assets/upload/complete`, {
+      method: "POST",
+      headers: { Authorization: authH.Authorization },
+      body: form,
+    });
+    const completeJson = await complete.json().catch(() => ({}));
+    ok(
+      "POST assets/upload/complete",
+      complete.ok && completeJson?.data?.url,
+      completeJson?.data?.url,
+    );
   }
 
   const inspPage = await req("/api/v1/inspiration/page?pageSize=5", {

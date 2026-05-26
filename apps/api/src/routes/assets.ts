@@ -1,11 +1,59 @@
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
 import { db } from "../db/index.js";
 import type { AuthVariables } from "../middleware/auth.js";
 import { saveUpload } from "../lib/storage.js";
 import { AppError } from "../lib/errors.js";
+import {
+  completeLocalAssetUpload,
+  confirmAssetUpload,
+  createUploadIntent,
+} from "../lib/asset-upload.js";
 
 const assets = new Hono<{ Variables: AuthVariables }>();
+
+assets.post("/upload-url", async (c) => {
+  const userId = c.get("userId");
+  const body = z
+    .object({
+      fileName: z.string().min(1).max(255),
+      mimeType: z.string(),
+      sizeBytes: z.number().int().positive(),
+      sessionId: z.string().uuid().optional(),
+    })
+    .parse(await c.req.json());
+
+  const intent = await createUploadIntent(userId, body);
+  return c.json({ data: intent });
+});
+
+assets.post("/confirm", async (c) => {
+  const userId = c.get("userId");
+  const body = z
+    .object({
+      assetId: z.string().uuid(),
+    })
+    .parse(await c.req.json());
+
+  const asset = await confirmAssetUpload(userId, body.assetId);
+  return c.json({ data: asset });
+});
+
+assets.post("/upload/complete", async (c) => {
+  const userId = c.get("userId");
+  const body = await c.req.parseBody();
+  const assetId =
+    typeof body.assetId === "string" ? body.assetId : undefined;
+  const file = body.file;
+
+  if (!assetId || !file || !(file instanceof File)) {
+    throw new AppError(400, "VALIDATION_ERROR", "需要 assetId 与 file");
+  }
+
+  const asset = await completeLocalAssetUpload(userId, assetId, file);
+  return c.json({ data: asset });
+});
 
 assets.post("/upload", async (c) => {
   const userId = c.get("userId");

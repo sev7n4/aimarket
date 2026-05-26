@@ -745,6 +745,88 @@ export async function fetchInspirationDetail(id: string) {
   return res.data;
 }
 
+export async function optimizePromptApi(
+  prompt: string,
+  mode: "chat" | "quick" | "ecommerce" = "chat",
+) {
+  const res = await request<{ data: { prompt: string } }>(
+    "/api/v1/prompt/optimize",
+    {
+      method: "POST",
+      body: JSON.stringify({ prompt, mode }),
+    },
+  );
+  return res.data.prompt;
+}
+
+export async function createAssetUploadUrl(input: {
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  sessionId?: string;
+}) {
+  const res = await request<{
+    data: {
+      assetId: string;
+      uploadUrl: string;
+      method: "PUT" | "POST";
+      headers?: Record<string, string>;
+      expireAt: string;
+      fields?: { assetId: string };
+    };
+  }>("/api/v1/assets/upload-url", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  return res.data;
+}
+
+export async function completeAssetUpload(assetId: string, file: File) {
+  const form = new FormData();
+  form.append("assetId", assetId);
+  form.append("file", file);
+  const res = await request<{
+    data: { id: string; url: string; mimeType: string; sizeBytes: number };
+  }>("/api/v1/assets/upload/complete", {
+    method: "POST",
+    body: form,
+  });
+  return res.data;
+}
+
+export async function uploadAssetViaPresign(file: File, sessionId?: string) {
+  const intent = await createAssetUploadUrl({
+    fileName: file.name,
+    mimeType: file.type,
+    sizeBytes: file.size,
+    sessionId,
+  });
+
+  if (intent.method === "PUT" && intent.headers) {
+    const putRes = await fetch(intent.uploadUrl, {
+      method: "PUT",
+      headers: intent.headers,
+      body: file,
+    });
+    if (!putRes.ok) {
+      throw new Error(`直传失败 (${putRes.status})`);
+    }
+    const confirmed = await request<{
+      data: { id: string; url: string };
+    }>("/api/v1/assets/confirm", {
+      method: "POST",
+      body: JSON.stringify({ assetId: intent.assetId }),
+    });
+    return {
+      id: confirmed.data.id,
+      url: confirmed.data.url,
+      mimeType: file.type,
+    };
+  }
+
+  return completeAssetUpload(intent.assetId, file);
+}
+
 export async function uploadAsset(file: File, sessionId?: string) {
   const form = new FormData();
   form.append("file", file);
