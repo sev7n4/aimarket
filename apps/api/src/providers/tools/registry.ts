@@ -6,12 +6,14 @@ import { cutoutHttpProvider } from "./cutout-http.js";
 import { cutoutMockProvider } from "./cutout-mock.js";
 import { editMockProvider } from "./edit-mock.js";
 import { mockToolProvider } from "./mock.js";
+import { upscaleHttpProvider } from "./upscale-http.js";
 import { upscaleMockProvider } from "./upscale-mock.js";
 import type { ImageToolProvider, ToolRunParams, ToolRunResult } from "./types.js";
 
 const providers: ImageToolProvider[] = [
   cutoutHttpProvider,
   cutoutMockProvider,
+  upscaleHttpProvider,
   upscaleMockProvider,
   editMockProvider,
   mockToolProvider,
@@ -61,6 +63,12 @@ export function getToolProviderStatus() {
   const cutoutHttpConfigured = Boolean(
     process.env.TOOL_CUTOUT_HTTP_URL?.trim(),
   );
+  const upscaleMode = (
+    process.env.TOOL_UPSCALE_PROVIDER ?? "auto"
+  ).toLowerCase();
+  const upscaleHttpConfigured = Boolean(
+    process.env.TOOL_UPSCALE_HTTP_URL?.trim(),
+  );
   const cutoutProvider = resolveToolProvider("cutout").name;
   const upscaleProvider = resolveToolProvider("upscale").name;
   const enhanceProvider = resolveToolProvider("enhance").name;
@@ -81,6 +89,8 @@ export function getToolProviderStatus() {
     cutoutMode,
     cutoutHttpConfigured,
     upscaleProvider,
+    upscaleMode,
+    upscaleHttpConfigured,
     enhanceProvider,
     expandProvider,
     inpaintProvider,
