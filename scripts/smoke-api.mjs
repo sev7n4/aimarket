@@ -335,6 +335,9 @@ async function main() {
     "GET providerStatus",
     provider.res.ok &&
       provider.json?.data?.hint &&
+      provider.json?.data?.aliyunWanConfigured === false &&
+      provider.json?.data?.aliyunWanModel === "wan2.6-t2i" &&
+      provider.json?.data?.tools?.seedreamConfigured === false &&
       provider.json?.data?.moderation?.provider &&
       provider.json?.data?.tools?.cutoutProvider === "tool-cutout-mock" &&
       provider.json?.data?.tools?.cutoutMode === "auto" &&
@@ -351,7 +354,7 @@ async function main() {
       (provider.json?.data?.promptOptimize?.activeProvider ===
         "template-mock" ||
         provider.json?.data?.promptOptimize?.activeProvider === "openai"),
-    `cutout=${provider.json?.data?.tools?.cutoutMode}/${provider.json?.data?.tools?.cutoutHttpConfigured} upscale=${provider.json?.data?.tools?.upscaleMode}/${provider.json?.data?.tools?.upscaleHttpConfigured} edit=${provider.json?.data?.tools?.editMode}/${provider.json?.data?.tools?.editHttpConfigured} promptOpt=${provider.json?.data?.promptOptimize?.activeProvider}`,
+    `image=${provider.json?.data?.activeProvider} aliyunWan=${provider.json?.data?.aliyunWanConfigured} seedream=${provider.json?.data?.tools?.seedreamConfigured} cutout=${provider.json?.data?.tools?.cutoutMode}/${provider.json?.data?.tools?.cutoutHttpConfigured} upscale=${provider.json?.data?.tools?.upscaleMode}/${provider.json?.data?.tools?.upscaleHttpConfigured} edit=${provider.json?.data?.tools?.editMode}/${provider.json?.data?.tools?.editHttpConfigured}`,
   );
 
   const del = await req(`/api/v1/imageSession/${sessionProject}`, {
