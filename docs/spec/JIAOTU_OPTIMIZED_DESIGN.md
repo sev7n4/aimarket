@@ -183,7 +183,7 @@ interface ToolDefinition {
 **不做（除非用户明确要求）**
 
 - 为对标而 **废弃** `POST /tools/:toolId/run`
-- 引入第二套 SSE 协议 `imageChat`
+- 引入第二套 SSE 协议 `imageChat`（**已实现**：仅 `GET /ai/jobs/:id/stream`；`NEXT_PUBLIC_USE_JOB_STREAM=false` 时前端降级轮询）
 - 在核心代码里写死腾讯云 COS 字段名
 - 将 `removeBackground` 作为消除功能的 **主名称**
 

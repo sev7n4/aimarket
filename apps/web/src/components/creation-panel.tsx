@@ -30,9 +30,11 @@ import {
   suggestModel,
   uploadAsset,
   trackEvent,
+  optimizePromptApi,
+  reversePromptFromImage,
 } from "@/lib/api-client";
 import { polishPrompt } from "@/lib/prompt-polish";
-import { optimizePromptApi } from "@/lib/api-client";
+import { jobStatusLabel } from "@/lib/job-stream";
 import type { ImageModel, ProductSetInit } from "@/lib/types";
 import { EcommerceAgentForm } from "@/components/ecommerce-agent-form";
 import { useAuth } from "@/lib/auth-context";
@@ -83,6 +85,8 @@ interface CreationPanelProps {
   sessionId?: string;
   onAuthRequired?: () => void;
   onJobStarted?: (jobId: string) => void;
+  /** Studio 父级 SSE/轮询推送的状态（对标椒图进度感） */
+  jobStreamStatus?: string | null;
   navigateOnSubmit?: boolean;
   /** 首页：左侧虚线上传位 */
   leadingUpload?: boolean;
@@ -109,6 +113,7 @@ export function CreationPanel({
   sessionId,
   onAuthRequired,
   onJobStarted,
+  jobStreamStatus = null,
   homeDirectSubmit = false,
   navigateOnSubmit,
   leadingUpload = false,
@@ -162,6 +167,7 @@ export function CreationPanel({
   const [selectedRefs, setSelectedRefs] = useState<SessionReference[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [uploadPreviews, setUploadPreviews] = useState<UploadPreviewItem[]>([]);
+  const [reversing, setReversing] = useState(false);
 
   const rotatingText = useRotatingPlaceholder(
     mode,
@@ -305,6 +311,33 @@ export function CreationPanel({
     setMentionOpen(false);
   }
 
+  async function handlePromptReverse() {
+    if (!user || !sessionId) {
+      onAuthRequired?.();
+      return;
+    }
+    const assetId = assetIds[0];
+    const imageUrl = uploadPreviews[0]?.url;
+    if (!assetId && !imageUrl) {
+      alert("请先上传参考图");
+      return;
+    }
+    setReversing(true);
+    try {
+      const data = await reversePromptFromImage({
+        sessionId,
+        assetId,
+        imageUrl: assetId ? undefined : imageUrl,
+      });
+      setPrompt(data.prompt);
+      void trackEvent("prompt_reverse", { source: data.source });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "图生文失败");
+    } finally {
+      setReversing(false);
+    }
+  }
+
   async function handleSubmit() {
     if (readOnly) return;
     if (!prompt.trim() && mode !== "ecommerce") return;
@@ -416,12 +449,33 @@ export function CreationPanel({
 
   const canSubmit =
     !readOnly &&
+    !jobStreamStatus &&
     (mode === "ecommerce"
       ? prompt.trim().length >= 10 && Boolean(productAssetId)
       : prompt.trim().length > 0);
 
+  const streamBusy =
+    Boolean(jobStreamStatus) &&
+    jobStreamStatus !== "succeeded" &&
+    jobStreamStatus !== "failed";
+
   const body = (
     <>
+      {jobStreamStatus ? (
+        <div
+          className={`mb-2 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
+            jobStreamStatus === "failed"
+              ? "border-red-500/30 bg-red-500/5 text-red-300"
+              : "border-orange-500/20 bg-orange-500/5 text-orange-200/90"
+          }`}
+        >
+          {streamBusy ? (
+            <Loader2 className="size-3.5 shrink-0 animate-spin" />
+          ) : null}
+          <span>{jobStatusLabel(jobStreamStatus)}</span>
+        </div>
+      ) : null}
+
       {showModeTabs && variant === "default" ? (
         <div className="mb-4 flex justify-center overflow-x-auto">
           <ModeTabs items={modeTabs} value={mode} onChange={setMode} />
@@ -610,6 +664,22 @@ export function CreationPanel({
               <AtSign className="size-4" />
             </button>
           ) : null}
+          {enablePolish && (assetIds.length > 0 || uploadPreviews.length > 0) ? (
+            <button
+              type="button"
+              title="根据图片反推 Prompt（图生文）"
+              disabled={reversing || streamBusy}
+              onClick={() => void handlePromptReverse()}
+              className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 disabled:opacity-50"
+              aria-label="图生文"
+            >
+              {reversing ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Sparkles className="size-4" />
+              )}
+            </button>
+          ) : null}
           {mode !== "ecommerce" ? (
             <>
               <ModelPicker
@@ -652,7 +722,7 @@ export function CreationPanel({
             variant="primary"
             className="size-9 shrink-0 rounded-full p-0 sm:size-10"
             onClick={() => void handleSubmit()}
-            disabled={readOnly || pending || !canSubmit}
+            disabled={readOnly || pending || streamBusy || !canSubmit}
             aria-label="开始生成"
           >
             {pending ? (

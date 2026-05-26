@@ -761,6 +761,20 @@ export async function optimizePromptApi(
   return res.data.prompt;
 }
 
+export async function reversePromptFromImage(body: {
+  imageUrl?: string;
+  assetId?: string;
+  sessionId?: string;
+}) {
+  const res = await request<{
+    data: { prompt: string; imageUrl: string; source: string };
+  }>("/api/v1/image/prompt-reverse", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return res.data;
+}
+
 export async function createAssetUploadUrl(input: {
   fileName: string;
   mimeType: string;

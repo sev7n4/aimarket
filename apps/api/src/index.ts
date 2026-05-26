@@ -35,6 +35,7 @@ import { workspacesRoute } from "./routes/workspaces.js";
 import { events } from "./routes/events.js";
 import { inspiration, keyword } from "./routes/inspiration.js";
 import { prompt } from "./routes/prompt.js";
+import { image } from "./routes/image.js";
 import { imageTask } from "./routes/imageTask.js";
 import { uploadCompat } from "./routes/upload-compat.js";
 
@@ -117,6 +118,7 @@ authed.route("/brandKit", brandKit);
 authed.route("/reports", reports);
 authed.route("/workspaces", workspacesRoute);
 authed.route("/prompt", prompt);
+authed.route("/image", image);
 authed.route("/imageTask", imageTask);
 
 if (process.env.COMPAT_JIAOTU_ALIASES === "true") {

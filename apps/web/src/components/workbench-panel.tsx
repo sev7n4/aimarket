@@ -18,6 +18,7 @@ interface WorkbenchPanelProps {
   messages: ChatMessage[];
   showEmpty: boolean;
   pollingJobId: string | null;
+  jobStreamStatus?: string | null;
   tools: StudioTool[];
   activeTool: StudioTool | null;
   toolPrompt: string;
@@ -44,6 +45,7 @@ export function WorkbenchPanel({
   messages,
   showEmpty,
   pollingJobId,
+  jobStreamStatus,
   tools,
   activeTool,
   toolPrompt,
@@ -198,10 +200,16 @@ export function WorkbenchPanel({
           </ul>
         )}
 
-        {pollingJobId ? (
+        {pollingJobId && jobStreamStatus ? (
           <div className="mt-3 flex items-center gap-2 text-xs text-zinc-500">
             <Loader2 className="size-3.5 animate-spin text-orange-400" />
-            生成中…
+            {jobStreamStatus === "queued"
+              ? "排队中…"
+              : jobStreamStatus === "running"
+                ? "生成中…"
+                : jobStreamStatus === "failed"
+                  ? "生成失败"
+                  : "处理中…"}
           </div>
         ) : null}
       </div>
@@ -232,6 +240,7 @@ export function WorkbenchPanel({
           initialPrompt={initialPrompt}
           onAuthRequired={onAuthRequired}
           onJobStarted={onJobStarted}
+          jobStreamStatus={jobStreamStatus}
           readOnly={readOnly}
         />
         {mode !== "ecommerce" ? (

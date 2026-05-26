@@ -414,6 +414,32 @@ async function main() {
     );
   }
 
+  const promptReverse = await req("/api/v1/image/prompt-reverse", {
+    method: "POST",
+    headers: authH,
+    body: JSON.stringify({
+      imageUrl: "https://example.com/sample-product.jpg",
+    }),
+  });
+  ok(
+    "POST image/prompt-reverse",
+    promptReverse.res.ok &&
+      typeof promptReverse.json?.data?.prompt === "string",
+    `source=${promptReverse.json?.data?.source}`,
+  );
+
+  if (assetId) {
+    const reverseAsset = await req("/api/v1/image/prompt-reverse", {
+      method: "POST",
+      headers: authH,
+      body: JSON.stringify({ assetId }),
+    });
+    ok(
+      "POST image/prompt-reverse (assetId)",
+      reverseAsset.res.ok && !!reverseAsset.json?.data?.prompt,
+    );
+  }
+
   const inspPage = await req("/api/v1/inspiration/page?pageSize=5", {
     headers: { auth: false },
   });

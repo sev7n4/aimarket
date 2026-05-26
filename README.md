@@ -51,7 +51,8 @@ pnpm dev:api   # http://localhost:4000
 - `GET /api/v1/sign/check` · `POST /api/v1/sign/in`
 - `GET /api/v1/inviteUser/generateCode`
 - `GET /api/v1/notice/latestNotice`
-- `GET /api/v1/ai/jobs/:jobId/stream` — SSE 任务状态
+- `GET /api/v1/ai/jobs/:jobId/stream` — SSE 任务状态（前端默认接入，轮询为降级）
+- `POST /api/v1/image/prompt-reverse` — 图生文反推 Prompt（mock，P4 可换 LLM）
 - `POST /api/v1/ai/generate/video` — 视频生成（Mock）
 - `GET|PUT /api/v1/brandKit` — 品牌 Kit
 - `PATCH /api/v1/imageSession/:id` — 重命名会话/项目
