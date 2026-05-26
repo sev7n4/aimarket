@@ -239,11 +239,33 @@ async function main() {
           referenceOutputIds: [outputId],
         }),
       });
+      const cutoutJobId = cutoutRun.json?.data?.jobId;
       ok(
         "POST tools/cutout with ref",
-        cutoutRun.res.ok && !!cutoutRun.json?.data?.jobId,
-        `job=${cutoutRun.json?.data?.jobId}`,
+        cutoutRun.res.ok && !!cutoutJobId,
+        `job=${cutoutJobId}`,
       );
+
+      if (cutoutJobId) {
+        let cutoutUrl = null;
+        for (let i = 0; i < 15; i++) {
+          await new Promise((r) => setTimeout(r, 800));
+          const cutoutJob = await req(`/api/v1/ai/jobs/${cutoutJobId}`, {
+            headers: authH,
+          });
+          const st = cutoutJob.json?.data?.status;
+          if (st === "failed") break;
+          if (st === "succeeded") {
+            cutoutUrl = cutoutJob.json?.data?.outputs?.[0]?.url ?? null;
+            break;
+          }
+        }
+        ok(
+          "cutout job PNG output",
+          !!cutoutUrl && /\.png($|\?)/i.test(cutoutUrl),
+          cutoutUrl ?? "no url",
+        );
+      }
     } else {
       ok("POST tools/expand with ref", false, "no message output id");
       ok("POST tools/cutout with ref", false, "no message output id");
@@ -256,8 +278,9 @@ async function main() {
     provider.res.ok &&
       provider.json?.data?.hint &&
       provider.json?.data?.moderation?.provider &&
-      provider.json?.data?.tools?.activeProvider === "tool-mock",
-    `tools=${provider.json?.data?.tools?.activeProvider}`,
+      provider.json?.data?.tools?.cutoutProvider === "tool-cutout-mock" &&
+      provider.json?.data?.tools?.genericToolProvider === "tool-mock",
+    `cutout=${provider.json?.data?.tools?.cutoutProvider} generic=${provider.json?.data?.tools?.genericToolProvider}`,
   );
 
   const del = await req(`/api/v1/imageSession/${sessionProject}`, {

@@ -11,6 +11,8 @@ export interface ToolRunParams {
 export interface ToolRunResult {
   urls: string[];
   provider: string;
+  /** cutout 等工具交付格式（mock/真供应商） */
+  mimeType?: string;
 }
 
 export interface ImageToolProvider {
