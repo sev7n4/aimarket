@@ -2,13 +2,16 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - "feature/**"
+      - "fix/**"
+      - "enhancement/**"
     paths-ignore:
       - "**/*.md"
       - "docs/**"
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
