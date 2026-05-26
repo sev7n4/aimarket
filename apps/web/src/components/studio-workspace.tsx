@@ -30,7 +30,7 @@ import {
 } from "@/lib/api-client";
 import { createUploadCanvasItem } from "@/lib/canvas-tools";
 import { useSessionCanvas } from "@/hooks/use-session-canvas";
-import { streamJob } from "@/lib/job-stream";
+import { watchJob } from "@/lib/job-stream";
 import { SESSION_KIND_LABEL, type SessionKind } from "@/lib/session-kind";
 import { buildStudioUrl, studioUrlForSession } from "@/lib/studio-navigation";
 
@@ -91,6 +91,7 @@ export function StudioWorkspace({
   const [toolPrompt, setToolPrompt] = useState("");
   const [ready, setReady] = useState(false);
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
+  const [jobStreamStatus, setJobStreamStatus] = useState<string | null>(null);
   const [toolPending, setToolPending] = useState(false);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(
     null,
@@ -157,31 +158,39 @@ export function StudioWorkspace({
     }
   }, [initialToolId, tools]);
 
+  const handleJobComplete = useCallback(async () => {
+    setPollingJobId(null);
+    setJobStreamStatus(null);
+    await loadCanvas();
+    await refreshUser();
+    setSessions(
+      await listSessions(20, undefined, activeWorkspaceId ?? undefined),
+    );
+  }, [loadCanvas, refreshUser, activeWorkspaceId]);
+
   useEffect(() => {
     if (!pollingJobId || !user) return;
     const t0 = performance.now();
-    const stop = streamJob(
-      pollingJobId,
-      () => {},
-      async () => {
-        setPollingJobId(null);
-        await loadCanvas();
-        await refreshUser();
-        setSessions(
-          await listSessions(20, undefined, activeWorkspaceId ?? undefined),
-        );
+    const jobId = pollingJobId;
+    setJobStreamStatus("queued");
+    const stop = watchJob(
+      jobId,
+      (ev) => setJobStreamStatus(ev.status),
+      () => {
+        void handleJobComplete();
       },
       () => {
         void trackEvent("generation_fail", {
-          job_id: pollingJobId,
+          job_id: jobId,
           error_code: "STREAM_ERROR",
           duration_ms: Math.round(performance.now() - t0),
         });
         setPollingJobId(null);
+        setJobStreamStatus(null);
       },
     );
     return stop;
-  }, [pollingJobId, user, loadCanvas, refreshUser, activeWorkspaceId]);
+  }, [pollingJobId, user, handleJobComplete]);
 
   function handleModeChange(next: CreationMode) {
     setMode(next);
@@ -450,6 +459,7 @@ export function StudioWorkspace({
             messages={messages}
             showEmpty={showEmpty}
             pollingJobId={pollingJobId}
+            jobStreamStatus={jobStreamStatus}
             tools={tools}
             activeTool={activeTool}
             toolPrompt={toolPrompt}
@@ -467,7 +477,6 @@ export function StudioWorkspace({
             onAuthRequired={() => setLoginOpen(true)}
             onJobStarted={(jobId) => {
               setPollingJobId(jobId);
-              void loadCanvas();
             }}
             userReady={Boolean(user && ready)}
             onLogin={() => setLoginOpen(true)}
