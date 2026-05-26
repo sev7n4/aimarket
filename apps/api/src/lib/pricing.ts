@@ -1,4 +1,5 @@
 import { getModel } from "./models.js";
+import { getTool } from "./tools.js";
 
 const RESOLUTION_FACTOR: Record<string, number> = {
   "1k": 1,
@@ -17,4 +18,15 @@ export function estimatePoints(
   const factor = model?.pointsFactor ?? 1;
   const resFactor = RESOLUTION_FACTOR[resolution.toLowerCase()] ?? 1;
   return Math.ceil(BASE_POINTS * factor * resFactor * count);
+}
+
+export function estimateToolPoints(
+  modelId: string,
+  toolId: string,
+  resolution = "1k",
+): number {
+  const tool = getTool(toolId);
+  const base = estimatePoints(modelId, 1, resolution);
+  const toolFactor = tool?.pricingFactor ?? 1;
+  return Math.max(1, Math.ceil(base * toolFactor));
 }

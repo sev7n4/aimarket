@@ -197,11 +197,33 @@ export function StudioWorkspace({
       return;
     }
     if (readOnly) return;
+
+    if (activeTool.clientOnly) {
+      alert("请在左侧画布选中图片后使用裁剪（画布工具栏），无需调用 AI 出图");
+      return;
+    }
+
+    const selected = canvasItems.find((i) => i.id === selectedCanvasId);
+    const referenceOutputIds =
+      selected?.outputId ? [selected.outputId] : undefined;
+
+    if (activeTool.requiresSource && !referenceOutputIds?.length) {
+      alert("请先在画布选择一张已生成的图片，或上传参考图后再运行");
+      return;
+    }
+
     setToolPending(true);
     try {
       const { jobId } = await runTool(activeTool.id, {
         sessionId,
         prompt: toolPrompt.trim() || undefined,
+        referenceOutputIds,
+        ...(activeTool.id === "upscale" ? { scale: "2x" as const } : {}),
+      });
+      void trackEvent("tool_run", {
+        tool_id: activeTool.id,
+        job_id: jobId,
+        has_reference: Boolean(referenceOutputIds?.length),
       });
       setPollingJobId(jobId);
       setActiveTool(null);
@@ -436,6 +458,9 @@ export function StudioWorkspace({
             onToolSelect={(tool) => {
               setActiveTool(tool);
               setToolPrompt(tool.defaultPrompt);
+              if (tool.clientOnly) {
+                setWorkbenchOpen(true);
+              }
             }}
             onToolCancel={() => setActiveTool(null)}
             onToolRun={() => void handleRunTool()}

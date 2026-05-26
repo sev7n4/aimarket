@@ -170,6 +170,86 @@ async function main() {
     );
   }
 
+  const toolsList = await req("/api/v1/tools/list", { headers: authH });
+  const toolRows = toolsList.json?.data ?? [];
+  ok(
+    "GET tools/list",
+    toolsList.res.ok &&
+      toolRows.some((t) => t.id === "cutout") &&
+      toolRows.find((t) => t.id === "crop")?.clientOnly === true,
+    `count=${toolRows.length}`,
+  );
+
+  const cropRun = await req("/api/v1/tools/crop/run", {
+    method: "POST",
+    headers: authH,
+    body: JSON.stringify({ sessionId }),
+  });
+  ok(
+    "POST tools/crop CLIENT_ONLY",
+    cropRun.res.status === 400 &&
+      cropRun.json?.error?.code === "CLIENT_ONLY_TOOL",
+  );
+
+  const expandNoRef = await req("/api/v1/tools/expand/run", {
+    method: "POST",
+    headers: authH,
+    body: JSON.stringify({ sessionId }),
+  });
+  ok(
+    "POST tools/expand SOURCE_REQUIRED",
+    expandNoRef.res.status === 400 &&
+      expandNoRef.json?.error?.code === "SOURCE_REQUIRED",
+  );
+
+  if (jobId) {
+    let outputId = null;
+    for (let i = 0; i < 10; i++) {
+      await new Promise((r) => setTimeout(r, 800));
+      const msgs = await req(`/api/v1/imageSession/${sessionId}/messages`, {
+        headers: authH,
+      });
+      const outs =
+        msgs.json?.data?.flatMap((m) => m.outputs ?? []) ?? [];
+      if (outs[0]?.id) {
+        outputId = outs[0].id;
+        break;
+      }
+    }
+    if (outputId) {
+      const expandRun = await req("/api/v1/tools/expand/run", {
+        method: "POST",
+        headers: authH,
+        body: JSON.stringify({
+          sessionId,
+          referenceOutputIds: [outputId],
+        }),
+      });
+      ok(
+        "POST tools/expand with ref",
+        expandRun.res.ok && !!expandRun.json?.data?.jobId,
+        `job=${expandRun.json?.data?.jobId}`,
+      );
+
+      const cutoutRun = await req("/api/v1/tools/cutout/run", {
+        method: "POST",
+        headers: authH,
+        body: JSON.stringify({
+          sessionId,
+          referenceOutputIds: [outputId],
+        }),
+      });
+      ok(
+        "POST tools/cutout with ref",
+        cutoutRun.res.ok && !!cutoutRun.json?.data?.jobId,
+        `job=${cutoutRun.json?.data?.jobId}`,
+      );
+    } else {
+      ok("POST tools/expand with ref", false, "no message output id");
+      ok("POST tools/cutout with ref", false, "no message output id");
+    }
+  }
+
   const provider = await req("/api/v1/ai/providerStatus", { headers: authH });
   ok(
     "GET providerStatus",

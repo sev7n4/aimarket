@@ -54,6 +54,8 @@ export interface CanvasItem {
   height: number;
   isVideo: boolean;
   source?: CanvasItemSource;
+  /** 关联 message_outputs.id，供 AI 工具引用 */
+  outputId?: string;
 }
 
 const CELL_W = 200;
@@ -77,7 +79,10 @@ export function nextCanvasPosition(
 }
 
 export function buildCanvasItemsFromMessages(
-  messages: { id: string; outputs: { url: string; sort_order: number }[] }[],
+  messages: {
+    id: string;
+    outputs: { id?: string; url: string; sort_order: number }[];
+  }[],
 ): CanvasItem[] {
   const items: CanvasItem[] = [];
   let idx = 0;
@@ -91,7 +96,8 @@ export function buildCanvasItemsFromMessages(
         out.url.includes(".mp4") || out.url.includes("video");
       const height = isVideo ? Math.round(CELL_W * 0.56) : CELL_W;
       items.push({
-        id: `${msg.id}-${i}`,
+        id: out.id ?? `${msg.id}-${i}`,
+        outputId: out.id,
         url: out.url,
         label:
           msg.outputs.length === 4

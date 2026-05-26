@@ -126,6 +126,15 @@ export function WorkbenchPanel({
               {activeTool.name}
             </h3>
             <p className="mt-1 text-xs text-zinc-500">{activeTool.description}</p>
+            {activeTool.clientOnly ? (
+              <p className="mt-2 text-xs text-amber-400/90">
+                仅在画布客户端裁剪，不会创建 AI 任务
+              </p>
+            ) : activeTool.requiresSource ? (
+              <p className="mt-2 text-xs text-zinc-500">
+                请先在左侧画布选中一张图片作为参考
+              </p>
+            ) : null}
             <textarea
               value={toolPrompt}
               onChange={(e) => onToolPromptChange(e.target.value)}
@@ -140,7 +149,11 @@ export function WorkbenchPanel({
                 disabled={readOnly || toolPending}
                 className="rounded-full bg-gradient-to-r from-orange-500 to-purple-600 px-3 py-1 text-xs font-medium disabled:opacity-50"
               >
-                {toolPending ? "执行中…" : "运行"}
+                {toolPending
+                  ? "执行中…"
+                  : activeTool.clientOnly
+                    ? "画布裁剪"
+                    : "运行"}
               </button>
               <button
                 type="button"

@@ -6,17 +6,23 @@ import {
   Expand,
   Layers,
   Pencil,
+  Scissors,
+  Sparkles,
   Type,
   Video,
   Wand2,
+  ZoomIn,
 } from "lucide-react";
 import type { StudioTool } from "@/lib/types";
 
 const TOOL_ICONS: Record<string, typeof Expand> = {
   expand: Expand,
   erase: Eraser,
+  cutout: Scissors,
   inpaint: Pencil,
   text: Type,
+  upscale: ZoomIn,
+  enhance: Sparkles,
   crop: Crop,
   blend: Layers,
   video: Video,
