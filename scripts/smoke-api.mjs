@@ -345,11 +345,13 @@ async function main() {
       provider.json?.data?.tools?.enhanceProvider === "tool-upscale-mock" &&
       provider.json?.data?.tools?.expandProvider === "tool-edit-mock" &&
       provider.json?.data?.tools?.inpaintProvider === "tool-edit-mock" &&
+      provider.json?.data?.tools?.editMode === "auto" &&
+      provider.json?.data?.tools?.editHttpConfigured === false &&
       provider.json?.data?.tools?.genericToolProvider === "tool-mock" &&
       (provider.json?.data?.promptOptimize?.activeProvider ===
         "template-mock" ||
         provider.json?.data?.promptOptimize?.activeProvider === "openai"),
-    `cutoutMode=${provider.json?.data?.tools?.cutoutMode} cutoutHttp=${provider.json?.data?.tools?.cutoutHttpConfigured} upscaleMode=${provider.json?.data?.tools?.upscaleMode} upscaleHttp=${provider.json?.data?.tools?.upscaleHttpConfigured} promptOpt=${provider.json?.data?.promptOptimize?.activeProvider}`,
+    `cutout=${provider.json?.data?.tools?.cutoutMode}/${provider.json?.data?.tools?.cutoutHttpConfigured} upscale=${provider.json?.data?.tools?.upscaleMode}/${provider.json?.data?.tools?.upscaleHttpConfigured} edit=${provider.json?.data?.tools?.editMode}/${provider.json?.data?.tools?.editHttpConfigured} promptOpt=${provider.json?.data?.promptOptimize?.activeProvider}`,
   );
 
   const del = await req(`/api/v1/imageSession/${sessionProject}`, {
