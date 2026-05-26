@@ -69,7 +69,7 @@ pnpm dev:api   # http://localhost:4000
 - `POST /api/v1/product/orders/:id/confirm` — Mock 收银台确认
 - `POST /api/v1/product/webhook/stripe` — Stripe 回调
 
-环境变量见 `.env.example`（`JOB_QUEUE`、`REDIS_URL`、`PAYMENT_PROVIDER`、`STRIPE_*`、`VIDEO_API_*`）。
+环境变量见 `.env.example`（`JOB_QUEUE`、`REDIS_URL`、`IMAGE_PROVIDER`、`TOOL_IMAGE_PROVIDER`、`PAYMENT_PROVIDER`、`STRIPE_*`、`VIDEO_API_*`）。
 
 ## 文档
 

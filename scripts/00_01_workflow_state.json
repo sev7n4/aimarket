@@ -1,6 +1,6 @@
 {
-  "branch": "feature/prompt-reverse",
-  "phase": "P3",
+  "branch": "feature/providers-tools",
+  "phase": "P4",
   "current_fix_cases": [
     "INT-API-SMOKE",
     "INT-WS-SWITCH",
@@ -13,6 +13,6 @@
   "local_validation": "passed",
   "pr_number": null,
   "ci_status": "pending",
-  "last_merged_pr": 14,
-  "last_merged_phase": "P2"
+  "last_merged_pr": 15,
+  "last_merged_phase": "P3"
 }

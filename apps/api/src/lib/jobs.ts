@@ -8,6 +8,7 @@ import { assertSessionWrite, assertSessionRead } from "./session-access.js";
 import { recordAnalyticsEvent } from "./analytics.js";
 import { assertOutputsAllowed } from "./content-moderation.js";
 import { generateImages, resolveProvider } from "../providers/registry.js";
+import { runToolImages } from "../providers/tools/registry.js";
 import {
   generateVideos,
   resolveVideoProvider,
@@ -154,10 +155,13 @@ export async function processGenerationJob({
   );
 
   const model = getModel(job.model_id);
+  const isToolJob = Boolean(job.tool_type);
   const useMockDelay =
     model?.type === "video"
       ? resolveVideoProvider(job.model_id).name === "mock"
-      : resolveProvider(job.model_id).name === "mock";
+      : isToolJob
+        ? true
+        : resolveProvider(job.model_id).name === "mock";
   if (useMockDelay) {
     await new Promise((r) => setTimeout(r, delayMs));
   }
@@ -193,6 +197,17 @@ export async function processGenerationJob({
         urls.push(part.urls[0]);
         imageProvider = part.provider;
       }
+    } else if (job.tool_type) {
+      const result = await runToolImages({
+        toolId: job.tool_type,
+        prompt: job.prompt,
+        modelId: job.model_id,
+        count: job.count,
+        resolution: job.resolution,
+        aspectRatio: job.aspect_ratio ?? "1:1",
+      });
+      urls = result.urls;
+      imageProvider = result.provider;
     } else {
       const result = await generateImages({
         prompt: job.prompt,
