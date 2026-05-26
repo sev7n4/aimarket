@@ -14,8 +14,8 @@ export function HomeCreationSection() {
   const [loginOpen, setLoginOpen] = useState(false);
 
   return (
-    <section className="relative z-10 -mt-4 px-4 pb-6">
-      <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-white/10 bg-[#0c0c0c] shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
+    <section className="relative z-40 -mt-4 px-3 pb-3 max-lg:fixed max-lg:bottom-0 max-lg:left-0 max-lg:right-0 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:px-4 lg:pb-6">
+      <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-white/10 bg-[#0c0c0c]/95 shadow-[0_24px_80px_rgba(0,0,0,0.55)] backdrop-blur-md max-lg:shadow-[0_-8px_40px_rgba(0,0,0,0.65)]">
         <div className="flex justify-center border-b border-white/5 px-3 py-3">
           <ModeTabs
             items={modeTabs}
@@ -39,7 +39,7 @@ export function HomeCreationSection() {
           />
         </div>
       </div>
-      <ScenarioQuickBar className="mx-auto mt-4 max-w-3xl" />
+      <ScenarioQuickBar className="mx-auto mt-3 max-w-3xl max-lg:hidden" />
       <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
     </section>
   );

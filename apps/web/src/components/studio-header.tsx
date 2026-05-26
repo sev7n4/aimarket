@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import { LoginDialog } from "@/components/login-dialog";
 import { CreditsDialog } from "@/components/credits-dialog";
 import { SessionTitleActions } from "@/components/session-title-actions";
-import { fetchSignStatus, signIn } from "@/lib/api-client";
+import { fetchSignStatus, getToken, signIn } from "@/lib/api-client";
 
 interface StudioHeaderProps {
   sessionId?: string;
@@ -112,7 +112,7 @@ export function StudioHeader({
           >
             <Plus className="size-5" />
           </button>
-          {!loading && user ? (
+          {!loading && user && getToken() ? (
             <>
               <button
                 type="button"

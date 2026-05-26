@@ -78,6 +78,7 @@ ai.post("/generate", async (c) => {
       resolution: z.enum(["1k", "2k", "4k"]).default("1k"),
       aspectRatio: z
         .enum([
+          "auto",
           "1:1",
           "4:3",
           "3:4",
@@ -89,7 +90,7 @@ ai.post("/generate", async (c) => {
           "5:4",
           "21:9",
         ])
-        .default("1:1"),
+        .default("auto"),
       mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
       assetIds: z.array(z.string().uuid()).optional(),
       referenceOutputIds: z.array(z.string().uuid()).optional(),
