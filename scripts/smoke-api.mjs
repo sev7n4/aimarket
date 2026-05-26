@@ -255,8 +255,9 @@ async function main() {
     "GET providerStatus",
     provider.res.ok &&
       provider.json?.data?.hint &&
-      provider.json?.data?.moderation?.provider,
-    `moderation=${provider.json?.data?.moderation?.provider}`,
+      provider.json?.data?.moderation?.provider &&
+      provider.json?.data?.tools?.activeProvider === "tool-mock",
+    `tools=${provider.json?.data?.tools?.activeProvider}`,
   );
 
   const del = await req(`/api/v1/imageSession/${sessionProject}`, {
