@@ -1,7 +1,6 @@
 import { Suspense } from "react";
-import { HomeCreationSection } from "@/components/home-creation-section";
 import { HeroSection } from "@/components/hero-section";
-import { InspirationGallery } from "@/components/inspiration-gallery";
+import { HomeMain } from "@/components/home-main";
 import { InviteCapture } from "@/components/invite-capture";
 import { PromoBanner } from "@/components/promo-banner";
 import { SiteFooter } from "@/components/site-footer";
@@ -21,8 +20,7 @@ export default function HomePage() {
       <SiteHeader />
       <main>
         <HeroSection />
-        <HomeCreationSection />
-        <InspirationGallery />
+        <HomeMain />
       </main>
       <SiteFooter />
     </div>

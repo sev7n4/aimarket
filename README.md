@@ -75,6 +75,10 @@ pnpm dev:api   # http://localhost:4000
 - [产品需求规格书（PRD）](./docs/PRD.md)
 - [产品文档](./docs/PRODUCT.md)
 - [技术规格书](./docs/TECH_SPEC.md)
+- [椒图 AI 竞品调研报告](./docs/research/JIAOTUAI_RESEARCH_REPORT.md)
+- [椒图对标 · 架构优化方案](./docs/spec/JIAOTU_OPTIMIZED_DESIGN.md)（**开工前必读**）
+- [椒图对标 API 草案](./docs/spec/JIAOTU_PARITY_API.md)
+- [椒图对标任务排期](./docs/spec/JIAOTU_PARITY_BACKLOG.md)
 
 ## 路线图
 

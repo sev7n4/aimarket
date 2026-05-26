@@ -1,29 +1,140 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import {
   inspirationCategories,
   inspirationItems,
   type InspirationCategory,
 } from "@/lib/inspiration";
-import { randomUUID } from "@/lib/uuid";
+import {
+  fetchInspirationDetail,
+  fetchInspirationPage,
+  trackEvent,
+} from "@/lib/api-client";
+import type { InspirationListItem } from "@/lib/types";
+import { useInspirationApply } from "@/lib/inspiration-apply-context";
+import type { AspectRatio } from "@/components/generation-settings-popover";
 
 const PAGE_SIZE = 12;
 
+const useApiSource =
+  typeof process.env.NEXT_PUBLIC_INSPIRATION_SOURCE === "undefined" ||
+  process.env.NEXT_PUBLIC_INSPIRATION_SOURCE === "api";
+
+type GalleryItem = {
+  id: string;
+  title: string;
+  category: string;
+  coverUrl: string;
+};
+
+function staticToGallery(): GalleryItem[] {
+  return inspirationItems.map((i) => ({
+    id: i.id,
+    title: i.title,
+    category: i.category,
+    coverUrl: i.coverUrl,
+  }));
+}
+
+function coerceAspect(value: string): AspectRatio {
+  const allowed: AspectRatio[] = [
+    "1:1",
+    "4:3",
+    "3:4",
+    "16:9",
+    "9:16",
+    "3:2",
+    "2:3",
+    "4:5",
+    "5:4",
+    "21:9",
+  ];
+  if (value === "auto" || !value) return "1:1";
+  return allowed.includes(value as AspectRatio) ? (value as AspectRatio) : "1:1";
+}
+
 export function InspirationGallery() {
-  const router = useRouter();
+  const { applyInspiration } = useInspirationApply();
   const [category, setCategory] = useState<InspirationCategory>("全部");
   const [visible, setVisible] = useState(PAGE_SIZE);
+  const [apiItems, setApiItems] = useState<InspirationListItem[] | null>(null);
+  const [loading, setLoading] = useState(useApiSource);
+  const [applyingId, setApplyingId] = useState<string | null>(null);
 
-  const filtered = useMemo(() => {
-    if (category === "全部") return inspirationItems;
-    return inspirationItems.filter((i) => i.category === category);
+  const loadPage = useCallback(async () => {
+    if (!useApiSource) return;
+    setLoading(true);
+    try {
+      const data = await fetchInspirationPage({
+        pageNum: 1,
+        pageSize: 50,
+        category: category === "全部" ? undefined : category,
+      });
+      setApiItems(data.rows);
+    } catch {
+      setApiItems(null);
+    } finally {
+      setLoading(false);
+    }
   }, [category]);
 
-  const shown = filtered.slice(0, visible);
-  const hasMore = visible < filtered.length;
+  useEffect(() => {
+    void loadPage();
+  }, [loadPage]);
+
+  const allItems: GalleryItem[] = useMemo(() => {
+    if (apiItems && apiItems.length > 0) {
+      return apiItems.map((r) => ({
+        id: r.id,
+        title: r.title,
+        category: r.category,
+        coverUrl: r.coverUrl,
+      }));
+    }
+    const staticList = staticToGallery();
+    if (category === "全部") return staticList;
+    return staticList.filter((i) => i.category === category);
+  }, [apiItems, category]);
+
+  const shown = allItems.slice(0, visible);
+  const hasMore = visible < allItems.length;
+
+  async function handleClick(item: GalleryItem) {
+    setApplyingId(item.id);
+    try {
+      if (useApiSource && apiItems) {
+        const detail = await fetchInspirationDetail(item.id);
+        applyInspiration({
+          id: detail.id,
+          prompt: detail.prompt,
+          modelId: detail.modelId,
+          aspectRatio: coerceAspect(detail.aspectRatio),
+          resolution: detail.resolution,
+          referenceUrls: detail.referenceAssets.map((a) => a.url),
+        });
+        void trackEvent("inspiration_click", {
+          inspirationId: detail.id,
+          category: detail.category,
+        });
+      } else {
+        const staticItem = inspirationItems.find((i) => i.id === item.id);
+        applyInspiration({
+          id: item.id,
+          prompt: staticItem?.prompt ?? item.title,
+          modelId: "latest-v2-pro",
+          aspectRatio: "1:1",
+          resolution: "2k",
+          referenceUrls: [item.coverUrl],
+        });
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setApplyingId(null);
+    }
+  }
 
   return (
     <section className="mx-auto max-w-6xl px-4 pb-20 pt-8">
@@ -41,9 +152,9 @@ export function InspirationGallery() {
                 setVisible(PAGE_SIZE);
               }}
               className={`rounded-full px-3 py-1 text-xs transition ${
-                category === c
-                  ? "bg-white text-black"
-                  : "border border-white/10 text-zinc-500 hover:text-zinc-300"
+                category === c ?
+                  "bg-white text-black"
+                : "border border-white/10 text-zinc-500 hover:text-zinc-300"
               }`}
             >
               {c}
@@ -52,18 +163,18 @@ export function InspirationGallery() {
         </div>
       </div>
 
+      {loading && !shown.length ?
+        <p className="py-12 text-center text-sm text-zinc-500">加载灵感中…</p>
+      : null}
+
       <div className="columns-2 gap-3 sm:columns-3 lg:columns-4">
         {shown.map((item) => (
           <button
             key={item.id}
             type="button"
-            onClick={() => {
-              const sessionId = randomUUID();
-              router.push(
-                `/studio?sessionId=${sessionId}&mode=chat&q=${encodeURIComponent(item.prompt)}`,
-              );
-            }}
-            className="group relative mb-3 block w-full break-inside-avoid overflow-hidden rounded-2xl border border-white/10 text-left transition hover:border-orange-500/40"
+            disabled={applyingId === item.id}
+            onClick={() => void handleClick(item)}
+            className="group relative mb-3 block w-full break-inside-avoid overflow-hidden rounded-2xl border border-white/10 text-left transition hover:border-orange-500/40 disabled:opacity-60"
           >
             <div className="relative aspect-[4/5] w-full bg-zinc-900">
               <Image
@@ -88,17 +199,17 @@ export function InspirationGallery() {
         ))}
       </div>
 
-      {hasMore ? (
+      {hasMore ?
         <div className="mt-6 text-center">
           <button
             type="button"
             onClick={() => setVisible((v) => v + PAGE_SIZE)}
             className="rounded-full border border-white/10 px-6 py-2 text-sm text-zinc-400 hover:border-white/20 hover:text-white"
           >
-            加载更多（{filtered.length - visible} 条）
+            加载更多（{allItems.length - visible} 条）
           </button>
         </div>
-      ) : null}
+      : null}
     </section>
   );
 }

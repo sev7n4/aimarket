@@ -33,6 +33,7 @@ import { admin } from "./routes/admin.js";
 import { reports } from "./routes/reports.js";
 import { workspacesRoute } from "./routes/workspaces.js";
 import { events } from "./routes/events.js";
+import { inspiration, keyword } from "./routes/inspiration.js";
 
 ensureUploadDir();
 
@@ -93,6 +94,8 @@ app.route("/api/v1/productSet", productSetPublic);
 app.route("/api/v1/notice", noticePublic);
 app.route("/api/v1/version", versionPublic);
 app.route("/api/v1/events", events);
+app.route("/api/v1/inspiration", inspiration);
+app.route("/api/v1/keyword", keyword);
 app.route("/api/v1/admin", admin);
 
 const authed = new Hono();

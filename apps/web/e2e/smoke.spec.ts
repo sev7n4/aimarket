@@ -28,4 +28,16 @@ test.describe("smoke", () => {
     await expect(page).toHaveURL(/\/projects/);
     await expect(page.getByRole("heading", { name: "项目库" })).toBeVisible();
   });
+
+  test("点击灵感卡片灌入工作台 Prompt", async ({ page }) => {
+    await page.goto("/");
+    const card = page
+      .getByRole("button")
+      .filter({ hasText: "产品摄影图" })
+      .first();
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await card.click();
+    const textarea = page.locator("#home-creation textarea").first();
+    await expect(textarea).toHaveValue(/大理石|产品|摄影/, { timeout: 10_000 });
+  });
 });

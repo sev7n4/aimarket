@@ -1,0 +1,15 @@
+{
+  "branch": "feature/inspiration-api",
+  "current_fix_cases": [
+    "INT-API-SMOKE",
+    "INT-WS-SWITCH",
+    "INT-WS-COLLAB",
+    "INT-MOD-P2",
+    "E2E-SMOKE-001",
+    "E2E-SMOKE-002",
+    "E2E-SMOKE-003"
+  ],
+  "local_validation": "passed",
+  "pr_number": null,
+  "ci_status": "pending"
+}

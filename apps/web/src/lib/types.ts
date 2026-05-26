@@ -1,3 +1,27 @@
+export interface InspirationListItem {
+  id: string;
+  title: string;
+  category: string;
+  coverUrl: string;
+  aspectRatio?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface InspirationDetail {
+  id: string;
+  title: string;
+  category: string;
+  prompt: string;
+  promptTemplate?: string;
+  variables?: Array<{ key: string; label: string; default: string }>;
+  modelId: string;
+  aspectRatio: string;
+  resolution: string;
+  coverUrl: string;
+  referenceAssets: Array<{ url: string; fileName?: string; assetId?: string }>;
+}
+
 export interface ApiUser {
   id: string;
   email: string;

@@ -273,6 +273,57 @@ async function main() {
     }
   }
 
+  const inspPage = await req("/api/v1/inspiration/page?pageSize=5", {
+    headers: { auth: false },
+  });
+  ok(
+    "GET inspiration/page",
+    inspPage.res.ok && Array.isArray(inspPage.json?.data?.rows),
+    `total=${inspPage.json?.data?.total}`,
+  );
+
+  const firstId = inspPage.json?.data?.rows?.[0]?.id;
+  if (firstId) {
+    const inspDetail = await req(`/api/v1/inspiration/${firstId}`, {
+      headers: { auth: false },
+    });
+    ok(
+      "GET inspiration/:id",
+      inspDetail.res.ok && typeof inspDetail.json?.data?.prompt === "string",
+      `model=${inspDetail.json?.data?.modelId}`,
+    );
+  }
+
+  const keywordPage = await req("/api/v1/keyword/page?pageSize=3", {
+    headers: { auth: false },
+  });
+  ok(
+    "GET keyword/page",
+    keywordPage.res.ok && Array.isArray(keywordPage.json?.data?.rows),
+  );
+
+  const legacyId = keywordPage.json?.data?.rows?.[0]?.id;
+  if (legacyId != null) {
+    const keywordDetail = await req(`/api/v1/keyword/detail/${legacyId}`, {
+      headers: { auth: false },
+    });
+    ok(
+      "GET keyword/detail/:id",
+      keywordDetail.res.ok &&
+        typeof keywordDetail.json?.data?.prompt === "string" &&
+        Array.isArray(keywordDetail.json?.data?.imagesList),
+    );
+  }
+
+  const adminInsp = await req("/api/v1/admin/inspiration", {
+    headers: { "X-Admin-Secret": ADMIN },
+  });
+  ok(
+    "GET admin/inspiration",
+    adminInsp.res.ok && Array.isArray(adminInsp.json?.data),
+    `count=${adminInsp.json?.data?.length}`,
+  );
+
   const adminAnalytics = await req("/api/v1/admin/analytics?days=7", {
     headers: { "X-Admin-Secret": ADMIN },
   });

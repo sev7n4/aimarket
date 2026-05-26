@@ -7,14 +7,19 @@ import { CreationPanel } from "@/components/creation-panel";
 import { LoginDialog } from "@/components/login-dialog";
 import { ScenarioQuickBar } from "@/components/scenario-quick-bar";
 import { randomUUID } from "@/lib/uuid";
+import { useInspirationApply } from "@/lib/inspiration-apply-context";
 
 export function HomeCreationSection() {
   const [sessionId] = useState(() => randomUUID());
   const [mode, setMode] = useState<CreationMode>("chat");
   const [loginOpen, setLoginOpen] = useState(false);
+  const { applied } = useInspirationApply();
 
   return (
-    <section className="relative z-10 -mt-4 px-4 pb-6">
+    <section
+      id="home-creation"
+      className="relative z-10 -mt-4 px-4 pb-6 max-lg:scroll-mt-4"
+    >
       <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-white/10 bg-[#0c0c0c] shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
         <div className="flex justify-center border-b border-white/5 px-3 py-3">
           <ModeTabs
@@ -36,6 +41,7 @@ export function HomeCreationSection() {
             homeDirectSubmit
             rotatingPlaceholder
             onAuthRequired={() => setLoginOpen(true)}
+            inspirationApply={applied}
           />
         </div>
       </div>
