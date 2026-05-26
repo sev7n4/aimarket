@@ -46,9 +46,10 @@ docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.i
 |------|------|------------------|------------|
 | 文生图 | `IMAGE_PROVIDER` | `mock` 或 `openai` | `openai` + `OPENAI_API_KEY` |
 | Studio 工具总开关 | `TOOL_IMAGE_PROVIDER` | `auto`（各工具专用 mock） | 按供应商文档改 `auto` / 未来 `http` |
-| 抠图 cutout | `TOOL_CUTOUT_PROVIDER` + `TOOL_CUTOUT_HTTP_URL` / `_KEY` | `tool-cutout-mock` | `tool-cutout-http`（自建网关 / Replicate BiRefNet / remove.bg 包一层） |
-| 超分/增强 upscale·enhance | `TOOL_UPSCALE_PROVIDER` + `TOOL_UPSCALE_HTTP_URL` / `_KEY` | `tool-upscale-mock` | `tool-upscale-http`（Real-ESRGAN / Topaz / 阿里超分） |
-| 扩图/局部 expand·inpaint | `TOOL_EDIT_PROVIDER` + `TOOL_EDIT_HTTP_URL` / `_KEY` | `tool-edit-mock` | `tool-edit-http`（OpenAI gpt-image-1 edit / Replicate SD-inpaint） |
+| 图像生成 | `IMAGE_PROVIDER` + `DASHSCOPE_API_KEY` / `OPENAI_API_KEY` | `mock` | `aliyun-wan`（wan2.6-t2i，¥0.2/张）/ `openai`（DALL·E 3） |
+| 抠图 cutout | `TOOL_CUTOUT_PROVIDER` + `ARK_API_KEY`（推荐）或 `TOOL_CUTOUT_HTTP_URL` | `tool-cutout-mock` | `tool-seedream`（火山方舟 Seedream 5 编辑） / `tool-cutout-http`（自建网关 → fal BiRefNet / Photoroom / remove.bg） |
+| 超分/增强 upscale·enhance | `TOOL_UPSCALE_PROVIDER` + `ARK_API_KEY` 或 `TOOL_UPSCALE_HTTP_URL` | `tool-upscale-mock` | `tool-seedream` / `tool-upscale-http`（Real-ESRGAN / Topaz / Magnific） |
+| 扩图/局部 expand·inpaint | `TOOL_EDIT_PROVIDER` + `ARK_API_KEY` 或 `TOOL_EDIT_HTTP_URL` | `tool-edit-mock` | `tool-seedream` / `tool-edit-http`（FLUX.1 Fill / Ideogram Canvas） |
 | 超分/增强 | （同上） | `tool-upscale-mock` | 第三方 upscale API |
 | 扩图/局部 | （同上） | `tool-edit-mock` | outpaint/inpaint API |
 | 提示词润色 | `PROMPT_OPTIMIZE_PROVIDER` | `auto` 或 `mock` | `openai` + `OPENAI_API_KEY` |
@@ -74,6 +75,32 @@ S3_ACCESS_KEY_ID=...
 S3_SECRET_ACCESS_KEY=...
 S3_PUBLIC_URL=https://...
 ```
+
+## 国内推荐方案（阿里百炼 + 火山方舟）
+
+最少 2 个 Key 即可覆盖生成 + 编辑场景：
+
+```bash
+# 1. 图像生成走阿里 wan2.6-t2i
+IMAGE_PROVIDER=aliyun_wan
+DASHSCOPE_API_KEY=sk-xxx     # 阿里云百炼控制台 → API-KEY
+DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com
+ALIYUN_WAN_MODEL=wan2.6-t2i
+
+# 2. Studio 工具走火山方舟 Seedream 5
+TOOL_CUTOUT_PROVIDER=auto
+TOOL_UPSCALE_PROVIDER=auto
+TOOL_EDIT_PROVIDER=auto
+ARK_API_KEY=xxx              # 火山方舟控制台 → API Key
+ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+SEEDREAM_MODEL=doubao-seedream-5-0-260128
+```
+
+**`auto` 优先级**：vendor (Seedream/wan) > HTTP > mock。即配 Key 后**所有工具自动切真供应商**，不需要逐工具开关。
+
+**注意**：
+- Seedream 5 通过 prompt 指令完成 cutout/upscale 等，效果不如专用 CV 模型（BiRefNet/Topaz），但**不需要额外申请阿里视觉智能 viapi**。
+- 如需工业级抠图/超分，再加 `TOOL_CUTOUT_HTTP_URL` 指向自建网关接 fal/Photoroom。
 
 ## Studio 工具 HTTP 协议（真供应商接入）
 
