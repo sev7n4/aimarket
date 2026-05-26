@@ -153,3 +153,4 @@ pnpm test:e2e   # 需 API + web dev 或 build+start
 
 - 勿修改 `/opt/pintuotuo`。
 - `.env` 仅存服务器 `/opt/aimarket/.env`。
+- **业务密钥**（OpenAI、S3、Stripe 等）配置与轮换见 **[PRODUCTION_SECRETS.md](./PRODUCTION_SECRETS.md)**；模板文件 `deploy/.env.production.example`。

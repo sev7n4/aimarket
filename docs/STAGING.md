@@ -66,3 +66,24 @@ pnpm dev
 - `IMAGE_PROVIDER=openai` + 密钥走环境变量/密钥管理，勿提交仓库
 - 配置 `JOB_QUEUE=redis` + `REDIS_URL` 避免重启丢任务
 - 后续 Sprint：对象存储 COS/S3 替代本地 `uploads/`
+- 生产密钥清单与 P4 Provider 矩阵见 **[PRODUCTION_SECRETS.md](./PRODUCTION_SECRETS.md)**
+
+## 7. Studio 工具与提示词润色（P4）
+
+本地默认各工具为 **专用 mock**（`TOOL_IMAGE_PROVIDER=auto`）：
+
+| 工具 | mock 供应商 |
+|------|-------------|
+| cutout | `tool-cutout-mock` |
+| upscale / enhance | `tool-upscale-mock` |
+| expand / inpaint | `tool-edit-mock` |
+| 其它 | `tool-mock` |
+
+提示词润色 `POST /api/v1/prompt/optimize`：
+
+```bash
+PROMPT_OPTIMIZE_PROVIDER=auto   # 有 OPENAI_API_KEY 时走 Chat，否则 template-mock
+OPENAI_CHAT_MODEL=gpt-4o-mini
+```
+
+响应含 `source`：`openai` | `template-mock`。`GET /api/v1/ai/providerStatus` → `promptOptimize`。
