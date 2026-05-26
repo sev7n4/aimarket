@@ -48,6 +48,7 @@ export interface SessionAccessMeta {
 }
 
 export interface MessageOutput {
+  id?: string;
   url: string;
   sort_order: number;
 }
@@ -105,7 +106,11 @@ export interface StudioTool {
   id: string;
   name: string;
   description: string;
+  category?: "edit" | "enhance" | "compose";
   defaultPrompt: string;
+  pricingFactor?: number;
+  clientOnly?: boolean;
+  requiresSource?: boolean;
 }
 
 export interface CreditPackage {

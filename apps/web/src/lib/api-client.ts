@@ -594,6 +594,8 @@ export async function runTool(
     prompt?: string;
     resolution?: string;
     referenceOutputIds?: string[];
+    assetIds?: string[];
+    scale?: "2x" | "4x";
   },
 ) {
   const res = await request<{

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { db } from "../db/index.js";
 import { ECOMMERCE_SLIDES } from "./ecommerce.js";
-import { estimatePoints } from "./pricing.js";
+import { estimatePoints, estimateToolPoints } from "./pricing.js";
 import { getModel } from "./models.js";
 import { AppError } from "./errors.js";
 import { assertSessionWrite, assertSessionRead } from "./session-access.js";
@@ -31,11 +31,10 @@ export interface CreateJobInput {
 }
 
 export function createGenerationJob(input: CreateJobInput) {
-  const pointsCost = estimatePoints(
-    input.modelId,
-    input.count,
-    input.resolution,
-  );
+  const pointsCost =
+    input.toolType ?
+      estimateToolPoints(input.modelId, input.toolType, input.resolution)
+    : estimatePoints(input.modelId, input.count, input.resolution);
 
   const user = db
     .prepare("SELECT credits FROM users WHERE id = ?")

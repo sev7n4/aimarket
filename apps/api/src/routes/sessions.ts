@@ -220,9 +220,9 @@ sessions.get("/:sessionId/messages", (c) => {
   const data = messages.map((m) => {
     const outputs = db
       .prepare(
-        `SELECT url, sort_order FROM message_outputs WHERE message_id = ? ORDER BY sort_order`,
+        `SELECT id, url, sort_order FROM message_outputs WHERE message_id = ? ORDER BY sort_order`,
       )
-      .all(m.id) as { url: string; sort_order: number }[];
+      .all(m.id) as { id: string; url: string; sort_order: number }[];
     return { ...m, outputs };
   });
 
