@@ -4,6 +4,7 @@ import { persistOutputUrls } from "../../lib/persist-output.js";
 import { extractReferenceUrlsFromPrompt } from "./extract-references.js";
 import { cutoutHttpProvider } from "./cutout-http.js";
 import { cutoutMockProvider } from "./cutout-mock.js";
+import { editHttpProvider } from "./edit-http.js";
 import { editMockProvider } from "./edit-mock.js";
 import { mockToolProvider } from "./mock.js";
 import { upscaleHttpProvider } from "./upscale-http.js";
@@ -15,6 +16,7 @@ const providers: ImageToolProvider[] = [
   cutoutMockProvider,
   upscaleHttpProvider,
   upscaleMockProvider,
+  editHttpProvider,
   editMockProvider,
   mockToolProvider,
 ];
@@ -69,6 +71,8 @@ export function getToolProviderStatus() {
   const upscaleHttpConfigured = Boolean(
     process.env.TOOL_UPSCALE_HTTP_URL?.trim(),
   );
+  const editMode = (process.env.TOOL_EDIT_PROVIDER ?? "auto").toLowerCase();
+  const editHttpConfigured = Boolean(process.env.TOOL_EDIT_HTTP_URL?.trim());
   const cutoutProvider = resolveToolProvider("cutout").name;
   const upscaleProvider = resolveToolProvider("upscale").name;
   const enhanceProvider = resolveToolProvider("enhance").name;
@@ -94,6 +98,8 @@ export function getToolProviderStatus() {
     enhanceProvider,
     expandProvider,
     inpaintProvider,
+    editMode,
+    editHttpConfigured,
     genericToolProvider,
     usingMock: allMock,
     hint: allMock

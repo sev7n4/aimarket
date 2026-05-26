@@ -48,6 +48,7 @@ docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.i
 | Studio 工具总开关 | `TOOL_IMAGE_PROVIDER` | `auto`（各工具专用 mock） | 按供应商文档改 `auto` / 未来 `http` |
 | 抠图 cutout | `TOOL_CUTOUT_PROVIDER` + `TOOL_CUTOUT_HTTP_URL` / `_KEY` | `tool-cutout-mock` | `tool-cutout-http`（自建网关 / Replicate BiRefNet / remove.bg 包一层） |
 | 超分/增强 upscale·enhance | `TOOL_UPSCALE_PROVIDER` + `TOOL_UPSCALE_HTTP_URL` / `_KEY` | `tool-upscale-mock` | `tool-upscale-http`（Real-ESRGAN / Topaz / 阿里超分） |
+| 扩图/局部 expand·inpaint | `TOOL_EDIT_PROVIDER` + `TOOL_EDIT_HTTP_URL` / `_KEY` | `tool-edit-mock` | `tool-edit-http`（OpenAI gpt-image-1 edit / Replicate SD-inpaint） |
 | 超分/增强 | （同上） | `tool-upscale-mock` | 第三方 upscale API |
 | 扩图/局部 | （同上） | `tool-edit-mock` | outpaint/inpaint API |
 | 提示词润色 | `PROMPT_OPTIMIZE_PROVIDER` | `auto` 或 `mock` | `openai` + `OPENAI_API_KEY` |
