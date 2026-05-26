@@ -21,6 +21,16 @@ async function req(path, init = {}) {
   return { res, json };
 }
 
+async function waitJob(jobId, authH, maxAttempts = 15) {
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise((r) => setTimeout(r, 800));
+    const { json } = await req(`/api/v1/ai/jobs/${jobId}`, { headers: authH });
+    const st = json?.data?.status;
+    if (st === "failed" || st === "succeeded") return json?.data ?? null;
+  }
+  return null;
+}
+
 async function main() {
   console.log(`\nAIMarket API 冒烟 @ ${API}\n`);
 
@@ -247,23 +257,39 @@ async function main() {
       );
 
       if (cutoutJobId) {
-        let cutoutUrl = null;
-        for (let i = 0; i < 15; i++) {
-          await new Promise((r) => setTimeout(r, 800));
-          const cutoutJob = await req(`/api/v1/ai/jobs/${cutoutJobId}`, {
-            headers: authH,
-          });
-          const st = cutoutJob.json?.data?.status;
-          if (st === "failed") break;
-          if (st === "succeeded") {
-            cutoutUrl = cutoutJob.json?.data?.outputs?.[0]?.url ?? null;
-            break;
-          }
-        }
+        const cutoutJob = await waitJob(cutoutJobId, authH);
+        const cutoutUrl = cutoutJob?.outputs?.[0]?.url ?? null;
         ok(
           "cutout job PNG output",
-          !!cutoutUrl && /\.png($|\?)/i.test(cutoutUrl),
-          cutoutUrl ?? "no url",
+          cutoutJob?.status === "succeeded" &&
+            !!cutoutUrl &&
+            /\.png($|\?)/i.test(cutoutUrl),
+          cutoutUrl ?? cutoutJob?.status ?? "no url",
+        );
+      }
+
+      const upscaleRun = await req("/api/v1/tools/upscale/run", {
+        method: "POST",
+        headers: authH,
+        body: JSON.stringify({
+          sessionId,
+          referenceOutputIds: [outputId],
+          scale: "2x",
+          resolution: "2k",
+        }),
+      });
+      const upscaleJobId = upscaleRun.json?.data?.jobId;
+      ok(
+        "POST tools/upscale 2x",
+        upscaleRun.res.ok && !!upscaleJobId,
+        `job=${upscaleJobId}`,
+      );
+      if (upscaleJobId) {
+        const upscaleJob = await waitJob(upscaleJobId, authH);
+        ok(
+          "upscale job 2x succeeded",
+          upscaleJob?.status === "succeeded" && !!upscaleJob?.outputs?.[0]?.url,
+          upscaleJob?.outputs?.[0]?.url ?? upscaleJob?.status ?? "no url",
         );
       }
     } else {
@@ -279,8 +305,10 @@ async function main() {
       provider.json?.data?.hint &&
       provider.json?.data?.moderation?.provider &&
       provider.json?.data?.tools?.cutoutProvider === "tool-cutout-mock" &&
+      provider.json?.data?.tools?.upscaleProvider === "tool-upscale-mock" &&
+      provider.json?.data?.tools?.enhanceProvider === "tool-upscale-mock" &&
       provider.json?.data?.tools?.genericToolProvider === "tool-mock",
-    `cutout=${provider.json?.data?.tools?.cutoutProvider} generic=${provider.json?.data?.tools?.genericToolProvider}`,
+    `cutout=${provider.json?.data?.tools?.cutoutProvider} upscale=${provider.json?.data?.tools?.upscaleProvider}`,
   );
 
   const del = await req(`/api/v1/imageSession/${sessionProject}`, {
