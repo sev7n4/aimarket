@@ -4,9 +4,14 @@ import { persistOutputUrls } from "../../lib/persist-output.js";
 import { extractReferenceUrlsFromPrompt } from "./extract-references.js";
 import { cutoutMockProvider } from "./cutout-mock.js";
 import { mockToolProvider } from "./mock.js";
+import { upscaleMockProvider } from "./upscale-mock.js";
 import type { ImageToolProvider, ToolRunParams, ToolRunResult } from "./types.js";
 
-const providers: ImageToolProvider[] = [cutoutMockProvider, mockToolProvider];
+const providers: ImageToolProvider[] = [
+  cutoutMockProvider,
+  upscaleMockProvider,
+  mockToolProvider,
+];
 
 export function resolveToolProvider(toolId: string): ImageToolProvider {
   const mode = process.env.TOOL_IMAGE_PROVIDER ?? "auto";
@@ -49,18 +54,24 @@ export async function runToolImages(
 export function getToolProviderStatus() {
   const mode = process.env.TOOL_IMAGE_PROVIDER ?? "auto";
   const cutoutProvider = resolveToolProvider("cutout").name;
+  const upscaleProvider = resolveToolProvider("upscale").name;
+  const enhanceProvider = resolveToolProvider("enhance").name;
   const genericToolProvider = resolveToolProvider("expand").name;
 
   return {
     mode,
     activeProvider: cutoutProvider,
     cutoutProvider,
+    upscaleProvider,
+    enhanceProvider,
     genericToolProvider,
     usingMock:
-      cutoutProvider.endsWith("-mock") && genericToolProvider.endsWith("-mock"),
+      cutoutProvider.endsWith("-mock") &&
+      upscaleProvider.endsWith("-mock") &&
+      genericToolProvider.endsWith("-mock"),
     hint:
       cutoutProvider.endsWith("-mock") ?
-        "抠图走 cutout mock（PNG 占位）；其余 Studio 工具走通用 mock；后续可接 matting HTTP 供应商"
+        "抠图/超分/增强走专用 mock；其余 Studio 工具走通用 mock；后续可接 HTTP 真供应商"
       : "Studio 工具真实供应商",
   };
 }

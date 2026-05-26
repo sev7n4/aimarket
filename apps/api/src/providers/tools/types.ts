@@ -13,6 +13,10 @@ export interface ToolRunResult {
   provider: string;
   /** cutout 等工具交付格式（mock/真供应商） */
   mimeType?: string;
+  /** upscale mock：2x / 4x / 1x（enhance） */
+  scale?: string;
+  width?: number;
+  height?: number;
 }
 
 export interface ImageToolProvider {
