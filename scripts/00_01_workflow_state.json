@@ -1,7 +1,7 @@
 {
-  "branch": "feature/tool-cutout-http",
+  "branch": "feature/tool-upscale-http",
   "phase": "P4-followup",
-  "subphase": "tool-cutout-http",
+  "subphase": "tool-upscale-http",
   "current_fix_cases": [
     "INT-API-SMOKE",
     "INT-WS-SWITCH",
@@ -19,6 +19,6 @@
     "e2e": "pending"
   },
   "merged": false,
-  "last_merged_pr": 22,
-  "last_merged_phase": "P4-6"
+  "last_merged_pr": 23,
+  "last_merged_phase": "P4-followup-cutout-http"
 }
