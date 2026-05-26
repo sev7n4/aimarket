@@ -46,7 +46,7 @@ docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.i
 |------|------|------------------|------------|
 | 文生图 | `IMAGE_PROVIDER` | `mock` 或 `openai` | `openai` + `OPENAI_API_KEY` |
 | Studio 工具总开关 | `TOOL_IMAGE_PROVIDER` | `auto`（各工具专用 mock） | 按供应商文档改 `auto` / 未来 `http` |
-| 抠图 cutout | （随 `TOOL_IMAGE_PROVIDER`） | `tool-cutout-mock` | 第三方 matting API（待接） |
+| 抠图 cutout | `TOOL_CUTOUT_PROVIDER` + `TOOL_CUTOUT_HTTP_URL` / `_KEY` | `tool-cutout-mock` | `tool-cutout-http`（自建网关 / Replicate BiRefNet / remove.bg 包一层） |
 | 超分/增强 | （同上） | `tool-upscale-mock` | 第三方 upscale API |
 | 扩图/局部 | （同上） | `tool-edit-mock` | outpaint/inpaint API |
 | 提示词润色 | `PROMPT_OPTIMIZE_PROVIDER` | `auto` 或 `mock` | `openai` + `OPENAI_API_KEY` |
@@ -72,6 +72,38 @@ S3_ACCESS_KEY_ID=...
 S3_SECRET_ACCESS_KEY=...
 S3_PUBLIC_URL=https://...
 ```
+
+## Studio 工具 HTTP 协议（真供应商接入）
+
+所有 `tool-*-http` provider 统一协议（便于自建网关）：
+
+```http
+POST {TOOL_*_HTTP_URL}
+Authorization: Bearer {TOOL_*_HTTP_KEY}
+Content-Type: application/json
+
+{
+  "tool": "cutout",
+  "prompt": "抠出主体，生成透明背景",
+  "referenceUrls": ["https://.../source.jpg"],
+  "count": 1,
+  "resolution": "1k",
+  "aspectRatio": "1:1"
+}
+```
+
+响应：
+
+```json
+{ "urls": ["https://cdn.example.com/result.png"], "mimeType": "image/png" }
+```
+
+错误（4xx/5xx 或缺失 `urls`）：
+
+- `TOOL_*_PROVIDER=http`：抛错，任务失败 + 退积分
+- `TOOL_*_PROVIDER=auto`：回落对应 `tool-*-mock`，任务仍成功
+
+接入示例：在自建小服务里把 Replicate `BiRefNet` / 阿里抠图 / Picsart removebg 的厂商协议包成上述形状。
 
 ## 部署后验证
 
