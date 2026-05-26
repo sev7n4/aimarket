@@ -3,6 +3,7 @@ import { getTool } from "../../lib/tools.js";
 import { persistOutputUrls } from "../../lib/persist-output.js";
 import { extractReferenceUrlsFromPrompt } from "./extract-references.js";
 import { cutoutMockProvider } from "./cutout-mock.js";
+import { editMockProvider } from "./edit-mock.js";
 import { mockToolProvider } from "./mock.js";
 import { upscaleMockProvider } from "./upscale-mock.js";
 import type { ImageToolProvider, ToolRunParams, ToolRunResult } from "./types.js";
@@ -10,6 +11,7 @@ import type { ImageToolProvider, ToolRunParams, ToolRunResult } from "./types.js
 const providers: ImageToolProvider[] = [
   cutoutMockProvider,
   upscaleMockProvider,
+  editMockProvider,
   mockToolProvider,
 ];
 
@@ -56,7 +58,9 @@ export function getToolProviderStatus() {
   const cutoutProvider = resolveToolProvider("cutout").name;
   const upscaleProvider = resolveToolProvider("upscale").name;
   const enhanceProvider = resolveToolProvider("enhance").name;
-  const genericToolProvider = resolveToolProvider("expand").name;
+  const expandProvider = resolveToolProvider("expand").name;
+  const inpaintProvider = resolveToolProvider("inpaint").name;
+  const genericToolProvider = resolveToolProvider("erase").name;
 
   return {
     mode,
@@ -64,14 +68,17 @@ export function getToolProviderStatus() {
     cutoutProvider,
     upscaleProvider,
     enhanceProvider,
+    expandProvider,
+    inpaintProvider,
     genericToolProvider,
     usingMock:
       cutoutProvider.endsWith("-mock") &&
       upscaleProvider.endsWith("-mock") &&
+      expandProvider.endsWith("-mock") &&
       genericToolProvider.endsWith("-mock"),
     hint:
       cutoutProvider.endsWith("-mock") ?
-        "抠图/超分/增强走专用 mock；其余 Studio 工具走通用 mock；后续可接 HTTP 真供应商"
+        "Studio 工具按类型走专用 mock（抠图/超分/扩图/局部等）；其余走通用 mock；后续可接 HTTP 真供应商"
       : "Studio 工具真实供应商",
   };
 }

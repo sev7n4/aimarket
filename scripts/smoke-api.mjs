@@ -235,11 +235,43 @@ async function main() {
           referenceOutputIds: [outputId],
         }),
       });
+      const expandJobId = expandRun.json?.data?.jobId;
       ok(
         "POST tools/expand with ref",
-        expandRun.res.ok && !!expandRun.json?.data?.jobId,
-        `job=${expandRun.json?.data?.jobId}`,
+        expandRun.res.ok && !!expandJobId,
+        `job=${expandJobId}`,
       );
+      if (expandJobId) {
+        const expandJob = await waitJob(expandJobId, authH);
+        ok(
+          "expand job succeeded",
+          expandJob?.status === "succeeded" && !!expandJob?.outputs?.[0]?.url,
+          expandJob?.outputs?.[0]?.url ?? expandJob?.status ?? "no url",
+        );
+      }
+
+      const inpaintRun = await req("/api/v1/tools/inpaint/run", {
+        method: "POST",
+        headers: authH,
+        body: JSON.stringify({
+          sessionId,
+          referenceOutputIds: [outputId],
+        }),
+      });
+      const inpaintJobId = inpaintRun.json?.data?.jobId;
+      ok(
+        "POST tools/inpaint with ref",
+        inpaintRun.res.ok && !!inpaintJobId,
+        `job=${inpaintJobId}`,
+      );
+      if (inpaintJobId) {
+        const inpaintJob = await waitJob(inpaintJobId, authH);
+        ok(
+          "inpaint job succeeded",
+          inpaintJob?.status === "succeeded" && !!inpaintJob?.outputs?.[0]?.url,
+          inpaintJob?.outputs?.[0]?.url ?? inpaintJob?.status ?? "no url",
+        );
+      }
 
       const cutoutRun = await req("/api/v1/tools/cutout/run", {
         method: "POST",
@@ -307,8 +339,10 @@ async function main() {
       provider.json?.data?.tools?.cutoutProvider === "tool-cutout-mock" &&
       provider.json?.data?.tools?.upscaleProvider === "tool-upscale-mock" &&
       provider.json?.data?.tools?.enhanceProvider === "tool-upscale-mock" &&
+      provider.json?.data?.tools?.expandProvider === "tool-edit-mock" &&
+      provider.json?.data?.tools?.inpaintProvider === "tool-edit-mock" &&
       provider.json?.data?.tools?.genericToolProvider === "tool-mock",
-    `cutout=${provider.json?.data?.tools?.cutoutProvider} upscale=${provider.json?.data?.tools?.upscaleProvider}`,
+    `expand=${provider.json?.data?.tools?.expandProvider} inpaint=${provider.json?.data?.tools?.inpaintProvider}`,
   );
 
   const del = await req(`/api/v1/imageSession/${sessionProject}`, {
