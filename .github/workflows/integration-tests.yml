@@ -1,9 +1,13 @@
 name: Integration Tests
 
 on:
+  push:
+    branches:
+      - "feature/**"
+      - "fix/**"
+      - "enhancement/**"
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
