@@ -8,7 +8,10 @@ import { assertSessionWrite, assertSessionRead } from "./session-access.js";
 import { recordAnalyticsEvent } from "./analytics.js";
 import { assertOutputsAllowed } from "./content-moderation.js";
 import { generateImages, resolveProvider } from "../providers/registry.js";
-import { runToolImages } from "../providers/tools/registry.js";
+import {
+  resolveToolProvider,
+  runToolImages,
+} from "../providers/tools/registry.js";
 import {
   generateVideos,
   resolveVideoProvider,
@@ -160,7 +163,7 @@ export async function processGenerationJob({
     model?.type === "video"
       ? resolveVideoProvider(job.model_id).name === "mock"
       : isToolJob
-        ? true
+        ? resolveToolProvider(job.tool_type!).name.endsWith("-mock")
         : resolveProvider(job.model_id).name === "mock";
   if (useMockDelay) {
     await new Promise((r) => setTimeout(r, delayMs));

@@ -21,7 +21,7 @@ function seedForTool(params: ToolRunParams): string {
 export const mockToolProvider: ImageToolProvider = {
   name: "tool-mock",
   supports(toolId: string) {
-    return Boolean(getTool(toolId));
+    return Boolean(getTool(toolId)) && toolId !== "cutout";
   },
   async run(params: ToolRunParams): Promise<ToolRunResult> {
     const tool = getTool(params.toolId);

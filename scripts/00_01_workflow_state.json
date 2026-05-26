@@ -1,6 +1,7 @@
 {
   "branch": "feature/providers-tools",
   "phase": "P4",
+  "subphase": "P4-2",
   "current_fix_cases": [
     "INT-API-SMOKE",
     "INT-WS-SWITCH",
@@ -12,7 +13,12 @@
   ],
   "local_validation": "passed",
   "pr_number": null,
-  "ci_status": "pending",
-  "last_merged_pr": 15,
-  "last_merged_phase": "P3"
+  "ci_status": {
+    "cicd": "pending",
+    "integration": "pending",
+    "e2e": "pending"
+  },
+  "merged": false,
+  "last_merged_pr": 16,
+  "last_merged_phase": "P4-1"
 }
