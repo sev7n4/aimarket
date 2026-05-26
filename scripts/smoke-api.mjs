@@ -341,8 +341,11 @@ async function main() {
       provider.json?.data?.tools?.enhanceProvider === "tool-upscale-mock" &&
       provider.json?.data?.tools?.expandProvider === "tool-edit-mock" &&
       provider.json?.data?.tools?.inpaintProvider === "tool-edit-mock" &&
-      provider.json?.data?.tools?.genericToolProvider === "tool-mock",
-    `expand=${provider.json?.data?.tools?.expandProvider} inpaint=${provider.json?.data?.tools?.inpaintProvider}`,
+      provider.json?.data?.tools?.genericToolProvider === "tool-mock" &&
+      (provider.json?.data?.promptOptimize?.activeProvider ===
+        "template-mock" ||
+        provider.json?.data?.promptOptimize?.activeProvider === "openai"),
+    `promptOpt=${provider.json?.data?.promptOptimize?.activeProvider}`,
   );
 
   const del = await req(`/api/v1/imageSession/${sessionProject}`, {
@@ -459,7 +462,11 @@ async function main() {
   });
   ok(
     "POST prompt/optimize",
-    optimize.res.ok && optimize.json?.data?.prompt?.includes("产品白底图"),
+    optimize.res.ok &&
+      optimize.json?.data?.prompt?.includes("产品白底图") &&
+      (optimize.json?.data?.source === "template-mock" ||
+        optimize.json?.data?.source === "openai"),
+    `source=${optimize.json?.data?.source}`,
   );
 
   const uploadUrl = await req("/api/v1/assets/upload-url", {

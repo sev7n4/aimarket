@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { AuthVariables } from "../middleware/auth.js";
 import { ALL_MODELS, getModel } from "../lib/models.js";
 import { getProviderStatus } from "../providers/registry.js";
+import { getPromptOptimizeStatus } from "../lib/prompt-optimize.js";
 import { getToolProviderStatus } from "../providers/tools/registry.js";
 import { getModerationStatus } from "../lib/moderation/index.js";
 import { streamSSE } from "hono/streaming";
@@ -27,6 +28,7 @@ ai.get("/providerStatus", (c) =>
     data: {
       ...getProviderStatus(),
       tools: getToolProviderStatus(),
+      promptOptimize: getPromptOptimizeStatus(),
       moderation: getModerationStatus(),
     },
   }),
