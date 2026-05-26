@@ -50,7 +50,7 @@ test.describe("smoke", () => {
 
     await expect(page).toHaveURL(/\/studio/, { timeout: 20_000 });
     await expect(
-      page.getByText(/排队中|生成中|处理中/),
+      page.getByText(/排队中|生成中|处理中/).first(),
     ).toBeVisible({ timeout: 25_000 });
   });
 
