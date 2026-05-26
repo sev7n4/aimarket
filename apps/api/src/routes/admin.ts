@@ -7,6 +7,14 @@ import { getModerationStatus } from "../lib/moderation/index.js";
 import { getRateLimitStatus } from "../lib/rate-limit.js";
 import { getStorageStatus } from "../lib/object-storage/index.js";
 import { sqlAnalyticsSinceDays, sqlNow } from "../db/dialect.js";
+import { randomUUID } from "node:crypto";
+import {
+  assertValidModelId,
+  rowToCanonical,
+  inspirationVariableSchema,
+  type InspirationRow,
+} from "../lib/inspiration.js";
+import { AppError } from "../lib/errors.js";
 
 export const admin = new Hono();
 
@@ -155,4 +163,150 @@ admin.get("/jobs", (c) => {
     )
     .all();
   return c.json({ data: rows });
+});
+
+const inspirationBody = z.object({
+  id: z.string().min(1).max(64).optional(),
+  title: z.string().min(1).max(120),
+  category: z.string().min(1).max(32),
+  promptTemplate: z.string().min(1).max(8000),
+  variables: z.array(inspirationVariableSchema).optional(),
+  modelId: z.string().min(1),
+  aspectRatio: z.string().min(1).max(16).default("auto"),
+  resolution: z.enum(["1k", "2k", "4k"]).default("1k"),
+  coverUrl: z.string().url(),
+  referenceAssets: z
+    .array(
+      z.object({
+        url: z.string().url(),
+        fileName: z.string().optional(),
+      }),
+    )
+    .optional(),
+  status: z.enum(["draft", "published"]).default("published"),
+  sortOrder: z.number().int().optional(),
+  legacyId: z.number().int().positive().optional(),
+});
+
+admin.get("/inspiration", (c) => {
+  const rows = db
+    .prepare(
+      `SELECT * FROM inspiration_templates ORDER BY sort_order ASC, legacy_id ASC LIMIT 100`,
+    )
+    .all();
+  return c.json({
+    data: rows.map((row) => rowToCanonical(row as unknown as InspirationRow)),
+  });
+});
+
+admin.post("/inspiration", async (c) => {
+  const body = inspirationBody.parse(await c.req.json());
+  assertValidModelId(body.modelId);
+
+  const id = body.id ?? randomUUID();
+  const exists = db
+    .prepare("SELECT id FROM inspiration_templates WHERE id = ?")
+    .get(id);
+  if (exists) {
+    throw new AppError(409, "CONFLICT", "灵感 ID 已存在");
+  }
+
+  const maxLegacy = db
+    .prepare("SELECT COALESCE(MAX(legacy_id), 0) as m FROM inspiration_templates")
+    .get() as { m: number };
+  const legacyId = body.legacyId ?? maxLegacy.m + 1;
+
+  const refs =
+    body.referenceAssets?.length ?
+      JSON.stringify(body.referenceAssets)
+    : JSON.stringify([{ url: body.coverUrl }]);
+
+  db.prepare(
+    `INSERT INTO inspiration_templates (
+      id, legacy_id, title, category, prompt_template, variables_json,
+      model_id, aspect_ratio, resolution, cover_url, reference_assets_json,
+      status, sort_order
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    legacyId,
+    body.title,
+    body.category,
+    body.promptTemplate,
+    body.variables?.length ? JSON.stringify(body.variables) : null,
+    body.modelId,
+    body.aspectRatio,
+    body.resolution,
+    body.coverUrl,
+    refs,
+    body.status,
+    body.sortOrder ?? legacyId,
+  );
+
+  const row = db
+    .prepare("SELECT * FROM inspiration_templates WHERE id = ?")
+    .get(id);
+  return c.json(
+    { data: rowToCanonical(row as unknown as InspirationRow) },
+    201,
+  );
+});
+
+admin.put("/inspiration/:id", async (c) => {
+  const id = c.req.param("id");
+  const existing = db
+    .prepare("SELECT id FROM inspiration_templates WHERE id = ?")
+    .get(id);
+  if (!existing) {
+    throw new AppError(404, "NOT_FOUND", "灵感不存在");
+  }
+
+  const body = inspirationBody.partial().parse(await c.req.json());
+  if (body.modelId) assertValidModelId(body.modelId);
+
+  const current = db
+    .prepare("SELECT * FROM inspiration_templates WHERE id = ?")
+    .get(id) as unknown as InspirationRow;
+
+  const refs =
+    body.referenceAssets !== undefined ?
+      JSON.stringify(
+        body.referenceAssets.length ?
+          body.referenceAssets
+        : [{ url: body.coverUrl ?? current.cover_url }],
+      )
+    : current.reference_assets_json;
+
+  db.prepare(
+    `UPDATE inspiration_templates SET
+      title = ?, category = ?, prompt_template = ?, variables_json = ?,
+      model_id = ?, aspect_ratio = ?, resolution = ?, cover_url = ?,
+      reference_assets_json = ?, status = ?, sort_order = ?,
+      updated_at = datetime('now')
+     WHERE id = ?`,
+  ).run(
+    body.title ?? current.title,
+    body.category ?? current.category,
+    body.promptTemplate ?? current.prompt_template,
+    body.variables !== undefined ?
+      body.variables.length ?
+        JSON.stringify(body.variables)
+      : null
+    : current.variables_json,
+    body.modelId ?? current.model_id,
+    body.aspectRatio ?? current.aspect_ratio,
+    body.resolution ?? current.resolution,
+    body.coverUrl ?? current.cover_url,
+    refs,
+    body.status ?? current.status,
+    body.sortOrder ?? current.sort_order,
+    id,
+  );
+
+  const row = db
+    .prepare("SELECT * FROM inspiration_templates WHERE id = ?")
+    .get(id);
+  return c.json({
+    data: rowToCanonical(row as unknown as InspirationRow),
+  });
 });

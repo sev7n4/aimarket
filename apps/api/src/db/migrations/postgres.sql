@@ -199,3 +199,24 @@ CREATE TABLE IF NOT EXISTS brand_kits (
   font_hint TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS inspiration_templates (
+  id TEXT PRIMARY KEY,
+  legacy_id INTEGER NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  prompt_template TEXT NOT NULL,
+  variables_json TEXT,
+  model_id TEXT NOT NULL,
+  aspect_ratio TEXT NOT NULL DEFAULT 'auto',
+  resolution TEXT NOT NULL DEFAULT '1k',
+  cover_url TEXT NOT NULL,
+  reference_assets_json TEXT,
+  status TEXT NOT NULL DEFAULT 'published',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_inspiration_published
+  ON inspiration_templates(status, sort_order, legacy_id);

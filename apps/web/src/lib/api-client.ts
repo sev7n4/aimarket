@@ -7,6 +7,8 @@ import type {
   GenerationJob,
   ImageModel,
   ImageSession,
+  InspirationDetail,
+  InspirationListItem,
   InviteInfo,
   Notice,
   ProductSetInit,
@@ -715,6 +717,32 @@ export async function dismissNotice(noticeId: string) {
     method: "POST",
     body: JSON.stringify({}),
   });
+}
+
+export async function fetchInspirationPage(opts?: {
+  pageNum?: number;
+  pageSize?: number;
+  category?: string;
+}) {
+  const params = new URLSearchParams();
+  if (opts?.pageNum) params.set("pageNum", String(opts.pageNum));
+  if (opts?.pageSize) params.set("pageSize", String(opts.pageSize));
+  if (opts?.category && opts.category !== "全部") {
+    params.set("category", opts.category);
+  }
+  const q = params.toString();
+  const res = await request<{
+    data: { total: number; rows: InspirationListItem[] };
+  }>(`/api/v1/inspiration/page${q ? `?${q}` : ""}`, { auth: false });
+  return res.data;
+}
+
+export async function fetchInspirationDetail(id: string) {
+  const res = await request<{ data: InspirationDetail }>(
+    `/api/v1/inspiration/${encodeURIComponent(id)}`,
+    { auth: false },
+  );
+  return res.data;
 }
 
 export async function uploadAsset(file: File, sessionId?: string) {

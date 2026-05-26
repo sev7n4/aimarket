@@ -231,6 +231,27 @@ database.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_analytics_name ON analytics_events(name, created_at DESC);
 
+  CREATE TABLE IF NOT EXISTS inspiration_templates (
+    id TEXT PRIMARY KEY,
+    legacy_id INTEGER NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    category TEXT NOT NULL,
+    prompt_template TEXT NOT NULL,
+    variables_json TEXT,
+    model_id TEXT NOT NULL,
+    aspect_ratio TEXT NOT NULL DEFAULT 'auto',
+    resolution TEXT NOT NULL DEFAULT '1k',
+    cover_url TEXT NOT NULL,
+    reference_assets_json TEXT,
+    status TEXT NOT NULL DEFAULT 'published',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_inspiration_published
+    ON inspiration_templates(status, sort_order ASC, legacy_id ASC);
+
   CREATE TABLE IF NOT EXISTS credit_packages (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,

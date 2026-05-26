@@ -49,6 +49,27 @@ import {
 } from "@/components/generation-settings-popover";
 import { ModelPicker, AUTO_MODEL_ID } from "@/components/model-picker";
 import { CountPicker } from "@/components/count-picker";
+import type { AppliedInspiration } from "@/lib/inspiration-apply-context";
+
+const ASPECT_RATIOS: AspectRatio[] = [
+  "1:1",
+  "4:3",
+  "3:4",
+  "16:9",
+  "9:16",
+  "3:2",
+  "2:3",
+  "4:5",
+  "5:4",
+  "21:9",
+];
+
+function coerceAspectRatio(value: string): AspectRatio {
+  if (value === "auto" || !value) return "1:1";
+  return ASPECT_RATIOS.includes(value as AspectRatio) ?
+      (value as AspectRatio)
+    : "1:1";
+}
 
 interface CreationPanelProps {
   initialMode?: CreationMode;
@@ -72,6 +93,8 @@ interface CreationPanelProps {
   rotatingPlaceholder?: boolean;
   /** 团队空间只读：禁止在本会话生成 */
   readOnly?: boolean;
+  /** 首页灵感灌入（由 InspirationApplyProvider 驱动） */
+  inspirationApply?: AppliedInspiration | null;
 }
 
 export function CreationPanel({
@@ -91,6 +114,7 @@ export function CreationPanel({
   enablePolish = false,
   rotatingPlaceholder = false,
   readOnly = false,
+  inspirationApply = null,
 }: CreationPanelProps) {
   const shouldNavigateOnSubmit =
     navigateOnSubmit ?? (!sessionId && !homeDirectSubmit);
@@ -153,6 +177,23 @@ export function CreationPanel({
       .then(setModels)
       .catch(() => setModels([]));
   }, []);
+
+  useEffect(() => {
+    if (!inspirationApply) return;
+    setPrompt(inspirationApply.prompt);
+    setModelId(inspirationApply.modelId);
+    setAspectRatio(coerceAspectRatio(inspirationApply.aspectRatio));
+    setResolution(inspirationApply.resolution);
+    if (inspirationApply.referenceUrls.length > 0) {
+      setUploadPreviews(
+        inspirationApply.referenceUrls.map((url, i) => ({
+          id: `insp-${inspirationApply.applyKey}-${i}`,
+          url,
+        })),
+      );
+      setAssetIds([]);
+    }
+  }, [inspirationApply?.applyKey]);
 
   useEffect(() => {
     if (mode === "ecommerce") {
