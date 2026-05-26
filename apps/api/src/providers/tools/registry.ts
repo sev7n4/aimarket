@@ -2,6 +2,7 @@ import { AppError } from "../../lib/errors.js";
 import { getTool } from "../../lib/tools.js";
 import { persistOutputUrls } from "../../lib/persist-output.js";
 import { extractReferenceUrlsFromPrompt } from "./extract-references.js";
+import { cutoutHttpProvider } from "./cutout-http.js";
 import { cutoutMockProvider } from "./cutout-mock.js";
 import { editMockProvider } from "./edit-mock.js";
 import { mockToolProvider } from "./mock.js";
@@ -9,6 +10,7 @@ import { upscaleMockProvider } from "./upscale-mock.js";
 import type { ImageToolProvider, ToolRunParams, ToolRunResult } from "./types.js";
 
 const providers: ImageToolProvider[] = [
+  cutoutHttpProvider,
   cutoutMockProvider,
   upscaleMockProvider,
   editMockProvider,
@@ -55,6 +57,10 @@ export async function runToolImages(
 
 export function getToolProviderStatus() {
   const mode = process.env.TOOL_IMAGE_PROVIDER ?? "auto";
+  const cutoutMode = (process.env.TOOL_CUTOUT_PROVIDER ?? "auto").toLowerCase();
+  const cutoutHttpConfigured = Boolean(
+    process.env.TOOL_CUTOUT_HTTP_URL?.trim(),
+  );
   const cutoutProvider = resolveToolProvider("cutout").name;
   const upscaleProvider = resolveToolProvider("upscale").name;
   const enhanceProvider = resolveToolProvider("enhance").name;
@@ -62,23 +68,26 @@ export function getToolProviderStatus() {
   const inpaintProvider = resolveToolProvider("inpaint").name;
   const genericToolProvider = resolveToolProvider("erase").name;
 
+  const allMock =
+    cutoutProvider.endsWith("-mock") &&
+    upscaleProvider.endsWith("-mock") &&
+    expandProvider.endsWith("-mock") &&
+    genericToolProvider.endsWith("-mock");
+
   return {
     mode,
     activeProvider: cutoutProvider,
     cutoutProvider,
+    cutoutMode,
+    cutoutHttpConfigured,
     upscaleProvider,
     enhanceProvider,
     expandProvider,
     inpaintProvider,
     genericToolProvider,
-    usingMock:
-      cutoutProvider.endsWith("-mock") &&
-      upscaleProvider.endsWith("-mock") &&
-      expandProvider.endsWith("-mock") &&
-      genericToolProvider.endsWith("-mock"),
-    hint:
-      cutoutProvider.endsWith("-mock") ?
-        "Studio 工具按类型走专用 mock（抠图/超分/扩图/局部等）；其余走通用 mock；后续可接 HTTP 真供应商"
-      : "Studio 工具真实供应商",
+    usingMock: allMock,
+    hint: allMock
+      ? "Studio 工具按类型走专用 mock；配置 TOOL_*_HTTP_URL 后切换真供应商"
+      : "Studio 工具部分走真实供应商（HTTP）",
   };
 }

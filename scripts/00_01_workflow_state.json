@@ -1,7 +1,7 @@
 {
-  "branch": "feature/p4-production-secrets",
-  "phase": "P4",
-  "subphase": "P4-6",
+  "branch": "feature/tool-cutout-http",
+  "phase": "P4-followup",
+  "subphase": "tool-cutout-http",
   "current_fix_cases": [
     "INT-API-SMOKE",
     "INT-WS-SWITCH",
@@ -19,6 +19,6 @@
     "e2e": "pending"
   },
   "merged": false,
-  "last_merged_pr": 21,
-  "last_merged_phase": "P4-5"
+  "last_merged_pr": 22,
+  "last_merged_phase": "P4-6"
 }
