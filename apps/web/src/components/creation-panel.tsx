@@ -20,6 +20,7 @@ import { modeTabs, placeholders } from "@/lib/modes";
 import {
   ensureSession,
   estimatePoints,
+  getToken,
   fetchModels,
   fetchProductSetInit,
   fetchReferences,
@@ -214,7 +215,7 @@ export function CreationPanel({
   }, [user, sessionId]);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !getToken()) {
       setEstimated(null);
       return;
     }
@@ -528,14 +529,23 @@ export function CreationPanel({
                   }
                 }}
               />
-              {enablePolish && prompt.trim().length > 0 ? (
+              {enablePolish ? (
                 <button
                   type="button"
-                  title="润色 Prompt"
+                  title={
+                    prompt.trim()
+                      ? "润色 Prompt"
+                      : "输入描述后可一键润色"
+                  }
+                  disabled={!prompt.trim()}
                   onClick={() =>
                     setPrompt((p) => polishPrompt(mode, p.trim()))
                   }
-                  className="absolute bottom-1 right-1 rounded-lg p-1.5 text-zinc-500 hover:bg-white/10 hover:text-orange-300"
+                  className={`absolute bottom-1 right-1 rounded-lg p-1.5 transition ${
+                    prompt.trim()
+                      ? "text-orange-400 hover:bg-white/10 hover:text-orange-300"
+                      : "text-zinc-600 opacity-70"
+                  }`}
                   aria-label="润色描述"
                 >
                   <Wand2 className="size-4" />
@@ -619,9 +629,13 @@ export function CreationPanel({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {estimated !== null && user ? (
-            <span className="inline-flex items-center gap-1 text-xs text-pink-400">
+          {estimated !== null && user && getToken() ? (
+            <span
+              className="inline-flex items-center gap-1 text-xs text-pink-400"
+              title="预估本次消耗积分"
+            >
               <Sparkles className="size-3.5 fill-pink-400/30" />
+              <span className="hidden sm:inline">约</span>
               {estimated}
             </span>
           ) : null}

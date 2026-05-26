@@ -18,7 +18,7 @@ export default function HomePage() {
       </Suspense>
       <PromoBanner />
       <SiteHeader />
-      <main>
+      <main className="relative">
         <HeroSection />
         <HomeMain />
       </main>

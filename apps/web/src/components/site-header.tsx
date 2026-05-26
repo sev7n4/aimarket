@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { LoginDialog } from "@/components/login-dialog";
 import { CreditsDialog } from "@/components/credits-dialog";
 import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
-import { fetchSignStatus, signIn } from "@/lib/api-client";
+import { fetchSignStatus, getToken, signIn } from "@/lib/api-client";
 
 export function SiteHeader() {
   const { user, logout, loading, refreshUser } = useAuth();
@@ -74,7 +74,7 @@ export function SiteHeader() {
             </Link>
           </div>
           <div className="flex items-center gap-2">
-            {!loading && user ? (
+            {!loading && user && getToken() ? (
               <>
                 <button
                   type="button"

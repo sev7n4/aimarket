@@ -12,6 +12,7 @@ test.describe("smoke", () => {
     const email = `e2e_${Date.now()}@test.local`;
     await page.goto("/");
     await page.getByRole("banner").getByRole("button", { name: "免费开始" }).click();
+    await page.getByRole("button", { name: "邮箱" }).click();
     await page.getByRole("button", { name: "立即注册" }).click();
     await expect(
       page.getByRole("heading", { name: "注册 AIMarket" }),

@@ -99,6 +99,53 @@ export function logout() {
   setToken(null);
 }
 
+export async function sendSmsCode(phone: string) {
+  const res = await request<{
+    data: { message: string; devCode?: string };
+  }>("/api/v1/auth/sms/send", {
+    method: "POST",
+    body: JSON.stringify({ phone }),
+    auth: false,
+  });
+  return res.data;
+}
+
+export async function loginWithSms(
+  phone: string,
+  code: string,
+  inviteCode?: string,
+) {
+  const res = await request<{
+    data: {
+      token: string;
+      user: ApiUser;
+      inviteBonus?: { reward: number; message: string } | null;
+    };
+  }>("/api/v1/auth/sms/login", {
+    method: "POST",
+    body: JSON.stringify({ phone, code, inviteCode }),
+    auth: false,
+  });
+  setToken(res.data.token);
+  return res.data;
+}
+
+export async function loginWithWechat(code: string, inviteCode?: string) {
+  const res = await request<{
+    data: {
+      token: string;
+      user: ApiUser;
+      inviteBonus?: { reward: number; message: string } | null;
+    };
+  }>("/api/v1/auth/wechat/login", {
+    method: "POST",
+    body: JSON.stringify({ code, inviteCode }),
+    auth: false,
+  });
+  setToken(res.data.token);
+  return res.data;
+}
+
 export async function fetchUser() {
   const res = await request<{ data: ApiUser }>("/api/v1/user/getInfo");
   return res.data;

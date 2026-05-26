@@ -151,6 +151,30 @@ try {
 } catch {
   /* column exists */
 }
+try {
+  database.exec(`ALTER TABLE users ADD COLUMN phone TEXT`);
+} catch {
+  /* column exists */
+}
+try {
+  database.exec(`ALTER TABLE users ADD COLUMN wechat_open_id TEXT`);
+} catch {
+  /* column exists */
+}
+try {
+  database.exec(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone) WHERE phone IS NOT NULL`,
+  );
+} catch {
+  /* index exists */
+}
+try {
+  database.exec(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_wechat ON users(wechat_open_id) WHERE wechat_open_id IS NOT NULL`,
+  );
+} catch {
+  /* index exists */
+}
 
 database.exec(`
   CREATE TABLE IF NOT EXISTS workspaces (
