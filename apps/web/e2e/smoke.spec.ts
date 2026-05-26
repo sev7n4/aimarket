@@ -44,9 +44,14 @@ test.describe("smoke", () => {
 
     const sessionId = crypto.randomUUID();
     await page.goto(`/studio?sessionId=${sessionId}&mode=chat`);
-    await expect(page.getByText("工作台")).toBeVisible({ timeout: 15_000 });
+
+    const workbenchToggle = page.getByRole("button", { name: "工作台" });
+    if (await workbenchToggle.isVisible().catch(() => false)) {
+      await workbenchToggle.click();
+    }
 
     const textarea = page.locator("aside textarea").first();
+    await expect(textarea).toBeVisible({ timeout: 15_000 });
     await textarea.fill("E2E 流式生成测试：一只可爱的猫");
     await page
       .locator("aside")
