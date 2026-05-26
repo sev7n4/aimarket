@@ -1,7 +1,7 @@
 {
   "branch": "feature/providers-tools",
   "phase": "P4",
-  "subphase": "P4-3",
+  "subphase": "P4-4",
   "current_fix_cases": [
     "INT-API-SMOKE",
     "INT-WS-SWITCH",
@@ -19,6 +19,6 @@
     "e2e": "pending"
   },
   "merged": false,
-  "last_merged_pr": 18,
-  "last_merged_phase": "P4-2"
+  "last_merged_pr": 19,
+  "last_merged_phase": "P4-3"
 }

@@ -25,7 +25,9 @@ export const mockToolProvider: ImageToolProvider = {
       Boolean(getTool(toolId)) &&
       toolId !== "cutout" &&
       toolId !== "upscale" &&
-      toolId !== "enhance"
+      toolId !== "enhance" &&
+      toolId !== "expand" &&
+      toolId !== "inpaint"
     );
   },
   async run(params: ToolRunParams): Promise<ToolRunResult> {

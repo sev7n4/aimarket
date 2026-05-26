@@ -17,6 +17,8 @@ export interface ToolRunResult {
   scale?: string;
   width?: number;
   height?: number;
+  /** expand | inpaint */
+  variant?: string;
 }
 
 export interface ImageToolProvider {
