@@ -45,18 +45,21 @@ test.describe("smoke", () => {
     const sessionId = crypto.randomUUID();
     await page.goto(`/studio?sessionId=${sessionId}&mode=chat`);
 
-    const workbenchToggle = page.getByRole("button", { name: "工作台" });
-    if (await workbenchToggle.isVisible().catch(() => false)) {
-      await workbenchToggle.click();
+    await expect(page.getByText("登录后开始创作")).not.toBeVisible({
+      timeout: 20_000,
+    });
+
+    const openWorkbench = page
+      .getByRole("button", { name: "工作台" })
+      .filter({ hasNot: page.locator('[aria-label="关闭工作台"]') });
+    if (await openWorkbench.first().isVisible().catch(() => false)) {
+      await openWorkbench.first().click();
     }
 
-    const textarea = page.locator("aside textarea").first();
+    const textarea = page.getByPlaceholder(/试试输入/);
     await expect(textarea).toBeVisible({ timeout: 15_000 });
     await textarea.fill("E2E 流式生成测试：一只可爱的猫");
-    await page
-      .locator("aside")
-      .getByRole("button", { name: "开始生成" })
-      .click();
+    await page.getByRole("button", { name: "开始生成" }).click();
 
     await expect(
       page.getByText(/排队中|生成中|处理中/),
