@@ -13,6 +13,8 @@ import {
   fetchUser,
   getToken,
   login as apiLogin,
+  loginWithSms,
+  loginWithWechat,
   logout as apiLogout,
   register as apiRegister,
   setToken,
@@ -22,6 +24,12 @@ interface AuthContextValue {
   user: ApiUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginPhone: (
+    phone: string,
+    code: string,
+    inviteCode?: string,
+  ) => Promise<void>;
+  loginWechat: (code: string, inviteCode?: string) => Promise<void>;
   register: (
     email: string,
     password: string,
@@ -60,6 +68,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(u);
   }, []);
 
+  const loginPhone = useCallback(
+    async (phone: string, code: string, inviteCode?: string) => {
+      const { user: u } = await loginWithSms(phone, code, inviteCode);
+      setUser(u);
+    },
+    [],
+  );
+
+  const loginWechat = useCallback(async (code: string, inviteCode?: string) => {
+    const { user: u } = await loginWithWechat(code, inviteCode);
+    setUser(u);
+  }, []);
+
   const register = useCallback(
     async (email: string, password: string, inviteCode?: string) => {
       const { user: u } = await apiRegister(email, password, inviteCode);
@@ -74,8 +95,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, loading, login, register, logout, refreshUser }),
-    [user, loading, login, register, logout, refreshUser],
+    () => ({
+      user,
+      loading,
+      login,
+      loginPhone,
+      loginWechat,
+      register,
+      logout,
+      refreshUser,
+    }),
+    [user, loading, login, loginPhone, loginWechat, register, logout, refreshUser],
   );
 
   return (

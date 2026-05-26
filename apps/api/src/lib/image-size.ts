@@ -5,6 +5,9 @@ export function resolveImageDimensions(
   aspectRatio = "1:1",
 ): [number, number] {
   const base = BASE[resolution.toLowerCase()] ?? 1024;
+  if (aspectRatio === "auto") {
+    return [base, base];
+  }
   switch (aspectRatio) {
     case "16:9":
       return [Math.round(base * 1.33), base];
