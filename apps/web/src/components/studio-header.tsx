@@ -112,7 +112,7 @@ export function StudioHeader({
           >
             <Plus className="size-5" />
           </button>
-          {!loading && user ? (
+          {!loading && user && getToken() ? (
             <>
               <button
                 type="button"
