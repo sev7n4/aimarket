@@ -1,7 +1,7 @@
 {
-  "branch": "feature/prompt-optimize-llm",
+  "branch": "feature/p4-production-secrets",
   "phase": "P4",
-  "subphase": "P4-5",
+  "subphase": "P4-6",
   "current_fix_cases": [
     "INT-API-SMOKE",
     "INT-WS-SWITCH",
@@ -19,6 +19,6 @@
     "e2e": "pending"
   },
   "merged": false,
-  "last_merged_pr": 20,
-  "last_merged_phase": "P4-4"
+  "last_merged_pr": 21,
+  "last_merged_phase": "P4-5"
 }
