@@ -61,8 +61,18 @@ test.describe("smoke", () => {
     ).toBeVisible({ timeout: 25_000 });
   });
 
-  test("点击灵感卡片灌入工作台 Prompt", async ({ page }) => {
+  test("点击灵感卡片做同款进入 Studio", async ({ page }) => {
+    const email = `e2e_insp_${Date.now()}@test.local`;
     await page.goto("/");
+    await page.getByRole("banner").getByRole("button", { name: "免费开始" }).click();
+    await page.getByRole("button", { name: "邮箱" }).click();
+    await page.getByRole("button", { name: "立即注册" }).click();
+    await page.getByPlaceholder("邮箱").fill(email);
+    await page.getByPlaceholder("密码").fill("testpass123");
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: "注册" }).click();
+    await expect(page.getByText(/积分\s+\d+/)).toBeVisible({ timeout: 15_000 });
+
     const card = page
       .getByRole("button")
       .filter({ hasText: "产品摄影图" })
@@ -72,8 +82,12 @@ test.describe("smoke", () => {
     await expect(
       page.getByRole("dialog").getByRole("heading", { name: "产品摄影图" }),
     ).toBeVisible({ timeout: 10_000 });
-    await page.getByRole("button", { name: "填入工作台" }).click();
-    const textarea = page.locator("#home-creation textarea").first();
+    await page.getByRole("button", { name: "做同款" }).click();
+    await expect(page).toHaveURL(/\/studio/, { timeout: 15_000 });
+    await expect(
+      page.getByRole("button", { name: "对话", exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+    const textarea = page.locator("textarea").first();
     await expect(textarea).toHaveValue(/大理石|产品|摄影/, { timeout: 10_000 });
   });
 });

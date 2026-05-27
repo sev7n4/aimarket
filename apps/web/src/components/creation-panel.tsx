@@ -58,7 +58,7 @@ import {
 } from "@/components/generation-settings-popover";
 import { ModelPicker, AUTO_MODEL_ID } from "@/components/model-picker";
 import { CountPicker } from "@/components/count-picker";
-import type { AppliedInspiration } from "@/lib/inspiration-apply-context";
+import type { StudioInspirationApply } from "@/lib/inspiration-studio";
 
 const ASPECT_RATIOS: AspectRatio[] = [
   "1:1",
@@ -106,8 +106,8 @@ interface CreationPanelProps {
   readOnly?: boolean;
   /** Studio 恢复未登录时上传的附件（含预览 URL） */
   restoredAssets?: PendingAsset[];
-  /** 首页灵感灌入（由 InspirationApplyProvider 驱动） */
-  inspirationApply?: AppliedInspiration | null;
+  /** Studio 灵感同款灌入 */
+  inspirationApply?: StudioInspirationApply | null;
 }
 
 export function CreationPanel({
@@ -227,7 +227,8 @@ export function CreationPanel({
     setResolution(inspirationApply.resolution);
     const vars: Record<string, string> = {};
     for (const v of inspirationApply.variables ?? []) {
-      vars[v.key] = v.default;
+      vars[v.key] =
+        inspirationApply.variableValues[v.key] ?? v.default;
     }
     setInspirationVars(vars);
     if (inspirationApply.referenceUrls.length > 0) {

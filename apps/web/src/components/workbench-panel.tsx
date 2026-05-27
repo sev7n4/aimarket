@@ -10,6 +10,7 @@ import { BRAND_NAME } from "@/lib/brand";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import type { PendingAsset } from "@/lib/pending-assets";
+import type { StudioInspirationApply } from "@/lib/inspiration-studio";
 import type { ChatMessage, StudioTool } from "@/lib/types";
 
 interface WorkbenchPanelProps {
@@ -21,6 +22,7 @@ interface WorkbenchPanelProps {
   sessionId: string;
   initialPrompt: string;
   restoredAssets?: PendingAsset[];
+  inspirationApply?: StudioInspirationApply | null;
   messages: ChatMessage[];
   showEmpty: boolean;
   pollingJobId: string | null;
@@ -49,6 +51,7 @@ export function WorkbenchPanel({
   sessionId,
   initialPrompt,
   restoredAssets,
+  inspirationApply,
   messages,
   showEmpty,
   pollingJobId,
@@ -254,6 +257,7 @@ export function WorkbenchPanel({
             sessionId={sessionId}
             initialPrompt={initialPrompt}
             restoredAssets={restoredAssets}
+            inspirationApply={inspirationApply}
             onAuthRequired={onAuthRequired}
             onJobStarted={onJobStarted}
             jobStreamStatus={jobStreamStatus}

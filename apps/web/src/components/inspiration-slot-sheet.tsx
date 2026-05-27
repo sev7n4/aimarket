@@ -2,44 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Loader2, Sparkles, FolderKanban } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import type { InspirationDetail } from "@/lib/types";
-import {
-  forkInspirationProject,
-  renderInspiration,
-  trackEvent,
-} from "@/lib/api-client";
+import { renderInspiration, trackEvent } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
-import { buildStudioUrl } from "@/lib/studio-navigation";
+import { randomUUID } from "@/lib/uuid";
+import {
+  buildInspirationStudioUrl,
+  coerceInspirationAspect,
+} from "@/lib/inspiration-studio";
+import { storePendingInspiration } from "@/lib/pending-inspiration";
+import { storePendingAssets } from "@/lib/pending-assets";
 import { useRouter } from "next/navigation";
-import type { AspectRatio } from "@/components/generation-settings-popover";
-import type { AppliedInspiration } from "@/lib/inspiration-apply-context";
-
-const ASPECT_RATIOS: AspectRatio[] = [
-  "1:1",
-  "4:3",
-  "3:4",
-  "16:9",
-  "9:16",
-  "3:2",
-  "2:3",
-  "4:5",
-  "5:4",
-  "21:9",
-];
-
-function coerceAspect(value: string): AspectRatio {
-  if (value === "auto" || !value) return "1:1";
-  return ASPECT_RATIOS.includes(value as AspectRatio) ?
-      (value as AspectRatio)
-    : "1:1";
-}
 
 interface InspirationSlotSheetProps {
   detail: InspirationDetail | null;
   open: boolean;
   onClose: () => void;
-  onApply: (payload: Omit<AppliedInspiration, "applyKey">) => void;
   onAuthRequired?: () => void;
 }
 
@@ -47,16 +26,13 @@ export function InspirationSlotSheet({
   detail,
   open,
   onClose,
-  onApply,
   onAuthRequired,
 }: InspirationSlotSheetProps) {
   const { user } = useAuth();
   const router = useRouter();
   const [values, setValues] = useState<Record<string, string>>({});
   const [rendered, setRendered] = useState<InspirationDetail | null>(null);
-  const [submitting, setSubmitting] = useState<"apply" | "project" | null>(
-    null,
-  );
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!detail || !open) return;
@@ -88,61 +64,56 @@ export function InspirationSlotSheet({
     renderDebounced(detail.id, values);
   }, [detail, open, values, renderDebounced]);
 
-  const buildPayload = useCallback(
-    (source: InspirationDetail): Omit<AppliedInspiration, "applyKey"> => ({
-      id: source.id,
-      title: source.title,
-      prompt: source.prompt,
-      promptTemplate: source.promptTemplate,
-      variables: source.variables,
-      modelId: source.modelId,
-      aspectRatio: coerceAspect(source.aspectRatio),
-      resolution: source.resolution,
-      referenceUrls: source.referenceAssets.map((a) => a.url),
-    }),
-    [],
+  const buildPendingPayload = useCallback(
+    (source: InspirationDetail) => {
+      const referenceUrls = source.referenceAssets.map((a) => a.url);
+      return {
+        id: source.id,
+        title: source.title,
+        prompt: source.prompt,
+        promptTemplate: source.promptTemplate,
+        variables: source.variables?.map((v) => ({
+          ...v,
+          default: values[v.key] ?? v.default,
+        })),
+        modelId: source.modelId,
+        aspectRatio: coerceInspirationAspect(source.aspectRatio),
+        resolution: source.resolution,
+        referenceUrls,
+        variableValues: values,
+      };
+    },
+    [values],
   );
 
-  async function handleApply() {
-    if (!rendered) return;
-    setSubmitting("apply");
-    try {
-      onApply(buildPayload(rendered));
-      void trackEvent("inspiration_apply", { inspirationId: rendered.id });
-      onClose();
-    } finally {
-      setSubmitting(null);
-    }
-  }
-
-  async function handleForkProject() {
+  async function handleApplySameStyle() {
     if (!rendered) return;
     if (!user) {
       onAuthRequired?.();
       return;
     }
-    setSubmitting("project");
+    setSubmitting(true);
     try {
-      const result = await forkInspirationProject(rendered.id, {
-        variables: values,
-      });
-      void trackEvent("inspiration_fork_project", {
+      const sessionId = randomUUID();
+      const payload = buildPendingPayload(rendered);
+      storePendingInspiration(sessionId, payload);
+      if (payload.referenceUrls.length > 0) {
+        storePendingAssets(
+          sessionId,
+          payload.referenceUrls.map((url, i) => ({
+            id: `insp-ref-${i}`,
+            url,
+          })),
+        );
+      }
+      void trackEvent("inspiration_apply", {
         inspirationId: rendered.id,
-        sessionId: result.session.id,
-      });
-      onApply({
-        ...buildPayload(result.inspiration),
-        forkAsProject: true,
+        sessionId,
       });
       onClose();
-      router.push(
-        buildStudioUrl("project", {
-          sessionId: result.session.id,
-          mode: result.session.mode,
-        }),
-      );
+      router.push(buildInspirationStudioUrl(rendered, sessionId));
     } finally {
-      setSubmitting(null);
+      setSubmitting(false);
     }
   }
 
@@ -183,7 +154,7 @@ export function InspirationSlotSheet({
               {detail.title}
             </h2>
             <p className="mt-1 text-xs text-zinc-500">
-              填写槽位后预览 Prompt，可快速生成或 Fork 为交付项目
+              填写槽位后预览 Prompt，确认后在 Studio 画布编辑并生成
             </p>
           </div>
 
@@ -224,30 +195,17 @@ export function InspirationSlotSheet({
             ) : null}
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <button
-              type="button"
-              disabled={!!submitting}
-              onClick={() => void handleApply()}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-medium text-black hover:bg-orange-400 disabled:opacity-60"
-            >
-              {submitting === "apply" ?
-                <Loader2 className="size-4 animate-spin" />
-              : <Sparkles className="size-4" />}
-              填入工作台
-            </button>
-            <button
-              type="button"
-              disabled={!!submitting}
-              onClick={() => void handleForkProject()}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-2.5 text-sm font-medium text-violet-200 hover:bg-violet-500/20 disabled:opacity-60"
-            >
-              {submitting === "project" ?
-                <Loader2 className="size-4 animate-spin" />
-              : <FolderKanban className="size-4" />}
-              Fork 为项目
-            </button>
-          </div>
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => void handleApplySameStyle()}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-medium text-black hover:bg-orange-400 disabled:opacity-60"
+          >
+            {submitting ?
+              <Loader2 className="size-4 animate-spin" />
+            : <Sparkles className="size-4" />}
+            做同款
+          </button>
         </div>
       </div>
     </div>
