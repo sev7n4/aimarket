@@ -23,7 +23,6 @@ import {
   estimatePoints,
   getToken,
   fetchModels,
-  fetchProductSetInit,
   fetchReferences,
   submitEcommerceGenerate,
   submitGeneration,
@@ -38,8 +37,7 @@ import {
 } from "@/lib/api-client";
 import { polishPrompt } from "@/lib/prompt-polish";
 import { jobStatusLabel } from "@/lib/job-stream";
-import type { ImageModel, ProductSetInit, AgentPlan } from "@/lib/types";
-import { EcommerceAgentForm } from "@/components/ecommerce-agent-form";
+import type { ImageModel, AgentPlan } from "@/lib/types";
 import { AgentPlanPreview } from "@/components/agent-plan-preview";
 import { useAuth } from "@/lib/auth-context";
 import { MentionPicker } from "@/components/mention-picker";
@@ -157,11 +155,13 @@ export function CreationPanel({
     onModeChange?.(m);
   };
   const [prompt, setPrompt] = useState(initialPrompt);
-  const [brand, setBrand] = useState("");
-  const [platform, setPlatform] = useState("淘宝");
-  const [market, setMarket] = useState("中国");
-  const [language, setLanguage] = useState("中文");
-  const [designer, setDesigner] = useState("Gloria");
+  // 电商套图表单 UI 已下线（由灵感扇形 + 画布上方 InspirationSetGenerateBar 承接），
+  // 这些字段仅在历史兼容路径（非 dock variant）保留默认值
+  const brand = "";
+  const platform = "淘宝";
+  const market = "中国";
+  const language = "中文";
+  const designer = "Gloria";
   const [modelId, setModelId] = useState(AUTO_MODEL_ID);
   const [models, setModels] = useState<ImageModel[]>([]);
   const [count, setCount] = useState(1);
@@ -177,13 +177,6 @@ export function CreationPanel({
   const [assetIds, setAssetIds] = useState<string[]>([]);
   const [productAssetId, setProductAssetId] = useState<string | null>(null);
   const [referenceAssetId, setReferenceAssetId] = useState<string | null>(null);
-  const [productPreviewUrl, setProductPreviewUrl] = useState<string | null>(null);
-  const [referencePreviewUrl, setReferencePreviewUrl] = useState<string | null>(
-    null,
-  );
-  const [productSetInit, setProductSetInit] = useState<ProductSetInit | null>(
-    null,
-  );
   const [uploading, setUploading] = useState(false);
   const [references, setReferences] = useState<SessionReference[]>([]);
   const [selectedRefs, setSelectedRefs] = useState<SessionReference[]>([]);
@@ -197,10 +190,17 @@ export function CreationPanel({
     !rotatingPlaceholder || prompt.trim().length > 0,
   );
   const isDock = variant === "dock";
+  /**
+   * dock 模式（首页 + Studio 工作台）下统一走简洁对话流程，
+   * 不再渲染电商 Agent 表单 / 走电商套图提交分支。
+   * 电商套图入口由画布上方的 InspirationSetGenerateBar 提供。
+   */
+  const effectiveMode: CreationMode = isDock && mode === "ecommerce" ? "chat" : mode;
   const selectedModel =
     modelId === AUTO_MODEL_ID ? undefined : models.find((m) => m.id === modelId);
   const isVideoModel = selectedModel?.type === "video";
-  const showStackUpload = (leadingUpload || isDock) && mode !== "ecommerce";
+  const showStackUpload =
+    (leadingUpload || isDock) && effectiveMode !== "ecommerce";
 
   useEffect(() => {
     fetchModels()
@@ -262,12 +262,9 @@ export function CreationPanel({
   }, [inspirationApply?.id, inspirationVars]);
 
   useEffect(() => {
-    if (mode === "ecommerce") {
+    if (effectiveMode === "ecommerce") {
       setResolution("2k");
       setCount(4);
-      fetchProductSetInit()
-        .then(setProductSetInit)
-        .catch(() => setProductSetInit(null));
     } else if (mode === "quick") {
       setCount(1);
     }
@@ -285,21 +282,21 @@ export function CreationPanel({
       setEstimated(null);
       return;
     }
-    const effectiveCount = mode === "ecommerce" ? 4 : count;
+    const effectiveCount = effectiveMode === "ecommerce" ? 4 : count;
     const effectiveModel =
-      mode === "ecommerce"
+      effectiveMode === "ecommerce"
         ? "latest-v2-pro"
         : modelId === AUTO_MODEL_ID
           ? "omni-v2"
           : modelId;
-    const effectiveRes = mode === "ecommerce" ? "2k" : resolution;
+    const effectiveRes = effectiveMode === "ecommerce" ? "2k" : resolution;
     estimatePoints(effectiveModel, effectiveCount, effectiveRes)
       .then(setEstimated)
       .catch(() => setEstimated(null));
   }, [user, modelId, count, resolution, mode]);
 
   useEffect(() => {
-    if (!user || mode === "ecommerce") return;
+    if (!user || effectiveMode === "ecommerce") return;
     const t = setTimeout(() => {
       suggestModel(mode, prompt)
         .then((s) => {
@@ -326,13 +323,11 @@ export function CreationPanel({
       if (target === "product") {
         const asset = await uploadAsset(files[0], sessionId);
         setProductAssetId(asset.id);
-        setProductPreviewUrl(asset.url);
         return;
       }
       if (target === "reference") {
         const asset = await uploadAsset(files[0], sessionId);
         setReferenceAssetId(asset.id);
-        setReferencePreviewUrl(asset.url);
         return;
       }
       const remaining = Math.max(0, 4 - assetIds.length);
@@ -399,8 +394,8 @@ export function CreationPanel({
 
   async function handleSubmit() {
     if (readOnly) return;
-    if (!prompt.trim() && mode !== "ecommerce") return;
-    if (mode === "ecommerce") {
+    if (!prompt.trim() && effectiveMode !== "ecommerce") return;
+    if (effectiveMode === "ecommerce") {
       if (prompt.trim().length < 10) {
         alert("请填写至少 10 字的产品卖点/描述");
         return;
@@ -451,7 +446,7 @@ export function CreationPanel({
           count,
         });
         jobId = res.jobId;
-      } else if (mode === "ecommerce") {
+      } else if (effectiveMode === "ecommerce") {
         const res = await submitEcommerceGenerate({
           sessionId,
           brand: brand || undefined,
@@ -468,8 +463,6 @@ export function CreationPanel({
         setRouteHint(res.routeReason);
         setProductAssetId(null);
         setReferenceAssetId(null);
-        setProductPreviewUrl(null);
-        setReferencePreviewUrl(null);
       } else {
         const useAuto = modelId === AUTO_MODEL_ID;
         const useAgent =
@@ -549,7 +542,7 @@ export function CreationPanel({
   const canSubmit =
     !readOnly &&
     !jobStreamStatus &&
-    (mode === "ecommerce"
+    (effectiveMode === "ecommerce"
       ? prompt.trim().length >= 10 && Boolean(productAssetId)
       : prompt.trim().length > 0);
 
@@ -616,37 +609,6 @@ export function CreationPanel({
         <div className="mb-4 flex justify-center overflow-x-auto">
           <ModeTabs items={modeTabs} value={mode} onChange={setMode} />
         </div>
-      ) : null}
-
-      {mode === "ecommerce" ? (
-        <EcommerceAgentForm
-          init={productSetInit}
-          brand={brand}
-          onBrandChange={setBrand}
-          platform={platform}
-          onPlatformChange={setPlatform}
-          market={market}
-          onMarketChange={setMarket}
-          language={language}
-          onLanguageChange={setLanguage}
-          designer={designer}
-          onDesignerChange={setDesigner}
-          resolution={resolution}
-          onResolutionChange={setResolution}
-          productPreviewUrl={productPreviewUrl}
-          referencePreviewUrl={referencePreviewUrl}
-          uploading={uploading}
-          onUploadProduct={() => openUpload("product")}
-          onUploadReference={() => openUpload("reference")}
-          onClearProduct={() => {
-            setProductAssetId(null);
-            setProductPreviewUrl(null);
-          }}
-          onClearReference={() => {
-            setReferenceAssetId(null);
-            setReferencePreviewUrl(null);
-          }}
-        />
       ) : null}
 
       <input
@@ -727,13 +689,13 @@ export function CreationPanel({
                 placeholder={
                   rotatingPlaceholder && !prompt.trim()
                     ? rotatingText
-                    : mode === "ecommerce"
+                    : effectiveMode === "ecommerce"
                       ? placeholders.ecommerce
                       : mode === "chat"
                         ? "输入您想要的修改效果（@ 选择生成图片）"
                         : placeholders[mode]
                 }
-                rows={mode === "ecommerce" ? 3 : isDock ? 2 : 2}
+                rows={effectiveMode === "ecommerce" ? 3 : isDock ? 2 : 2}
                 readOnly={readOnly}
                 className={`w-full resize-none bg-transparent text-sm outline-none placeholder:text-zinc-600 ${
                   readOnly ? "cursor-not-allowed opacity-60" : ""
@@ -845,7 +807,7 @@ export function CreationPanel({
               )}
             </button>
           ) : null}
-          {mode !== "ecommerce" ? (
+          {effectiveMode !== "ecommerce" ? (
             <>
               <ModelPicker
                 models={models}
@@ -857,7 +819,7 @@ export function CreationPanel({
           ) : (
             <Pill>最新图片 V2 Pro · 4 张 · 2K</Pill>
           )}
-          {mode === "ecommerce" ? (
+          {effectiveMode === "ecommerce" ? (
             <Pill>
               智能 · {resolution.toUpperCase()} · 1:1 套图
             </Pill>

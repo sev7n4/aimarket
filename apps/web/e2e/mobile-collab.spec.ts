@@ -28,21 +28,29 @@ test.describe("mobile collab", () => {
 
   test("已登录首页展示继续编辑最近会话", async ({ page }) => {
     await registerAndLogin(page);
+    const ensurePromise = page.waitForResponse(
+      (r) =>
+        r.url().includes("/api/v1/imageSession/ensure") &&
+        r.request().method() === "POST" &&
+        r.ok(),
+      { timeout: 20_000 },
+    );
     await page.goto("/studio");
     await expect(page).toHaveURL(/\/studio/, { timeout: 15_000 });
-    await expect(
-      page.getByRole("button", { name: "对话", exact: true }),
-    ).toBeVisible({ timeout: 15_000 });
+    await ensurePromise;
     await page.goto("/");
-    await expect(page.getByText("继续编辑")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("继续编辑")).toBeVisible({ timeout: 15_000 });
   });
 
-  test("创作页移动默认收起对话区，浮动按钮为「对话」", async ({ page }) => {
+  test("创作页移动默认展示画布与工作台 dock 并存", async ({ page }) => {
     await registerAndLogin(page);
     await page.goto("/studio");
-    await expect(
-      page.getByRole("button", { name: "对话", exact: true }),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/画布\s*·/).first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.locator("textarea").first()).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(page.getByText("Del 删除")).not.toBeVisible();
   });
 
