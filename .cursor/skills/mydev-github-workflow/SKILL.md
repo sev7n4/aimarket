@@ -44,7 +44,7 @@ description: >-
 
 **合并后**：`push main` → `Deploy to Tencent Cloud (AIMarket)`（`.github/workflows/deploy.yml`）。
 
-**注意**：向 feature 分支 `git push` **不会**跑 Integration/E2E；必须 **创建/更新 PR** 才触发。
+**注意**：向 feature 分支 `git push` **不会**单独触发 Integration/E2E（无 `push` 触发器）；有 open PR 时 push 仅通过 `pull_request`（`synchronize`）并行跑 CI + Integration + E2E 共 **3** 条 workflow。
 
 ## Step 8: 本地验证（AIMarket）
 

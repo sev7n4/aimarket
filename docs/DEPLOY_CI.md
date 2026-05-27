@@ -29,13 +29,20 @@ on:
     inputs:
       branch: { default: main }
 
-# ci.yml — 与 ci-cd.yml 同款
+# ci.yml — 与 ci-cd.yml 同款（PR 仅 pull_request；push 仅 main）
 on:
   push:
     branches: [main]
     paths-ignore: ["**/*.md", "docs/**"]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# integration-tests.yml / e2e-tests.yml — PR 阶段仅 pull_request
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
 ```
 
 **结论**：触发策略可以**完全复用**；无需把 AIMarket 部署并进 pintuotuo 仓库的工作流（两项目应各用各的 workflow 文件）。
