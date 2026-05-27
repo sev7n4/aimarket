@@ -35,9 +35,15 @@ import {
   uploadAsset,
 } from "@/lib/api-client";
 import { createUploadCanvasItem } from "@/lib/canvas-tools";
+import {
+  buildCanvasItemsFromReferenceUrls,
+  coerceInspirationAspect,
+  type StudioInspirationApply,
+} from "@/lib/inspiration-studio";
 import { useSessionCanvas } from "@/hooks/use-session-canvas";
 import { watchJob } from "@/lib/job-stream";
 import { consumePendingAssets, type PendingAsset } from "@/lib/pending-assets";
+import { consumePendingInspiration } from "@/lib/pending-inspiration";
 import { resolveToolResolution } from "@/lib/tool-resolution";
 import { hapticLight } from "@/lib/haptics";
 import { canvasEmptyHintMobile } from "@/lib/mobile-labels";
@@ -74,6 +80,8 @@ export function StudioWorkspace({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [workbenchOpen, setWorkbenchOpen] = useState(true);
   const [restoredAssets, setRestoredAssets] = useState<PendingAsset[]>([]);
+  const [inspirationApply, setInspirationApply] =
+    useState<StudioInspirationApply | null>(null);
   const [selectSourceBanner, setSelectSourceBanner] = useState<string | null>(
     null,
   );
@@ -140,6 +148,15 @@ export function StudioWorkspace({
     const pending = consumePendingAssets(sessionId);
     if (pending.length) setRestoredAssets(pending);
 
+    const pendingInspiration = consumePendingInspiration(sessionId);
+    if (pendingInspiration) {
+      setInspirationApply({
+        ...pendingInspiration,
+        aspectRatio: coerceInspirationAspect(pendingInspiration.aspectRatio),
+        applyKey: 1,
+      });
+    }
+
     const wsId = activeWorkspaceId ?? getActiveWorkspaceId() ?? undefined;
     const ensured = await ensureSession(sessionId, mode, {
       title: initialTitle,
@@ -148,6 +165,13 @@ export function StudioWorkspace({
     });
     setCanEdit(ensured.can_edit ?? true);
     await loadCanvas();
+    if (pendingInspiration?.referenceUrls.length) {
+      const refItems = buildCanvasItemsFromReferenceUrls(
+        pendingInspiration.referenceUrls,
+      );
+      setCanvasItems((prev) => (prev.length > 0 ? prev : refItems));
+      if (refItems[0]) setSelectedCanvasId(refItems[0].id);
+    }
     const [list, toolList] = await Promise.all([
       listSessions(20, undefined, wsId),
       fetchTools().catch(() => []),
@@ -162,6 +186,7 @@ export function StudioWorkspace({
     initialTitle,
     initialKind,
     loadCanvas,
+    setCanvasItems,
     activeWorkspaceId,
     setCanEdit,
   ]);
@@ -177,6 +202,11 @@ export function StudioWorkspace({
     if (stored) setActiveWorkspaceId(stored);
     initSession().catch(() => setReady(true));
   }, [authLoading, user, initSession]);
+
+  useEffect(() => {
+    if (!inspirationApply) return;
+    setWorkbenchOpen(true);
+  }, [inspirationApply?.applyKey]);
 
   useEffect(() => {
     if (!initialJobId || !user) return;
@@ -620,6 +650,7 @@ export function StudioWorkspace({
             sessionId={sessionId}
             initialPrompt={initialPrompt}
             restoredAssets={restoredAssets}
+            inspirationApply={inspirationApply}
             messages={messages}
             showEmpty={showEmpty}
             pollingJobId={pollingJobId}

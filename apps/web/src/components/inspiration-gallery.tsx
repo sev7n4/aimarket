@@ -13,7 +13,6 @@ import {
   trackEvent,
 } from "@/lib/api-client";
 import type { InspirationDetail, InspirationListItem } from "@/lib/types";
-import { useInspirationApply } from "@/lib/inspiration-apply-context";
 import { InspirationSlotSheet } from "@/components/inspiration-slot-sheet";
 import { LoginDialog } from "@/components/login-dialog";
 
@@ -40,7 +39,6 @@ function staticToGallery(): GalleryItem[] {
 }
 
 export function InspirationGallery() {
-  const { applyInspiration } = useInspirationApply();
   const [category, setCategory] = useState<InspirationCategory>("全部");
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [apiItems, setApiItems] = useState<InspirationListItem[] | null>(null);
@@ -205,7 +203,6 @@ export function InspirationGallery() {
         detail={slotDetail}
         open={slotOpen}
         onClose={() => setSlotOpen(false)}
-        onApply={applyInspiration}
         onAuthRequired={() => setLoginOpen(true)}
       />
       <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
