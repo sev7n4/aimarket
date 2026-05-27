@@ -10,7 +10,7 @@ export function HeroSection() {
       <div className="relative mx-auto flex max-w-3xl justify-center">
         <BrandLogo
           variant="lockup"
-          monogramSize="lg"
+          markSize="lg"
           promoteHeading
           className="text-left"
         />

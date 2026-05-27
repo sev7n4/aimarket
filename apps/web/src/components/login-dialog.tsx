@@ -104,7 +104,7 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
       <GlassPanel className="w-full max-w-md p-6">
         <div className="mb-4 flex justify-center">
-          <BrandLogo variant="lockup" monogramSize="md" />
+          <BrandLogo variant="lockup" markSize="md" />
         </div>
         <h2 className="text-center text-lg font-semibold">
           {mode === "login" ? "登录" : "注册"}

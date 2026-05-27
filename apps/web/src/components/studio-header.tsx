@@ -76,7 +76,7 @@ export function StudioHeader({
           <BrandLogo
             href="/"
             variant="mark"
-            monogramSize="sm"
+            markSize="sm"
             className="hidden sm:inline-flex"
           />
           <div className="group flex min-w-0 max-w-[min(100%,280px)] items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5 sm:max-w-xs">

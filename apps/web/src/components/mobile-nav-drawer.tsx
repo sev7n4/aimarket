@@ -33,7 +33,7 @@ export function MobileNavDrawer({ open, onClose }: MobileNavDrawerProps) {
       />
       <nav className="fixed inset-y-0 left-0 z-[70] w-64 border-r border-white/10 bg-[#0a0a0a] p-4 lg:hidden">
         <div className="mb-6 flex items-center justify-between">
-          <BrandLogo variant="mark" monogramSize="sm" />
+          <BrandLogo variant="mark" markSize="sm" />
           <button
             type="button"
             onClick={onClose}
