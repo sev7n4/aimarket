@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-is-mobile";
+import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 
 interface CompactDockSheetProps {
   open: boolean;
@@ -24,7 +25,7 @@ export function CompactDockSheet({
   children,
   desktopWidthClass = "w-56",
 }: CompactDockSheetProps) {
-  const mobile = useIsMobile();
+  const mobile = useIsMobile(MOBILE_BREAKPOINT);
   const anchorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

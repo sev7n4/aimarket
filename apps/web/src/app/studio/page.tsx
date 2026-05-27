@@ -4,7 +4,7 @@ import { parseSessionKind } from "@/lib/session-kind";
 import { randomUUID } from "@/lib/uuid";
 
 export const metadata = {
-  title: "工作台",
+  title: "创作页",
 };
 
 const modes: CreationMode[] = ["chat", "quick", "ecommerce"];

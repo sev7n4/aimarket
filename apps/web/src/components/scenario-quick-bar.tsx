@@ -81,9 +81,14 @@ const items: QuickItem[] = [
 
 interface ScenarioQuickBarProps {
   className?: string;
+  /** 移动端紧凑单行 chips */
+  compact?: boolean;
 }
 
-export function ScenarioQuickBar({ className = "" }: ScenarioQuickBarProps) {
+export function ScenarioQuickBar({
+  className = "",
+  compact = false,
+}: ScenarioQuickBarProps) {
   const router = useRouter();
 
   function go(item: QuickItem) {
@@ -96,8 +101,14 @@ export function ScenarioQuickBar({ className = "" }: ScenarioQuickBarProps) {
 
   return (
     <div className={className}>
-      <p className="mb-2 text-center text-xs text-zinc-600">热门能力</p>
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+      <p
+        className={`mb-2 text-zinc-600 ${compact ? "px-1 text-left text-[10px]" : "text-center text-xs"}`}
+      >
+        热门能力
+      </p>
+      <div
+        className={`flex gap-2 pb-1 scrollbar-none ${compact ? "overflow-x-auto px-0.5" : "overflow-x-auto"}`}
+      >
         {items.map((item) => {
           const Icon = item.icon;
           return (

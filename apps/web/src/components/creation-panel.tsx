@@ -42,6 +42,8 @@ import { MentionPicker } from "@/components/mention-picker";
 import type { SessionReference } from "@/lib/types";
 import { useRotatingPlaceholder } from "@/hooks/use-rotating-placeholder";
 import { randomUUID } from "@/lib/uuid";
+import { storePendingAssets } from "@/lib/pending-assets";
+import { HomeGenerationPreview } from "@/components/home-generation-preview";
 import {
   UploadPreviewStack,
   type UploadPreviewItem,
@@ -98,6 +100,8 @@ interface CreationPanelProps {
   rotatingPlaceholder?: boolean;
   /** 团队空间只读：禁止在本会话生成 */
   readOnly?: boolean;
+  /** Studio 恢复未登录时上传的附件 */
+  restoredAssetIds?: string[];
   /** 首页灵感灌入（由 InspirationApplyProvider 驱动） */
   inspirationApply?: AppliedInspiration | null;
 }
@@ -120,6 +124,7 @@ export function CreationPanel({
   enablePolish = false,
   rotatingPlaceholder = false,
   readOnly = false,
+  restoredAssetIds,
   inspirationApply = null,
 }: CreationPanelProps) {
   const shouldNavigateOnSubmit =
@@ -166,6 +171,7 @@ export function CreationPanel({
   const [references, setReferences] = useState<SessionReference[]>([]);
   const [selectedRefs, setSelectedRefs] = useState<SessionReference[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
+  const [navigating, setNavigating] = useState(false);
   const [uploadPreviews, setUploadPreviews] = useState<UploadPreviewItem[]>([]);
   const [reversing, setReversing] = useState(false);
 
@@ -184,6 +190,15 @@ export function CreationPanel({
       .then(setModels)
       .catch(() => setModels([]));
   }, []);
+
+  useEffect(() => {
+    if (initialPrompt) setPrompt(initialPrompt);
+  }, [initialPrompt]);
+
+  useEffect(() => {
+    if (!restoredAssetIds?.length || !sessionId) return;
+    setAssetIds(restoredAssetIds);
+  }, [restoredAssetIds, sessionId]);
 
   useEffect(() => {
     if (!inspirationApply) return;
@@ -360,10 +375,7 @@ export function CreationPanel({
       const params = new URLSearchParams({ sessionId: id, mode });
       if (prompt.trim()) params.set("q", prompt.trim());
       if (assetIds.length) {
-        sessionStorage.setItem(
-          `aimarket_pending_assets_${id}`,
-          JSON.stringify(assetIds),
-        );
+        storePendingAssets(id, assetIds);
       }
       router.push(`/studio?${params.toString()}`);
       return;
@@ -436,7 +448,8 @@ export function CreationPanel({
         setReferences(refs);
       }
       if (homeDirectSubmit) {
-        router.push(
+        setNavigating(true);
+        router.replace(
           `/studio?sessionId=${sessionId}&mode=${mode}&jobId=${jobId}`,
         );
       }
@@ -739,15 +752,23 @@ export function CreationPanel({
   );
 
   if (isDock) {
-    return <div className="w-full">{body}</div>;
+    return (
+      <>
+        <HomeGenerationPreview open={navigating || (pending && homeDirectSubmit)} />
+        <div className="w-full">{body}</div>
+      </>
+    );
   }
 
   return (
-    <GlassPanel
-      className={`mx-auto w-full max-w-3xl p-4 sm:p-5 ${compact ? "" : "shadow-orange-500/5"}`}
-    >
-      {body}
-    </GlassPanel>
+    <>
+      <HomeGenerationPreview open={navigating || (pending && homeDirectSubmit)} />
+      <GlassPanel
+        className={`mx-auto w-full max-w-3xl p-4 sm:p-5 ${compact ? "" : "shadow-orange-500/5"}`}
+      >
+        {body}
+      </GlassPanel>
+    </>
   );
 }
 

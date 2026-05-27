@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 
-export function useIsMobile(breakpointPx = 768) {
+export function useIsMobile(breakpointPx = MOBILE_BREAKPOINT) {
   const [mobile, setMobile] = useState(false);
 
   useEffect(() => {

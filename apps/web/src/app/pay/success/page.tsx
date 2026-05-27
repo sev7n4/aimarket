@@ -25,7 +25,7 @@ function SuccessContent() {
         href="/studio"
         className="mt-6 inline-block rounded-full bg-orange-500 px-6 py-2 text-sm font-medium text-white hover:bg-orange-600"
       >
-        返回工作台
+        返回创作页
       </Link>
     </GlassPanel>
   );

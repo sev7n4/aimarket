@@ -63,8 +63,15 @@ function resolveSize(params: ToolRunParams): string {
         : 1;
   const [w, h] = resolveImageDimensions(params.resolution, resolveAspect(params));
   const cap = 4096;
-  const cw = Math.min(w * factor, cap);
-  const ch = Math.min(h * factor, cap);
+  let cw = Math.min(w * factor, cap);
+  let ch = Math.min(h * factor, cap);
+  /** 火山 Seedream 要求至少 3686400 像素（约 1920×1920） */
+  const MIN_PIXELS = 3_686_400;
+  while (cw * ch < MIN_PIXELS && (cw < cap || ch < cap)) {
+    if (cw <= ch && cw < cap) cw = Math.min(cap, Math.ceil(cw * 1.25));
+    else if (ch < cap) ch = Math.min(cap, Math.ceil(ch * 1.25));
+    else break;
+  }
   return `${cw}x${ch}`;
 }
 
