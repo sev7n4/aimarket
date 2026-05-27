@@ -8,8 +8,12 @@ export function HomeMain() {
   return (
     <InspirationApplyProvider>
       <HomeCreationSection />
-      {/* 移动端底部固定工作台占位，避免灵感区被遮挡 */}
-      <div className="h-[min(42vh,300px)] shrink-0 lg:hidden" aria-hidden />
+      {/* 移动端底部固定创作 dock 占位（高度随 dock + 热门能力区） */}
+      <div
+        className="shrink-0 lg:hidden"
+        style={{ height: "min(48vh, 340px)" }}
+        aria-hidden
+      />
       <InspirationGallery />
     </InspirationApplyProvider>
   );

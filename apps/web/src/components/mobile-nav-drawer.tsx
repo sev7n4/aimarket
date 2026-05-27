@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { X } from "lucide-react";
+import { HomeRecentSessions } from "@/components/home-recent-sessions";
+import { LABELS } from "@/lib/mobile-labels";
 
 interface MobileNavDrawerProps {
   open: boolean;
@@ -9,7 +11,7 @@ interface MobileNavDrawerProps {
 }
 
 const links = [
-  { href: "/studio", label: "创作工作台" },
+  { href: "/studio", label: LABELS.studioPage },
   { href: "/projects", label: "项目库" },
   { href: "/invite", label: "邀请有礼" },
   { href: "/settings", label: "品牌 Kit" },
@@ -39,6 +41,7 @@ export function MobileNavDrawer({ open, onClose }: MobileNavDrawerProps) {
             <X className="size-5" />
           </button>
         </div>
+        <HomeRecentSessions className="mb-4" />
         <ul className="space-y-1">
           {links.map((l) => (
             <li key={l.href}>

@@ -18,7 +18,7 @@ function PayCancelContent() {
         href="/studio"
         className="mt-6 inline-block text-sm text-orange-400 hover:underline"
       >
-        返回工作台
+        返回创作页
       </Link>
     </GlassPanel>
   );

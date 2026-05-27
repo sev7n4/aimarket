@@ -120,7 +120,7 @@ export default function SettingsPage() {
             </form>
           )}
           <Link href="/studio" className="mt-6 inline-block text-sm text-zinc-500 hover:text-white">
-            ← 返回工作台
+            ← 返回创作页
           </Link>
         </GlassPanel>
       </main>

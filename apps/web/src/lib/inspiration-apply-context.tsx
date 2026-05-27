@@ -42,7 +42,9 @@ export function InspirationApplyProvider({ children }: { children: ReactNode }) 
       });
       document.getElementById("home-creation")?.scrollIntoView({
         behavior: "smooth",
-        block: "nearest",
+        block: window.matchMedia("(max-width: 767px)").matches
+          ? "center"
+          : "nearest",
       });
     },
     [],

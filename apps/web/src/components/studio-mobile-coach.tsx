@@ -1,0 +1,84 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { X } from "lucide-react";
+import { isMobileViewport } from "@/lib/breakpoints";
+
+const STORAGE_KEY = "aimarket_studio_mobile_coach_v1";
+
+const STEPS = [
+  {
+    title: "这是画布",
+    body: "生成的图片会出现在这里，双指缩放、单指拖拽移动视图。",
+  },
+  {
+    title: "对话区",
+    body: "点右下角「对话区」输入描述、查看历史，或运行 AI 修图工具。",
+  },
+  {
+    title: "先选图再修图",
+    body: "抠图、扩图等需先在画布点选一张图片，再打开对话区运行工具。",
+  },
+];
+
+export function StudioMobileCoach({ onDone }: { onDone?: () => void }) {
+  const [step, setStep] = useState(0);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (!isMobileViewport()) return;
+    if (localStorage.getItem(STORAGE_KEY)) return;
+    setVisible(true);
+  }, []);
+
+  if (!visible) return null;
+
+  const current = STEPS[step];
+  const isLast = step >= STEPS.length - 1;
+
+  function finish() {
+    localStorage.setItem(STORAGE_KEY, "1");
+    setVisible(false);
+    onDone?.();
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:hidden">
+      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#121212] p-4 shadow-2xl">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-[10px] uppercase tracking-wider text-zinc-500">
+            快速上手 {step + 1}/{STEPS.length}
+          </span>
+          <button
+            type="button"
+            onClick={finish}
+            className="rounded-lg p-1 text-zinc-500 hover:text-white"
+            aria-label="跳过引导"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+        <h3 className="text-base font-semibold text-white">{current.title}</h3>
+        <p className="mt-2 text-sm text-zinc-400">{current.body}</p>
+        <div className="mt-4 flex gap-2">
+          {step > 0 ? (
+            <button
+              type="button"
+              onClick={() => setStep((s) => s - 1)}
+              className="flex-1 rounded-full border border-white/10 py-2 text-sm text-zinc-400"
+            >
+              上一步
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => (isLast ? finish() : setStep((s) => s + 1))}
+            className="flex-1 rounded-full bg-gradient-to-r from-orange-500 to-purple-600 py-2 text-sm font-medium text-white"
+          >
+            {isLast ? "开始使用" : "下一步"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
