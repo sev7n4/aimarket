@@ -6,7 +6,7 @@ import { Loader2, MessageCircle } from "lucide-react";
 import { Button, GlassPanel } from "@aimarket/ui";
 import { sendSmsCode } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
-import { BRAND_NAME } from "@/lib/brand";
+import { BrandLogo } from "@/components/brand-logo";
 
 const INVITE_KEY = "aimarket_invite_code";
 
@@ -103,8 +103,11 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
       <GlassPanel className="w-full max-w-md p-6">
-        <h2 className="text-xl font-semibold">
-          {mode === "login" ? `登录${BRAND_NAME}` : `注册${BRAND_NAME}`}
+        <div className="mb-4 flex justify-center">
+          <BrandLogo variant="lockup" monogramSize="md" />
+        </div>
+        <h2 className="text-center text-lg font-semibold">
+          {mode === "login" ? "登录" : "注册"}
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
           新用户注册即赠 100 积分
