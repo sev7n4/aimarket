@@ -289,8 +289,8 @@ export async function processGenerationJob({
     db.transaction(() => {
       for (let i = 0; i < outputs.length; i++) {
         db.prepare(
-          `INSERT INTO job_outputs (id, job_id, url, sort_order) VALUES (?, ?, ?, ?)`,
-        ).run(randomUUID(), jobId, outputs[i].url, i);
+          `INSERT INTO job_outputs (id, job_id, url, sort_order, label) VALUES (?, ?, ?, ?, ?)`,
+        ).run(randomUUID(), jobId, outputs[i].url, i, outputs[i].label ?? null);
       }
 
       db.prepare(
@@ -300,8 +300,14 @@ export async function processGenerationJob({
 
       for (let i = 0; i < outputs.length; i++) {
         db.prepare(
-          `INSERT INTO message_outputs (id, message_id, url, sort_order) VALUES (?, ?, ?, ?)`,
-        ).run(randomUUID(), assistantMessageId, outputs[i].url, i);
+          `INSERT INTO message_outputs (id, message_id, url, sort_order, label) VALUES (?, ?, ?, ?, ?)`,
+        ).run(
+          randomUUID(),
+          assistantMessageId,
+          outputs[i].url,
+          i,
+          outputs[i].label ?? null,
+        );
       }
 
       db.prepare(

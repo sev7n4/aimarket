@@ -367,6 +367,36 @@ export async function submitEcommerceGenerate(body: {
   return res.data;
 }
 
+export async function submitEcommerceRerunSlide(body: {
+  sessionId: string;
+  slideKey: "main" | "selling" | "scene" | "detail";
+  brand?: string;
+  platform: string;
+  market: string;
+  language: string;
+  productInfo: string;
+  designer?: string;
+  modelId?: string;
+  resolution?: string;
+  productAssetId?: string;
+  referenceAssetId?: string;
+}) {
+  const res = await request<{
+    data: {
+      jobId: string;
+      estimatedPoints: number;
+      modelId: string;
+      routeReason: string;
+      slideKey: "main" | "selling" | "scene" | "detail";
+      slideLabel: string;
+    };
+  }>("/api/v1/productSet/rerun-slide", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return res.data;
+}
+
 export async function fetchTools() {
   const res = await request<{ data: StudioTool[] }>("/api/v1/tools/list");
   return res.data;
