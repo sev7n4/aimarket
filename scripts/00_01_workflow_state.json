@@ -12,11 +12,11 @@
     "E2E-SMOKE-003"
   ],
   "local_validation": "passed",
-  "pr_number": null,
+  "pr_number": 27,
   "ci_status": {
-    "cicd": "pending",
-    "integration": "pending",
-    "e2e": "pending"
+    "cicd": "success",
+    "integration": "success",
+    "e2e": "success"
   },
   "merged": false,
   "last_merged_pr": 26,
