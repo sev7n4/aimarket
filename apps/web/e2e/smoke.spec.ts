@@ -1,10 +1,17 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("smoke", () => {
-  test("首页展示品牌标题", async ({ page }) => {
+  test("首页展示品牌与 Slogan", async ({ page }) => {
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: "出图宝" }),
+      page.getByRole("banner").getByRole("link", {
+        name: /出图宝.*商品图到短视频/,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", {
+        name: "商品图到短视频，一套做完上架。",
+      }),
     ).toBeVisible();
   });
 
