@@ -41,6 +41,7 @@ sessions.post("/ensure", async (c) => {
       title: z.string().max(100).optional(),
       kind: sessionKindSchema.default("canvas"),
       workspaceId: z.string().uuid().optional(),
+      sourceInspirationId: z.string().min(1).max(80).optional(),
     })
     .parse(await c.req.json());
 
@@ -69,8 +70,17 @@ sessions.post("/ensure", async (c) => {
 
   const workspaceId = resolveWorkspaceIdForUser(userId, body.workspaceId);
   db.prepare(
-    `INSERT INTO image_sessions (id, user_id, workspace_id, title, mode, kind) VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(body.sessionId, userId, workspaceId, title, body.mode, body.kind);
+    `INSERT INTO image_sessions (id, user_id, workspace_id, title, mode, kind, source_inspiration_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    body.sessionId,
+    userId,
+    workspaceId,
+    title,
+    body.mode,
+    body.kind,
+    body.sourceInspirationId ?? null,
+  );
 
   const session = loadSessionRow(body.sessionId);
   return c.json({ data: mapSessionForUser(session!, userId) }, 201);

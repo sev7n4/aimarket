@@ -44,6 +44,9 @@ export const canvasTools: CanvasToolDef[] = [
 
 export type CanvasItemSource = "upload" | "generation";
 
+/** 画布素材角色：参考套图 / 商品素材 / 生成成品 */
+export type CanvasItemRole = "reference" | "product" | "output";
+
 export interface CanvasItem {
   id: string;
   url: string;
@@ -54,6 +57,9 @@ export interface CanvasItem {
   height: number;
   isVideo: boolean;
   source?: CanvasItemSource;
+  role?: CanvasItemRole;
+  /** 已入库 assets.id，供套图生成 productAssetId / referenceAssetId */
+  assetId?: string;
   /** 关联 message_outputs.id，供 AI 工具引用 */
   outputId?: string;
 }
@@ -110,6 +116,7 @@ export function buildCanvasItemsFromMessages(
         height,
         isVideo,
         source: "generation",
+        role: "output",
       });
       idx += 1;
     });
@@ -145,14 +152,35 @@ export function mergeCanvasItems(
   return merged;
 }
 
-export function createUploadCanvasItem(url: string, items: CanvasItem[]): CanvasItem {
+export function createUploadCanvasItem(
+  url: string,
+  items: CanvasItem[],
+  options?: { assetId?: string; role?: CanvasItemRole; label?: string },
+): CanvasItem {
   const pos = nextCanvasPosition(items);
+  const role = options?.role ?? "product";
   return {
     id: `upload-${randomUUID()}`,
     url,
+    assetId: options?.assetId,
+    role,
     ...pos,
     isVideo: false,
     source: "upload",
-    label: "上传",
+    label: options?.label ?? (role === "product" ? "商品素材" : "上传"),
   };
+}
+
+export function createReferenceCanvasItem(
+  url: string,
+  items: CanvasItem[],
+  assetId: string,
+  index: number,
+): CanvasItem {
+  const item = createUploadCanvasItem(url, items, {
+    assetId,
+    role: "reference",
+    label: index > 0 ? `套图参考 ${index + 1}` : "套图参考",
+  });
+  return item;
 }

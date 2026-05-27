@@ -105,4 +105,40 @@ assets.post("/upload", async (c) => {
   });
 });
 
+/** 将外链图片登记为会话素材（灵感参考套图等） */
+assets.post("/register-url", async (c) => {
+  const userId = c.get("userId");
+  const body = z
+    .object({
+      sessionId: z.string().uuid(),
+      url: z.string().url().max(2000),
+      fileName: z.string().max(255).optional(),
+    })
+    .parse(await c.req.json());
+
+  const id = randomUUID();
+  const filename = body.fileName ?? `ref-${id.slice(0, 8)}.jpg`;
+  db.prepare(
+    `INSERT INTO assets (id, user_id, session_id, filename, url, mime_type, size_bytes)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    userId,
+    body.sessionId,
+    filename,
+    body.url,
+    "image/jpeg",
+    0,
+  );
+
+  return c.json({
+    data: {
+      id,
+      url: body.url,
+      mimeType: "image/jpeg",
+      sizeBytes: 0,
+    },
+  });
+});
+
 export { assets };
