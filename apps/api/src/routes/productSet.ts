@@ -1,7 +1,13 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AuthVariables } from "../middleware/auth.js";
-import { buildEcommercePrompt, ECOMMERCE_SLIDES } from "../lib/ecommerce.js";
+import {
+  buildEcommercePrompt,
+  ECOMMERCE_SLIDE_KEYS,
+  ECOMMERCE_SLIDES,
+  getEcommerceSlideLabel,
+  type EcommerceSlideKey,
+} from "../lib/ecommerce.js";
 import { createGenerationJob } from "../lib/jobs.js";
 import { suggestModel } from "../lib/router.js";
 import { enrichPromptWithReferences } from "../lib/references.js";
@@ -27,6 +33,61 @@ productSetPublic.get("/init", (c) =>
 
 export const productSetAuthed = new Hono<{ Variables: AuthVariables }>();
 
+const ecommerceGenerateBodySchema = z.object({
+  sessionId: z.string().uuid(),
+  brand: z.string().optional(),
+  platform: z.string().default("淘宝"),
+  market: z.string().default("中国"),
+  language: z.string().default("中文"),
+  productInfo: z.string().min(10),
+  designer: z.string().optional(),
+  modelId: z.string().optional(),
+  resolution: z.enum(["1k", "2k", "4k"]).default("2k"),
+  productAssetId: z.string().uuid().optional(),
+  referenceAssetId: z.string().uuid().optional(),
+});
+
+function resolveAssetUrls(
+  userId: string,
+  productAssetId?: string,
+  referenceAssetId?: string,
+) {
+  const urls: string[] = [];
+  for (const assetId of [productAssetId, referenceAssetId]) {
+    if (!assetId) continue;
+    const asset = db
+      .prepare("SELECT url FROM assets WHERE id = ? AND user_id = ?")
+      .get(assetId, userId) as { url: string } | undefined;
+    if (asset) urls.push(asset.url);
+  }
+  return urls;
+}
+
+function buildPromptWithReferences(
+  userId: string,
+  body: z.infer<typeof ecommerceGenerateBodySchema>,
+) {
+  let prompt = buildEcommercePrompt({
+    brand: body.brand,
+    platform: body.platform,
+    market: body.market,
+    language: body.language,
+    productInfo: body.productInfo,
+    designer: body.designer,
+    productAssetId: body.productAssetId,
+    referenceAssetId: body.referenceAssetId,
+  });
+  const assetUrls = resolveAssetUrls(
+    userId,
+    body.productAssetId,
+    body.referenceAssetId,
+  );
+  if (assetUrls.length) {
+    prompt = enrichPromptWithReferences(prompt, assetUrls);
+  }
+  return prompt;
+}
+
 productSetAuthed.get("/models", (c) =>
   c.json({
     data: [
@@ -39,48 +100,13 @@ productSetAuthed.get("/models", (c) =>
 productSetAuthed.post("/generate", async (c) => {
   const userId = c.get("userId");
   await rateLimit(`ecommerce:${userId}`, 15, 60_000);
-  const body = z
-    .object({
-      sessionId: z.string().uuid(),
-      brand: z.string().optional(),
-      platform: z.string().default("淘宝"),
-      market: z.string().default("中国"),
-      language: z.string().default("中文"),
-      productInfo: z.string().min(10),
-      designer: z.string().optional(),
-      modelId: z.string().optional(),
-      resolution: z.enum(["1k", "2k", "4k"]).default("2k"),
-      productAssetId: z.string().uuid().optional(),
-      referenceAssetId: z.string().uuid().optional(),
-    })
-    .parse(await c.req.json());
+  const body = ecommerceGenerateBodySchema.parse(await c.req.json());
 
   assertSessionWrite(userId, body.sessionId);
 
   await assertPromptAllowed(body.productInfo);
 
-  let prompt = buildEcommercePrompt({
-    brand: body.brand,
-    platform: body.platform,
-    market: body.market,
-    language: body.language,
-    productInfo: body.productInfo,
-    designer: body.designer,
-    productAssetId: body.productAssetId,
-    referenceAssetId: body.referenceAssetId,
-  });
-
-  const assetUrls: string[] = [];
-  for (const assetId of [body.productAssetId, body.referenceAssetId]) {
-    if (!assetId) continue;
-    const asset = db
-      .prepare("SELECT url FROM assets WHERE id = ? AND user_id = ?")
-      .get(assetId, userId) as { url: string } | undefined;
-    if (asset) assetUrls.push(asset.url);
-  }
-  if (assetUrls.length) {
-    prompt = enrichPromptWithReferences(prompt, assetUrls);
-  }
+  const prompt = buildPromptWithReferences(userId, body);
 
   const route = suggestModel("ecommerce", prompt);
   const modelId = body.modelId ?? route.modelId;
@@ -105,6 +131,47 @@ productSetAuthed.post("/generate", async (c) => {
       modelId,
       routeReason: route.reason,
       slideCount: count,
+    },
+  });
+});
+
+productSetAuthed.post("/rerun-slide", async (c) => {
+  const userId = c.get("userId");
+  await rateLimit(`ecommerce:${userId}`, 15, 60_000);
+  const body = ecommerceGenerateBodySchema
+    .extend({
+      slideKey: z.enum(ECOMMERCE_SLIDE_KEYS),
+    })
+    .parse(await c.req.json());
+
+  assertSessionWrite(userId, body.sessionId);
+  await assertPromptAllowed(body.productInfo);
+
+  const prompt = buildPromptWithReferences(userId, body);
+  const route = suggestModel("ecommerce", prompt);
+  const modelId = body.modelId ?? route.modelId;
+  const slideLabel = getEcommerceSlideLabel(body.slideKey as EcommerceSlideKey);
+
+  const { jobId, pointsCost } = createGenerationJob({
+    sessionId: body.sessionId,
+    userId,
+    prompt,
+    modelId,
+    mode: "ecommerce",
+    count: 1,
+    resolution: body.resolution,
+    toolType: "ecommerce-set",
+    slideLabels: [slideLabel],
+  });
+
+  return c.json({
+    data: {
+      jobId,
+      estimatedPoints: pointsCost,
+      modelId,
+      routeReason: route.reason,
+      slideKey: body.slideKey,
+      slideLabel,
     },
   });
 });

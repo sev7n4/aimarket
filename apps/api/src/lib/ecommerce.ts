@@ -9,12 +9,29 @@ export interface EcommerceBrief {
   referenceAssetId?: string;
 }
 
-export const ECOMMERCE_SLIDES = [
+export const ECOMMERCE_SLIDE_KEYS = [
+  "main",
+  "selling",
+  "scene",
+  "detail",
+] as const;
+
+export type EcommerceSlideKey = (typeof ECOMMERCE_SLIDE_KEYS)[number];
+
+export const ECOMMERCE_SLIDES: ReadonlyArray<{
+  key: EcommerceSlideKey;
+  label: string;
+}> = [
   { key: "main", label: "电商主图" },
   { key: "selling", label: "卖点海报" },
   { key: "scene", label: "场景展示图" },
   { key: "detail", label: "详情页头图" },
 ] as const;
+
+export function getEcommerceSlideLabel(key: EcommerceSlideKey): string {
+  const slide = ECOMMERCE_SLIDES.find((item) => item.key === key);
+  return slide?.label ?? "电商主图";
+}
 
 export function buildEcommercePrompt(brief: EcommerceBrief): string {
   const parts = [
