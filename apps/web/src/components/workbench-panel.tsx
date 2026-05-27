@@ -3,8 +3,7 @@
 import { ChevronRight, Loader2, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { CreationPanel } from "@/components/creation-panel";
 import { StudioToolGrid } from "@/components/studio-tool-grid";
-import { ModeTabs, type CreationMode } from "@aimarket/ui";
-import { modeTabs } from "@/lib/modes";
+import { type CreationMode } from "@aimarket/ui";
 import { LABELS, chatEmptyHint } from "@/lib/mobile-labels";
 import { BRAND_NAME } from "@/lib/brand";
 import { useIsMobile } from "@/hooks/use-is-mobile";
@@ -18,7 +17,8 @@ interface WorkbenchPanelProps {
   onToggle: () => void;
   sessionTitle: string;
   mode: CreationMode;
-  onModeChange: (m: CreationMode) => void;
+  /** @deprecated mode 切换 UI 已下线，保留 prop 仅为向后兼容 */
+  onModeChange?: (m: CreationMode) => void;
   sessionId: string;
   initialPrompt: string;
   restoredAssets?: PendingAsset[];
@@ -47,7 +47,6 @@ export function WorkbenchPanel({
   onToggle,
   sessionTitle,
   mode,
-  onModeChange,
   sessionId,
   initialPrompt,
   restoredAssets,
@@ -122,15 +121,6 @@ export function WorkbenchPanel({
           >
             <PanelRightClose className="size-4" />
           </button>
-        </div>
-
-        <div className="shrink-0 border-b border-white/5 px-3 py-2">
-          <ModeTabs
-            items={modeTabs}
-            value={mode}
-            onChange={readOnly ? () => {} : onModeChange}
-            className="w-full justify-center"
-          />
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-3">
@@ -253,7 +243,6 @@ export function WorkbenchPanel({
             rotatingPlaceholder
             enablePolish
             mode={mode}
-            onModeChange={onModeChange}
             sessionId={sessionId}
             initialPrompt={initialPrompt}
             restoredAssets={restoredAssets}
