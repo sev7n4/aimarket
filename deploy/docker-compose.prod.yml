@@ -19,18 +19,12 @@ services:
     env_file:
       - path: ../.env
         required: false
+    # 业务密钥与 Provider 仅从 env_file（../.env）注入，避免 environment 段
+    # 用宿主机 shell 默认值覆盖 .env（见 docs/PRODUCTION_SECRETS.md）
     environment:
       PORT: "4000"
       DATABASE_PATH: /app/data/aimarket.db
       UPLOAD_DIR: /app/uploads
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
-      ADMIN_SECRET: ${ADMIN_SECRET:-aimarket-admin-dev}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://119.29.173.89:3100}
-      PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-http://119.29.173.89:3100}
-      IMAGE_PROVIDER: ${IMAGE_PROVIDER:-mock}
-      MODERATION_PROVIDER: ${MODERATION_PROVIDER:-local}
-      MODERATION_OUTPUT: ${MODERATION_OUTPUT:-true}
-      JOB_QUEUE: ${JOB_QUEUE:-memory}
     ports:
       - "4100:4000"
     volumes:

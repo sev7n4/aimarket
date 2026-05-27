@@ -1,7 +1,7 @@
 {
-  "branch": "feature/real-suppliers-aliyun-volc",
-  "phase": "P5",
-  "subphase": "real-suppliers-aliyun-volc",
+  "branch": "fix/compose-env-file-injection",
+  "phase": "P5-followup",
+  "subphase": "compose-env-file-injection",
   "current_fix_cases": [
     "INT-API-SMOKE",
     "INT-WS-SWITCH",
@@ -19,6 +19,6 @@
     "e2e": "pending"
   },
   "merged": false,
-  "last_merged_pr": 25,
-  "last_merged_phase": "P4-followup-edit-http"
+  "last_merged_pr": 26,
+  "last_merged_phase": "P5-real-suppliers-aliyun-volc"
 }
