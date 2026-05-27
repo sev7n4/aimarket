@@ -844,6 +844,8 @@ export async function executeAgentPlan(body: {
   aspectRatio?: string;
   count?: number;
   confirmed?: boolean;
+  productAssetId?: string;
+  referenceAssetId?: string;
 }) {
   const res = await request<{
     data: {

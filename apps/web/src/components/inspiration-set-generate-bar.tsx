@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, RotateCcw, Sparkles } from "lucide-react";
 import {
+  executeAgentPlan,
   ensureSession,
   fetchProductSetInit,
   submitEcommerceGenerate,
@@ -44,6 +45,7 @@ export function InspirationSetGenerateBar({
   const [init, setInit] = useState<ProductSetInit | null>(null);
   const [pending, setPending] = useState(false);
   const [rerunPendingKey, setRerunPendingKey] = useState<string | null>(null);
+  const [agentPending, setAgentPending] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
 
   const productItem = findCanvasItemByRole(canvasItems, "product");
@@ -135,6 +137,44 @@ export function InspirationSetGenerateBar({
     }
   }
 
+  async function handleAgentPipeline() {
+    if (readOnly || pending || rerunPendingKey || agentPending) return;
+    if (productInfo.length < 10) {
+      setHint("请在工作台填写至少 10 字商品卖点/描述");
+      return;
+    }
+    if (!productItem?.assetId) {
+      setHint("请先上传商品图并标记为「商品素材」后再执行 Agent 串联");
+      return;
+    }
+    setAgentPending(true);
+    setHint(null);
+    try {
+      await ensureSession(sessionId, "ecommerce", {
+        kind: "project",
+        title: inspirationApply?.title,
+        sourceInspirationId: inspirationApply?.id,
+      });
+      const res = await executeAgentPlan({
+        sessionId,
+        prompt: productInfo,
+        mode: "ecommerce",
+        resolution: inspirationApply?.resolution ?? "2k",
+        confirmed: true,
+        productAssetId: productItem.assetId,
+        referenceAssetId: referenceItem?.assetId,
+      });
+      onJobStarted(res.jobId);
+      setHint(
+        `Agent 串联执行中 · ${res.plan.steps.length} 步 · 约 ${res.estimatedPoints} 积分`,
+      );
+    } catch (err) {
+      setHint(err instanceof Error ? err.message : "Agent 串联执行失败");
+    } finally {
+      setAgentPending(false);
+    }
+  }
+
   if (!inspirationApply) return null;
 
   const ready = productInfo.length >= 10 && Boolean(productItem?.assetId);
@@ -160,7 +200,7 @@ export function InspirationSetGenerateBar({
         </div>
         <button
           type="button"
-          disabled={readOnly || pending || !ready}
+          disabled={readOnly || pending || agentPending || !ready}
           onClick={() => void handleGenerateSet()}
           className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-orange-500 px-4 py-2 text-xs font-medium text-black hover:bg-orange-400 disabled:opacity-50"
         >
@@ -168,6 +208,19 @@ export function InspirationSetGenerateBar({
             <Loader2 className="size-3.5 animate-spin" />
           : <Sparkles className="size-3.5" />}
           生成套图
+        </button>
+        <button
+          type="button"
+          disabled={readOnly || pending || agentPending || !ready}
+          onClick={() => void handleAgentPipeline()}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-orange-500/40 bg-black/40 px-3 py-2 text-xs font-medium text-orange-300 hover:border-orange-400/70 disabled:opacity-50"
+        >
+          {agentPending ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="size-3.5" />
+          )}
+          Agent 串联
         </button>
       </div>
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
@@ -181,7 +234,9 @@ export function InspirationSetGenerateBar({
               key={slide.key}
               type="button"
               onClick={() => void handleRerunSlide(slide)}
-              disabled={readOnly || pending || !!rerunPendingKey || !ready}
+              disabled={
+                readOnly || pending || agentPending || !!rerunPendingKey || !ready
+              }
               className="inline-flex items-center gap-1 rounded-full border border-white/15 px-2.5 py-1 text-[10px] text-zinc-300 hover:border-orange-400/40 disabled:opacity-50"
             >
               {isPending ? (

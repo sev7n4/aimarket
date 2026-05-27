@@ -7,6 +7,8 @@ import { ECOMMERCE_SLIDES } from "../lib/ecommerce.js";
 import { AppError } from "../lib/errors.js";
 import { assertSessionWrite } from "../lib/session-access.js";
 import { getTool } from "../lib/tools.js";
+import { db } from "../db/index.js";
+import { enrichPromptWithReferences } from "../lib/references.js";
 
 const agent = new Hono<{ Variables: AuthVariables }>();
 
@@ -35,6 +37,8 @@ const executeBody = z.object({
   count: z.number().int().min(1).max(8).optional(),
   confirmed: z.boolean().default(false),
   sourceOutputId: z.string().optional(),
+  productAssetId: z.string().uuid().optional(),
+  referenceAssetId: z.string().uuid().optional(),
 });
 
 agent.post("/execute", async (c) => {
@@ -51,6 +55,24 @@ agent.post("/execute", async (c) => {
     );
   }
 
+  let prompt = body.prompt;
+  if (plan.mode === "ecommerce") {
+    if (!body.productAssetId) {
+      throw new AppError(400, "VALIDATION_ERROR", "电商 Agent 执行需先上传商品图");
+    }
+    const assetUrls: string[] = [];
+    for (const assetId of [body.productAssetId, body.referenceAssetId]) {
+      if (!assetId) continue;
+      const asset = db
+        .prepare("SELECT url FROM assets WHERE id = ? AND user_id = ?")
+        .get(assetId, userId) as { url: string } | undefined;
+      if (asset) assetUrls.push(asset.url);
+    }
+    if (assetUrls.length) {
+      prompt = enrichPromptWithReferences(prompt, assetUrls);
+    }
+  }
+
   const toolSteps = plan.steps.filter((s) => s.type === "tool");
   if (toolSteps.length === 1 && plan.steps.length === 1) {
     const toolId = toolSteps[0].toolId!;
@@ -58,7 +80,7 @@ agent.post("/execute", async (c) => {
     const { jobId, pointsCost } = createGenerationJob({
       sessionId: body.sessionId,
       userId,
-      prompt: body.prompt,
+      prompt,
       modelId: plan.modelId,
       mode: body.mode,
       count: 1,
@@ -84,7 +106,7 @@ agent.post("/execute", async (c) => {
   const { jobId, pointsCost } = createGenerationJob({
     sessionId: body.sessionId,
     userId,
-    prompt: body.prompt,
+    prompt,
     modelId: plan.modelId,
     mode: plan.mode,
     count: plan.count,
