@@ -10,6 +10,7 @@ import { db } from "../db/index.js";
 import { AppError } from "./errors.js";
 import { getObjectStorage } from "./object-storage/index.js";
 import { saveUpload } from "./storage.js";
+import { getApiPublicBase } from "./public-url.js";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const PRESIGN_TTL_SEC = 900;
@@ -43,10 +44,7 @@ function mimeToExt(mime: string) {
 }
 
 function apiPublicBase() {
-  return (
-    process.env.API_PUBLIC_URL?.replace(/\/$/, "") ??
-    `http://localhost:${process.env.PORT ?? 4000}`
-  );
+  return getApiPublicBase();
 }
 
 function getS3Client() {

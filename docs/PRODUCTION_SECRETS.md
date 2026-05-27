@@ -37,6 +37,7 @@ docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.i
 | `JWT_SECRET` | 登录 JWT，≥32 字符随机 |
 | `ADMIN_SECRET` | 管理接口 `X-Admin-Secret` |
 | `NEXT_PUBLIC_API_URL` | 浏览器访问 API，如 `http://<IP>:4100` |
+| `API_PUBLIC_URL` | API 容器对外根地址，与上同源；Studio 工具将 `/uploads/...` 转为绝对 URL 供 Seedream 拉取 |
 | `CORS_ORIGIN` | 前端源，如 `http://<IP>:3100` |
 | `PUBLIC_WEB_URL` | 邮件/回调等，与前端一致 |
 

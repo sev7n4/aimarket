@@ -3,6 +3,7 @@ import { db } from "../db/index.js";
 import { ECOMMERCE_SLIDES } from "./ecommerce.js";
 import { estimatePoints, estimateToolPoints } from "./pricing.js";
 import { getModel } from "./models.js";
+import { getTool } from "./tools.js";
 import { AppError } from "./errors.js";
 import { assertSessionWrite, assertSessionRead } from "./session-access.js";
 import { recordAnalyticsEvent } from "./analytics.js";
@@ -233,11 +234,15 @@ export async function processGenerationJob({
     const durationMs = Math.max(0, Date.now() - startedMs);
     const assistantMessageId = randomUUID();
     const isVideo = model?.type === "video";
+    const studioTool =
+      job.tool_type && job.tool_type !== "video" ?
+        getTool(job.tool_type)
+      : undefined;
     const summary =
       job.mode === "ecommerce"
         ? `电商套图方案已生成，共 ${outputs.length} 张：${labels?.join("、") ?? ""}`
-        : job.tool_type
-          ? `「${job.tool_type}」处理完成，共 ${outputs.length} 张。`
+        : studioTool
+          ? `「${studioTool.name}」处理完成，共 ${outputs.length} 张。`
           : isVideo
             ? `已生成 ${outputs.length} 段视频（${model?.name ?? job.model_id}）。`
             : `已根据你的描述生成 ${outputs.length} 张图片。`;

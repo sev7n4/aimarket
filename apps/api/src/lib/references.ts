@@ -1,4 +1,5 @@
 import { db } from "../db/index.js";
+import { toPublicAssetUrl } from "./public-url.js";
 
 export interface SessionReference {
   id: string;
@@ -33,7 +34,7 @@ export function resolveReferenceUrls(outputIds: string[]): string[] {
     const row = db
       .prepare("SELECT url FROM message_outputs WHERE id = ?")
       .get(id) as { url: string } | undefined;
-    if (row) urls.push(row.url);
+    if (row) urls.push(toPublicAssetUrl(row.url));
   }
   return urls;
 }
