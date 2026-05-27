@@ -15,8 +15,8 @@ export function canvasEmptyHintMobile(): string {
 
 export function chatEmptyHint(isMobile: boolean): string {
   return isMobile
-    ? "点右下角「对话区」描述需求，结果会出现在上方画布"
-    : "在右侧描述需求，结果会出现在左侧画布";
+    ? "描述商品出图需求，或基于画布主图生成宣传短视频"
+    : "上传商品图或描述主图/套图需求；出图满意后可生成宣传短视频";
 }
 
 export function canvasSelectionHint(isMobile: boolean, selected: boolean): string {

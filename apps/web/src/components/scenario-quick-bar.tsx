@@ -4,10 +4,9 @@ import { useRouter } from "next/navigation";
 import {
   Eraser,
   Expand,
-  ScanFace,
-  Shirt,
-  Sparkles,
-  Type,
+  ImageIcon,
+  ScanLine,
+  ShoppingBag,
   Video,
   Wand2,
 } from "lucide-react";
@@ -23,46 +22,8 @@ interface QuickItem {
   kind?: StudioKind;
 }
 
+/** 仅电商出图 + 宣传短视频相关能力 */
 const items: QuickItem[] = [
-  {
-    label: "AI 扩图",
-    icon: Expand,
-    mode: "chat",
-    prompt: "扩展画面边缘，保持主体完整，自然延伸背景",
-    toolId: "expand",
-  },
-  {
-    label: "智能消除",
-    icon: Eraser,
-    mode: "chat",
-    prompt: "消除画面中多余物体，保持背景自然",
-    toolId: "erase",
-  },
-  {
-    label: "虚拟试衣",
-    icon: Shirt,
-    mode: "chat",
-    prompt: "让模特穿上上传的服装，自然站姿，电商质感",
-  },
-  {
-    label: "照片修复",
-    icon: ScanFace,
-    mode: "chat",
-    prompt: "修复老照片划痕，自然上色，保留细节",
-  },
-  {
-    label: "无痕改字",
-    icon: Type,
-    mode: "chat",
-    prompt: "替换画面中的文字，保持透视与光影一致",
-    toolId: "text",
-  },
-  {
-    label: "快速出图",
-    icon: Sparkles,
-    mode: "quick",
-    prompt: "从特写视角生成高质量商品图",
-  },
   {
     label: "电商套图",
     icon: Wand2,
@@ -72,10 +33,44 @@ const items: QuickItem[] = [
       "核心卖点：轻便防水；尺寸：20cm；材质：尼龙；受众：年轻户外人群；使用场景：徒步露营",
   },
   {
-    label: "视频生成",
+    label: "白底主图",
+    icon: ImageIcon,
+    mode: "quick",
+    prompt: "电商白底主图，商品居中，柔和顶光，高清质感",
+  },
+  {
+    label: "抠图精修",
+    icon: ScanLine,
+    mode: "chat",
+    prompt: "抠出商品主体，透明底或纯白底，适合主图上架",
+    toolId: "cutout",
+  },
+  {
+    label: "AI 扩图",
+    icon: Expand,
+    mode: "chat",
+    prompt: "扩展主图边缘至详情页比例，保持商品完整",
+    toolId: "expand",
+  },
+  {
+    label: "消除杂物",
+    icon: Eraser,
+    mode: "chat",
+    prompt: "消除商品图背景杂物，保持电商主图干净",
+    toolId: "erase",
+  },
+  {
+    label: "宣传短视频",
     icon: Video,
     mode: "chat",
-    prompt: "产品展示短视频，缓慢旋转，柔光背景",
+    prompt:
+      "基于当前商品主图，生成 15 秒产品宣传短视频：缓慢展示卖点，柔光背景，适合详情页与投放",
+  },
+  {
+    label: "详情长图",
+    icon: ShoppingBag,
+    mode: "chat",
+    prompt: "生成电商详情页卖点模块图，信息层次清晰，适合淘宝详情",
   },
 ];
 
@@ -104,7 +99,7 @@ export function ScenarioQuickBar({
       <p
         className={`mb-2 text-zinc-600 ${compact ? "px-1 text-left text-[10px]" : "text-center text-xs"}`}
       >
-        热门能力
+        电商热门能力
       </p>
       <div
         className={`flex gap-2 pb-1 scrollbar-none ${compact ? "overflow-x-auto px-0.5" : "overflow-x-auto"}`}

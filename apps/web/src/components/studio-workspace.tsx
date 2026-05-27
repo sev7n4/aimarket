@@ -568,8 +568,8 @@ export function StudioWorkspace({
             {sessionKind === "project" ? (
               <p className="mb-2 shrink-0 rounded-lg border border-purple-500/20 bg-purple-500/5 px-3 py-1.5 text-xs text-purple-200/90">
                 {mode === "ecommerce"
-                  ? "交付项目 · 套图将按主图/卖点/场景/详情逐张落在画布，完成后可导出"
-                  : "交付项目 · 多轮创作归档于此，完成后使用画布下载或导出全部"}
+                  ? "交付项目 · 套图将逐张落在画布，完成后可导出或生成宣传短视频"
+                  : "交付项目 · 电商出图归档于此，主图满意后可一键生成宣传短视频"}
               </p>
             ) : null}
             <ProviderStatusBanner />

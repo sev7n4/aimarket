@@ -4,7 +4,7 @@ test.describe("smoke", () => {
   test("首页展示品牌标题", async ({ page }) => {
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: "修图，就用 AIMarket" }),
+      page.getByRole("heading", { name: "电商出图，就用 AIMarket" }),
     ).toBeVisible();
   });
 
