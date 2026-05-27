@@ -33,11 +33,14 @@ import {
   trackEvent,
   optimizePromptApi,
   reversePromptFromImage,
+  renderInspiration,
+  executeAgentPlan,
 } from "@/lib/api-client";
 import { polishPrompt } from "@/lib/prompt-polish";
 import { jobStatusLabel } from "@/lib/job-stream";
-import type { ImageModel, ProductSetInit } from "@/lib/types";
+import type { ImageModel, ProductSetInit, AgentPlan } from "@/lib/types";
 import { EcommerceAgentForm } from "@/components/ecommerce-agent-form";
+import { AgentPlanPreview } from "@/components/agent-plan-preview";
 import { useAuth } from "@/lib/auth-context";
 import { MentionPicker } from "@/components/mention-picker";
 import type { SessionReference } from "@/lib/types";
@@ -157,6 +160,10 @@ export function CreationPanel({
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
   const [estimated, setEstimated] = useState<number | null>(null);
   const [routeHint, setRouteHint] = useState<string | null>(null);
+  const [agentPlan, setAgentPlan] = useState<AgentPlan | null>(null);
+  const [inspirationVars, setInspirationVars] = useState<
+    Record<string, string>
+  >({});
   const [pending, setPending] = useState(false);
   const [assetIds, setAssetIds] = useState<string[]>([]);
   const [productAssetId, setProductAssetId] = useState<string | null>(null);
@@ -218,6 +225,11 @@ export function CreationPanel({
     setModelId(inspirationApply.modelId);
     setAspectRatio(coerceAspectRatio(inspirationApply.aspectRatio));
     setResolution(inspirationApply.resolution);
+    const vars: Record<string, string> = {};
+    for (const v of inspirationApply.variables ?? []) {
+      vars[v.key] = v.default;
+    }
+    setInspirationVars(vars);
     if (inspirationApply.referenceUrls.length > 0) {
       setUploadPreviews(
         inspirationApply.referenceUrls.map((url, i) => ({
@@ -228,6 +240,16 @@ export function CreationPanel({
       setAssetIds([]);
     }
   }, [inspirationApply?.applyKey]);
+
+  useEffect(() => {
+    if (!inspirationApply?.id || !Object.keys(inspirationVars).length) return;
+    const t = setTimeout(() => {
+      void renderInspiration(inspirationApply.id, inspirationVars)
+        .then((data) => setPrompt(data.prompt))
+        .catch(() => {});
+    }, 350);
+    return () => clearTimeout(t);
+  }, [inspirationApply?.id, inspirationVars]);
 
   useEffect(() => {
     if (mode === "ecommerce") {
@@ -440,21 +462,55 @@ export function CreationPanel({
         setReferencePreviewUrl(null);
       } else {
         const useAuto = modelId === AUTO_MODEL_ID;
-        const res = await submitGeneration({
-          sessionId,
-          prompt: prompt.trim(),
-          modelId: useAuto ? undefined : modelId,
-          count,
-          resolution,
-          aspectRatio,
-          mode,
-          assetIds: assetIds.length ? assetIds : undefined,
-          referenceOutputIds: selectedRefs.map((r) => r.id),
-          autoRoute: useAuto || mode === "quick",
-        });
-        jobId = res.jobId;
-        if (res.routeReason) setRouteHint(res.routeReason);
-        if (res.modelId && useAuto) setModelId(res.modelId);
+        const useAgent =
+          useAuto &&
+          mode === "chat" &&
+          agentPlan &&
+          (agentPlan.steps.some((s) => s.type === "tool") ||
+            agentPlan.requiresConfirm);
+
+        if (useAgent) {
+          if (agentPlan.requiresConfirm) {
+            const stepText = agentPlan.steps
+              .map((s, i) => `${i + 1}. ${s.label}`)
+              .join("\n");
+            const ok = window.confirm(
+              `Agent 将执行以下步骤（约 ${agentPlan.estimatedPoints} 积分）：\n${stepText}\n\n确认执行？`,
+            );
+            if (!ok) {
+              setPending(false);
+              return;
+            }
+          }
+          const res = await executeAgentPlan({
+            sessionId,
+            prompt: prompt.trim(),
+            mode,
+            modelId: useAuto ? undefined : modelId,
+            resolution,
+            aspectRatio,
+            count,
+            confirmed: true,
+          });
+          jobId = res.jobId;
+          if (res.plan.reason) setRouteHint(res.plan.reason);
+        } else {
+          const res = await submitGeneration({
+            sessionId,
+            prompt: prompt.trim(),
+            modelId: useAuto ? undefined : modelId,
+            count,
+            resolution,
+            aspectRatio,
+            mode,
+            assetIds: assetIds.length ? assetIds : undefined,
+            referenceOutputIds: selectedRefs.map((r) => r.id),
+            autoRoute: useAuto || mode === "quick",
+          });
+          jobId = res.jobId;
+          if (res.routeReason) setRouteHint(res.routeReason);
+          if (res.modelId && useAuto) setModelId(res.modelId);
+        }
       }
       setPrompt("");
       setAssetIds([]);
@@ -506,6 +562,43 @@ export function CreationPanel({
             <Loader2 className="size-3.5 shrink-0 animate-spin" />
           ) : null}
           <span>{jobStatusLabel(jobStreamStatus)}</span>
+        </div>
+      ) : null}
+
+      {inspirationApply && (inspirationApply.variables?.length ?? 0) > 0 ? (
+        <div className="mb-3 rounded-xl border border-orange-500/20 bg-orange-500/5 p-3">
+          <p className="mb-2 text-xs font-medium text-orange-200/90">
+            同款模板 · {inspirationApply.title}
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {inspirationApply.variables!.map((v) => (
+              <label key={v.key} className="block space-y-1">
+                <span className="text-[10px] text-zinc-500">{v.label}</span>
+                <input
+                  type="text"
+                  value={inspirationVars[v.key] ?? v.default}
+                  onChange={(e) =>
+                    setInspirationVars((prev) => ({
+                      ...prev,
+                      [v.key]: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-zinc-100 outline-none focus:border-orange-500/40"
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {mode === "chat" && user ? (
+        <div className="mb-3">
+          <AgentPlanPreview
+            prompt={prompt}
+            mode={mode}
+            enabled={Boolean(user && prompt.trim())}
+            onPlanChange={setAgentPlan}
+          />
         </div>
       ) : null}
 

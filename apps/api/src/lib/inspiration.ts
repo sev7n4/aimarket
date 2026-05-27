@@ -205,3 +205,32 @@ export function assertValidModelId(modelId: string) {
     throw new AppError(400, "VALIDATION_ERROR", `未知模型: ${modelId}`);
   }
 }
+
+/** 合并用户填写的槽位值到模板变量 */
+export function mergeVariableValues(
+  defaults: InspirationVariable[],
+  overrides: Record<string, string> | undefined,
+): InspirationVariable[] {
+  if (!overrides || !Object.keys(overrides).length) return defaults;
+  return defaults.map((v) => ({
+    ...v,
+    default: overrides[v.key]?.trim() || v.default,
+  }));
+}
+
+export function renderInspirationWithVariables(
+  row: InspirationRow,
+  overrides?: Record<string, string>,
+) {
+  const base = rowToCanonical(row);
+  const variables = mergeVariableValues(
+    parseVariables(row.variables_json),
+    overrides,
+  );
+  const prompt = renderPromptTemplate(row.prompt_template, variables);
+  return {
+    ...base,
+    variables: variables.length ? variables : undefined,
+    prompt,
+  };
+}

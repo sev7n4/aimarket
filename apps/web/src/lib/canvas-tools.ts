@@ -81,7 +81,7 @@ export function nextCanvasPosition(
 export function buildCanvasItemsFromMessages(
   messages: {
     id: string;
-    outputs: { id?: string; url: string; sort_order: number }[];
+    outputs: { id?: string; url: string; sort_order: number; label?: string }[];
   }[],
 ): CanvasItem[] {
   const items: CanvasItem[] = [];
@@ -95,14 +95,15 @@ export function buildCanvasItemsFromMessages(
       const isVideo =
         out.url.includes(".mp4") || out.url.includes("video");
       const height = isVideo ? Math.round(CELL_W * 0.56) : CELL_W;
+      const fallbackLabel =
+        msg.outputs.length === 4
+          ? (["主图", "卖点", "场景", "详情"][i] as string | undefined)
+          : undefined;
       items.push({
         id: out.id ?? `${msg.id}-${i}`,
         outputId: out.id,
         url: out.url,
-        label:
-          msg.outputs.length === 4
-            ? (["主图", "卖点", "场景", "详情"][i] as string | undefined)
-            : undefined,
+        label: out.label ?? fallbackLabel,
         x: 80 + col * (CELL_W + GAP),
         y: 80 + row * (CELL_W + GAP),
         width: CELL_W,

@@ -112,6 +112,9 @@ export function StudioWorkspace({
   const [ready, setReady] = useState(false);
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
   const [jobStreamStatus, setJobStreamStatus] = useState<string | null>(null);
+  const [jobProgressCompleted, setJobProgressCompleted] = useState(0);
+  const [jobProgressTotal, setJobProgressTotal] = useState(0);
+  const lastOutputCountRef = useRef(0);
   const [toolPending, setToolPending] = useState(false);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(
     null,
@@ -208,6 +211,9 @@ export function StudioWorkspace({
     setJobFailed(false);
     setPollingJobId(null);
     setJobStreamStatus(null);
+    setJobProgressCompleted(0);
+    setJobProgressTotal(0);
+    lastOutputCountRef.current = 0;
     await loadCanvas();
     await refreshUser();
     setSessions(
@@ -222,10 +228,24 @@ export function StudioWorkspace({
     const jobId = pollingJobId;
     setJobFailed(false);
     setJobStreamStatus("queued");
+    setJobProgressCompleted(0);
+    setJobProgressTotal(0);
+    lastOutputCountRef.current = 0;
     const stop = watchJob(
       jobId,
       (ev) => {
         setJobStreamStatus(ev.status);
+        if (ev.count) setJobProgressTotal(ev.count);
+        if (typeof ev.completed === "number") {
+          setJobProgressCompleted(ev.completed);
+          if (
+            ev.status === "running" &&
+            ev.completed > lastOutputCountRef.current
+          ) {
+            lastOutputCountRef.current = ev.completed;
+            void loadCanvas();
+          }
+        }
         if (ev.status === "failed") setJobFailed(true);
       },
       () => {
@@ -545,9 +565,11 @@ export function StudioWorkspace({
                 {SESSION_KIND_LABEL[sessionKind]}
               </span>
             </p>
-            {sessionKind === "project" && mode === "ecommerce" ? (
+            {sessionKind === "project" ? (
               <p className="mb-2 shrink-0 rounded-lg border border-purple-500/20 bg-purple-500/5 px-3 py-1.5 text-xs text-purple-200/90">
-                套图项目：生成结果将按主图/卖点/场景/详情排列在画布
+                {mode === "ecommerce"
+                  ? "交付项目 · 套图将按主图/卖点/场景/详情逐张落在画布，完成后可导出"
+                  : "交付项目 · 多轮创作归档于此，完成后使用画布下载或导出全部"}
               </p>
             ) : null}
             <ProviderStatusBanner />
@@ -572,6 +594,8 @@ export function StudioWorkspace({
               readOnly={readOnly}
               jobStreamStatus={jobStreamStatus}
               jobFailed={jobFailed}
+              jobProgressCompleted={jobProgressCompleted}
+              jobProgressTotal={jobProgressTotal}
               onOpenChatPanel={() => setWorkbenchOpen(true)}
               selectSourceBanner={selectSourceBanner}
               onCutoutItem={(item) => handleQuickToolFromCanvas(item, "cutout")}

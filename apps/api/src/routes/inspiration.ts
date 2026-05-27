@@ -4,11 +4,14 @@ import {
   getPublishedInspirationById,
   getPublishedInspirationByLegacyId,
   listPublishedInspirations,
+  renderInspirationWithVariables,
   rowToCanonical,
   rowToKeywordDetail,
   rowToKeywordListItem,
 } from "../lib/inspiration.js";
+import { forkProjectFromInspiration } from "../lib/inspiration-fork.js";
 import { recordAnalyticsEvent } from "../lib/analytics.js";
+import type { AuthVariables } from "../middleware/auth.js";
 
 const inspiration = new Hono();
 
@@ -54,6 +57,19 @@ inspiration.get("/:id", (c) => {
   return c.json({ data: rowToCanonical(row) });
 });
 
+inspiration.post("/:id/render", async (c) => {
+  const id = c.req.param("id");
+  const body = z
+    .object({
+      variables: z.record(z.string(), z.string()).optional(),
+    })
+    .parse(await c.req.json().catch(() => ({})));
+
+  const row = getPublishedInspirationById(id);
+  const rendered = renderInspirationWithVariables(row, body.variables);
+  return c.json({ data: rendered });
+});
+
 /** 椒图兼容：GET /keyword/page */
 export const keyword = new Hono();
 
@@ -87,6 +103,23 @@ keyword.get("/detail/:id", (c) => {
     source: "keyword",
   });
   return c.json({ data: rowToKeywordDetail(row) });
+});
+
+export const inspirationAuthed = new Hono<{ Variables: AuthVariables }>();
+
+inspirationAuthed.post("/:id/fork-project", async (c) => {
+  const userId = c.get("userId");
+  const id = c.req.param("id");
+  const body = z
+    .object({
+      variables: z.record(z.string(), z.string()).optional(),
+      mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
+      workspaceId: z.string().uuid().optional(),
+    })
+    .parse(await c.req.json().catch(() => ({})));
+
+  const result = forkProjectFromInspiration(userId, id, body);
+  return c.json({ data: result }, 201);
 });
 
 export { inspiration };

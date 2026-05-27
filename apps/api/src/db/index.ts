@@ -335,3 +335,18 @@ for (const sql of orderMigrations) {
   }
 }
 
+const productMigrations = [
+  `ALTER TABLE image_sessions ADD COLUMN source_inspiration_id TEXT`,
+  `ALTER TABLE image_sessions ADD COLUMN template_variables_json TEXT`,
+  `ALTER TABLE message_outputs ADD COLUMN label TEXT`,
+  `ALTER TABLE job_outputs ADD COLUMN label TEXT`,
+];
+
+for (const sql of productMigrations) {
+  try {
+    database.exec(sql);
+  } catch {
+    /* column exists */
+  }
+}
+

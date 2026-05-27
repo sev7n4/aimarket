@@ -51,6 +51,7 @@ export interface MessageOutput {
   id?: string;
   url: string;
   sort_order: number;
+  label?: string;
 }
 
 export interface ChatMessage {
@@ -75,6 +76,7 @@ export interface GenerationJob {
   status: "queued" | "running" | "succeeded" | "failed";
   points_cost: number;
   error: string | null;
+  count?: number;
   outputs: { url: string; sort_order: number }[];
 }
 
@@ -91,6 +93,26 @@ export interface SessionReference {
 
 export interface RouteSuggestion {
   modelId: string;
+  reason: string;
+}
+
+export interface AgentPlanStep {
+  type: "generate" | "tool";
+  toolId?: string;
+  label: string;
+  prompt?: string;
+}
+
+export interface AgentPlan {
+  intent: string;
+  modelId: string;
+  mode: string;
+  resolution: string;
+  aspectRatio: string;
+  count: number;
+  steps: AgentPlanStep[];
+  estimatedPoints: number;
+  requiresConfirm: boolean;
   reason: string;
 }
 
