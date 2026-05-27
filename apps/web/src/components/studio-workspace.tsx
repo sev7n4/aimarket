@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SessionTitleActions } from "@/components/session-title-actions";
+import { CanvasRoleActions } from "@/components/canvas-role-actions";
+import { InspirationSetGenerateBar } from "@/components/inspiration-set-generate-bar";
 import { X } from "lucide-react";
 import { LoginDialog } from "@/components/login-dialog";
 import { AppLeftRail } from "@/components/app-left-rail";
@@ -23,7 +25,8 @@ import { resolveApiBase } from "@/lib/api-base";
 import { trackEvent } from "@/lib/api-client";
 import { type CreationMode } from "@aimarket/ui";
 import type { ImageSession, StudioTool } from "@/lib/types";
-import type { CanvasItem } from "@/lib/canvas-tools";
+import type { CanvasItem, CanvasItemRole } from "@/lib/canvas-tools";
+import { assignCanvasItemRole } from "@/lib/canvas-roles";
 import { useAuth } from "@/lib/auth-context";
 import {
   assetUrl,
@@ -36,8 +39,8 @@ import {
 } from "@/lib/api-client";
 import { createUploadCanvasItem } from "@/lib/canvas-tools";
 import {
-  buildCanvasItemsFromReferenceUrls,
   coerceInspirationAspect,
+  importInspirationReferencesToCanvas,
   type StudioInspirationApply,
 } from "@/lib/inspiration-studio";
 import { useSessionCanvas } from "@/hooks/use-session-canvas";
@@ -159,14 +162,16 @@ export function StudioWorkspace({
 
     const wsId = activeWorkspaceId ?? getActiveWorkspaceId() ?? undefined;
     const ensured = await ensureSession(sessionId, mode, {
-      title: initialTitle,
-      kind: initialKind ?? "canvas",
+      title: initialTitle ?? pendingInspiration?.title,
+      kind: pendingInspiration ? "project" : (initialKind ?? "canvas"),
       workspaceId: wsId,
+      sourceInspirationId: pendingInspiration?.id,
     });
     setCanEdit(ensured.can_edit ?? true);
     await loadCanvas();
     if (pendingInspiration?.referenceUrls.length) {
-      const refItems = buildCanvasItemsFromReferenceUrls(
+      const refItems = await importInspirationReferencesToCanvas(
+        sessionId,
         pendingInspiration.referenceUrls,
       );
       setCanvasItems((prev) => (prev.length > 0 ? prev : refItems));
@@ -450,8 +455,11 @@ export function StudioWorkspace({
     e.target.value = "";
     if (!file || !user || readOnly) return;
     try {
-      const { url } = await uploadAsset(file, sessionId);
-      setCanvasItems((prev) => [...prev, createUploadCanvasItem(url, prev)]);
+      const { id, url } = await uploadAsset(file, sessionId);
+      setCanvasItems((prev) => [
+        ...prev,
+        createUploadCanvasItem(url, prev, { assetId: id, role: "product" }),
+      ]);
       hapticLight();
     } catch (err) {
       setSelectSourceBanner(
@@ -459,6 +467,14 @@ export function StudioWorkspace({
       );
     }
   }
+
+  const handleAssignCanvasRole = useCallback(
+    (itemId: string, role: CanvasItemRole) => {
+      setCanvasItems((prev) => assignCanvasItemRole(prev, itemId, role));
+      hapticLight();
+    },
+    [setCanvasItems],
+  );
 
   function handleDeleteCanvasItem() {
     if (readOnly || !selectedCanvasId) return;
@@ -487,6 +503,10 @@ export function StudioWorkspace({
 
   const showEmpty = messages.length === 0 && !pollingJobId;
   const isEcommerce = mode === "ecommerce";
+  const selectedCanvasItem =
+    selectedCanvasId ?
+      (canvasItems.find((i) => i.id === selectedCanvasId) ?? null)
+    : null;
   const canvasEmptyHint =
     mobile
       ? canvasEmptyHintMobile()
@@ -510,6 +530,7 @@ export function StudioWorkspace({
         ref={uploadRef}
         type="file"
         accept="image/*"
+        capture="environment"
         className="hidden"
         onChange={(e) => void onFileSelected(e)}
       />
@@ -607,6 +628,25 @@ export function StudioWorkspace({
               <p className="mb-2 shrink-0 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200/90">
                 只读：他人会话，仅创建者或管理员可编辑与生成
               </p>
+            ) : null}
+            {inspirationApply ? (
+              <InspirationSetGenerateBar
+                sessionId={sessionId}
+                canvasItems={canvasItems}
+                prompt={inspirationApply.prompt}
+                inspirationApply={inspirationApply}
+                readOnly={readOnly}
+                onJobStarted={(jobId) => setPollingJobId(jobId)}
+              />
+            ) : null}
+            {selectedCanvasItem ? (
+              <div className="mb-2 shrink-0">
+                <CanvasRoleActions
+                  item={selectedCanvasItem}
+                  readOnly={readOnly}
+                  onAssignRole={handleAssignCanvasRole}
+                />
+              </div>
             ) : null}
             <DesignCanvas
               ref={canvasRef}

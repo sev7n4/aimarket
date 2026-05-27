@@ -10,6 +10,8 @@ export const canvasItemSchema = z.object({
   label: z.string().max(50).optional(),
   isVideo: z.boolean().optional(),
   source: z.enum(["upload", "generation"]).optional(),
+  role: z.enum(["reference", "product", "output"]).optional(),
+  assetId: z.string().uuid().optional(),
 });
 
 export const canvasLayoutSchema = z.object({

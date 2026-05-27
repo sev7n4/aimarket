@@ -165,6 +165,7 @@ export async function ensureSession(
     title?: string;
     kind?: "canvas" | "project";
     workspaceId?: string;
+    sourceInspirationId?: string;
   },
 ) {
   const res = await request<{ data: ImageSession }>(
@@ -177,6 +178,7 @@ export async function ensureSession(
         title: options?.title,
         kind: options?.kind,
         workspaceId: options?.workspaceId,
+        sourceInspirationId: options?.sourceInspirationId,
       }),
     },
   );
@@ -236,6 +238,8 @@ export interface CanvasLayoutDto {
     label?: string;
     isVideo?: boolean;
     source?: "upload" | "generation";
+    role?: "reference" | "product" | "output";
+    assetId?: string;
   }[];
 }
 
@@ -930,6 +934,20 @@ export async function uploadAsset(file: File, sessionId?: string) {
   }>("/api/v1/assets/upload", {
     method: "POST",
     body: form,
+  });
+  return res.data;
+}
+
+export async function registerAssetFromUrl(body: {
+  sessionId: string;
+  url: string;
+  fileName?: string;
+}) {
+  const res = await request<{
+    data: { id: string; url: string; mimeType: string };
+  }>("/api/v1/assets/register-url", {
+    method: "POST",
+    body: JSON.stringify(body),
   });
   return res.data;
 }

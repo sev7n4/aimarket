@@ -1,8 +1,9 @@
 import type { AspectRatio } from "@/components/generation-settings-popover";
 import type { InspirationDetail } from "@/lib/types";
-import { buildStudioUrl, type StudioKind } from "@/lib/studio-navigation";
+import { registerAssetFromUrl } from "@/lib/api-client";
+import { buildStudioUrl } from "@/lib/studio-navigation";
 import {
-  createUploadCanvasItem,
+  createReferenceCanvasItem,
   type CanvasItem,
 } from "@/lib/canvas-tools";
 
@@ -47,42 +48,35 @@ export function coerceInspirationAspect(value: string): AspectRatio {
     : "1:1";
 }
 
-/** 套图类模板自动归档为 project，其余为 canvas */
-export function resolveInspirationSessionKind(
-  detail: Pick<InspirationDetail, "category" | "title">,
-): StudioKind {
-  const text = `${detail.category}${detail.title}`;
-  if (text.includes("套图")) return "project";
-  return "canvas";
-}
-
+/** 灵感做同款统一进入电商套图 Project 工作流 */
 export function buildInspirationStudioUrl(
   detail: InspirationDetail,
   sessionId: string,
 ): string {
-  const kind = resolveInspirationSessionKind(detail);
-  return buildStudioUrl(kind, {
+  return buildStudioUrl("project", {
     sessionId,
-    mode: "chat",
+    mode: "ecommerce",
     title: detail.title,
     prompt: detail.prompt,
     inspirationId: detail.id,
   });
 }
 
-export function buildCanvasItemsFromReferenceUrls(
+/** 灵感参考图入库并生成画布 item（role=reference） */
+export async function importInspirationReferencesToCanvas(
+  sessionId: string,
   urls: string[],
-): CanvasItem[] {
+): Promise<CanvasItem[]> {
   const items: CanvasItem[] = [];
   for (let i = 0; i < urls.length; i += 1) {
     const url = urls[i];
     if (!url) continue;
-    const item = createUploadCanvasItem(url, items);
-    items.push({
-      ...item,
-      label:
-        urls.length > 1 ? `参考 ${i + 1}` : "参考图",
+    const asset = await registerAssetFromUrl({
+      sessionId,
+      url,
+      fileName: `inspiration-ref-${i + 1}.jpg`,
     });
+    items.push(createReferenceCanvasItem(asset.url, items, asset.id, i));
   }
   return items;
 }

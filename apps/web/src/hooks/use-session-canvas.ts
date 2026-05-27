@@ -26,6 +26,8 @@ function toLayoutDto(items: CanvasItem[]): CanvasLayoutDto {
       label: i.label,
       isVideo: i.isVideo,
       source: i.source,
+      role: i.role,
+      assetId: i.assetId,
     })),
   };
 }
