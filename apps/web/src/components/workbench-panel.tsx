@@ -8,6 +8,7 @@ import { modeTabs } from "@/lib/modes";
 import { LABELS, chatEmptyHint } from "@/lib/mobile-labels";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
+import type { PendingAsset } from "@/lib/pending-assets";
 import type { ChatMessage, StudioTool } from "@/lib/types";
 
 interface WorkbenchPanelProps {
@@ -18,7 +19,7 @@ interface WorkbenchPanelProps {
   onModeChange: (m: CreationMode) => void;
   sessionId: string;
   initialPrompt: string;
-  restoredAssetIds?: string[];
+  restoredAssets?: PendingAsset[];
   messages: ChatMessage[];
   showEmpty: boolean;
   pollingJobId: string | null;
@@ -46,7 +47,7 @@ export function WorkbenchPanel({
   onModeChange,
   sessionId,
   initialPrompt,
-  restoredAssetIds,
+  restoredAssets,
   messages,
   showEmpty,
   pollingJobId,
@@ -251,7 +252,7 @@ export function WorkbenchPanel({
             onModeChange={onModeChange}
             sessionId={sessionId}
             initialPrompt={initialPrompt}
-            restoredAssetIds={restoredAssetIds}
+            restoredAssets={restoredAssets}
             onAuthRequired={onAuthRequired}
             onJobStarted={onJobStarted}
             jobStreamStatus={jobStreamStatus}

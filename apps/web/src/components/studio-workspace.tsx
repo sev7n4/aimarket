@@ -37,7 +37,7 @@ import {
 import { createUploadCanvasItem } from "@/lib/canvas-tools";
 import { useSessionCanvas } from "@/hooks/use-session-canvas";
 import { watchJob } from "@/lib/job-stream";
-import { consumePendingAssets } from "@/lib/pending-assets";
+import { consumePendingAssets, type PendingAsset } from "@/lib/pending-assets";
 import { resolveToolResolution } from "@/lib/tool-resolution";
 import { hapticLight } from "@/lib/haptics";
 import { canvasEmptyHintMobile } from "@/lib/mobile-labels";
@@ -73,7 +73,7 @@ export function StudioWorkspace({
   const [loginOpen, setLoginOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [workbenchOpen, setWorkbenchOpen] = useState(true);
-  const [restoredAssetIds, setRestoredAssetIds] = useState<string[]>([]);
+  const [restoredAssets, setRestoredAssets] = useState<PendingAsset[]>([]);
   const [selectSourceBanner, setSelectSourceBanner] = useState<string | null>(
     null,
   );
@@ -135,7 +135,7 @@ export function StudioWorkspace({
   const initSession = useCallback(async () => {
     if (!user) return;
     const pending = consumePendingAssets(sessionId);
-    if (pending.length) setRestoredAssetIds(pending);
+    if (pending.length) setRestoredAssets(pending);
 
     const wsId = activeWorkspaceId ?? getActiveWorkspaceId() ?? undefined;
     const ensured = await ensureSession(sessionId, mode, {
@@ -595,7 +595,7 @@ export function StudioWorkspace({
             onModeChange={handleModeChange}
             sessionId={sessionId}
             initialPrompt={initialPrompt}
-            restoredAssetIds={restoredAssetIds}
+            restoredAssets={restoredAssets}
             messages={messages}
             showEmpty={showEmpty}
             pollingJobId={pollingJobId}

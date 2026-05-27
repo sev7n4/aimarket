@@ -18,6 +18,7 @@ import {
 } from "@aimarket/ui";
 import { modeTabs, placeholders } from "@/lib/modes";
 import {
+  assetUrl,
   ensureSession,
   estimatePoints,
   getToken,
@@ -42,7 +43,7 @@ import { MentionPicker } from "@/components/mention-picker";
 import type { SessionReference } from "@/lib/types";
 import { useRotatingPlaceholder } from "@/hooks/use-rotating-placeholder";
 import { randomUUID } from "@/lib/uuid";
-import { storePendingAssets } from "@/lib/pending-assets";
+import { storePendingAssets, type PendingAsset } from "@/lib/pending-assets";
 import { HomeGenerationPreview } from "@/components/home-generation-preview";
 import {
   UploadPreviewStack,
@@ -100,8 +101,8 @@ interface CreationPanelProps {
   rotatingPlaceholder?: boolean;
   /** 团队空间只读：禁止在本会话生成 */
   readOnly?: boolean;
-  /** Studio 恢复未登录时上传的附件 */
-  restoredAssetIds?: string[];
+  /** Studio 恢复未登录时上传的附件（含预览 URL） */
+  restoredAssets?: PendingAsset[];
   /** 首页灵感灌入（由 InspirationApplyProvider 驱动） */
   inspirationApply?: AppliedInspiration | null;
 }
@@ -124,7 +125,7 @@ export function CreationPanel({
   enablePolish = false,
   rotatingPlaceholder = false,
   readOnly = false,
-  restoredAssetIds,
+  restoredAssets,
   inspirationApply = null,
 }: CreationPanelProps) {
   const shouldNavigateOnSubmit =
@@ -196,9 +197,20 @@ export function CreationPanel({
   }, [initialPrompt]);
 
   useEffect(() => {
-    if (!restoredAssetIds?.length || !sessionId) return;
-    setAssetIds(restoredAssetIds);
-  }, [restoredAssetIds, sessionId]);
+    if (!restoredAssets?.length || !sessionId) return;
+    setAssetIds(restoredAssets.map((a) => a.id));
+    setUploadPreviews(
+      restoredAssets
+        .filter((a) => a.url)
+        .map((a) => ({
+          id: a.id,
+          url:
+            a.url.startsWith("blob:") || a.url.startsWith("http")
+              ? a.url
+              : assetUrl(a.url),
+        })),
+    );
+  }, [restoredAssets, sessionId]);
 
   useEffect(() => {
     if (!inspirationApply) return;
@@ -374,8 +386,16 @@ export function CreationPanel({
       const id = sessionId ?? randomUUID();
       const params = new URLSearchParams({ sessionId: id, mode });
       if (prompt.trim()) params.set("q", prompt.trim());
-      if (assetIds.length) {
-        storePendingAssets(id, assetIds);
+      if (assetIds.length && uploadPreviews.length) {
+        storePendingAssets(
+          id,
+          uploadPreviews.map((p) => ({ id: p.id, url: p.url })),
+        );
+      } else if (assetIds.length) {
+        storePendingAssets(
+          id,
+          assetIds.map((aid) => ({ id: aid, url: "" })),
+        );
       }
       router.push(`/studio?${params.toString()}`);
       return;
