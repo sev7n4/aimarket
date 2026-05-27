@@ -107,10 +107,6 @@ export function HomeScenarioFan({
     );
   }
 
-  const previewCovers = lastPick
-    ? [lastPick.coverUrl, ...templates.slice(0, 3).map((t) => t.coverUrl)]
-    : templates.slice(0, 4).map((t) => t.coverUrl);
-
   return (
     <section
       className={`mx-auto w-full max-w-5xl px-3 pt-4 sm:px-4 lg:pt-6 ${className}`}
@@ -120,36 +116,22 @@ export function HomeScenarioFan({
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}
-          className="group flex items-center gap-3 text-left"
+          className="group flex items-center gap-2 text-left"
           aria-expanded={expanded}
         >
-          <div className="relative flex -space-x-2">
-            {previewCovers.slice(0, 4).map((src, i) => (
-              <span
-                key={`${src}-${i}`}
-                className="relative inline-block size-8 overflow-hidden rounded-full border-2 border-[#0b0b0b] bg-zinc-800"
-                style={{ zIndex: 10 - i }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={src} alt="" className="size-full object-cover" />
-              </span>
-            ))}
-          </div>
-          <div>
-            <p className="flex items-center gap-1 text-sm font-medium text-zinc-100">
-              灵感套图 · 一键做同款
-              {expanded ? (
-                <ChevronUp className="size-4 text-zinc-500 transition group-hover:text-zinc-300" />
-              ) : (
-                <ChevronDown className="size-4 text-zinc-500 transition group-hover:text-zinc-300" />
-              )}
-            </p>
-            <p className="text-[11px] text-zinc-500">
-              {lastPick
-                ? `上次选择：${lastPick.title} · 点击${expanded ? "收起" : "查看"} 7 个场景`
-                : `服装类 7 个高频场景，${expanded ? "点击收起" : "点击展开查看"}`}
-            </p>
-          </div>
+          <p className="flex items-center gap-1 text-sm font-medium text-zinc-100">
+            灵感套图 · 一键做同款
+            {expanded ? (
+              <ChevronUp className="size-4 text-zinc-500 transition group-hover:text-zinc-300" />
+            ) : (
+              <ChevronDown className="size-4 text-zinc-500 transition group-hover:text-zinc-300" />
+            )}
+          </p>
+          <span className="text-[11px] text-zinc-500">
+            {lastPick
+              ? `上次：${lastPick.title}`
+              : "服装类 7 个高频场景"}
+          </span>
         </button>
         {expanded ? (
           <div className="flex flex-wrap gap-1.5">

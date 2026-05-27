@@ -9,7 +9,7 @@ import {
 import { InspirationGallery } from "@/components/inspiration-gallery";
 
 export function HomeMain() {
-  const [fanExpanded, setFanExpanded] = useState(false);
+  const [fanExpanded, setFanExpanded] = useState(true);
   const [lastPick, setLastPick] = useState<ScenarioPickPreview | null>(null);
 
   const toggleFan = useCallback(() => setFanExpanded((v) => !v), []);

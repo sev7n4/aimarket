@@ -13,7 +13,7 @@ import {
   DesignCanvas,
   type DesignCanvasHandle,
 } from "@/components/design-canvas";
-import { WorkbenchPanel } from "@/components/workbench-panel";
+import { CreationPanel } from "@/components/creation-panel";
 import { StudioHeader } from "@/components/studio-header";
 import { ProviderStatusBanner } from "@/components/provider-status-banner";
 import { ContentReportDialog } from "@/components/content-report-dialog";
@@ -81,7 +81,6 @@ export function StudioWorkspace({
   const uploadRef = useRef<HTMLInputElement>(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [workbenchOpen, setWorkbenchOpen] = useState(true);
   const [restoredAssets, setRestoredAssets] = useState<PendingAsset[]>([]);
   const [inspirationApply, setInspirationApply] =
     useState<StudioInspirationApply | null>(null);
@@ -89,12 +88,6 @@ export function StudioWorkspace({
     null,
   );
   const [jobFailed, setJobFailed] = useState(false);
-  const [pendingToolAfterSelect, setPendingToolAfterSelect] =
-    useState<StudioTool | null>(null);
-
-  useEffect(() => {
-    if (mobile) setWorkbenchOpen(false);
-  }, [mobile]);
 
   const [mode, setMode] = useState<CreationMode>(initialMode);
   const [selectedCanvasId, setSelectedCanvasId] = useState<string | null>(null);
@@ -111,22 +104,18 @@ export function StudioWorkspace({
   const {
     items: canvasItems,
     setItems: setCanvasItems,
-    messages,
     load: loadCanvas,
     canEdit: canvasCanEdit,
     setCanEdit,
   } = useSessionCanvas(sessionId, Boolean(user));
   const [sessions, setSessions] = useState<ImageSession[]>([]);
   const [tools, setTools] = useState<StudioTool[]>([]);
-  const [activeTool, setActiveTool] = useState<StudioTool | null>(null);
-  const [toolPrompt, setToolPrompt] = useState("");
   const [ready, setReady] = useState(false);
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
   const [jobStreamStatus, setJobStreamStatus] = useState<string | null>(null);
   const [jobProgressCompleted, setJobProgressCompleted] = useState(0);
   const [jobProgressTotal, setJobProgressTotal] = useState(0);
   const lastOutputCountRef = useRef(0);
-  const [toolPending, setToolPending] = useState(false);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(
     null,
   );
@@ -209,30 +198,18 @@ export function StudioWorkspace({
   }, [authLoading, user, initSession]);
 
   useEffect(() => {
-    if (!inspirationApply) return;
-    setWorkbenchOpen(true);
-  }, [inspirationApply?.applyKey]);
-
-  useEffect(() => {
     if (!initialJobId || !user) return;
     setPollingJobId(initialJobId);
-    if (mobile) {
-      const t = window.setTimeout(() => setWorkbenchOpen(true), 2500);
-      return () => clearTimeout(t);
-    }
-  }, [initialJobId, user, mobile]);
+  }, [initialJobId, user]);
 
   useEffect(() => {
     if (!initialToolId || !tools.length) return;
     const tool = tools.find((t) => t.id === initialToolId);
     if (!tool) return;
-    setActiveTool(tool);
-    setToolPrompt(tool.defaultPrompt);
-    if (mobile) setWorkbenchOpen(true);
     if (tool.requiresSource) {
-      setSelectSourceBanner("请先在画布点选一张图片，再运行此工具");
+      setSelectSourceBanner(`请先在画布点选一张图片，再运行 ${tool.name}`);
     }
-  }, [initialToolId, tools, mobile]);
+  }, [initialToolId, tools]);
 
   const focusLatestCanvasItem = useCallback(() => {
     if (!canvasItems.length) return;
@@ -308,92 +285,6 @@ export function StudioWorkspace({
     prevItemCountRef.current = count;
   }, [canvasItems.length, focusLatestCanvasItem]);
 
-  useEffect(() => {
-    if (!pendingToolAfterSelect || !selectedCanvasId) return;
-    const item = canvasItems.find((i) => i.id === selectedCanvasId);
-    if (!item?.outputId) return;
-    setActiveTool(pendingToolAfterSelect);
-    setToolPrompt(pendingToolAfterSelect.defaultPrompt);
-    setPendingToolAfterSelect(null);
-    setSelectSourceBanner(null);
-    setWorkbenchOpen(true);
-  }, [pendingToolAfterSelect, selectedCanvasId, canvasItems]);
-
-  function handleModeChange(next: CreationMode) {
-    setMode(next);
-    const params = new URLSearchParams(window.location.search);
-    params.set("mode", next);
-    params.set("sessionId", sessionId);
-    window.history.replaceState(null, "", `/studio?${params.toString()}`);
-  }
-
-  function activateTool(tool: StudioTool) {
-    if (tool.requiresSource) {
-      const selected = canvasItems.find((i) => i.id === selectedCanvasId);
-      if (!selected?.outputId) {
-        setPendingToolAfterSelect(tool);
-        setSelectSourceBanner("请先在画布点选一张图片作为参考");
-        setWorkbenchOpen(mobile ? false : workbenchOpen);
-        return;
-      }
-    }
-    setActiveTool(tool);
-    setToolPrompt(tool.defaultPrompt);
-    setSelectSourceBanner(null);
-    if (tool.clientOnly || mobile) setWorkbenchOpen(true);
-  }
-
-  async function handleRunTool() {
-    if (!activeTool || !user) {
-      setLoginOpen(true);
-      return;
-    }
-    if (readOnly) return;
-
-    if (activeTool.clientOnly) {
-      setSelectSourceBanner("请使用画布底部工具栏进行裁剪");
-      return;
-    }
-
-    const selected = canvasItems.find((i) => i.id === selectedCanvasId);
-    const referenceOutputIds = selected?.outputId
-      ? [selected.outputId]
-      : undefined;
-
-    if (activeTool.requiresSource && !referenceOutputIds?.length) {
-      setSelectSourceBanner("请先在画布点选一张已生成的图片");
-      setPendingToolAfterSelect(activeTool);
-      return;
-    }
-
-    setToolPending(true);
-    try {
-      const { jobId } = await runTool(activeTool.id, {
-        sessionId,
-        prompt: toolPrompt.trim() || undefined,
-        referenceOutputIds,
-        resolution: resolveToolResolution(activeTool.id),
-        ...(activeTool.id === "upscale" ? { scale: "2x" as const } : {}),
-      });
-      void trackEvent("tool_run", {
-        tool_id: activeTool.id,
-        job_id: jobId,
-        has_reference: Boolean(referenceOutputIds?.length),
-      });
-      setPollingJobId(jobId);
-      setActiveTool(null);
-      setToolPrompt("");
-      setSelectSourceBanner(null);
-      await loadCanvas();
-    } catch (err) {
-      setSelectSourceBanner(
-        err instanceof Error ? err.message : "工具执行失败",
-      );
-    } finally {
-      setToolPending(false);
-    }
-  }
-
   async function handleQuickToolFromCanvas(
     item: CanvasItem,
     toolId: "cutout" | "expand",
@@ -401,8 +292,6 @@ export function StudioWorkspace({
     const tool = tools.find((t) => t.id === toolId);
     if (!tool || !user || readOnly || !item.outputId) return;
     setSelectedCanvasId(item.id);
-    setWorkbenchOpen(true);
-    setToolPending(true);
     try {
       const { jobId } = await runTool(tool.id, {
         sessionId,
@@ -416,8 +305,6 @@ export function StudioWorkspace({
       setSelectSourceBanner(
         err instanceof Error ? err.message : "工具执行失败",
       );
-    } finally {
-      setToolPending(false);
     }
   }
 
@@ -501,7 +388,6 @@ export function StudioWorkspace({
     [sessionId, mode, router, activeWorkspaceId],
   );
 
-  const showEmpty = messages.length === 0 && !pollingJobId;
   const isEcommerce = mode === "ecommerce";
   const selectedCanvasItem =
     selectedCanvasId ?
@@ -608,7 +494,7 @@ export function StudioWorkspace({
           </ul>
         </aside>
 
-        <div className="relative flex min-h-0 min-w-0 flex-1 gap-0 p-3 md:p-4">
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-2 p-3 md:p-4">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <p className="mb-2 shrink-0 px-1 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
               画布 · {sessionTitle}
@@ -618,9 +504,7 @@ export function StudioWorkspace({
             </p>
             {sessionKind === "project" ? (
               <p className="mb-2 shrink-0 rounded-lg border border-purple-500/20 bg-purple-500/5 px-3 py-1.5 text-xs text-purple-200/90">
-                {mode === "ecommerce"
-                  ? "交付项目 · 套图将逐张落在画布，完成后可导出或生成宣传短视频"
-                  : "交付项目 · 电商出图归档于此，主图满意后可一键生成宣传短视频"}
+                交付项目 · 出图与套图均归档于画布，主图满意后可一键生成宣传短视频
               </p>
             ) : null}
             <ProviderStatusBanner />
@@ -666,7 +550,6 @@ export function StudioWorkspace({
               jobFailed={jobFailed}
               jobProgressCompleted={jobProgressCompleted}
               jobProgressTotal={jobProgressTotal}
-              onOpenChatPanel={() => setWorkbenchOpen(true)}
               selectSourceBanner={selectSourceBanner}
               onCutoutItem={(item) => handleQuickToolFromCanvas(item, "cutout")}
               onExpandItem={(item) => handleQuickToolFromCanvas(item, "expand")}
@@ -681,40 +564,38 @@ export function StudioWorkspace({
             ) : null}
           </div>
 
-          <WorkbenchPanel
-            open={workbenchOpen}
-            onToggle={() => setWorkbenchOpen((o) => !o)}
-            sessionTitle={sessionTitle}
-            mode={mode}
-            onModeChange={handleModeChange}
-            sessionId={sessionId}
-            initialPrompt={initialPrompt}
-            restoredAssets={restoredAssets}
-            inspirationApply={inspirationApply}
-            messages={messages}
-            showEmpty={showEmpty}
-            pollingJobId={pollingJobId}
-            jobStreamStatus={jobStreamStatus}
-            tools={tools}
-            activeTool={activeTool}
-            toolPrompt={toolPrompt}
-            toolPending={toolPending}
-            onToolPromptChange={setToolPrompt}
-            onToolSelect={activateTool}
-            onToolCancel={() => {
-              setActiveTool(null);
-              setSelectSourceBanner(null);
-              setPendingToolAfterSelect(null);
-            }}
-            onToolRun={() => void handleRunTool()}
-            onAuthRequired={() => setLoginOpen(true)}
-            onJobStarted={(jobId) => {
-              setPollingJobId(jobId);
-            }}
-            userReady={Boolean(user && ready)}
-            onLogin={() => setLoginOpen(true)}
-            readOnly={readOnly}
-          />
+          {/* 工作台 dock：始终常驻在画布下方，与首页输入区视觉一致 */}
+          <div className="shrink-0">
+            {!user || !ready ? (
+              <button
+                type="button"
+                onClick={() => setLoginOpen(true)}
+                className="mb-2 w-full text-center text-xs text-orange-400"
+              >
+                登录后开始创作
+              </button>
+            ) : null}
+            {readOnly ? (
+              <p className="mb-2 text-center text-xs text-amber-400/90">
+                只读会话：无法在此生成或编辑
+              </p>
+            ) : null}
+            <CreationPanel
+              variant="dock"
+              showModeTabs={false}
+              rotatingPlaceholder
+              enablePolish
+              mode={mode}
+              sessionId={sessionId}
+              initialPrompt={initialPrompt}
+              restoredAssets={restoredAssets}
+              inspirationApply={inspirationApply}
+              onAuthRequired={() => setLoginOpen(true)}
+              onJobStarted={(jobId) => setPollingJobId(jobId)}
+              jobStreamStatus={jobStreamStatus}
+              readOnly={readOnly}
+            />
+          </div>
         </div>
       </div>
 
