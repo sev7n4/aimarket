@@ -180,13 +180,45 @@ const inspirationBody = z.object({
       z.object({
         url: z.string().url(),
         fileName: z.string().optional(),
+        assetId: z.string().optional(),
       }),
     )
+    .max(12)
+    .optional(),
+  referenceUrls: z
+    .array(z.string().url())
+    .max(12)
     .optional(),
   status: z.enum(["draft", "published"]).default("published"),
   sortOrder: z.number().int().optional(),
   legacyId: z.number().int().positive().optional(),
 });
+
+function resolveReferenceAssets(
+  body: {
+    coverUrl?: string;
+    referenceAssets?: Array<{ url: string; fileName?: string; assetId?: string }>;
+    referenceUrls?: string[];
+  },
+  fallbackCoverUrl: string,
+) {
+  const fromAssets =
+    body.referenceAssets?.map((item) => ({
+      url: item.url,
+      fileName: item.fileName,
+      assetId: item.assetId,
+    })) ?? [];
+  const fromUrls =
+    body.referenceUrls?.map((url) => ({
+      url,
+    })) ?? [];
+  const merged = [...fromAssets, ...fromUrls];
+  const uniqueByUrl = Array.from(
+    new Map(merged.map((item) => [item.url, item])).values(),
+  );
+  if (uniqueByUrl.length > 0) return uniqueByUrl;
+  return [{ url: body.coverUrl ?? fallbackCoverUrl }];
+}
 
 admin.get("/inspiration", (c) => {
   const rows = db
@@ -216,10 +248,7 @@ admin.post("/inspiration", async (c) => {
     .get() as { m: number };
   const legacyId = body.legacyId ?? maxLegacy.m + 1;
 
-  const refs =
-    body.referenceAssets?.length ?
-      JSON.stringify(body.referenceAssets)
-    : JSON.stringify([{ url: body.coverUrl }]);
+  const refs = JSON.stringify(resolveReferenceAssets(body, body.coverUrl));
 
   db.prepare(
     `INSERT INTO inspiration_templates (
@@ -269,11 +298,16 @@ admin.put("/inspiration/:id", async (c) => {
     .get(id) as unknown as InspirationRow;
 
   const refs =
-    body.referenceAssets !== undefined ?
+    body.referenceAssets !== undefined || body.referenceUrls !== undefined ?
       JSON.stringify(
-        body.referenceAssets.length ?
-          body.referenceAssets
-        : [{ url: body.coverUrl ?? current.cover_url }],
+        resolveReferenceAssets(
+          {
+            coverUrl: body.coverUrl,
+            referenceAssets: body.referenceAssets,
+            referenceUrls: body.referenceUrls,
+          },
+          current.cover_url,
+        ),
       )
     : current.reference_assets_json;
 

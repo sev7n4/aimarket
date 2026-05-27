@@ -31,6 +31,11 @@ const SEED_ITEMS: SeedItem[] = [
     resolution: "2k",
     coverUrl: cover("product-photo", 480, 640),
     variables: [{ key: "product", label: "产品", default: "护肤品" }],
+    referenceUrls: [
+      cover("product-photo-ref-1", 480, 640),
+      cover("product-photo-ref-2", 480, 640),
+      cover("product-photo-ref-3", 480, 640),
+    ],
   },
   {
     id: "virtual-tryon",
