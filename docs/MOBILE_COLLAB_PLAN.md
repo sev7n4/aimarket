@@ -74,3 +74,18 @@
 1. 本地 `pnpm typecheck` + `pnpm test:integration`
 2. 开 PR → CI + Integration + E2E 全绿后合并
 3. 合并后 Deploy workflow 部署生产
+
+## 合并与部署记录
+
+| PR | 合并时间 | 部署 |
+|----|----------|------|
+| [#30](https://github.com/sev7n4/aimarket/pull/30) 移动端协同 P0–P3 | 2026-05-27 | ✅ Deploy success |
+
+## 后续迭代（Post #30）
+
+| ID | 任务 | 分支 | 状态 |
+|----|------|------|------|
+| F-1 | pending assets 恢复预览图（id+url） | `fix/pending-assets-preview` | 进行中 |
+| F-2 | 生产移动 `<768px` 冒烟验收 | — | 待测 |
+| F-3 | E2E 覆盖移动协同关键路径 | `enhancement/mobile-e2e` | 待办 |
+| F-4 | 真实万相视频（`VIDEO_API_URL`） | `feature/wan-video` | 待办 |
