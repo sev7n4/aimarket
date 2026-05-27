@@ -108,6 +108,12 @@ interface CreationPanelProps {
   restoredAssets?: PendingAsset[];
   /** Studio 灵感同款灌入 */
   inspirationApply?: StudioInspirationApply | null;
+  /** 输入区左侧"灵感"圆按钮点击回调（首页用来展开扇形面板） */
+  onInspirationClick?: () => void;
+  /** 加载过灵感套图后，灵感按钮显示缩略图 */
+  inspirationCoverUrl?: string;
+  /** 灵感面板当前是否展开（控制按钮高亮态） */
+  inspirationActive?: boolean;
 }
 
 export function CreationPanel({
@@ -130,6 +136,9 @@ export function CreationPanel({
   readOnly = false,
   restoredAssets,
   inspirationApply = null,
+  onInspirationClick,
+  inspirationCoverUrl,
+  inspirationActive = false,
 }: CreationPanelProps) {
   const shouldNavigateOnSubmit =
     navigateOnSubmit ?? (!sessionId && !homeDirectSubmit);
@@ -667,6 +676,35 @@ export function CreationPanel({
           }
         >
           <div className="relative flex gap-3">
+            {onInspirationClick ? (
+              <button
+                type="button"
+                onClick={onInspirationClick}
+                aria-label={
+                  inspirationActive ? "收起灵感套图" : "查看灵感套图"
+                }
+                aria-pressed={inspirationActive}
+                className={`relative flex size-14 shrink-0 -rotate-6 items-center justify-center overflow-hidden rounded-xl border bg-gradient-to-br from-orange-500/20 to-purple-600/20 text-orange-200 shadow-[0_4px_18px_rgba(249,115,22,0.18)] transition hover:rotate-0 hover:shadow-[0_6px_22px_rgba(249,115,22,0.28)] ${
+                  inspirationActive
+                    ? "border-orange-300/80 ring-2 ring-orange-300/50"
+                    : "border-orange-300/40"
+                }`}
+              >
+                {inspirationCoverUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={inspirationCoverUrl}
+                    alt=""
+                    className="absolute inset-0 size-full object-cover"
+                  />
+                ) : null}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                <Sparkles className="relative size-5 drop-shadow" />
+                <span className="absolute bottom-0.5 left-0.5 right-0.5 text-center text-[8px] font-medium text-white/90 drop-shadow">
+                  灵感套图
+                </span>
+              </button>
+            ) : null}
             {showStackUpload ? (
               <UploadPreviewStack
                 items={uploadPreviews}

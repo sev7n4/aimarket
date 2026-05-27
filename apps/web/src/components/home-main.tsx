@@ -1,15 +1,32 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { HomeCreationSection } from "@/components/home-creation-section";
-import { HomeScenarioFan } from "@/components/home-scenario-fan";
+import {
+  HomeScenarioFan,
+  type ScenarioPickPreview,
+} from "@/components/home-scenario-fan";
 import { InspirationGallery } from "@/components/inspiration-gallery";
 
 export function HomeMain() {
+  const [fanExpanded, setFanExpanded] = useState(false);
+  const [lastPick, setLastPick] = useState<ScenarioPickPreview | null>(null);
+
+  const toggleFan = useCallback(() => setFanExpanded((v) => !v), []);
+
   return (
     <>
-      <HomeScenarioFan />
-      <HomeCreationSection />
-      {/* 移动端底部固定创作 dock 占位（高度随 dock + 热门能力区） */}
+      <HomeScenarioFan
+        expanded={fanExpanded}
+        onExpandedChange={setFanExpanded}
+        onPicked={setLastPick}
+        lastPick={lastPick}
+      />
+      <HomeCreationSection
+        onOpenInspiration={toggleFan}
+        inspirationCoverUrl={lastPick?.coverUrl}
+        inspirationOpen={fanExpanded}
+      />
       <div
         className="shrink-0 lg:hidden"
         style={{ height: "min(48vh, 340px)" }}

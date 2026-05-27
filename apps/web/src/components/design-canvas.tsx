@@ -230,6 +230,73 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     }, [touchUi, wheelZoomStep]);
 
     useEffect(() => {
+      const el = containerRef.current;
+      if (!el) return;
+      let pinchBase: { dist: number; zoom: number; pan: { x: number; y: number }; cx: number; cy: number } | null = null;
+
+      function dist(a: Touch, b: Touch) {
+        const dx = a.clientX - b.clientX;
+        const dy = a.clientY - b.clientY;
+        return Math.hypot(dx, dy);
+      }
+
+      function center(a: Touch, b: Touch) {
+        return {
+          x: (a.clientX + b.clientX) / 2,
+          y: (a.clientY + b.clientY) / 2,
+        };
+      }
+
+      function onTouchStart(e: TouchEvent) {
+        if (e.touches.length !== 2) return;
+        const rect = el!.getBoundingClientRect();
+        const c = center(e.touches[0], e.touches[1]);
+        pinchBase = {
+          dist: dist(e.touches[0], e.touches[1]),
+          zoom,
+          pan: { x: pan.x, y: pan.y },
+          cx: c.x - rect.left,
+          cy: c.y - rect.top,
+        };
+        dragRef.current = null;
+        panStart.current = null;
+        if (longPressRef.current) {
+          clearTimeout(longPressRef.current);
+          longPressRef.current = null;
+        }
+      }
+
+      function onTouchMove(e: TouchEvent) {
+        if (!pinchBase || e.touches.length !== 2) return;
+        e.preventDefault();
+        const d = dist(e.touches[0], e.touches[1]);
+        const ratio = d / pinchBase.dist;
+        const nextZoom = Math.min(2, Math.max(0.35, pinchBase.zoom * ratio));
+        const k = nextZoom / pinchBase.zoom;
+        setZoom(nextZoom);
+        setPan({
+          x: pinchBase.cx - (pinchBase.cx - pinchBase.pan.x) * k,
+          y: pinchBase.cy - (pinchBase.cy - pinchBase.pan.y) * k,
+        });
+      }
+
+      function onTouchEnd(e: TouchEvent) {
+        if (e.touches.length < 2) pinchBase = null;
+      }
+
+      el.addEventListener("touchstart", onTouchStart, { passive: false });
+      el.addEventListener("touchmove", onTouchMove, { passive: false });
+      el.addEventListener("touchend", onTouchEnd);
+      el.addEventListener("touchcancel", onTouchEnd);
+      return () => {
+        el.removeEventListener("touchstart", onTouchStart);
+        el.removeEventListener("touchmove", onTouchMove);
+        el.removeEventListener("touchend", onTouchEnd);
+        el.removeEventListener("touchcancel", onTouchEnd);
+      };
+    }, [zoom, pan.x, pan.y]);
+
+    useEffect(() => {
       function onKey(e: KeyboardEvent) {
         if (e.key !== "Delete" && e.key !== "Backspace") return;
         const tag = (e.target as HTMLElement).tagName;
