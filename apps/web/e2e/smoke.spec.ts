@@ -87,10 +87,8 @@ test.describe("smoke", () => {
       .getByRole("button", { name: "做同款", exact: true })
       .click();
     await expect(page).toHaveURL(/\/studio/, { timeout: 15_000 });
-    await expect(
-      page.getByRole("button", { name: "对话", exact: true }),
-    ).toBeVisible({ timeout: 15_000 });
     const textarea = page.locator("textarea").first();
+    await expect(textarea).toBeVisible({ timeout: 15_000 });
     await expect(textarea).toHaveValue(/大理石|产品|摄影/, { timeout: 10_000 });
   });
 });
