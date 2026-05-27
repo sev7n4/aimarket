@@ -6,6 +6,7 @@ import {
   executeAgentPlan,
   ensureSession,
   fetchProductSetInit,
+  submitVideoGeneration,
   submitEcommerceGenerate,
   submitEcommerceRerunSlide,
 } from "@/lib/api-client";
@@ -46,6 +47,7 @@ export function InspirationSetGenerateBar({
   const [pending, setPending] = useState(false);
   const [rerunPendingKey, setRerunPendingKey] = useState<string | null>(null);
   const [agentPending, setAgentPending] = useState(false);
+  const [videoPending, setVideoPending] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
 
   const productItem = findCanvasItemByRole(canvasItems, "product");
@@ -175,6 +177,59 @@ export function InspirationSetGenerateBar({
     }
   }
 
+  async function handleGeneratePromoVideo() {
+    if (readOnly || pending || rerunPendingKey || agentPending || videoPending) {
+      return;
+    }
+    if (!productItem?.assetId) {
+      setHint("请先上传商品图并标记为「商品素材」后再生成宣传短视频");
+      return;
+    }
+    const outputItems = canvasItems.filter((item) => item.role === "output");
+    if (outputItems.length < 2) {
+      setHint("请先至少生成 2 张套图结果，再生成宣传短视频");
+      return;
+    }
+    const highlights = Array.from(
+      new Set(
+        outputItems
+          .map((item) => item.label)
+          .filter((label): label is string => Boolean(label)),
+      ),
+    );
+    const videoPrompt = [
+      `基于电商套图素材生成 8 秒宣传短视频，突出商品卖点与转化氛围。`,
+      `商品描述：${productInfo || "请根据商品图自动提炼核心卖点"}`,
+      highlights.length > 0 ? `可用画面：${highlights.join("、")}` : null,
+      `风格：节奏明快、镜头平滑、适合电商投放。`,
+      `结尾保留品牌展示和购买引导。`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    setVideoPending(true);
+    setHint(null);
+    try {
+      await ensureSession(sessionId, "ecommerce", {
+        kind: "project",
+        title: inspirationApply?.title,
+        sourceInspirationId: inspirationApply?.id,
+      });
+      const res = await submitVideoGeneration({
+        sessionId,
+        prompt: videoPrompt,
+        modelId: "seedance-2",
+        count: 1,
+      });
+      onJobStarted(res.jobId);
+      setHint(`宣传短视频生成中 · 约 ${res.estimatedPoints} 积分`);
+    } catch (err) {
+      setHint(err instanceof Error ? err.message : "宣传短视频生成失败");
+    } finally {
+      setVideoPending(false);
+    }
+  }
+
   if (!inspirationApply) return null;
 
   const ready = productInfo.length >= 10 && Boolean(productItem?.assetId);
@@ -184,6 +239,7 @@ export function InspirationSetGenerateBar({
       .map((item) => item.label ?? "")
       .filter(Boolean),
   );
+  const outputCount = canvasItems.filter((item) => item.role === "output").length;
 
   return (
     <div className="mx-1 mb-3 rounded-xl border border-orange-500/25 bg-orange-500/5 p-3">
@@ -198,30 +254,52 @@ export function InspirationSetGenerateBar({
               : "建议标记一张「套图参考」与一张「商品素材」"}
           </p>
         </div>
-        <button
-          type="button"
-          disabled={readOnly || pending || agentPending || !ready}
-          onClick={() => void handleGenerateSet()}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-orange-500 px-4 py-2 text-xs font-medium text-black hover:bg-orange-400 disabled:opacity-50"
-        >
-          {pending ?
-            <Loader2 className="size-3.5 animate-spin" />
-          : <Sparkles className="size-3.5" />}
-          生成套图
-        </button>
-        <button
-          type="button"
-          disabled={readOnly || pending || agentPending || !ready}
-          onClick={() => void handleAgentPipeline()}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-orange-500/40 bg-black/40 px-3 py-2 text-xs font-medium text-orange-300 hover:border-orange-400/70 disabled:opacity-50"
-        >
-          {agentPending ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <Sparkles className="size-3.5" />
-          )}
-          Agent 串联
-        </button>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            disabled={readOnly || pending || agentPending || videoPending || !ready}
+            onClick={() => void handleGenerateSet()}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-orange-500 px-4 py-2 text-xs font-medium text-black hover:bg-orange-400 disabled:opacity-50"
+          >
+            {pending ?
+              <Loader2 className="size-3.5 animate-spin" />
+            : <Sparkles className="size-3.5" />}
+            生成套图
+          </button>
+          <button
+            type="button"
+            disabled={readOnly || pending || agentPending || videoPending || !ready}
+            onClick={() => void handleAgentPipeline()}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-orange-500/40 bg-black/40 px-3 py-2 text-xs font-medium text-orange-300 hover:border-orange-400/70 disabled:opacity-50"
+          >
+            {agentPending ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="size-3.5" />
+            )}
+            Agent 串联
+          </button>
+          <button
+            type="button"
+            disabled={
+              readOnly ||
+              pending ||
+              agentPending ||
+              videoPending ||
+              outputCount < 2 ||
+              !productItem?.assetId
+            }
+            onClick={() => void handleGeneratePromoVideo()}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-medium text-zinc-300 hover:border-white/40 disabled:opacity-50"
+          >
+            {videoPending ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="size-3.5" />
+            )}
+            生成宣传短视频
+          </button>
+        </div>
       </div>
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
         {ECOMMERCE_SLIDES.map((slide) => {
