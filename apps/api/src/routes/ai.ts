@@ -14,6 +14,7 @@ import {
   enrichPromptWithReferences,
   resolveReferenceUrls,
 } from "../lib/references.js";
+import { toPublicAssetUrl } from "../lib/public-url.js";
 import { db } from "../db/index.js";
 import { AppError } from "../lib/errors.js";
 import { assertPromptAllowed } from "../lib/content-moderation.js";
@@ -129,7 +130,7 @@ ai.post("/generate", async (c) => {
       const asset = db
         .prepare("SELECT url FROM assets WHERE id = ? AND user_id = ?")
         .get(assetId, userId) as { url: string } | undefined;
-      if (asset) assetUrls.push(asset.url);
+      if (asset) assetUrls.push(toPublicAssetUrl(asset.url));
     }
   }
 

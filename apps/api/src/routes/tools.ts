@@ -11,6 +11,7 @@ import {
   enrichPromptWithReferences,
   resolveReferenceUrls,
 } from "../lib/references.js";
+import { toPublicAssetUrl } from "../lib/public-url.js";
 import { AppError } from "../lib/errors.js";
 import { recordAnalyticsEvent } from "../lib/analytics.js";
 import { db } from "../db/index.js";
@@ -78,7 +79,7 @@ tools.post("/:toolId/run", async (c) => {
       const asset = db
         .prepare("SELECT url FROM assets WHERE id = ? AND user_id = ?")
         .get(assetId, userId) as { url: string } | undefined;
-      if (asset) assetUrls.push(asset.url);
+      if (asset) assetUrls.push(toPublicAssetUrl(asset.url));
     }
   }
   prompt = enrichPromptWithReferences(prompt, [...refUrls, ...assetUrls]);

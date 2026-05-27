@@ -1,6 +1,7 @@
 import { AppError } from "../../lib/errors.js";
 import { getTool } from "../../lib/tools.js";
 import { persistOutputUrls } from "../../lib/persist-output.js";
+import { toPublicAssetUrls } from "../../lib/public-url.js";
 import { extractReferenceUrlsFromPrompt } from "./extract-references.js";
 import { cutoutHttpProvider } from "./cutout-http.js";
 import { cutoutMockProvider } from "./cutout-mock.js";
@@ -47,10 +48,11 @@ export async function runToolImages(
     referenceUrls?: string[];
   },
 ): Promise<ToolRunResult> {
-  const referenceUrls =
+  const rawRefs =
     params.referenceUrls?.length ?
       params.referenceUrls
     : extractReferenceUrlsFromPrompt(params.prompt);
+  const referenceUrls = toPublicAssetUrls(rawRefs);
 
   const provider = resolveToolProvider(params.toolId);
   const result = await provider.run({
