@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
+import { BRAND_NAME, BRAND_SLOGAN } from "@/lib/brand";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,23 +16,23 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "AIMarket - 中文 AI 修图与电商设计",
-    template: "%s | AIMarket",
+    default: `${BRAND_NAME} - ${BRAND_SLOGAN}`,
+    template: `%s | ${BRAND_NAME}`,
   },
   description:
-    "一句话完成修图、电商海报、虚拟试衣、抠图扩图与照片修复。对话式改图，多模型智能路由。",
+    "出图宝专注电商主图、套图、详情出图，并基于商品图生成宣传短视频。模板同款、套图 Agent、画布精修。",
   openGraph: {
-    title: "AIMarket - 中文 AI 修图神器",
+    title: `${BRAND_NAME} - ${BRAND_SLOGAN}`,
     description:
-      "让每个人都能轻松创作出专业级图片和视频。对话修图、电商套图 Agent、AI 工具一站完成。",
+      "电商出图工作台：商品图到短视频，一套做完上架。",
     type: "website",
     locale: "zh_CN",
-    siteName: "AIMarket",
+    siteName: BRAND_NAME,
   },
   twitter: {
     card: "summary_large_image",
-    title: "AIMarket - 中文 AI 修图与电商设计",
-    description: "对话式改图、电商套图、多模型智能路由",
+    title: `${BRAND_NAME} - 电商出图与宣传短视频`,
+    description: BRAND_SLOGAN,
   },
 };
 

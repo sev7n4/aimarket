@@ -2,7 +2,7 @@
   "name": "aimarket",
   "private": true,
   "version": "0.1.0",
-  "description": "中文 AI 修图与电商设计平台",
+  "description": "出图宝 — 电商出图与宣传短视频",
   "scripts": {
     "dev": "pnpm --parallel -r dev",
     "dev:web": "pnpm --filter @aimarket/web dev",

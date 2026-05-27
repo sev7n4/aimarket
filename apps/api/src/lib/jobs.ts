@@ -190,7 +190,19 @@ export async function processGenerationJob({
       });
       urls = video.urls;
     } else if (labels && labels.length > 1) {
-      for (const label of labels) {
+      const assistantMessageId = randomUUID();
+      db.prepare(
+        `INSERT INTO messages (id, session_id, role, content, job_id)
+         VALUES (?, ?, 'assistant', ?, ?)`,
+      ).run(
+        assistantMessageId,
+        job.session_id,
+        `正在生成 ${labels.length} 张套图…`,
+        jobId,
+      );
+
+      for (let li = 0; li < labels.length; li++) {
+        const label = labels[li];
         const part = await generateImages({
           prompt: `${job.prompt}\n【画面】${label}`,
           modelId: job.model_id,
@@ -198,8 +210,21 @@ export async function processGenerationJob({
           resolution: job.resolution,
           aspectRatio: job.aspect_ratio ?? "1:1",
         });
-        urls.push(part.urls[0]);
+        const url = part.urls[0];
         imageProvider = part.provider;
+        urls.push(url);
+
+        db.transaction(() => {
+          db.prepare(
+            `INSERT INTO job_outputs (id, job_id, url, sort_order, label) VALUES (?, ?, ?, ?, ?)`,
+          ).run(randomUUID(), jobId, url, li, label);
+          db.prepare(
+            `INSERT INTO message_outputs (id, message_id, url, sort_order, label) VALUES (?, ?, ?, ?, ?)`,
+          ).run(randomUUID(), assistantMessageId, url, li, label);
+          db.prepare(
+            `UPDATE image_sessions SET updated_at = datetime('now') WHERE id = ?`,
+          ).run(job.session_id);
+        });
       }
     } else if (job.tool_type) {
       const result = await runToolImages({
@@ -232,6 +257,7 @@ export async function processGenerationJob({
     }));
 
     const durationMs = Math.max(0, Date.now() - startedMs);
+    const isMultiSlide = Boolean(labels && labels.length > 1);
     const assistantMessageId = randomUUID();
     const isVideo = model?.type === "video";
     const studioTool =
@@ -247,6 +273,19 @@ export async function processGenerationJob({
             ? `已生成 ${outputs.length} 段视频（${model?.name ?? job.model_id}）。`
             : `已根据你的描述生成 ${outputs.length} 张图片。`;
 
+    if (isMultiSlide) {
+      db.transaction(() => {
+        db.prepare(
+          `UPDATE messages SET content = ? WHERE job_id = ? AND role = 'assistant'`,
+        ).run(summary, jobId);
+        db.prepare(
+          `UPDATE generation_jobs SET status = 'succeeded', image_provider = ?, completed_at = datetime('now') WHERE id = ?`,
+        ).run(imageProvider, jobId);
+        db.prepare(
+          `UPDATE image_sessions SET status = 'idle', updated_at = datetime('now') WHERE id = ?`,
+        ).run(job.session_id);
+      });
+    } else {
     db.transaction(() => {
       for (let i = 0; i < outputs.length; i++) {
         db.prepare(
@@ -273,6 +312,7 @@ export async function processGenerationJob({
         `UPDATE image_sessions SET status = 'idle', updated_at = datetime('now') WHERE id = ?`,
       ).run(job.session_id);
     });
+    }
 
     recordAnalyticsEvent(job.user_id, "generation_success", {
       job_id: jobId,

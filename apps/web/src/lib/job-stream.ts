@@ -8,6 +8,8 @@ export interface JobStreamEvent {
   error?: string | null;
   outputs?: { url: string; sort_order: number }[];
   outputType?: string;
+  count?: number;
+  completed?: number;
 }
 
 const TERMINAL = new Set(["succeeded", "failed"]);
@@ -91,17 +93,22 @@ function pollJob(
 ): () => void {
   let cancelled = false;
   let lastStatus = "";
+  let lastOutputCount = -1;
 
   (async () => {
     for (let i = 0; i < POLL_MAX_ATTEMPTS && !cancelled; i++) {
       try {
         const job = await fetchJob(jobId);
-        if (job.status !== lastStatus) {
+        const outputCount = job.outputs?.length ?? 0;
+        if (job.status !== lastStatus || outputCount !== lastOutputCount) {
           lastStatus = job.status;
+          lastOutputCount = outputCount;
           onEvent({
             status: job.status,
             error: job.error,
             outputs: job.outputs,
+            count: job.count,
+            completed: outputCount,
           });
         }
         if (TERMINAL.has(job.status)) {

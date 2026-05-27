@@ -207,10 +207,13 @@ ai.get("/jobs/:jobId/stream", (c) => {
 
   return streamSSE(c, async (stream) => {
     let lastStatus = "";
+    let lastOutputCount = -1;
     for (let i = 0; i < 120; i++) {
       const job = getJob(jobId, userId);
-      if (job.status !== lastStatus) {
+      const outputCount = job.outputs.length;
+      if (job.status !== lastStatus || outputCount !== lastOutputCount) {
         lastStatus = job.status as string;
+        lastOutputCount = outputCount;
         await stream.writeSSE({
           event: "status",
           data: JSON.stringify({
@@ -218,6 +221,8 @@ ai.get("/jobs/:jobId/stream", (c) => {
             error: job.error,
             outputs: job.outputs,
             outputType: job.outputType,
+            count: job.count,
+            completed: outputCount,
           }),
         });
       }

@@ -12,7 +12,7 @@ export default function TermsPage() {
         <h1 className="text-2xl font-bold text-white">服务条款</h1>
         <p className="mt-4">更新日期：2026-05-24</p>
         <p className="mt-4">
-          使用 AIMarket 即表示您同意遵守本条款。生成内容由 AI 产出，您需自行确保
+          使用出图宝即表示您同意遵守本条款。生成内容由 AI 产出，您需自行确保
           不侵犯他人知识产权、肖像权与商标权，并符合当地法律法规。
         </p>
         <p className="mt-4">

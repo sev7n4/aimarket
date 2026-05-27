@@ -77,7 +77,7 @@ export default function SettingsPage() {
                   value={brandName}
                   onChange={(e) => setBrandName(e.target.value)}
                   className="input-field"
-                  placeholder="AIMarket Store"
+                  placeholder="我的店铺"
                 />
               </Field>
               <div className="grid grid-cols-2 gap-4">

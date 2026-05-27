@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import { LoginDialog } from "@/components/login-dialog";
 import { CreditsDialog } from "@/components/credits-dialog";
 import { SessionTitleActions } from "@/components/session-title-actions";
+import { BrandLogo } from "@/components/brand-logo";
 import { fetchSignStatus, getToken, signIn } from "@/lib/api-client";
 
 interface StudioHeaderProps {
@@ -72,12 +73,12 @@ export function StudioHeader({
           >
             <Home className="size-5" />
           </Link>
-          <Link
+          <BrandLogo
             href="/"
-            className="hidden rounded-lg px-2 py-1 text-sm font-semibold text-zinc-300 hover:text-white sm:inline"
-          >
-            AIMarket
-          </Link>
+            variant="mark"
+            markSize="sm"
+            className="hidden sm:inline-flex"
+          />
           <div className="group flex min-w-0 max-w-[min(100%,280px)] items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5 sm:max-w-xs">
             <FolderOpen className="size-4 shrink-0 text-zinc-500" />
             <div className="min-w-0 flex-1">

@@ -79,7 +79,7 @@ export default function ProjectsPage() {
           </div>
         </div>
         <p className="mt-1 text-sm text-zinc-500">
-          画布用于单轮创作，项目可长期管理多轮会话
+          画布用于单轮探索；项目是可交付单元（Session → 精修 → 导出）
         </p>
 
         {user ? (

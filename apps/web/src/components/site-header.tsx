@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { LoginDialog } from "@/components/login-dialog";
 import { CreditsDialog } from "@/components/credits-dialog";
 import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
+import { BrandLogo } from "@/components/brand-logo";
 import { fetchSignStatus, getToken, signIn } from "@/lib/api-client";
 
 export function SiteHeader() {
@@ -63,15 +64,7 @@ export function SiteHeader() {
             >
               <Menu className="size-5" />
             </button>
-            <Link
-              href="/"
-              className="flex items-center gap-2 font-semibold tracking-tight"
-            >
-              <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-purple-600 text-sm font-bold text-white">
-                AM
-              </span>
-              <span>AIMarket</span>
-            </Link>
+            <BrandLogo href="/" variant="mark" className="tracking-tight" />
           </div>
           <div className="flex items-center gap-2">
             {!loading && user && getToken() ? (

@@ -35,6 +35,8 @@ interface DesignCanvasProps {
   readOnly?: boolean;
   jobStreamStatus?: string | null;
   jobFailed?: boolean;
+  jobProgressCompleted?: number;
+  jobProgressTotal?: number;
   onOpenChatPanel?: () => void;
   selectSourceBanner?: string | null;
   onCutoutItem?: (item: CanvasItem) => void;
@@ -55,6 +57,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       readOnly = false,
       jobStreamStatus = null,
       jobFailed = false,
+      jobProgressCompleted = 0,
+      jobProgressTotal = 0,
       onOpenChatPanel,
       selectSourceBanner = null,
       onCutoutItem,
@@ -278,6 +282,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 status={jobStreamStatus}
                 failed={jobFailed}
                 onOpenChat={onOpenChatPanel}
+                completed={jobProgressCompleted}
+                total={jobProgressTotal}
               />
             ) : null}
 

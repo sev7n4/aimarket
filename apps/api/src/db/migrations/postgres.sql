@@ -220,3 +220,9 @@ CREATE TABLE IF NOT EXISTS inspiration_templates (
 
 CREATE INDEX IF NOT EXISTS idx_inspiration_published
   ON inspiration_templates(status, sort_order, legacy_id);
+
+-- Product morphology (2026-05-27)
+ALTER TABLE image_sessions ADD COLUMN IF NOT EXISTS source_inspiration_id TEXT;
+ALTER TABLE image_sessions ADD COLUMN IF NOT EXISTS template_variables_json TEXT;
+ALTER TABLE message_outputs ADD COLUMN IF NOT EXISTS label TEXT;
+ALTER TABLE job_outputs ADD COLUMN IF NOT EXISTS label TEXT;

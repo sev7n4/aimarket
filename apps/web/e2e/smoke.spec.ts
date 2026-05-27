@@ -1,10 +1,17 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("smoke", () => {
-  test("首页展示品牌标题", async ({ page }) => {
+  test("首页展示品牌与 Slogan", async ({ page }) => {
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: "修图，就用 AIMarket" }),
+      page.getByRole("banner").getByRole("link", {
+        name: /出图宝.*商品图到短视频/,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", {
+        name: "商品图到短视频，一套做完上架。",
+      }),
     ).toBeVisible();
   });
 
@@ -15,7 +22,7 @@ test.describe("smoke", () => {
     await page.getByRole("button", { name: "邮箱" }).click();
     await page.getByRole("button", { name: "立即注册" }).click();
     await expect(
-      page.getByRole("heading", { name: "注册 AIMarket" }),
+      page.getByRole("heading", { name: "注册" }),
     ).toBeVisible();
     await page.getByPlaceholder("邮箱").fill(email);
     await page.getByPlaceholder("密码").fill("testpass123");
@@ -62,6 +69,10 @@ test.describe("smoke", () => {
       .first();
     await expect(card).toBeVisible({ timeout: 15_000 });
     await card.click();
+    await expect(
+      page.getByRole("dialog").getByRole("heading", { name: "产品摄影图" }),
+    ).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: "填入工作台" }).click();
     const textarea = page.locator("#home-creation textarea").first();
     await expect(textarea).toHaveValue(/大理石|产品|摄影/, { timeout: 10_000 });
   });

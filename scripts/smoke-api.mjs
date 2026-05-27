@@ -561,7 +561,46 @@ async function main() {
       inspDetail.res.ok && typeof inspDetail.json?.data?.prompt === "string",
       `model=${inspDetail.json?.data?.modelId}`,
     );
+
+    const inspRender = await req(`/api/v1/inspiration/${firstId}/render`, {
+      method: "POST",
+      headers: { auth: false },
+      body: JSON.stringify({ variables: { product: "测试商品" } }),
+    });
+    ok(
+      "POST inspiration/:id/render",
+      inspRender.res.ok && typeof inspRender.json?.data?.prompt === "string",
+    );
+
+    const forkProject = await req(
+      `/api/v1/inspiration/${firstId}/fork-project`,
+      {
+        method: "POST",
+        headers: authH,
+        body: JSON.stringify({ variables: { product: "Fork测试" } }),
+      },
+    );
+    ok(
+      "POST inspiration/:id/fork-project",
+      forkProject.res.status === 201 &&
+        forkProject.json?.data?.session?.kind === "project",
+      `session=${forkProject.json?.data?.session?.id}`,
+    );
   }
+
+  const agentPlan = await req("/api/v1/agent/plan", {
+    method: "POST",
+    headers: authH,
+    body: JSON.stringify({
+      prompt: "帮我把商品抠图再扩成海报",
+      mode: "chat",
+    }),
+  });
+  ok(
+    "POST agent/plan",
+    agentPlan.res.ok && Array.isArray(agentPlan.json?.data?.steps),
+    `steps=${agentPlan.json?.data?.steps?.length}`,
+  );
 
   const keywordPage = await req("/api/v1/keyword/page?pageSize=3", {
     headers: { auth: false },

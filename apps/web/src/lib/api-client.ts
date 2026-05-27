@@ -747,6 +747,84 @@ export async function fetchInspirationDetail(id: string) {
   return res.data;
 }
 
+export async function renderInspiration(
+  id: string,
+  variables?: Record<string, string>,
+) {
+  const res = await request<{ data: InspirationDetail }>(
+    `/api/v1/inspiration/${encodeURIComponent(id)}/render`,
+    {
+      method: "POST",
+      body: JSON.stringify({ variables }),
+      auth: false,
+    },
+  );
+  return res.data;
+}
+
+export async function forkInspirationProject(
+  id: string,
+  body?: {
+    variables?: Record<string, string>;
+    mode?: "chat" | "quick" | "ecommerce";
+    workspaceId?: string;
+  },
+) {
+  const res = await request<{
+    data: {
+      session: ImageSession;
+      inspiration: InspirationDetail;
+      estimatedPoints: number;
+    };
+  }>(`/api/v1/inspiration/${encodeURIComponent(id)}/fork-project`, {
+    method: "POST",
+    body: JSON.stringify(body ?? {}),
+  });
+  return res.data;
+}
+
+export async function fetchAgentPlan(body: {
+  prompt: string;
+  mode: string;
+  modelId?: string;
+  resolution?: string;
+  aspectRatio?: string;
+  count?: number;
+}) {
+  const res = await request<{ data: import("./types").AgentPlan }>(
+    "/api/v1/agent/plan",
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+  return res.data;
+}
+
+export async function executeAgentPlan(body: {
+  sessionId: string;
+  prompt: string;
+  mode: "chat" | "quick" | "ecommerce";
+  modelId?: string;
+  resolution?: string;
+  aspectRatio?: string;
+  count?: number;
+  confirmed?: boolean;
+}) {
+  const res = await request<{
+    data: {
+      jobId: string;
+      estimatedPoints: number;
+      status: string;
+      plan: import("./types").AgentPlan;
+    };
+  }>("/api/v1/agent/execute", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return res.data;
+}
+
 export async function optimizePromptApi(
   prompt: string,
   mode: "chat" | "quick" | "ecommerce" = "chat",
