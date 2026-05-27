@@ -69,6 +69,10 @@ test.describe("smoke", () => {
       .first();
     await expect(card).toBeVisible({ timeout: 15_000 });
     await card.click();
+    await expect(
+      page.getByRole("dialog").getByRole("heading", { name: "产品摄影图" }),
+    ).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: "填入工作台" }).click();
     const textarea = page.locator("#home-creation textarea").first();
     await expect(textarea).toHaveValue(/大理石|产品|摄影/, { timeout: 10_000 });
   });

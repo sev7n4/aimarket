@@ -21,15 +21,18 @@ test.describe("mobile collab", () => {
 
   test("首页移动 dock 展示热门能力 chips", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText("热门能力")).toBeVisible();
+    await expect(page.getByText("电商热门能力")).toBeVisible();
     await expect(page.getByRole("button", { name: "AI 扩图" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "快速出图" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "白底主图" })).toBeVisible();
   });
 
   test("已登录首页展示继续编辑最近会话", async ({ page }) => {
     await registerAndLogin(page);
     await page.goto("/studio");
     await expect(page).toHaveURL(/\/studio/, { timeout: 15_000 });
+    await expect(
+      page.getByRole("button", { name: "对话", exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
     await page.goto("/");
     await expect(page.getByText("继续编辑")).toBeVisible({ timeout: 10_000 });
   });
