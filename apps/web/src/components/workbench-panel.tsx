@@ -6,6 +6,7 @@ import { StudioToolGrid } from "@/components/studio-tool-grid";
 import { ModeTabs, type CreationMode } from "@aimarket/ui";
 import { modeTabs } from "@/lib/modes";
 import { LABELS, chatEmptyHint } from "@/lib/mobile-labels";
+import { BRAND_NAME } from "@/lib/brand";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import type { PendingAsset } from "@/lib/pending-assets";
@@ -185,7 +186,7 @@ export function WorkbenchPanel({
               <p className="text-3xl" aria-hidden>
                 😊
               </p>
-              <h2 className="mt-3 text-lg font-semibold">Hi，我是 AIMarket</h2>
+              <h2 className="mt-3 text-lg font-semibold">Hi，我是{BRAND_NAME}</h2>
               <p className="mt-2 text-xs text-zinc-500">
                 {chatEmptyHint(mobile)}
               </p>

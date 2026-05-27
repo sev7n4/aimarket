@@ -10,6 +10,7 @@ import { LoginDialog } from "@/components/login-dialog";
 import { CreditsDialog } from "@/components/credits-dialog";
 import { SessionTitleActions } from "@/components/session-title-actions";
 import { fetchSignStatus, getToken, signIn } from "@/lib/api-client";
+import { BRAND_NAME } from "@/lib/brand";
 
 interface StudioHeaderProps {
   sessionId?: string;
@@ -76,7 +77,7 @@ export function StudioHeader({
             href="/"
             className="hidden rounded-lg px-2 py-1 text-sm font-semibold text-zinc-300 hover:text-white sm:inline"
           >
-            AIMarket
+            {BRAND_NAME}
           </Link>
           <div className="group flex min-w-0 max-w-[min(100%,280px)] items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5 sm:max-w-xs">
             <FolderOpen className="size-4 shrink-0 text-zinc-500" />

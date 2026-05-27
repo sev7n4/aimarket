@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BRAND_NAME } from "@/lib/brand";
 import { X } from "lucide-react";
 import { HomeRecentSessions } from "@/components/home-recent-sessions";
 import { LABELS } from "@/lib/mobile-labels";
@@ -32,7 +33,7 @@ export function MobileNavDrawer({ open, onClose }: MobileNavDrawerProps) {
       />
       <nav className="fixed inset-y-0 left-0 z-[70] w-64 border-r border-white/10 bg-[#0a0a0a] p-4 lg:hidden">
         <div className="mb-6 flex items-center justify-between">
-          <span className="font-semibold">AIMarket</span>
+          <span className="font-semibold">{BRAND_NAME}</span>
           <button
             type="button"
             onClick={onClose}

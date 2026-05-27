@@ -1,3 +1,5 @@
+import { BRAND_NAME, BRAND_SLOGAN } from "@/lib/brand";
+
 export function HeroSection() {
   return (
     <section className="relative px-4 pb-8 pt-10 text-center">
@@ -12,10 +14,10 @@ export function HeroSection() {
           </span>
         </div>
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-          电商出图，就用 AIMarket
+          {BRAND_NAME}
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-base text-zinc-400 sm:text-lg">
-          主图套图一键生成，基于出图自动产出产品宣传短视频
+          {BRAND_SLOGAN}
         </p>
       </div>
     </section>

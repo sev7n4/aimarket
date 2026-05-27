@@ -1,10 +1,12 @@
 import { test, expect } from "@playwright/test";
 
+import { BRAND_NAME } from "@/lib/brand";
+
 test.describe("smoke", () => {
   test("首页展示品牌标题", async ({ page }) => {
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: "电商出图，就用 AIMarket" }),
+      page.getByRole("heading", { name: BRAND_NAME }),
     ).toBeVisible();
   });
 
@@ -15,7 +17,7 @@ test.describe("smoke", () => {
     await page.getByRole("button", { name: "邮箱" }).click();
     await page.getByRole("button", { name: "立即注册" }).click();
     await expect(
-      page.getByRole("heading", { name: "注册 AIMarket" }),
+      page.getByRole("heading", { name: `注册${BRAND_NAME}` }),
     ).toBeVisible();
     await page.getByPlaceholder("邮箱").fill(email);
     await page.getByPlaceholder("密码").fill("testpass123");

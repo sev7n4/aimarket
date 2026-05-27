@@ -9,6 +9,7 @@ import { LoginDialog } from "@/components/login-dialog";
 import { CreditsDialog } from "@/components/credits-dialog";
 import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
 import { fetchSignStatus, getToken, signIn } from "@/lib/api-client";
+import { BRAND_NAME } from "@/lib/brand";
 
 export function SiteHeader() {
   const { user, logout, loading, refreshUser } = useAuth();
@@ -70,7 +71,7 @@ export function SiteHeader() {
               <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-purple-600 text-sm font-bold text-white">
                 AM
               </span>
-              <span>AIMarket</span>
+              <span>{BRAND_NAME}</span>
             </Link>
           </div>
           <div className="flex items-center gap-2">

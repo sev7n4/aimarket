@@ -13,25 +13,27 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+import { BRAND_NAME, BRAND_SLOGAN } from "@/lib/brand";
+
 export const metadata: Metadata = {
   title: {
-    default: "AIMarket - 电商出图与宣传短视频",
-    template: "%s | AIMarket",
+    default: `${BRAND_NAME} - ${BRAND_SLOGAN}`,
+    template: `%s | ${BRAND_NAME}`,
   },
   description:
-    "专注电商主图、套图、详情出图；基于商品图一键生成产品宣传短视频。模板同款、套图 Agent、画布精修。",
+    "出图宝专注电商主图、套图、详情出图，并基于商品图生成宣传短视频。模板同款、套图 Agent、画布精修。",
   openGraph: {
-    title: "AIMarket - 从商品主图到宣传短视频",
+    title: `${BRAND_NAME} - ${BRAND_SLOGAN}`,
     description:
-      "电商出图工作台：主图套图一键生成，基于出图自动产出产品宣传短视频。",
+      "电商出图工作台：商品图到短视频，一套做完上架。",
     type: "website",
     locale: "zh_CN",
-    siteName: "AIMarket",
+    siteName: BRAND_NAME,
   },
   twitter: {
     card: "summary_large_image",
-    title: "AIMarket - 电商出图与宣传短视频",
-    description: "电商主图套图 + 基于出图的产品宣传短视频",
+    title: `${BRAND_NAME} - 电商出图与宣传短视频`,
+    description: BRAND_SLOGAN,
   },
 };
 

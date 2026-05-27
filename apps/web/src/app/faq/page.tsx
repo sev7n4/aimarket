@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { BRAND_NAME } from "@/lib/brand";
 
 export const metadata = { title: "常见问题" };
 
 const faqs = [
   {
-    q: "AIMarket 是什么？",
+    q: `${BRAND_NAME} 是什么？`,
     a: "专注电商出图与宣传短视频：主图/套图/详情一键生成，并基于出图产出产品宣传短片。",
   },
   {
@@ -23,7 +24,7 @@ const faqs = [
   },
   {
     q: "如何联系客服？",
-    a: "请发送邮件至 support@aimarket.example（上线前替换为正式邮箱）。",
+    a: "请发送邮件至 support@chutubao.example（上线前替换为正式邮箱）。",
   },
 ];
 
