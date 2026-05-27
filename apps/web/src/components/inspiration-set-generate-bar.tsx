@@ -5,11 +5,13 @@ import { Loader2, RotateCcw, Sparkles } from "lucide-react";
 import {
   executeAgentPlan,
   ensureSession,
+  exportSession,
   fetchProductSetInit,
   submitVideoGeneration,
   submitEcommerceGenerate,
   submitEcommerceRerunSlide,
 } from "@/lib/api-client";
+import { resolveApiBase } from "@/lib/api-base";
 import type { CanvasItem } from "@/lib/canvas-tools";
 import { findCanvasItemByRole } from "@/lib/canvas-roles";
 import type { StudioInspirationApply } from "@/lib/inspiration-studio";
@@ -48,6 +50,7 @@ export function InspirationSetGenerateBar({
   const [rerunPendingKey, setRerunPendingKey] = useState<string | null>(null);
   const [agentPending, setAgentPending] = useState(false);
   const [videoPending, setVideoPending] = useState(false);
+  const [exportPending, setExportPending] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
 
   const productItem = findCanvasItemByRole(canvasItems, "product");
@@ -230,6 +233,44 @@ export function InspirationSetGenerateBar({
     }
   }
 
+  async function handleExportDeliveryPack() {
+    if (
+      readOnly ||
+      pending ||
+      rerunPendingKey ||
+      agentPending ||
+      videoPending ||
+      exportPending
+    ) {
+      return;
+    }
+    const outputItems = canvasItems.filter((item) => item.role === "output");
+    if (outputItems.length === 0) {
+      setHint("请先生成至少 1 张套图成品后再导出");
+      return;
+    }
+    setExportPending(true);
+    setHint(null);
+    try {
+      const data = await exportSession(sessionId);
+      if (!data.files.length) {
+        setHint("当前暂无可导出的成品文件");
+        return;
+      }
+      for (const file of data.files) {
+        window.open(
+          file.url.startsWith("http") ? file.url : `${resolveApiBase()}${file.url}`,
+          "_blank",
+        );
+      }
+      setHint(`已发起导出 · 共 ${data.count} 个文件`);
+    } catch (err) {
+      setHint(err instanceof Error ? err.message : "导出套图包失败");
+    } finally {
+      setExportPending(false);
+    }
+  }
+
   if (!inspirationApply) return null;
 
   const ready = productInfo.length >= 10 && Boolean(productItem?.assetId);
@@ -298,6 +339,26 @@ export function InspirationSetGenerateBar({
               <Sparkles className="size-3.5" />
             )}
             生成宣传短视频
+          </button>
+          <button
+            type="button"
+            disabled={
+              readOnly ||
+              pending ||
+              agentPending ||
+              videoPending ||
+              exportPending ||
+              outputCount === 0
+            }
+            onClick={() => void handleExportDeliveryPack()}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-medium text-zinc-300 hover:border-white/40 disabled:opacity-50"
+          >
+            {exportPending ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="size-3.5" />
+            )}
+            导出成品套图包
           </button>
         </div>
       </div>
