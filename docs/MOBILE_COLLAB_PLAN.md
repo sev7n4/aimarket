@@ -85,7 +85,7 @@
 
 | ID | 任务 | 分支 | 状态 |
 |----|------|------|------|
-| F-1 | pending assets 恢复预览图（id+url） | `fix/pending-assets-preview` | 进行中 |
-| F-2 | 生产移动 `<768px` 冒烟验收 | — | 待测 |
-| F-3 | E2E 覆盖移动协同关键路径 | `enhancement/mobile-e2e` | 待办 |
+| F-1 | pending assets 恢复预览图（id+url） | `fix/pending-assets-preview` | PR 中 |
+| F-2 | 生产移动 `<768px` 冒烟验收 | — | 进行中 |
+| F-3 | E2E 覆盖移动协同关键路径 | `fix/pending-assets-preview` | 已添加 spec |
 | F-4 | 真实万相视频（`VIDEO_API_URL`） | `feature/wan-video` | 待办 |
