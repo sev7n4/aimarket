@@ -82,7 +82,10 @@ test.describe("smoke", () => {
     await expect(
       page.getByRole("dialog").getByRole("heading", { name: "产品摄影图" }),
     ).toBeVisible({ timeout: 10_000 });
-    await page.getByRole("button", { name: "做同款" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "做同款", exact: true })
+      .click();
     await expect(page).toHaveURL(/\/studio/, { timeout: 15_000 });
     await expect(
       page.getByRole("button", { name: "对话", exact: true }),
