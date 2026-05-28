@@ -52,13 +52,12 @@ test.describe("canvas batch stream mobile", () => {
   });
 
   test("移动端可打开工作站", async ({ page }) => {
-    test.setTimeout(150_000);
+    test.setTimeout(60_000);
     await registerAndOpenStudioMobile(page);
 
     await page.getByRole("button", { name: "打开工作站" }).click();
-    const station = page.locator('section[aria-label="工作站"]');
-    await expect(station.locator("textarea").first()).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(
+      page.getByRole("button", { name: "收起工作站" }),
+    ).toBeVisible({ timeout: 15_000 });
   });
 });
