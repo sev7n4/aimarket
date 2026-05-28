@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowUp,
   AtSign,
@@ -316,12 +316,20 @@ export function CreationPanel({
     }
   }, [mode]);
 
+  const canvasMentionSignature = useMemo(
+    () =>
+      canvasItems
+        .map((i) => `${i.id}:${i.outputId ?? ""}:${i.assetId ?? ""}`)
+        .join("|"),
+    [canvasItems],
+  );
+
   useEffect(() => {
     if (!user || !sessionId) return;
     fetchReferences(sessionId)
       .then(setReferences)
       .catch(() => setReferences([]));
-  }, [user, sessionId]);
+  }, [user, sessionId, canvasMentionSignature]);
 
   useEffect(() => {
     if (!user || !getToken()) {
@@ -767,6 +775,7 @@ export function CreationPanel({
 
       <div className={`relative ${isDock ? "" : "mt-3"}`}>
         <MentionPicker
+          placement={isDock ? "below" : "above"}
           canvasItems={canvasItems}
           uploadedAssets={uploadPreviews
             .filter((preview) => assetIds.includes(preview.id))
@@ -845,10 +854,13 @@ export function CreationPanel({
                   const atIdx = before.lastIndexOf("@");
                   if (atIdx >= 0) {
                     const between = before.slice(atIdx + 1);
-                    // 空格或换行视为退出 mention（避免「我 @abc 然后 」一直弹）
-                    if (/^[^\s\n]*$/.test(between)) {
+                    // @ 后仅空格仍展示列表；出现「空格+非空字符」视为已结束 mention 段
+                    if (
+                      !between.includes("\n") &&
+                      !/\s\S/.test(between)
+                    ) {
                       setMentionOpen(true);
-                      setMentionQuery(between);
+                      setMentionQuery(between.trimStart());
                       return;
                     }
                   }
@@ -992,7 +1004,7 @@ export function CreationPanel({
               )}
             </button>
           ) : null}
-          {mode === "chat" && sessionId ? (
+          {sessionId ? (
             <button
               type="button"
               onClick={() => setMentionOpen((o) => !o)}

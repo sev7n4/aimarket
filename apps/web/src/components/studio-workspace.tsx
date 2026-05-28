@@ -931,7 +931,7 @@ export function StudioWorkspace({
                     <ChevronRight className="size-4" />
                   </button>
                 </div>
-                <div className="min-h-0 flex-1 overflow-y-auto">
+                <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [overflow-anchor:none]">
                   {stationContent}
                 </div>
               </>

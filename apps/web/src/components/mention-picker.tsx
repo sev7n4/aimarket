@@ -51,6 +51,8 @@ export type MentionItem =
 
 interface MentionPickerProps {
   open: boolean;
+  /** dock 工作站输入在底部，列表向下展开避免被滚动容器裁切 */
+  placement?: "above" | "below";
   /** 当前查询（@ 后的字符），用于客户端过滤 */
   query?: string;
   canvasItems?: CanvasItem[];
@@ -81,14 +83,16 @@ export function canvasItemToMentionItem(
 ): MentionItem | null {
   const baseLabel = item.label ?? `图${index + 1}`;
   const roleLabel = item.role ? ROLE_LABEL[item.role] : undefined;
-  if (item.outputId) {
+  const outputId =
+    item.outputId ?? (item.role === "output" ? item.id : undefined);
+  if (outputId) {
     return {
       key: `canvas-output-${item.id}`,
       source: "canvas-output",
       label: baseLabel,
       url: item.url,
       roleLabel,
-      outputId: item.outputId,
+      outputId,
     };
   }
   if (item.assetId) {
@@ -129,8 +133,14 @@ export function buildUploadMentionItems(
   }));
 }
 
+const PICKER_SHELL_ABOVE =
+  "absolute bottom-full left-0 z-50 mb-2 w-full max-w-md";
+const PICKER_SHELL_BELOW =
+  "absolute top-full left-0 z-50 mt-2 w-full max-w-md";
+
 export function MentionPicker({
   open,
+  placement = "above",
   query = "",
   canvasItems = [],
   uploadedAssets = [],
@@ -219,9 +229,18 @@ export function MentionPicker({
 
   if (!open) return null;
 
+  const shellClass =
+    placement === "below" ? PICKER_SHELL_BELOW : PICKER_SHELL_ABOVE;
+  const emptyShellClass =
+    placement === "below"
+      ? "absolute top-full left-0 z-50 mt-2 w-full max-w-sm"
+      : "absolute bottom-full left-0 z-50 mb-2 w-full max-w-sm";
+
   if (flat.length === 0) {
     return (
-      <div className="absolute bottom-full left-0 z-30 mb-2 w-full max-w-sm rounded-xl border border-white/10 bg-zinc-900 p-3 text-xs text-zinc-500 shadow-xl">
+      <div
+        className={`${emptyShellClass} rounded-xl border border-white/10 bg-zinc-900 p-3 text-xs text-zinc-500 shadow-xl`}
+      >
         没有可引用的图片
         <button
           type="button"
@@ -237,7 +256,7 @@ export function MentionPicker({
   return (
     <div
       ref={listRef}
-      className="absolute bottom-full left-0 z-30 mb-2 w-full max-w-md rounded-xl border border-white/10 bg-zinc-900/95 p-2 shadow-2xl backdrop-blur"
+      className={`${shellClass} rounded-xl border border-white/10 bg-zinc-900/95 p-2 shadow-2xl backdrop-blur`}
     >
       <div className="mb-1 flex items-center justify-between px-2 text-[10px] uppercase tracking-wider text-zinc-500">
         <span>引用上下文（↑↓ 选择 · 回车确认）</span>

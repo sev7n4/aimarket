@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { registerViaEmail } from "./helpers/auth";
 
 test.describe("smoke", () => {
   test("首页展示品牌与 Slogan", async ({ page }) => {
@@ -16,19 +17,7 @@ test.describe("smoke", () => {
   });
 
   test("注册后可看到积分", async ({ page }) => {
-    const email = `e2e_${Date.now()}@test.local`;
-    await page.goto("/");
-    await page.getByRole("banner").getByRole("button", { name: "免费开始" }).click();
-    await page.getByRole("button", { name: "邮箱" }).click();
-    await page.getByRole("button", { name: "立即注册" }).click();
-    await expect(
-      page.getByRole("heading", { name: "注册" }),
-    ).toBeVisible();
-    await page.getByPlaceholder("邮箱").fill(email);
-    await page.getByPlaceholder("密码").fill("testpass123");
-    await page.getByRole("checkbox").check();
-    await page.getByRole("button", { name: "注册" }).click();
-    await expect(page.getByText(/积分\s+\d+/)).toBeVisible({ timeout: 15_000 });
+    await registerViaEmail(page, { emailPrefix: "e2e_smoke" });
   });
 
   test("项目页可打开", async ({ page }) => {
@@ -38,16 +27,7 @@ test.describe("smoke", () => {
   });
 
   test("首页提交后 Studio 显示流式进度", async ({ page }) => {
-    const email = `e2e_stream_${Date.now()}@test.local`;
-    await page.goto("/");
-    await page.getByRole("banner").getByRole("button", { name: "免费开始" }).click();
-    await page.getByRole("button", { name: "邮箱" }).click();
-    await page.getByRole("button", { name: "立即注册" }).click();
-    await page.getByPlaceholder("邮箱").fill(email);
-    await page.getByPlaceholder("密码").fill("testpass123");
-    await page.getByRole("checkbox").check();
-    await page.getByRole("button", { name: "注册" }).click();
-    await expect(page.getByText(/积分\s+\d+/)).toBeVisible({ timeout: 15_000 });
+    await registerViaEmail(page, { emailPrefix: "e2e_stream" });
 
     const homePanel = page.locator("#home-creation");
     const textarea = homePanel.locator("textarea").first();
@@ -62,16 +42,7 @@ test.describe("smoke", () => {
   });
 
   test("点击灵感卡片做同款进入 Studio", async ({ page }) => {
-    const email = `e2e_insp_${Date.now()}@test.local`;
-    await page.goto("/");
-    await page.getByRole("banner").getByRole("button", { name: "免费开始" }).click();
-    await page.getByRole("button", { name: "邮箱" }).click();
-    await page.getByRole("button", { name: "立即注册" }).click();
-    await page.getByPlaceholder("邮箱").fill(email);
-    await page.getByPlaceholder("密码").fill("testpass123");
-    await page.getByRole("checkbox").check();
-    await page.getByRole("button", { name: "注册" }).click();
-    await expect(page.getByText(/积分\s+\d+/)).toBeVisible({ timeout: 15_000 });
+    await registerViaEmail(page, { emailPrefix: "e2e_insp" });
 
     const card = page
       .getByRole("button")

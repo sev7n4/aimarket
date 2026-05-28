@@ -1,17 +1,5 @@
 import { test, expect } from "@playwright/test";
-
-async function registerUser(page: import("@playwright/test").Page) {
-  const email = `e2e_batch_${Date.now()}@test.local`;
-  await page.goto("/");
-  await page.getByRole("banner").getByRole("button", { name: "免费开始" }).click();
-  await page.getByRole("button", { name: "邮箱" }).click();
-  await page.getByRole("button", { name: "立即注册" }).click();
-  await page.getByPlaceholder("邮箱").fill(email);
-  await page.getByPlaceholder("密码").fill("testpass123");
-  await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: "注册" }).click();
-  await expect(page.getByText(/积分\s+\d+/)).toBeVisible({ timeout: 15_000 });
-}
+import { registerViaEmail } from "./helpers/auth";
 
 async function startGenerationFromHome(
   page: import("@playwright/test").Page,
@@ -55,14 +43,14 @@ async function submitSecondGenerationInStudio(
 test.describe("canvas batch stream", () => {
   test("生成完成后展示批次分区", async ({ page }) => {
     test.setTimeout(150_000);
-    await registerUser(page);
+    await registerViaEmail(page, { emailPrefix: "e2e_batch" });
     await startGenerationFromHome(page, "E2E 画布批次测试：简约产品图");
     await waitForFirstBatch(page);
   });
 
   test("点击批次头可聚焦该批", async ({ page }) => {
     test.setTimeout(150_000);
-    await registerUser(page);
+    await registerViaEmail(page, { emailPrefix: "e2e_batch_click" });
     await startGenerationFromHome(page, "E2E 画布批次点击：绿色水杯");
     const batchSection = await waitForFirstBatch(page);
     await batchSection.click({ force: true });
@@ -71,7 +59,7 @@ test.describe("canvas batch stream", () => {
 
   test("连续两次生成后出现批次 1 与批次 2", async ({ page }) => {
     test.setTimeout(240_000);
-    await registerUser(page);
+    await registerViaEmail(page, { emailPrefix: "e2e_batch_dual" });
     await startGenerationFromHome(page, "E2E 双批次第一次：白色耳机");
     await waitForFirstBatch(page);
 
