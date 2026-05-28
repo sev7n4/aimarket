@@ -283,10 +283,29 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       return () => el.removeEventListener("wheel", onWheel);
     }, [touchUi, wheelZoomStep]);
 
+    /**
+     * 用 ref 保存最新 zoom/pan，避免 useEffect 依赖触发 cleanup + re-bind
+     * 导致 pinchBase 闭包变量被重置为 null（这是之前移动端双指缩放失效的根因）。
+     */
+    const zoomRef = useRef(zoom);
+    const panRef = useRef(pan);
+    useEffect(() => {
+      zoomRef.current = zoom;
+    }, [zoom]);
+    useEffect(() => {
+      panRef.current = pan;
+    }, [pan]);
+
     useEffect(() => {
       const el = containerRef.current;
       if (!el) return;
-      let pinchBase: { dist: number; zoom: number; pan: { x: number; y: number }; cx: number; cy: number } | null = null;
+      let pinchBase: {
+        dist: number;
+        zoom: number;
+        pan: { x: number; y: number };
+        cx: number;
+        cy: number;
+      } | null = null;
 
       function dist(a: Touch, b: Touch) {
         const dx = a.clientX - b.clientX;
@@ -307,11 +326,15 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         const c = center(e.touches[0], e.touches[1]);
         pinchBase = {
           dist: dist(e.touches[0], e.touches[1]),
-          zoom,
-          pan: { x: pan.x, y: pan.y },
+          zoom: zoomRef.current,
+          pan: { x: panRef.current.x, y: panRef.current.y },
           cx: c.x - rect.left,
           cy: c.y - rect.top,
         };
+        /**
+         * 双指开始：强制中断单指 drag/pan，释放可能存在的 pointer capture，
+         * 避免「第一指还在拖图片」导致 pinch 被错认成 drag。
+         */
         dragRef.current = null;
         panStart.current = null;
         if (longPressRef.current) {
@@ -351,7 +374,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         el.removeEventListener("touchend", onTouchEnd);
         el.removeEventListener("touchcancel", onTouchEnd);
       };
-    }, [zoom, pan.x, pan.y]);
+      // 依赖空：只绑定一次，避免 zoom/pan 变化 cleanup 把 pinchBase 重置
+    }, []);
 
     useEffect(() => {
       function onKey(e: KeyboardEvent) {

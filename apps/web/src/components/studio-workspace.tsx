@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SessionTitleActions } from "@/components/session-title-actions";
 import { InspirationSetGenerateBar } from "@/components/inspiration-set-generate-bar";
-import { ChevronDown, ChevronUp, Maximize2, Minimize2, X } from "lucide-react";
+import { X } from "lucide-react";
 import { LoginDialog } from "@/components/login-dialog";
 import { AppLeftRail } from "@/components/app-left-rail";
 import {
@@ -120,8 +120,6 @@ export function StudioWorkspace({
     null,
   );
   const [pendingToolId, setPendingToolId] = useState<string | null>(null);
-  /** 工作台 dock 折叠态：折叠时只剩单行输入条，让画布近似全屏 */
-  const [dockCollapsed, setDockCollapsed] = useState(false);
   /** 同款套图栏折叠态：默认折叠成 36px 单行 chip，紧贴 dock 顶部 */
   const [inspirationBarCollapsed, setInspirationBarCollapsed] = useState(true);
   /** 受控的内容举报对话框（StudioHeader 右上 ⚠ 触发） */
@@ -319,14 +317,14 @@ export function StudioWorkspace({
   }, [canvasItems.length, focusLatestCanvasItem]);
 
   /**
-   * dock 折叠/展开 / 同款栏折叠 切换时画布可视高度变化，自动 fit-all 重排。
+   * 同款栏折叠态切换时画布可视高度变化，自动 fit-all 重排。
    * 等待 transition 结束（约 1 帧 + 50ms 让布局稳定）。
    */
   useEffect(() => {
     if (canvasItems.length === 0) return;
     const t = window.setTimeout(() => canvasRef.current?.fitAll(), 80);
     return () => window.clearTimeout(t);
-  }, [dockCollapsed, inspirationBarCollapsed, canvasItems.length]);
+  }, [inspirationBarCollapsed, canvasItems.length]);
 
   async function handleQuickToolFromCanvas(
     item: CanvasItem,
@@ -633,30 +631,6 @@ export function StudioWorkspace({
 
           {/* 工作台 dock：与画布紧密贴合，常驻；按需向上叠加同款套图栏 */}
           <div className="shrink-0">
-            <div className="mb-1 flex items-center justify-end gap-2 px-1">
-              <button
-                type="button"
-                onClick={() => setDockCollapsed((v) => !v)}
-                aria-label={dockCollapsed ? "展开工作台" : "收起工作台让画布更大"}
-                aria-pressed={dockCollapsed}
-                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-zinc-400 transition hover:border-orange-400/30 hover:text-orange-200"
-              >
-                {dockCollapsed ? (
-                  <>
-                    <ChevronUp className="size-3" />
-                    <Minimize2 className="size-3" />
-                    <span>展开工作台</span>
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="size-3" />
-                    <Maximize2 className="size-3" />
-                    <span>放大画布</span>
-                  </>
-                )}
-              </button>
-            </div>
-
             {inspirationApply ? (
               <div className="mb-1.5">
                 <InspirationSetGenerateBar
@@ -700,7 +674,6 @@ export function StudioWorkspace({
               onJobStarted={(jobId) => setPollingJobId(jobId)}
               jobStreamStatus={jobStreamStatus}
               readOnly={readOnly}
-              collapsed={dockCollapsed}
             />
           </div>
         </div>
