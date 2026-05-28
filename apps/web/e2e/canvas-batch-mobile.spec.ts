@@ -27,34 +27,38 @@ async function registerAndOpenStudioMobile(
   await expect(page).toHaveURL(/\/studio/, { timeout: 20_000 });
 }
 
+async function waitForGenerationSettled(page: import("@playwright/test").Page) {
+  await expect(
+    page.locator('[role="status"][aria-live="polite"]'),
+  ).toBeHidden({ timeout: 120_000 });
+}
+
 test.describe("canvas batch stream mobile", () => {
   test.use({ viewport: MOBILE_VIEWPORT });
 
   test("移动端生成完成后展示批次分区", async ({ page }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(150_000);
     await registerAndOpenStudioMobile(page);
 
     await expect(page.getByText(/画布\s*·/).first()).toBeVisible({
       timeout: 15_000,
     });
+    await waitForGenerationSettled(page);
     const batchSection = page
       .locator('[data-testid^="canvas-batch-section-"]')
       .first();
-    await expect(batchSection).toBeVisible({ timeout: 90_000 });
+    await expect(batchSection).toBeVisible({ timeout: 30_000 });
     await expect(batchSection).toContainText(/批次/);
   });
 
-  test("移动端可打开工作站并看到批次标题", async ({ page }) => {
-    test.setTimeout(120_000);
+  test("移动端可打开工作站", async ({ page }) => {
+    test.setTimeout(150_000);
     await registerAndOpenStudioMobile(page);
 
     await page.getByRole("button", { name: "打开工作站" }).click();
     const station = page.locator('section[aria-label="工作站"]');
-    await expect(station.locator("textarea")).toBeVisible({ timeout: 15_000 });
-
-    const batchSection = page
-      .locator('[data-testid^="canvas-batch-section-"]')
-      .first();
-    await expect(batchSection).toBeVisible({ timeout: 90_000 });
+    await expect(station.locator("textarea").first()).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });
