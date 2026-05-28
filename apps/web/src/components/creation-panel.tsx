@@ -112,6 +112,11 @@ interface CreationPanelProps {
   inspirationCoverUrl?: string;
   /** 灵感面板当前是否展开（控制按钮高亮态） */
   inspirationActive?: boolean;
+  /**
+   * 折叠态（用于 Studio 「最大化画布」）：仅保留 textarea + 灵感/上传 + 发送按钮，
+   * 隐藏模型/数量/分辨率/Agent 计划预览等高级控件，把 dock 高度收缩到 ~56px。
+   */
+  collapsed?: boolean;
 }
 
 export function CreationPanel({
@@ -137,6 +142,7 @@ export function CreationPanel({
   onInspirationClick,
   inspirationCoverUrl,
   inspirationActive = false,
+  collapsed = false,
 }: CreationPanelProps) {
   const shouldNavigateOnSubmit =
     navigateOnSubmit ?? (!sessionId && !homeDirectSubmit);
@@ -568,7 +574,7 @@ export function CreationPanel({
         </div>
       ) : null}
 
-      {inspirationApply && (inspirationApply.variables?.length ?? 0) > 0 ? (
+      {!collapsed && inspirationApply && (inspirationApply.variables?.length ?? 0) > 0 ? (
         <div className="mb-3 rounded-xl border border-orange-500/20 bg-orange-500/5 p-3">
           <p className="mb-2 text-xs font-medium text-orange-200/90">
             同款模板 · {inspirationApply.title}
@@ -594,7 +600,7 @@ export function CreationPanel({
         </div>
       ) : null}
 
-      {mode === "chat" && user ? (
+      {!collapsed && mode === "chat" && user ? (
         <div className="mb-3">
           <AgentPlanPreview
             prompt={prompt}
@@ -695,13 +701,15 @@ export function CreationPanel({
                         ? "输入您想要的修改效果（@ 选择生成图片）"
                         : placeholders[mode]
                 }
-                rows={effectiveMode === "ecommerce" ? 3 : isDock ? 2 : 2}
+                rows={
+                  collapsed ? 1 : effectiveMode === "ecommerce" ? 3 : isDock ? 2 : 2
+                }
                 readOnly={readOnly}
                 className={`w-full resize-none bg-transparent text-sm outline-none placeholder:text-zinc-600 ${
                   readOnly ? "cursor-not-allowed opacity-60" : ""
                 } ${
                   isDock
-                    ? "min-h-[56px] pr-9 text-zinc-100"
+                    ? `${collapsed ? "min-h-[28px]" : "min-h-[56px]"} pr-9 text-zinc-100`
                     : "rounded-2xl border border-white/10 bg-black/40 px-4 py-3 focus:border-purple-500/40"
                 }`}
                 onKeyDown={(e) => {
@@ -757,6 +765,23 @@ export function CreationPanel({
           <p className="mt-1 text-xs text-orange-400/80">路由：{routeHint}</p>
         ) : null}
 
+          {collapsed ? (
+            <div className="mt-2 flex items-center justify-end gap-2">
+              <Button
+                variant="primary"
+                className="size-9 shrink-0 rounded-full p-0"
+                onClick={() => void handleSubmit()}
+                disabled={readOnly || pending || streamBusy || !canSubmit}
+                aria-label="开始生成"
+              >
+                {pending ? (
+                  <Loader2 className="size-5 animate-spin" />
+                ) : (
+                  <ArrowUp className="size-5" />
+                )}
+              </Button>
+            </div>
+          ) : (
           <div
             className={`flex items-center justify-between gap-2 ${isDock ? "mt-3" : "mt-3"}`}
           >
@@ -860,6 +885,7 @@ export function CreationPanel({
           </Button>
         </div>
           </div>
+          )}
         </div>
       </div>
     </>
