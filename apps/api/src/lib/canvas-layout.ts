@@ -12,6 +12,13 @@ export const canvasItemSchema = z.object({
   source: z.enum(["upload", "generation"]).optional(),
   role: z.enum(["reference", "product", "output"]).optional(),
   assetId: z.string().uuid().optional(),
+  outputId: z.string().uuid().optional(),
+  batchId: z.string().min(1).max(120).optional(),
+  batchIndex: z.number().int().min(-1).max(1000).optional(),
+  batchTitle: z.string().max(100).optional(),
+  batchSubtitle: z.string().max(120).optional(),
+  parentBatchId: z.string().min(1).max(120).optional(),
+  sourceItemId: z.string().min(1).max(120).optional(),
 });
 
 export const canvasLayoutSchema = z.object({

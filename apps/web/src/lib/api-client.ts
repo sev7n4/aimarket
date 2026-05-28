@@ -254,6 +254,13 @@ export interface CanvasLayoutDto {
     source?: "upload" | "generation";
     role?: "reference" | "product" | "output";
     assetId?: string;
+    outputId?: string;
+    batchId?: string;
+    batchIndex?: number;
+    batchTitle?: string;
+    batchSubtitle?: string;
+    parentBatchId?: string;
+    sourceItemId?: string;
   }[];
 }
 

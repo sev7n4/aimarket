@@ -292,7 +292,11 @@ export function StudioWorkspace({
     if (!canvasItems.length) return;
     const latest = canvasItems[canvasItems.length - 1];
     setSelectedCanvasId(latest.id);
-    canvasRef.current?.fitToItem(latest.id);
+    if (latest.batchId) {
+      canvasRef.current?.fitToBatch(latest.batchId);
+    } else {
+      canvasRef.current?.fitToItem(latest.id);
+    }
     canvasRef.current?.pulseItem(latest.id);
   }, [canvasItems]);
 
@@ -357,12 +361,7 @@ export function StudioWorkspace({
   useEffect(() => {
     const count = canvasItems.length;
     if (count > prevItemCountRef.current) {
-      if (prevItemCountRef.current === 0) {
-        // 首次出现 items：自动适配全部，让默认进入即看见全图（治本默认 200px 小方块）
-        window.requestAnimationFrame(() => canvasRef.current?.fitAll());
-      } else {
-        focusLatestCanvasItem();
-      }
+      focusLatestCanvasItem();
     }
     prevItemCountRef.current = count;
   }, [canvasItems.length, focusLatestCanvasItem]);
@@ -373,9 +372,9 @@ export function StudioWorkspace({
    */
   useEffect(() => {
     if (canvasItems.length === 0) return;
-    const t = window.setTimeout(() => canvasRef.current?.fitAll(), 80);
+    const t = window.setTimeout(() => focusLatestCanvasItem(), 80);
     return () => window.clearTimeout(t);
-  }, [inspirationBarCollapsed, canvasItems.length]);
+  }, [inspirationBarCollapsed, canvasItems.length, focusLatestCanvasItem]);
 
   async function handleQuickToolFromCanvas(
     item: CanvasItem,
