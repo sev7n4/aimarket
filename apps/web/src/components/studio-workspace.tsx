@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SessionTitleActions } from "@/components/session-title-actions";
-import { CanvasRoleActions } from "@/components/canvas-role-actions";
 import { InspirationSetGenerateBar } from "@/components/inspiration-set-generate-bar";
 import { ChevronDown, ChevronUp, Maximize2, Minimize2, X } from "lucide-react";
 import { LoginDialog } from "@/components/login-dialog";
@@ -16,7 +15,7 @@ import {
 import { CreationPanel } from "@/components/creation-panel";
 import { CanvasSelectionToolbar } from "@/components/canvas-selection-toolbar";
 import { StudioHeader } from "@/components/studio-header";
-import { ProviderStatusBanner } from "@/components/provider-status-banner";
+import { ProviderStatusChip } from "@/components/provider-status-banner";
 import { ContentReportDialog } from "@/components/content-report-dialog";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { StudioMobileCoach } from "@/components/studio-mobile-coach";
@@ -123,6 +122,10 @@ export function StudioWorkspace({
   const [pendingToolId, setPendingToolId] = useState<string | null>(null);
   /** 工作台 dock 折叠态：折叠时只剩单行输入条，让画布近似全屏 */
   const [dockCollapsed, setDockCollapsed] = useState(false);
+  /** 同款套图栏折叠态：默认折叠成 36px 单行 chip，紧贴 dock 顶部 */
+  const [inspirationBarCollapsed, setInspirationBarCollapsed] = useState(true);
+  /** 受控的内容举报对话框（StudioHeader 右上 ⚠ 触发） */
+  const [reportOpen, setReportOpen] = useState(false);
 
   const handleWorkspaceChange = useCallback((id: string) => {
     setActiveWorkspaceId(id);
@@ -161,6 +164,27 @@ export function StudioWorkspace({
       sourceInspirationId: pendingInspiration?.id,
     });
     setCanEdit(ensured.can_edit ?? true);
+    /**
+     * 刷新恢复同款生成栏：
+     * - 如果本次进入没有 pendingInspiration（用户刷新或跨设备打开），
+     *   且后端 ensure 返回带有 sourceInspiration（取自 session.source_inspiration_id），
+     *   就用它重建 inspirationApply，避免「同款套图栏」消失导致用户找不到入口。
+     */
+    if (!pendingInspiration && ensured.sourceInspiration) {
+      const src = ensured.sourceInspiration;
+      setInspirationApply({
+        id: src.id,
+        title: src.title,
+        prompt: src.prompt,
+        modelId: src.modelId,
+        aspectRatio: coerceInspirationAspect(src.aspectRatio),
+        resolution: src.resolution,
+        variables: src.variables,
+        variableValues: src.variableValues ?? {},
+        referenceUrls: src.referenceUrls ?? [],
+        applyKey: 1,
+      });
+    }
     await loadCanvas();
     if (pendingInspiration?.referenceUrls.length) {
       const refItems = await importInspirationReferencesToCanvas(
@@ -283,11 +307,26 @@ export function StudioWorkspace({
 
   useEffect(() => {
     const count = canvasItems.length;
-    if (count > prevItemCountRef.current && prevItemCountRef.current > 0) {
-      focusLatestCanvasItem();
+    if (count > prevItemCountRef.current) {
+      if (prevItemCountRef.current === 0) {
+        // 首次出现 items：自动适配全部，让默认进入即看见全图（治本默认 200px 小方块）
+        window.requestAnimationFrame(() => canvasRef.current?.fitAll());
+      } else {
+        focusLatestCanvasItem();
+      }
     }
     prevItemCountRef.current = count;
   }, [canvasItems.length, focusLatestCanvasItem]);
+
+  /**
+   * dock 折叠/展开 / 同款栏折叠 切换时画布可视高度变化，自动 fit-all 重排。
+   * 等待 transition 结束（约 1 帧 + 50ms 让布局稳定）。
+   */
+  useEffect(() => {
+    if (canvasItems.length === 0) return;
+    const t = window.setTimeout(() => canvasRef.current?.fitAll(), 80);
+    return () => window.clearTimeout(t);
+  }, [dockCollapsed, inspirationBarCollapsed, canvasItems.length]);
 
   async function handleQuickToolFromCanvas(
     item: CanvasItem,
@@ -458,10 +497,12 @@ export function StudioWorkspace({
       <StudioHeader
         sessionId={user ? sessionId : undefined}
         sessionTitle={sessionTitle}
+        sessionKind={sessionKind}
         sessionReadOnly={readOnly}
         onMenuClick={() => setSidebarOpen(true)}
         onTitleSaved={handleTitleSaved}
         onSessionDeleted={() => handleSessionDeleted()}
+        onReportClick={user ? () => setReportOpen(true) : undefined}
       />
 
       <input
@@ -546,90 +587,51 @@ export function StudioWorkspace({
           </ul>
         </aside>
 
-        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-2 p-3 md:p-4">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <p className="mb-2 shrink-0 px-1 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
-              画布 · {sessionTitle}
-              <span className="ml-2 rounded bg-white/10 px-1.5 py-0.5 text-[9px] normal-case text-zinc-400">
-                {SESSION_KIND_LABEL[sessionKind]}
-              </span>
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-1 p-2 md:gap-1.5 md:p-3">
+          {readOnly ? (
+            <p className="shrink-0 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200/90">
+              只读：他人会话，仅创建者或管理员可编辑与生成
             </p>
-            {sessionKind === "project" ? (
-              <p className="mb-2 shrink-0 rounded-lg border border-purple-500/20 bg-purple-500/5 px-3 py-1.5 text-xs text-purple-200/90">
-                交付项目 · 出图与套图均归档于画布，主图满意后可一键生成宣传短视频
-              </p>
-            ) : null}
-            <ProviderStatusBanner />
-            {readOnly ? (
-              <p className="mb-2 shrink-0 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200/90">
-                只读：他人会话，仅创建者或管理员可编辑与生成
-              </p>
-            ) : null}
-            {inspirationApply ? (
-              <InspirationSetGenerateBar
-                sessionId={sessionId}
-                canvasItems={canvasItems}
-                prompt={inspirationApply.prompt}
-                inspirationApply={inspirationApply}
-                readOnly={readOnly}
-                onJobStarted={(jobId) => setPollingJobId(jobId)}
-              />
-            ) : null}
-            {selectedCanvasItem ? (
-              <div className="mb-2 shrink-0">
-                <CanvasRoleActions
-                  item={selectedCanvasItem}
-                  readOnly={readOnly}
-                  onAssignRole={handleAssignCanvasRole}
-                />
-              </div>
-            ) : null}
-            <DesignCanvas
-              ref={canvasRef}
-              items={canvasItems}
-              selectedId={selectedCanvasId}
-              onSelect={(id) => {
-                setSelectedCanvasId(id);
-                if (id) {
-                  hapticLight();
-                  setSelectSourceBanner(null);
-                }
-              }}
-              onItemsChange={setCanvasItems}
-              onUpload={handleCanvasUpload}
-              onDownload={() => void handleCanvasDownload()}
-              onDeleteSelected={handleDeleteCanvasItem}
-              emptyHint={canvasEmptyHint}
-              readOnly={readOnly}
-              jobStreamStatus={jobStreamStatus}
-              jobFailed={jobFailed}
-              jobProgressCompleted={jobProgressCompleted}
-              jobProgressTotal={jobProgressTotal}
-              selectSourceBanner={selectSourceBanner}
-              onCutoutItem={(item) => handleQuickToolFromCanvas(item, "cutout")}
-              onExpandItem={(item) => handleQuickToolFromCanvas(item, "expand")}
-              selectionToolbar={
-                <CanvasSelectionToolbar
-                  tools={tools}
-                  selectedItem={selectedCanvasItem}
-                  readOnly={readOnly}
-                  pendingToolId={pendingToolId}
-                  layout={mobile ? "horizontal" : "vertical"}
-                  onRunTool={(tool, item) => void handleRunSelectionTool(tool, item)}
-                />
+          ) : null}
+          <DesignCanvas
+            ref={canvasRef}
+            items={canvasItems}
+            selectedId={selectedCanvasId}
+            onSelect={(id) => {
+              setSelectedCanvasId(id);
+              if (id) {
+                hapticLight();
+                setSelectSourceBanner(null);
               }
-            />
-            {user ? (
-              <div className="mt-2 px-1">
-                <ContentReportDialog
-                  sessionId={sessionId}
-                  jobId={pollingJobId}
-                />
-              </div>
-            ) : null}
-          </div>
+            }}
+            onItemsChange={setCanvasItems}
+            onUpload={handleCanvasUpload}
+            onDownload={() => void handleCanvasDownload()}
+            onDeleteSelected={handleDeleteCanvasItem}
+            emptyHint={canvasEmptyHint}
+            readOnly={readOnly}
+            jobStreamStatus={jobStreamStatus}
+            jobFailed={jobFailed}
+            jobProgressCompleted={jobProgressCompleted}
+            jobProgressTotal={jobProgressTotal}
+            selectSourceBanner={selectSourceBanner}
+            onCutoutItem={(item) => handleQuickToolFromCanvas(item, "cutout")}
+            onExpandItem={(item) => handleQuickToolFromCanvas(item, "expand")}
+            selectionToolbar={
+              <CanvasSelectionToolbar
+                tools={tools}
+                selectedItem={selectedCanvasItem}
+                readOnly={readOnly}
+                pendingToolId={pendingToolId}
+                layout={mobile ? "horizontal" : "vertical"}
+                onRunTool={(tool, item) => void handleRunSelectionTool(tool, item)}
+                onAssignRole={handleAssignCanvasRole}
+              />
+            }
+            statusChip={<ProviderStatusChip />}
+          />
 
-          {/* 工作台 dock：始终常驻在画布下方，可一键折叠为迷你输入条让画布近似全屏 */}
+          {/* 工作台 dock：与画布紧密贴合，常驻；按需向上叠加同款套图栏 */}
           <div className="shrink-0">
             <div className="mb-1 flex items-center justify-end gap-2 px-1">
               <button
@@ -654,6 +656,22 @@ export function StudioWorkspace({
                 )}
               </button>
             </div>
+
+            {inspirationApply ? (
+              <div className="mb-1.5">
+                <InspirationSetGenerateBar
+                  sessionId={sessionId}
+                  canvasItems={canvasItems}
+                  prompt={inspirationApply.prompt}
+                  inspirationApply={inspirationApply}
+                  readOnly={readOnly}
+                  onJobStarted={(jobId) => setPollingJobId(jobId)}
+                  collapsed={inspirationBarCollapsed}
+                  onCollapsedChange={setInspirationBarCollapsed}
+                />
+              </div>
+            ) : null}
+
             {!user || !ready ? (
               <button
                 type="button"
@@ -688,6 +706,14 @@ export function StudioWorkspace({
         </div>
       </div>
 
+      {user ? (
+        <ContentReportDialog
+          sessionId={sessionId}
+          jobId={pollingJobId}
+          open={reportOpen}
+          onClose={() => setReportOpen(false)}
+        />
+      ) : null}
       <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
     </>
   );

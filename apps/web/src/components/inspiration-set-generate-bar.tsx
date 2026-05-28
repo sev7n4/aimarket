@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, RotateCcw, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import {
   executeAgentPlan,
   ensureSession,
@@ -35,6 +35,9 @@ interface InspirationSetGenerateBarProps {
   inspirationApply?: StudioInspirationApply | null;
   readOnly?: boolean;
   onJobStarted: (jobId: string) => void;
+  /** 是否折叠（默认仅显示一行进度 chip，紧贴 dock 顶部） */
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
 
 export function InspirationSetGenerateBar({
@@ -44,6 +47,8 @@ export function InspirationSetGenerateBar({
   inspirationApply,
   readOnly = false,
   onJobStarted,
+  collapsed = false,
+  onCollapsedChange,
 }: InspirationSetGenerateBarProps) {
   const [init, setInit] = useState<ProductSetInit | null>(null);
   const [pending, setPending] = useState(false);
@@ -282,20 +287,62 @@ export function InspirationSetGenerateBar({
   );
   const outputCount = canvasItems.filter((item) => item.role === "output").length;
 
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        onClick={() => onCollapsedChange?.(false)}
+        className="flex w-full items-center gap-2 rounded-xl border border-orange-500/25 bg-orange-500/5 px-3 py-2 text-left text-xs transition hover:bg-orange-500/10"
+        aria-expanded={false}
+      >
+        <Sparkles className="size-3.5 shrink-0 text-orange-300" />
+        <span className="truncate font-medium text-orange-200/90">
+          同款套图
+        </span>
+        <span className="shrink-0 text-[10px] text-zinc-500">
+          已出 {outputCount}/4
+        </span>
+        {referenceItem ? null : (
+          <span className="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] text-amber-300">
+            待标记素材
+          </span>
+        )}
+        <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-[10px] text-zinc-400">
+          展开
+          <ChevronDown className="size-3" />
+        </span>
+      </button>
+    );
+  }
+
   return (
-    <div className="mx-1 mb-3 rounded-xl border border-orange-500/25 bg-orange-500/5 p-3">
+    <div className="rounded-xl border border-orange-500/25 bg-orange-500/5 p-3">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-xs font-medium text-orange-200/90">
-            同款套图 · 一键生成 4 张成品
-          </p>
-          <p className="mt-0.5 text-[10px] text-zinc-500">
-            {referenceItem
-              ? "已绑定套图参考 + 商品素材"
-              : "建议标记一张「套图参考」与一张「商品素材」"}
-          </p>
+        <div className="flex min-w-0 items-center gap-2">
+          <Sparkles className="size-3.5 shrink-0 text-orange-300" />
+          <div className="min-w-0">
+            <p className="truncate text-xs font-medium text-orange-200/90">
+              同款套图 · 一键生成 4 张成品
+            </p>
+            <p className="mt-0.5 truncate text-[10px] text-zinc-500">
+              {referenceItem
+                ? "已绑定套图参考 + 商品素材"
+                : "建议标记一张「套图参考」与一张「商品素材」"}
+            </p>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
+          {onCollapsedChange ? (
+            <button
+              type="button"
+              onClick={() => onCollapsedChange(true)}
+              aria-label="收起同款套图栏"
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/10 px-2 py-1 text-[10px] text-zinc-400 hover:border-white/30 hover:text-zinc-200"
+            >
+              <ChevronUp className="size-3" />
+              收起
+            </button>
+          ) : null}
           <button
             type="button"
             disabled={readOnly || pending || agentPending || videoPending || !ready}

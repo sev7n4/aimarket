@@ -158,6 +158,19 @@ export async function fetchPoints() {
   return res.data.credits;
 }
 
+export interface EnsureSessionSourceInspiration {
+  id: string;
+  title: string;
+  prompt: string;
+  modelId: string;
+  aspectRatio: string;
+  resolution: string;
+  variables?: { key: string; label: string; default: string }[];
+  variableValues: Record<string, string>;
+  referenceUrls: string[];
+  coverUrl?: string | null;
+}
+
 export async function ensureSession(
   sessionId: string,
   mode: string,
@@ -168,20 +181,21 @@ export async function ensureSession(
     sourceInspirationId?: string;
   },
 ) {
-  const res = await request<{ data: ImageSession }>(
-    "/api/v1/imageSession/ensure",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        sessionId,
-        mode,
-        title: options?.title,
-        kind: options?.kind,
-        workspaceId: options?.workspaceId,
-        sourceInspirationId: options?.sourceInspirationId,
-      }),
-    },
-  );
+  const res = await request<{
+    data: ImageSession & {
+      sourceInspiration?: EnsureSessionSourceInspiration | null;
+    };
+  }>("/api/v1/imageSession/ensure", {
+    method: "POST",
+    body: JSON.stringify({
+      sessionId,
+      mode,
+      title: options?.title,
+      kind: options?.kind,
+      workspaceId: options?.workspaceId,
+      sourceInspirationId: options?.sourceInspirationId,
+    }),
+  });
   return res.data;
 }
 
