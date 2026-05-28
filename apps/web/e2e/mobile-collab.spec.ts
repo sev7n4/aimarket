@@ -56,9 +56,13 @@ test.describe("mobile collab", () => {
     });
     await expect(page.locator("textarea").first()).not.toBeVisible();
     await page.getByRole("button", { name: "打开工作站" }).click();
-    await expect(page.locator("textarea").first()).toBeVisible({
+    const mobileStation = page
+      .locator('section[aria-label="工作站"]')
+      .filter({ hasText: "studio 工作站" });
+    await expect(mobileStation.locator("textarea")).toBeVisible({
       timeout: 15_000,
     });
+    await mobileStation.getByRole("button", { name: "收起工作站" }).click();
     await page.getByRole("button", { name: "打开侧栏" }).click();
     await expect(page.getByRole("button", { name: "重命名" }).first()).toBeVisible({
       timeout: 15_000,
