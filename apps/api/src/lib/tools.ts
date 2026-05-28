@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { focusPointEntrySchema } from "./focus.js";
 
 export type ToolCategory = "edit" | "enhance" | "compose";
 
@@ -87,6 +88,17 @@ export const STUDIO_TOOLS: StudioToolDefinition[] = [
     legacyAliases: ["partialEdit"],
   },
   {
+    id: "focus-edit",
+    name: "焦点编辑",
+    description:
+      "点击图片识别物体，短 prompt 精准改字、局部修改或对象替换",
+    category: "edit",
+    defaultPrompt: "改成",
+    pricingFactor: 1.2,
+    requiresSource: true,
+    legacyAliases: ["focusEdit", "splicingImagInfo"],
+  },
+  {
     id: "text",
     name: "无痕改字",
     description: "替换画面中的文字且保持质感",
@@ -145,6 +157,10 @@ const toolRunBodySchema = z.object({
   assetIds: z.array(z.string().uuid()).optional(),
   scale: z.enum(["2x", "4x"]).optional(),
   toolContext: toolContextSchema.optional(),
+  /** 焦点编辑：识别后的焦点列表（1–10） */
+  focusPoints: z.array(focusPointEntrySchema).min(1).max(10).optional(),
+  /** 焦点编辑：edit=局部修改，replace=对象替换 */
+  intent: z.enum(["edit", "replace"]).optional(),
 });
 
 export type ToolRunBody = z.infer<typeof toolRunBodySchema>;

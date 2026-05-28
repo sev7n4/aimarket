@@ -6,6 +6,7 @@ export function resolveToolResolution(
     case "cutout":
     case "expand":
     case "inpaint":
+    case "focus-edit":
       return "4k";
     case "upscale":
     case "enhance":

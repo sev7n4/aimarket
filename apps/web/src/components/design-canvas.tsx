@@ -63,6 +63,18 @@ interface DesignCanvasProps {
   } | null;
   onBrushComplete?: (selection: CanvasMaskSelection) => void;
   onBrushCancel?: () => void;
+  /** 焦点编辑：在图片上点击取点（归一化坐标） */
+  focusClickRequest?: {
+    key: number;
+    itemId: string;
+    toolName: string;
+    markers: Array<{ x: number; y: number; label: string }>;
+  } | null;
+  onFocusImageClick?: (
+    item: CanvasItem,
+    point: { x: number; y: number },
+  ) => void;
+  onFocusClickCancel?: () => void;
   /**
    * 画布选中图片后浮出的 AI 工具栏（slot）。
    * - PC：建议绝对定位画布右上角（vertical layout）
@@ -102,6 +114,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       brushRequest = null,
       onBrushComplete,
       onBrushCancel,
+      focusClickRequest = null,
+      onFocusImageClick,
+      onFocusClickCancel,
       selectionToolbar = null,
       statusChip = null,
       onJumpToParentBatch,
@@ -134,6 +149,11 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     const brushItem =
       brushRequest ? items.find((item) => item.id === brushRequest.itemId) : null;
     const brushActive = Boolean(brushRequest && brushItem);
+    const focusItem =
+      focusClickRequest
+        ? items.find((item) => item.id === focusClickRequest.itemId)
+        : null;
+    const focusClickActive = Boolean(focusClickRequest && focusItem);
     const panStart = useRef<{
       x: number;
       y: number;
@@ -245,6 +265,13 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onSelect(brushRequest.itemId);
       window.requestAnimationFrame(() => fitToItem(brushRequest.itemId));
     }, [brushRequest, fitToItem, onSelect]);
+
+    useEffect(() => {
+      if (!focusClickRequest) return;
+      setTool("select");
+      onSelect(focusClickRequest.itemId);
+      window.requestAnimationFrame(() => fitToItem(focusClickRequest.itemId));
+    }, [focusClickRequest, fitToItem, onSelect]);
 
     function itemPointFromEvent(e: React.PointerEvent, item: CanvasItem) {
       const container = containerRef.current;
@@ -410,6 +437,18 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     }
 
     function onItemPointerDown(e: React.PointerEvent, item: CanvasItem) {
+      if (focusClickActive && focusItem && item.id === focusItem.id) {
+        e.stopPropagation();
+        e.preventDefault();
+        const pt = itemPointFromEvent(e, item);
+        if (!pt || readOnly) return;
+        onFocusImageClick?.(item, {
+          x: pt.x / item.width,
+          y: pt.y / item.height,
+        });
+        hapticLight();
+        return;
+      }
       if (brushActive) return;
       if (tool !== "select") return;
       e.stopPropagation();
@@ -657,6 +696,28 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               {selectSourceBanner}
             </div>
           ) : null}
+          {focusClickActive && focusClickRequest ? (
+            <div
+              data-testid="focus-edit-canvas-banner"
+              className="absolute left-2 right-2 top-2 z-30 rounded-2xl border border-purple-400/30 bg-black/80 p-2 text-xs text-zinc-200 shadow-xl backdrop-blur"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-purple-200">
+                  {focusClickRequest.toolName}：点击图片添加焦点
+                </span>
+                <button
+                  type="button"
+                  onClick={onFocusClickCancel}
+                  className="ml-auto rounded-full bg-white/10 px-2.5 py-1 text-zinc-300"
+                >
+                  完成点选
+                </button>
+              </div>
+              <p className="mt-1 text-[10px] text-zinc-500">
+                在工作站输入短 prompt 后提交；最多 10 个焦点，连续点击间隔约 1.5 秒。
+              </p>
+            </div>
+          ) : null}
           {brushActive && brushRequest ? (
             <div className="absolute left-2 right-2 top-2 z-30 rounded-2xl border border-purple-400/30 bg-black/80 p-2 text-xs text-zinc-200 shadow-xl backdrop-blur">
               <div className="flex flex-wrap items-center gap-2">
@@ -848,9 +909,11 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                         fitToItem(item.id);
                       }}
                       className={`relative overflow-hidden rounded-xl border-2 bg-zinc-900 text-left shadow-lg transition ${
-                        tool === "select"
-                          ? "cursor-grab active:cursor-grabbing"
-                          : ""
+                        focusClickActive && focusItem?.id === item.id
+                          ? "cursor-crosshair"
+                          : tool === "select"
+                            ? "cursor-grab active:cursor-grabbing"
+                            : ""
                       } ${
                         selectedId === item.id
                           ? "border-orange-500 ring-2 ring-orange-500/30"
@@ -878,6 +941,35 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                           draggable={false}
                         />
                       )}
+                      {focusClickActive &&
+                      focusClickRequest &&
+                      focusItem?.id === item.id &&
+                      focusClickRequest.markers.length > 0 ? (
+                        <svg
+                          viewBox={`0 0 ${item.width} ${item.height}`}
+                          className="pointer-events-none absolute inset-0 z-10"
+                          aria-hidden
+                        >
+                          {focusClickRequest.markers.map((m, i) => (
+                            <g key={`focus-${i}-${m.x}-${m.y}`}>
+                              <circle
+                                cx={m.x * item.width}
+                                cy={m.y * item.height}
+                                r={10}
+                                fill="rgba(168,85,247,0.35)"
+                                stroke="rgb(216,180,254)"
+                                strokeWidth={2}
+                              />
+                              <circle
+                                cx={m.x * item.width}
+                                cy={m.y * item.height}
+                                r={3}
+                                fill="white"
+                              />
+                            </g>
+                          ))}
+                        </svg>
+                      ) : null}
                       {brushActive && brushItem?.id === item.id ? (
                         <svg
                           viewBox={`0 0 ${item.width} ${item.height}`}

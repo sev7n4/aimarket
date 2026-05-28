@@ -6,6 +6,7 @@ import {
   listToolsPublic,
   parseToolRunBody,
 } from "../lib/tools.js";
+import { buildFocusEditPrompt } from "../lib/focus.js";
 import { suggestModel } from "../lib/router.js";
 import {
   enrichPromptWithReferences,
@@ -37,6 +38,14 @@ tools.post("/:toolId/run", async (c) => {
 
   const body = parseToolRunBody(await c.req.json());
 
+  if (tool.id === "focus-edit" && !body.focusPoints?.length) {
+    throw new AppError(
+      400,
+      "FOCUS_REQUIRED",
+      "请先在画布添加焦点标记（调用 POST /focus/point）",
+    );
+  }
+
   if (tool.requiresSource) {
     const hasRef =
       (body.referenceOutputIds?.length ?? 0) > 0 ||
@@ -67,6 +76,25 @@ tools.post("/:toolId/run", async (c) => {
   }
 
   let prompt = body.prompt?.trim() || tool.defaultPrompt;
+
+  if (tool.id === "focus-edit" && body.focusPoints?.length) {
+    prompt = buildFocusEditPrompt(
+      prompt,
+      body.focusPoints,
+      body.intent ?? "edit",
+    );
+    const coordHints = body.focusPoints
+      .map((p, i) => {
+        const name = p.objectName.trim() || `焦点${i + 1}`;
+        if (p.x == null || p.y == null) return name;
+        return `${name}（约 x=${Math.round(p.x * 100)}%, y=${Math.round(p.y * 100)}%）`;
+      })
+      .join("、");
+    if (coordHints) {
+      prompt = `${prompt}\n【焦点位置】${coordHints}`;
+    }
+  }
+
   if (body.toolContext?.masks.length) {
     const maskHints = body.toolContext.masks
       .map((m, i) => {

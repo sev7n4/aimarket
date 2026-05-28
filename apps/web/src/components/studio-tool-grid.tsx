@@ -2,6 +2,7 @@
 
 import {
   Crop,
+  Crosshair,
   Eraser,
   Expand,
   Layers,
@@ -20,6 +21,7 @@ const TOOL_ICONS: Record<string, typeof Expand> = {
   erase: Eraser,
   cutout: Scissors,
   inpaint: Pencil,
+  "focus-edit": Crosshair,
   text: Type,
   upscale: ZoomIn,
   enhance: Sparkles,
@@ -56,6 +58,10 @@ export function StudioToolGrid({
             <button
               key={tool.id}
               type="button"
+              data-testid={`studio-tool-${tool.id}`}
+              title={
+                tool.id === "focus-edit" ? `${tool.name}（Ctrl/⌘）` : tool.name
+              }
               disabled={disabled}
               onClick={() => onSelect(tool)}
               className={`flex w-[4.5rem] shrink-0 flex-col items-center gap-1.5 rounded-2xl border px-2 py-2.5 text-center transition md:w-auto ${

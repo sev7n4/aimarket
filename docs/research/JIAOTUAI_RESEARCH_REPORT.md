@@ -268,7 +268,7 @@ Prompt 片段示例（节选）：
 | 多图融合    | `POST /api/v1/image/uploadGenerate`   | `studio:多图融合`    | 多参考图合成生成                |
 | 图片裁剪    | （无独立 image API）                       | —                | **Fabric.js 客户端 Crop**  |
 | 视频生成    | `POST /api/v1/image/video_generation` | `studio:首尾帧视频生成` | Seedance / 万相           |
-| 焦点编辑    | `POST /api/v1/focus/getImagePoint` 等  | `studio:焦点识别`    | 点选 + `splicingImagInfo` |
+| 焦点编辑    | `POST /api/v1/focus/getImagePoint` 等  | `studio:焦点识别`    | 点选 + `splicingImagInfo`；AIMarket 规格见 `docs/spec/FOCUS_EDIT.md` |
 
 
 ### 5.2 画布技术要点

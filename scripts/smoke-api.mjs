@@ -186,8 +186,40 @@ async function main() {
     "GET tools/list",
     toolsList.res.ok &&
       toolRows.some((t) => t.id === "cutout") &&
+      toolRows.some((t) => t.id === "focus-edit") &&
       toolRows.find((t) => t.id === "crop")?.clientOnly === true,
     `count=${toolRows.length}`,
+  );
+
+  const TINY_PNG_B64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const focusPoint = await req("/api/v1/focus/point", {
+    method: "POST",
+    headers: authH,
+    body: JSON.stringify({
+      sessionId,
+      imageBase64: TINY_PNG_B64,
+      x: 0.5,
+      y: 0.5,
+    }),
+  });
+  ok(
+    "POST focus/point",
+    focusPoint.res.ok &&
+      focusPoint.json?.data?.pointId &&
+      focusPoint.json?.data?.objectName,
+    `provider=${focusPoint.json?.data?.provider}`,
+  );
+
+  const focusNoPoints = await req("/api/v1/tools/focus-edit/run", {
+    method: "POST",
+    headers: authH,
+    body: JSON.stringify({ sessionId, prompt: "改成红色" }),
+  });
+  ok(
+    "POST focus-edit FOCUS_REQUIRED",
+    focusNoPoints.res.status === 400 &&
+      focusNoPoints.json?.error?.code === "FOCUS_REQUIRED",
   );
 
   const cropRun = await req("/api/v1/tools/crop/run", {
@@ -273,6 +305,47 @@ async function main() {
         );
       }
 
+      const fp = focusPoint.json?.data;
+      if (fp?.pointId) {
+        for (const [label, intent] of [
+          ["focus-edit edit", "edit"],
+          ["focus-edit replace", "replace"],
+        ]) {
+          const feRun = await req("/api/v1/tools/focus-edit/run", {
+            method: "POST",
+            headers: authH,
+            body: JSON.stringify({
+              sessionId,
+              prompt: intent === "replace" ? "红色花瓶" : "改成红色",
+              intent,
+              referenceOutputIds: [outputId],
+              focusPoints: [
+                {
+                  pointId: fp.pointId,
+                  objectName: fp.objectName,
+                  x: 0.5,
+                  y: 0.5,
+                },
+              ],
+            }),
+          });
+          const feJobId = feRun.json?.data?.jobId;
+          ok(
+            `POST tools/${label}`,
+            feRun.res.ok && !!feJobId,
+            `job=${feJobId}`,
+          );
+          if (feJobId) {
+            const feJob = await waitJob(feJobId, authH);
+            ok(
+              `${label} job succeeded`,
+              feJob?.status === "succeeded" && !!feJob?.outputs?.[0]?.url,
+              feJob?.outputs?.[0]?.url ?? feJob?.status ?? "no url",
+            );
+          }
+        }
+      }
+
       const cutoutRun = await req("/api/v1/tools/cutout/run", {
         method: "POST",
         headers: authH,
@@ -348,6 +421,8 @@ async function main() {
       provider.json?.data?.tools?.enhanceProvider === "tool-upscale-mock" &&
       provider.json?.data?.tools?.expandProvider === "tool-edit-mock" &&
       provider.json?.data?.tools?.inpaintProvider === "tool-edit-mock" &&
+      provider.json?.data?.tools?.focusEditProvider === "tool-edit-mock" &&
+      provider.json?.data?.focusPoint?.activeProvider === "focus-mock" &&
       provider.json?.data?.tools?.editMode === "auto" &&
       provider.json?.data?.tools?.editHttpConfigured === false &&
       provider.json?.data?.tools?.genericToolProvider === "tool-mock" &&

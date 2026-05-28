@@ -13,6 +13,7 @@ import {
 } from "@/components/design-canvas";
 import { CreationPanel } from "@/components/creation-panel";
 import { CanvasSelectionToolbar } from "@/components/canvas-selection-toolbar";
+import { StudioToolGrid } from "@/components/studio-tool-grid";
 import { StudioHeader } from "@/components/studio-header";
 import { ProviderStatusChip } from "@/components/provider-status-banner";
 import { ContentReportDialog } from "@/components/content-report-dialog";
@@ -32,9 +33,15 @@ import {
   exportSession,
   fetchTools,
   listSessions,
+  recognizeFocusPoint,
   runTool,
   uploadAsset,
 } from "@/lib/api-client";
+import {
+  MAX_FOCUS_POINTS,
+  type FocusEditSession,
+  type FocusPointChip,
+} from "@/lib/focus-edit";
 import {
   createUploadCanvasItem,
   pickLatestBatchFocusTarget,
@@ -56,7 +63,7 @@ import { SESSION_KIND_LABEL, type SessionKind } from "@/lib/session-kind";
 import { buildStudioUrl, studioUrlForSession } from "@/lib/studio-navigation";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 
-type SelectionToolInteraction = "direct" | "brush" | "prompt";
+type SelectionToolInteraction = "direct" | "brush" | "prompt" | "click";
 
 const TOOL_INTERACTIONS: Record<string, SelectionToolInteraction> = {
   cutout: "direct",
@@ -64,10 +71,13 @@ const TOOL_INTERACTIONS: Record<string, SelectionToolInteraction> = {
   enhance: "direct",
   erase: "brush",
   inpaint: "brush",
+  "focus-edit": "click",
   expand: "prompt",
   text: "prompt",
   blend: "prompt",
 };
+
+const FOCUS_CLICK_DEBOUNCE_MS = 1500;
 
 function getToolInteraction(toolId: string): SelectionToolInteraction {
   return TOOL_INTERACTIONS[toolId] ?? "prompt";
@@ -85,6 +95,8 @@ function buildToolPromptSuffix(tool: StudioTool): string {
       return "请修改图片文字为：";
     case "blend":
       return "请与另一个 @ 图片融合，要求是：";
+    case "focus-edit":
+      return tool.defaultPrompt;
     default:
       return `${tool.defaultPrompt}，要求是：`;
   }
@@ -176,6 +188,11 @@ export function StudioWorkspace({
     toolId: string;
     toolName: string;
   } | null>(null);
+  const [focusEditSession, setFocusEditSession] =
+    useState<FocusEditSession | null>(null);
+  const [focusRecognizing, setFocusRecognizing] = useState(false);
+  const [focusClickKey, setFocusClickKey] = useState(0);
+  const lastFocusClickAtRef = useRef(0);
   /** 同款套图栏折叠态：默认折叠成 36px 单行 chip，紧贴 dock 顶部 */
   const [inspirationBarCollapsed, setInspirationBarCollapsed] = useState(true);
   /** 受控的内容举报对话框（StudioHeader 右上 ⚠ 触发） */
@@ -441,6 +458,76 @@ export function StudioWorkspace({
    * - 优先 outputId（已生成图）；其次 assetId（上传图）。
    * - clientOnly 工具（如 crop）不在浮层显示，由画布原生工具栏承担。
    */
+  function exitFocusEditMode() {
+    setFocusEditSession(null);
+    setFocusRecognizing(false);
+    setFocusClickKey((k) => k + 1);
+  }
+
+  function startFocusEditMode(item: CanvasItem) {
+    setBrushRequest(null);
+    setFocusEditSession({
+      itemId: item.id,
+      points: [],
+      intent: "edit",
+    });
+    setFocusClickKey((k) => k + 1);
+    setSelectedCanvasId(item.id);
+    setSelectSourceBanner(
+      "焦点编辑：在图片上点击要修改的位置，在工作站输入短 prompt 后提交。",
+    );
+    hapticLight();
+  }
+
+  const handleFocusImageClick = useCallback(
+    async (item: CanvasItem, point: { x: number; y: number }) => {
+      if (!user || readOnly || !focusEditSession || item.id !== focusEditSession.itemId) {
+        return;
+      }
+      const now = Date.now();
+      if (now - lastFocusClickAtRef.current < FOCUS_CLICK_DEBOUNCE_MS) {
+        setSelectSourceBanner("点击过快，请稍候再添加焦点");
+        return;
+      }
+      lastFocusClickAtRef.current = now;
+      if (focusEditSession.points.length >= MAX_FOCUS_POINTS) {
+        setSelectSourceBanner(`最多添加 ${MAX_FOCUS_POINTS} 个焦点`);
+        return;
+      }
+      setFocusRecognizing(true);
+      try {
+        const imageUrl = assetUrl(item.url);
+        const data = await recognizeFocusPoint({
+          sessionId,
+          imageUrl,
+          x: point.x,
+          y: point.y,
+        });
+        const chip: FocusPointChip = {
+          pointId: data.pointId,
+          objectName: data.objectName?.trim() || "目标区域",
+          x: point.x,
+          y: point.y,
+          itemId: item.id,
+        };
+        setFocusEditSession((prev) =>
+          prev && prev.itemId === item.id
+            ? { ...prev, points: [...prev.points, chip] }
+            : prev,
+        );
+        setSelectSourceBanner(null);
+        hapticLight();
+      } catch (err) {
+        setSelectSourceBanner(
+          err instanceof Error ? err.message : "焦点识别失败",
+        );
+      } finally {
+        setFocusRecognizing(false);
+      }
+    },
+    [user, readOnly, focusEditSession, sessionId],
+  );
+
   async function handleRunSelectionTool(
     tool: StudioTool,
     item: CanvasItem,
@@ -460,6 +547,16 @@ export function StudioWorkspace({
     }
 
     const interaction = getToolInteraction(tool.id);
+    if (interaction === "click") {
+      startFocusEditMode(item);
+      setMentionItemRequest((prev) => ({
+        key: (prev?.key ?? 0) + 1,
+        item,
+        promptSuffix: buildToolPromptSuffix(tool),
+      }));
+      return;
+    }
+
     if (interaction === "brush") {
       setBrushRequest((prev) => ({
         key: (prev?.key ?? 0) + 1,
@@ -596,6 +693,69 @@ export function StudioWorkspace({
     selectedCanvasId ?
       (canvasItems.find((i) => i.id === selectedCanvasId) ?? null)
     : null;
+
+  const focusClickRequest =
+    focusEditSession
+      ? {
+          key: focusClickKey,
+          itemId: focusEditSession.itemId,
+          toolName: "焦点编辑",
+          markers: focusEditSession.points.map((p) => ({
+            x: p.x,
+            y: p.y,
+            label: p.objectName,
+          })),
+        }
+      : null;
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.repeat || e.shiftKey || e.altKey) return;
+      if (e.key !== "Control" && e.key !== "Meta") return;
+      e.preventDefault();
+      if (readOnly || !user) return;
+      const item =
+        selectedCanvasItem ??
+        (() => {
+          const t = pickLatestBatchFocusTarget(canvasItems);
+          return t ? canvasItems.find((i) => i.id === t.itemId) : null;
+        })();
+      if (!item?.outputId && !item?.assetId) {
+        setSelectSourceBanner("请先在画布点选一张图片，再开启焦点编辑");
+        return;
+      }
+      if (focusEditSession?.itemId === item.id) {
+        exitFocusEditMode();
+        setSelectSourceBanner(null);
+      } else {
+        startFocusEditMode(item);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    user,
+    readOnly,
+    selectedCanvasItem,
+    canvasItems,
+    focusEditSession?.itemId,
+  ]);
+
+  function handleStudioToolGridSelect(tool: StudioTool) {
+    const item =
+      selectedCanvasItem ??
+      (() => {
+        const t = pickLatestBatchFocusTarget(canvasItems);
+        return t ? canvasItems.find((i) => i.id === t.itemId) : null;
+      })();
+    if (!item) {
+      setSelectSourceBanner("请先在画布点选或生成一张图片");
+      return;
+    }
+    void handleRunSelectionTool(tool, item);
+  }
   const canvasEmptyHint =
     mobile
       ? canvasEmptyHintMobile()
@@ -649,7 +809,67 @@ export function StudioWorkspace({
         readOnly={readOnly}
         canvasItems={canvasItems}
         mentionItemRequest={mentionItemRequest}
+        focusEdit={
+          focusEditSession
+            ? {
+                points: focusEditSession.points,
+                intent: focusEditSession.intent,
+                recognizing: focusRecognizing,
+                onIntentChange: (intent) =>
+                  setFocusEditSession((prev) =>
+                    prev ? { ...prev, intent } : prev,
+                  ),
+                onRemovePoint: (pointId) =>
+                  setFocusEditSession((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          points: prev.points.filter((p) => p.pointId !== pointId),
+                        }
+                      : prev,
+                  ),
+                onCancel: exitFocusEditMode,
+              }
+            : null
+        }
+        onFocusEditSubmit={async ({ prompt, intent, points, item }) => {
+          const referenceOutputIds = item.outputId ? [item.outputId] : undefined;
+          const assetIds =
+            !referenceOutputIds && item.assetId ? [item.assetId] : undefined;
+          const { jobId } = await runTool("focus-edit", {
+            sessionId,
+            prompt: prompt.trim(),
+            referenceOutputIds,
+            assetIds,
+            resolution: resolveToolResolution("focus-edit"),
+            intent,
+            focusPoints: points.map((p) => ({
+              pointId: p.pointId,
+              objectName: p.objectName,
+              x: p.x,
+              y: p.y,
+            })),
+          });
+          void trackEvent("tool_run", {
+            tool_id: "focus-edit",
+            job_id: jobId,
+            intent,
+            focus_count: points.length,
+          });
+          registerToolBatchLineage(jobId, item, "焦点编辑");
+          exitFocusEditMode();
+          setPollingJobId(jobId);
+          return jobId;
+        }}
       />
+      {mode !== "ecommerce" && tools.length > 0 && user ? (
+        <StudioToolGrid
+          tools={tools}
+          activeToolId={focusEditSession ? "focus-edit" : null}
+          disabled={readOnly || Boolean(pollingJobId)}
+          onSelect={handleStudioToolGridSelect}
+        />
+      ) : null}
     </>
   );
 
@@ -844,6 +1064,15 @@ export function StudioWorkspace({
               onCutoutItem={(item) => handleQuickToolFromCanvas(item, "cutout")}
               onExpandItem={(item) => handleQuickToolFromCanvas(item, "expand")}
               brushRequest={brushRequest}
+              focusClickRequest={focusClickRequest}
+              onFocusImageClick={(item, point) =>
+                void handleFocusImageClick(item, point)
+              }
+              onFocusClickCancel={() => {
+                setSelectSourceBanner(
+                  "点选已完成：请在工作站补充 prompt 并提交焦点编辑。",
+                );
+              }}
               onBrushCancel={() => {
                 setBrushRequest(null);
                 setSelectSourceBanner(null);

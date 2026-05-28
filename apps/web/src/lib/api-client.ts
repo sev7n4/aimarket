@@ -660,6 +660,23 @@ export async function updateAdminReport(
   return json;
 }
 
+export async function recognizeFocusPoint(body: {
+  sessionId: string;
+  imageUrl?: string;
+  imageBase64?: string;
+  x?: number;
+  y?: number;
+  cropSize?: number;
+}) {
+  const res = await request<{
+    data: { pointId: string; objectName: string; provider: string };
+  }>("/api/v1/focus/point", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return res.data;
+}
+
 export async function runTool(
   toolId: string,
   body: {
@@ -669,6 +686,13 @@ export async function runTool(
     referenceOutputIds?: string[];
     assetIds?: string[];
     scale?: "2x" | "4x";
+    intent?: "edit" | "replace";
+    focusPoints?: Array<{
+      pointId: string;
+      objectName: string;
+      x?: number;
+      y?: number;
+    }>;
     toolContext?: {
       toolId: string;
       masks: Array<{

@@ -5,6 +5,7 @@ import { ALL_MODELS, getModel } from "../lib/models.js";
 import { getProviderStatus } from "../providers/registry.js";
 import { getPromptOptimizeStatus } from "../lib/prompt-optimize.js";
 import { getToolProviderStatus } from "../providers/tools/registry.js";
+import { getFocusPointProviderStatus } from "../lib/focus-point.js";
 import { getModerationStatus } from "../lib/moderation/index.js";
 import { streamSSE } from "hono/streaming";
 import { estimatePoints } from "../lib/pricing.js";
@@ -31,6 +32,7 @@ ai.get("/providerStatus", (c) =>
     data: {
       ...getProviderStatus(),
       tools: getToolProviderStatus(),
+      focusPoint: getFocusPointProviderStatus(),
       promptOptimize: getPromptOptimizeStatus(),
       moderation: getModerationStatus(),
     },

@@ -68,6 +68,11 @@ import {
 import { ModelPicker, AUTO_MODEL_ID } from "@/components/model-picker";
 import { CountPicker } from "@/components/count-picker";
 import type { StudioInspirationApply } from "@/lib/inspiration-studio";
+import { FocusEditChips } from "@/components/focus-edit-chips";
+import type {
+  FocusEditIntent,
+  FocusPointChip,
+} from "@/lib/focus-edit";
 
 const ASPECT_RATIOS: AspectRatio[] = [
   "1:1",
@@ -144,6 +149,21 @@ interface CreationPanelProps {
     promptSuffix?: string;
     maskSelection?: CanvasMaskSelection;
   } | null;
+  /** 焦点编辑：Chip 列表与 intent，提交时走 focus-edit/run */
+  focusEdit?: {
+    points: FocusPointChip[];
+    intent: FocusEditIntent;
+    recognizing?: boolean;
+    onIntentChange: (intent: FocusEditIntent) => void;
+    onRemovePoint: (pointId: string) => void;
+    onCancel: () => void;
+  } | null;
+  onFocusEditSubmit?: (args: {
+    prompt: string;
+    intent: FocusEditIntent;
+    points: FocusPointChip[];
+    item: CanvasItem;
+  }) => Promise<string>;
 }
 
 export function CreationPanel({
@@ -172,6 +192,8 @@ export function CreationPanel({
   collapsed = false,
   canvasItems = [],
   mentionItemRequest = null,
+  focusEdit = null,
+  onFocusEditSubmit,
 }: CreationPanelProps) {
   const shouldNavigateOnSubmit =
     navigateOnSubmit ?? (!sessionId && !homeDirectSubmit);
@@ -553,6 +575,39 @@ export function CreationPanel({
     }
     if (!sessionId) return;
 
+    if (focusEdit?.points.length && onFocusEditSubmit) {
+      const sourceItem = canvasItems.find(
+        (i) => i.id === focusEdit.points[0]?.itemId,
+      );
+      if (!sourceItem) {
+        alert("找不到焦点对应的画布图片，请重新点选");
+        return;
+      }
+      setPending(true);
+      try {
+        await ensureSession(sessionId, mode);
+        const jobId = await onFocusEditSubmit({
+          prompt: prompt.trim(),
+          intent: focusEdit.intent,
+          points: focusEdit.points,
+          item: sourceItem,
+        });
+        setPrompt("");
+        await refreshUser();
+        void trackEvent("focus_edit_submit", {
+          sessionId,
+          intent: focusEdit.intent,
+          count: focusEdit.points.length,
+        });
+        onJobStarted?.(jobId);
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "焦点编辑提交失败");
+      } finally {
+        setPending(false);
+      }
+      return;
+    }
+
     setPending(true);
     try {
       await ensureSession(sessionId, mode);
@@ -689,12 +744,17 @@ export function CreationPanel({
     }
   }
 
+  const focusEditReady =
+    Boolean(focusEdit?.points.length) && prompt.trim().length > 0;
+
   const canSubmit =
     !readOnly &&
     !jobStreamStatus &&
-    (effectiveMode === "ecommerce"
-      ? prompt.trim().length >= 10 && Boolean(productAssetId)
-      : prompt.trim().length > 0);
+    (focusEdit
+      ? focusEditReady && !focusEdit.recognizing
+      : effectiveMode === "ecommerce"
+        ? prompt.trim().length >= 10 && Boolean(productAssetId)
+        : prompt.trim().length > 0);
 
   const streamBusy =
     Boolean(jobStreamStatus) &&
@@ -953,6 +1013,16 @@ export function CreationPanel({
           <p className="mt-1 text-xs text-amber-300">
             已圈选 {mentionedMasks.length} 个局部区域，将随提示词一起提交
           </p>
+        ) : null}
+        {focusEdit ? (
+          <FocusEditChips
+            points={focusEdit.points}
+            intent={focusEdit.intent}
+            recognizing={focusEdit.recognizing}
+            onIntentChange={focusEdit.onIntentChange}
+            onRemove={focusEdit.onRemovePoint}
+            onCancel={focusEdit.onCancel}
+          />
         ) : null}
         {assetIds.length > 0 ? (
           <p className="mt-1 text-xs text-zinc-500">
