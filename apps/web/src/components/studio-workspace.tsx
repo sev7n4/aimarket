@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { SessionTitleActions } from "@/components/session-title-actions";
 import { CanvasRoleActions } from "@/components/canvas-role-actions";
 import { InspirationSetGenerateBar } from "@/components/inspiration-set-generate-bar";
-import { X } from "lucide-react";
+import { ChevronDown, ChevronUp, Maximize2, Minimize2, X } from "lucide-react";
 import { LoginDialog } from "@/components/login-dialog";
 import { AppLeftRail } from "@/components/app-left-rail";
 import {
@@ -121,6 +121,8 @@ export function StudioWorkspace({
     null,
   );
   const [pendingToolId, setPendingToolId] = useState<string | null>(null);
+  /** 工作台 dock 折叠态：折叠时只剩单行输入条，让画布近似全屏 */
+  const [dockCollapsed, setDockCollapsed] = useState(false);
 
   const handleWorkspaceChange = useCallback((id: string) => {
     setActiveWorkspaceId(id);
@@ -627,8 +629,31 @@ export function StudioWorkspace({
             ) : null}
           </div>
 
-          {/* 工作台 dock：始终常驻在画布下方，与首页输入区视觉一致 */}
+          {/* 工作台 dock：始终常驻在画布下方，可一键折叠为迷你输入条让画布近似全屏 */}
           <div className="shrink-0">
+            <div className="mb-1 flex items-center justify-end gap-2 px-1">
+              <button
+                type="button"
+                onClick={() => setDockCollapsed((v) => !v)}
+                aria-label={dockCollapsed ? "展开工作台" : "收起工作台让画布更大"}
+                aria-pressed={dockCollapsed}
+                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-zinc-400 transition hover:border-orange-400/30 hover:text-orange-200"
+              >
+                {dockCollapsed ? (
+                  <>
+                    <ChevronUp className="size-3" />
+                    <Minimize2 className="size-3" />
+                    <span>展开工作台</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="size-3" />
+                    <Maximize2 className="size-3" />
+                    <span>放大画布</span>
+                  </>
+                )}
+              </button>
+            </div>
             {!user || !ready ? (
               <button
                 type="button"
@@ -657,6 +682,7 @@ export function StudioWorkspace({
               onJobStarted={(jobId) => setPollingJobId(jobId)}
               jobStreamStatus={jobStreamStatus}
               readOnly={readOnly}
+              collapsed={dockCollapsed}
             />
           </div>
         </div>

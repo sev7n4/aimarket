@@ -19,6 +19,10 @@ import { canvasSelectionHint } from "@/lib/mobile-labels";
 import { hapticLight } from "@/lib/haptics";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 
+/** 画布缩放范围：放宽到 6 倍，便于查看出图细节；下限 0.2 便于全图概览 */
+const ZOOM_MIN = 0.2;
+const ZOOM_MAX = 6;
+
 export interface DesignCanvasHandle {
   fitToItem: (itemId: string) => void;
   pulseItem: (itemId: string) => void;
@@ -115,7 +119,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       const pad = 48;
       const scaleX = (rect.width - pad * 2) / item.width;
       const scaleY = (rect.height - pad * 2) / item.height;
-      const nextZoom = Math.min(2, Math.max(0.35, Math.min(scaleX, scaleY)));
+      const nextZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.min(scaleX, scaleY)));
       const cx = item.x + item.width / 2;
       const cy = item.y + item.height / 2;
       setZoom(nextZoom);
@@ -138,9 +142,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
 
     const handleTool = useCallback(
       (id: CanvasToolId) => {
-        if (id === "zoom-in") setZoom((z) => Math.min(2, z + zoomStep));
+        if (id === "zoom-in") setZoom((z) => Math.min(ZOOM_MAX, z + zoomStep));
         else if (id === "zoom-out")
-          setZoom((z) => Math.max(0.35, z - zoomStep));
+          setZoom((z) => Math.max(ZOOM_MIN, z - zoomStep));
         else if (id === "fit") {
           setZoom(1);
           setPan({ x: 0, y: 0 });
@@ -231,7 +235,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         if (pinchZoom || touchPinch) {
           e.preventDefault();
           const delta = e.deltaY > 0 ? -wheelZoomStep : wheelZoomStep;
-          setZoom((z) => Math.min(2, Math.max(0.35, z + delta)));
+          setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z + delta)));
         }
       }
       el.addEventListener("wheel", onWheel, { passive: false });
@@ -280,7 +284,10 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         e.preventDefault();
         const d = dist(e.touches[0], e.touches[1]);
         const ratio = d / pinchBase.dist;
-        const nextZoom = Math.min(2, Math.max(0.35, pinchBase.zoom * ratio));
+        const nextZoom = Math.min(
+          ZOOM_MAX,
+          Math.max(ZOOM_MIN, pinchBase.zoom * ratio),
+        );
         const k = nextZoom / pinchBase.zoom;
         setZoom(nextZoom);
         setPan({
