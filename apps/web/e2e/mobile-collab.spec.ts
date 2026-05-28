@@ -44,6 +44,9 @@ test.describe("mobile collab", () => {
 
   test("创作页移动默认展示画布与可展开工作站", async ({ page }) => {
     await registerAndLogin(page);
+    await page.addInitScript(() => {
+      localStorage.setItem("aimarket_studio_mobile_coach_v1", "1");
+    });
     await page.goto("/studio");
     await expect(page.getByText(/画布\s*·/).first()).toBeVisible({
       timeout: 15_000,
