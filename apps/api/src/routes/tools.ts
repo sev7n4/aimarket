@@ -66,6 +66,20 @@ tools.post("/:toolId/run", async (c) => {
   }
 
   let prompt = body.prompt?.trim() || tool.defaultPrompt;
+  if (body.toolContext?.masks.length) {
+    const maskHints = body.toolContext.masks
+      .map((m, i) => {
+        const pct = {
+          x: Math.round(m.normalizedBbox.x * 100),
+          y: Math.round(m.normalizedBbox.y * 100),
+          w: Math.round(m.normalizedBbox.width * 100),
+          h: Math.round(m.normalizedBbox.height * 100),
+        };
+        return `区域${i + 1}: ${m.mode === "brush" ? "手指/画笔圈选" : "矩形框选"}，大致位于 x=${pct.x}%, y=${pct.y}%, w=${pct.w}%, h=${pct.h}%`;
+      })
+      .join("；");
+    prompt = `${prompt}\n【局部编辑区域】${maskHints}`;
+  }
   if (tool.id === "upscale" && body.scale) {
     prompt = `${prompt}（${body.scale} 放大）`;
   }
@@ -95,6 +109,7 @@ tools.post("/:toolId/run", async (c) => {
     count: 1,
     resolution: body.resolution,
     toolType: toolId,
+    toolContext: body.toolContext,
   });
 
   void recordAnalyticsEvent(userId, "tool.run", {

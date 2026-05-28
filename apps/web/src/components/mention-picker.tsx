@@ -9,6 +9,7 @@ import type { SessionReference } from "@/lib/types";
  * 工作台 prompt 输入框的 @ 上下文引用候选项。
  * 仿 Cursor 的 @ 体验，可同时引用：
  *  - 画布上的图片（上传素材 / 生成产物）
+ *  - 工作台当前上传但尚未进画布的图片
  *  - session 历史生成图
  */
 export type MentionItem =
@@ -20,6 +21,15 @@ export type MentionItem =
       /** 画布 item 角色 chip：参考 / 商品 / 输出 */
       roleLabel?: string;
       /** 已入库的 assetId，提交时进 referenceAssets */
+      assetId: string;
+    }
+  | {
+      key: string;
+      source: "upload-asset";
+      label: string;
+      url: string;
+      roleLabel?: string;
+      /** 工作台当前上传的 assets.id，提交时进 assetIds */
       assetId: string;
     }
   | {
@@ -44,6 +54,7 @@ interface MentionPickerProps {
   /** 当前查询（@ 后的字符），用于客户端过滤 */
   query?: string;
   canvasItems?: CanvasItem[];
+  uploadedAssets?: Array<{ id: string; url: string; label?: string }>;
   references?: SessionReference[];
   onSelect: (item: MentionItem) => void;
   onClose: () => void;
@@ -105,10 +116,24 @@ export function buildHistoryMentionItems(
   }));
 }
 
+export function buildUploadMentionItems(
+  uploads: Array<{ id: string; url: string; label?: string }>,
+): MentionItem[] {
+  return uploads.map((upload, idx) => ({
+    key: `upload-${upload.id}`,
+    source: "upload-asset",
+    label: upload.label ?? `上传图${idx + 1}`,
+    url: upload.url,
+    roleLabel: "当前上传",
+    assetId: upload.id,
+  }));
+}
+
 export function MentionPicker({
   open,
   query = "",
   canvasItems = [],
+  uploadedAssets = [],
   references = [],
   onSelect,
   onClose,
@@ -120,6 +145,10 @@ export function MentionPicker({
   const historyGroup = useMemo(
     () => buildHistoryMentionItems(references),
     [references],
+  );
+  const uploadGroup = useMemo(
+    () => buildUploadMentionItems(uploadedAssets),
+    [uploadedAssets],
   );
 
   const q = query.trim().toLowerCase();
@@ -137,9 +166,16 @@ export function MentionPicker({
       ),
     [historyGroup, q],
   );
+  const filteredUploads = useMemo(
+    () =>
+      uploadGroup.filter(
+        (item) => !q || item.label.toLowerCase().includes(q),
+      ),
+    [uploadGroup, q],
+  );
   const flat = useMemo(
-    () => [...filteredCanvas, ...filteredHistory],
-    [filteredCanvas, filteredHistory],
+    () => [...filteredCanvas, ...filteredUploads, ...filteredHistory],
+    [filteredCanvas, filteredUploads, filteredHistory],
   );
 
   const [activeIdx, setActiveIdx] = useState(0);
@@ -218,6 +254,14 @@ export function MentionPicker({
         <MentionGroup
           title="画布"
           items={filteredCanvas}
+          activeKey={flat[activeIdx]?.key}
+          onSelect={onSelect}
+        />
+      ) : null}
+      {filteredUploads.length > 0 ? (
+        <MentionGroup
+          title="当前上传"
+          items={filteredUploads}
           activeKey={flat[activeIdx]?.key}
           onSelect={onSelect}
         />

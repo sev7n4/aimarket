@@ -86,7 +86,7 @@ export function getToolProviderStatus() {
   const enhanceProvider = resolveToolProvider("enhance").name;
   const expandProvider = resolveToolProvider("expand").name;
   const inpaintProvider = resolveToolProvider("inpaint").name;
-  const genericToolProvider = resolveToolProvider("erase").name;
+  const genericToolProvider = resolveToolProvider("blend").name;
 
   const allMock =
     cutoutProvider.endsWith("-mock") &&

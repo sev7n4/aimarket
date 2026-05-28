@@ -10,7 +10,11 @@ import {
   type ReactNode,
 } from "react";
 import { assetUrl } from "@/lib/api-client";
-import type { CanvasItem, CanvasToolId } from "@/lib/canvas-tools";
+import type {
+  CanvasItem,
+  CanvasMaskSelection,
+  CanvasToolId,
+} from "@/lib/canvas-tools";
 import { CanvasToolbar } from "@/components/canvas-toolbar";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
 import { CanvasContextMenu } from "@/components/canvas-context-menu";
@@ -48,6 +52,14 @@ interface DesignCanvasProps {
   selectSourceBanner?: string | null;
   onCutoutItem?: (item: CanvasItem) => void;
   onExpandItem?: (item: CanvasItem) => void;
+  brushRequest?: {
+    key: number;
+    itemId: string;
+    toolId: string;
+    toolName: string;
+  } | null;
+  onBrushComplete?: (selection: CanvasMaskSelection) => void;
+  onBrushCancel?: () => void;
   /**
    * 画布选中图片后浮出的 AI 工具栏（slot）。
    * - PC：建议绝对定位画布右上角（vertical layout）
@@ -79,6 +91,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       selectSourceBanner = null,
       onCutoutItem,
       onExpandItem,
+      brushRequest = null,
+      onBrushComplete,
+      onBrushCancel,
       selectionToolbar = null,
       statusChip = null,
     },
@@ -95,11 +110,21 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       x: number;
       y: number;
     } | null>(null);
+    const [maskMode, setMaskMode] = useState<"brush" | "box">("brush");
+    const [maskStrokes, setMaskStrokes] = useState<Array<Array<{ x: number; y: number }>>>([]);
+    const [maskBoxes, setMaskBoxes] = useState<
+      Array<{ x: number; y: number; width: number; height: number }>
+    >([]);
+    const activeStrokeRef = useRef<Array<{ x: number; y: number }> | null>(null);
+    const activeBoxRef = useRef<{ x: number; y: number } | null>(null);
     const mobile = useIsMobile(MOBILE_BREAKPOINT);
     const touchUi = mobile;
     const zoomStep = touchUi ? 0.28 : 0.15;
     const wheelZoomStep = touchUi ? 0.22 : 0.08;
     const panGain = touchUi ? 1.35 : 1;
+    const brushItem =
+      brushRequest ? items.find((item) => item.id === brushRequest.itemId) : null;
+    const brushActive = Boolean(brushRequest && brushItem);
     const panStart = useRef<{
       x: number;
       y: number;
@@ -174,6 +199,106 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       fitAll,
     ]);
 
+    useEffect(() => {
+      if (!brushRequest) return;
+      setTool("select");
+      setMaskMode("brush");
+      setMaskStrokes([]);
+      setMaskBoxes([]);
+      activeStrokeRef.current = null;
+      activeBoxRef.current = null;
+      onSelect(brushRequest.itemId);
+      window.requestAnimationFrame(() => fitToItem(brushRequest.itemId));
+    }, [brushRequest, fitToItem, onSelect]);
+
+    function itemPointFromEvent(e: React.PointerEvent, item: CanvasItem) {
+      const container = containerRef.current;
+      if (!container) return null;
+      const rect = container.getBoundingClientRect();
+      const x = (e.clientX - rect.left - pan.x) / zoom - item.x;
+      const y = (e.clientY - rect.top - pan.y) / zoom - item.y;
+      return {
+        x: Math.max(0, Math.min(item.width, x)),
+        y: Math.max(0, Math.min(item.height, y)),
+      };
+    }
+
+    function allMaskPoints() {
+      const points = maskStrokes.flat();
+      for (const box of maskBoxes) {
+        points.push(
+          { x: box.x, y: box.y },
+          { x: box.x + box.width, y: box.y + box.height },
+        );
+      }
+      return points;
+    }
+
+    function buildMaskSelection(): CanvasMaskSelection | null {
+      if (!brushRequest || !brushItem) return null;
+      const points = allMaskPoints();
+      if (points.length === 0) return null;
+      const minX = Math.max(0, Math.min(...points.map((p) => p.x)));
+      const minY = Math.max(0, Math.min(...points.map((p) => p.y)));
+      const maxX = Math.min(brushItem.width, Math.max(...points.map((p) => p.x)));
+      const maxY = Math.min(brushItem.height, Math.max(...points.map((p) => p.y)));
+      const bbox = {
+        x: Math.round(minX),
+        y: Math.round(minY),
+        width: Math.max(1, Math.round(maxX - minX)),
+        height: Math.max(1, Math.round(maxY - minY)),
+      };
+
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(brushItem.width));
+      canvas.height = Math.max(1, Math.round(brushItem.height));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "white";
+      ctx.fillStyle = "white";
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = Math.max(16, Math.round(Math.min(brushItem.width, brushItem.height) * 0.08));
+      for (const stroke of maskStrokes) {
+        if (stroke.length < 2) continue;
+        ctx.beginPath();
+        ctx.moveTo(stroke[0].x, stroke[0].y);
+        for (const pt of stroke.slice(1)) ctx.lineTo(pt.x, pt.y);
+        ctx.stroke();
+      }
+      for (const box of maskBoxes) {
+        ctx.fillRect(box.x, box.y, box.width, box.height);
+      }
+
+      return {
+        id: `${brushRequest.toolId}-${Date.now()}`,
+        itemId: brushItem.id,
+        toolId: brushRequest.toolId,
+        mode: maskBoxes.length > 0 && maskStrokes.length === 0 ? "box" : "brush",
+        maskDataUrl: canvas.toDataURL("image/png"),
+        bbox,
+        normalizedBbox: {
+          x: bbox.x / brushItem.width,
+          y: bbox.y / brushItem.height,
+          width: bbox.width / brushItem.width,
+          height: bbox.height / brushItem.height,
+        },
+      };
+    }
+
+    function finishBrushSelection() {
+      const selection = buildMaskSelection();
+      if (!selection) {
+        hapticLight();
+        return;
+      }
+      onBrushComplete?.(selection);
+      setMaskStrokes([]);
+      setMaskBoxes([]);
+    }
+
     const handleTool = useCallback(
       (id: CanvasToolId) => {
         if (id === "zoom-in") setZoom((z) => Math.min(ZOOM_MAX, z + zoomStep));
@@ -244,6 +369,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     }
 
     function onItemPointerDown(e: React.PointerEvent, item: CanvasItem) {
+      if (brushActive) return;
       if (tool !== "select") return;
       e.stopPropagation();
       onSelect(item.id);
@@ -265,6 +391,50 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         originX: item.x,
         originY: item.y,
       };
+    }
+
+    function onMaskPointerDown(e: React.PointerEvent, item: CanvasItem) {
+      if (!brushActive) return;
+      e.preventDefault();
+      e.stopPropagation();
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      const pt = itemPointFromEvent(e, item);
+      if (!pt) return;
+      if (maskMode === "box") {
+        activeBoxRef.current = pt;
+        setMaskBoxes((prev) => [...prev, { x: pt.x, y: pt.y, width: 1, height: 1 }]);
+        return;
+      }
+      activeStrokeRef.current = [pt];
+      setMaskStrokes((prev) => [...prev, [pt]]);
+    }
+
+    function onMaskPointerMove(e: React.PointerEvent, item: CanvasItem) {
+      if (!brushActive) return;
+      const pt = itemPointFromEvent(e, item);
+      if (!pt) return;
+      if (maskMode === "box" && activeBoxRef.current) {
+        const start = activeBoxRef.current;
+        const box = {
+          x: Math.min(start.x, pt.x),
+          y: Math.min(start.y, pt.y),
+          width: Math.abs(pt.x - start.x),
+          height: Math.abs(pt.y - start.y),
+        };
+        setMaskBoxes((prev) => [...prev.slice(0, -1), box]);
+        return;
+      }
+      if (!activeStrokeRef.current) return;
+      activeStrokeRef.current = [...activeStrokeRef.current, pt];
+      setMaskStrokes((prev) => [
+        ...prev.slice(0, -1),
+        activeStrokeRef.current ?? [],
+      ]);
+    }
+
+    function endMaskPointer() {
+      activeStrokeRef.current = null;
+      activeBoxRef.current = null;
     }
 
     useEffect(() => {
@@ -411,6 +581,64 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               {selectSourceBanner}
             </div>
           ) : null}
+          {brushActive && brushRequest ? (
+            <div className="absolute left-2 right-2 top-2 z-30 rounded-2xl border border-purple-400/30 bg-black/80 p-2 text-xs text-zinc-200 shadow-xl backdrop-blur">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-purple-200">
+                  {brushRequest.toolName}：圈选要处理的区域
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setMaskMode("brush")}
+                  className={`rounded-full px-2.5 py-1 ${
+                    maskMode === "brush"
+                      ? "bg-purple-500 text-white"
+                      : "bg-white/10 text-zinc-300"
+                  }`}
+                >
+                  画笔
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMaskMode("box")}
+                  className={`rounded-full px-2.5 py-1 ${
+                    maskMode === "box"
+                      ? "bg-purple-500 text-white"
+                      : "bg-white/10 text-zinc-300"
+                  }`}
+                >
+                  框选
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMaskStrokes((prev) => prev.slice(0, -1));
+                    setMaskBoxes((prev) => prev.slice(0, -1));
+                  }}
+                  className="rounded-full bg-white/10 px-2.5 py-1 text-zinc-300"
+                >
+                  撤销
+                </button>
+                <button
+                  type="button"
+                  onClick={finishBrushSelection}
+                  className="ml-auto rounded-full bg-purple-500 px-3 py-1 font-medium text-white"
+                >
+                  完成圈选
+                </button>
+                <button
+                  type="button"
+                  onClick={onBrushCancel}
+                  className="rounded-full bg-white/10 px-2.5 py-1 text-zinc-300"
+                >
+                  取消
+                </button>
+              </div>
+              <p className="mt-1 text-[10px] text-zinc-500">
+                移动端可直接用手指大致圈选，系统会同时提交 mask 与区域位置。
+              </p>
+            </div>
+          ) : null}
 
           <div
             ref={containerRef}
@@ -477,7 +705,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                       e.stopPropagation();
                       fitToItem(item.id);
                     }}
-                    className={`overflow-hidden rounded-xl border-2 bg-zinc-900 text-left shadow-lg transition ${
+                    className={`relative overflow-hidden rounded-xl border-2 bg-zinc-900 text-left shadow-lg transition ${
                       tool === "select"
                         ? "cursor-grab active:cursor-grabbing"
                         : ""
@@ -508,6 +736,44 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                         draggable={false}
                       />
                     )}
+                    {brushActive && brushItem?.id === item.id ? (
+                      <svg
+                        viewBox={`0 0 ${item.width} ${item.height}`}
+                        className="absolute inset-0 z-10 touch-none bg-purple-500/10"
+                        onPointerDown={(e) => onMaskPointerDown(e, item)}
+                        onPointerMove={(e) => onMaskPointerMove(e, item)}
+                        onPointerUp={endMaskPointer}
+                        onPointerCancel={endMaskPointer}
+                        onPointerLeave={endMaskPointer}
+                      >
+                        {maskBoxes.map((box, i) => (
+                          <rect
+                            key={`box-${i}`}
+                            x={box.x}
+                            y={box.y}
+                            width={box.width}
+                            height={box.height}
+                            fill="rgba(168,85,247,0.28)"
+                            stroke="rgb(216,180,254)"
+                            strokeWidth={2}
+                            vectorEffect="non-scaling-stroke"
+                          />
+                        ))}
+                        {maskStrokes.map((stroke, i) => (
+                          <polyline
+                            key={`stroke-${i}`}
+                            points={stroke.map((p) => `${p.x},${p.y}`).join(" ")}
+                            fill="none"
+                            stroke="rgb(216,180,254)"
+                            strokeWidth={18}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            opacity={0.85}
+                            vectorEffect="non-scaling-stroke"
+                          />
+                        ))}
+                      </svg>
+                    ) : null}
                   </div>
                 ))
               )}

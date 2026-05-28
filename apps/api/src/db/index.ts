@@ -135,6 +135,13 @@ try {
   /* column exists */
 }
 try {
+  database.exec(
+    `ALTER TABLE generation_jobs ADD COLUMN tool_context TEXT`,
+  );
+} catch {
+  /* column exists */
+}
+try {
   database.exec(`ALTER TABLE image_sessions ADD COLUMN canvas_layout TEXT`);
 } catch {
   /* column exists */

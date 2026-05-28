@@ -19,6 +19,7 @@ import { db } from "../db/index.js";
 import { AppError } from "../lib/errors.js";
 import { assertPromptAllowed } from "../lib/content-moderation.js";
 import { rateLimit } from "../lib/rate-limit.js";
+import { toolContextSchema } from "../lib/tools.js";
 
 const ai = new Hono<{ Variables: AuthVariables }>();
 
@@ -100,6 +101,7 @@ ai.post("/generate", async (c) => {
       assetIds: z.array(z.string().uuid()).optional(),
       referenceOutputIds: z.array(z.string().uuid()).optional(),
       autoRoute: z.boolean().default(false),
+      toolContext: toolContextSchema.optional(),
     })
     .parse(await c.req.json());
 
@@ -138,6 +140,20 @@ ai.post("/generate", async (c) => {
     ...refUrls,
     ...assetUrls,
   ]);
+  if (body.toolContext?.masks.length) {
+    const maskHints = body.toolContext.masks
+      .map((m, i) => {
+        const pct = {
+          x: Math.round(m.normalizedBbox.x * 100),
+          y: Math.round(m.normalizedBbox.y * 100),
+          w: Math.round(m.normalizedBbox.width * 100),
+          h: Math.round(m.normalizedBbox.height * 100),
+        };
+        return `区域${i + 1}: ${m.mode === "brush" ? "手指/画笔圈选" : "矩形框选"}，大致位于 x=${pct.x}%, y=${pct.y}%, w=${pct.w}%, h=${pct.h}%`;
+      })
+      .join("；");
+    prompt = `${prompt}\n【局部编辑区域】${maskHints}`;
+  }
   await assertPromptAllowed(prompt);
 
   const { jobId, pointsCost } = createGenerationJob({
@@ -149,6 +165,8 @@ ai.post("/generate", async (c) => {
     count: body.count,
     resolution: body.resolution,
     aspectRatio: body.aspectRatio,
+    toolType: body.toolContext?.toolId,
+    toolContext: body.toolContext,
   });
 
   return c.json({

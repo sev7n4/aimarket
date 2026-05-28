@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS generation_jobs (
   points_cost INTEGER NOT NULL DEFAULT 0,
   error TEXT,
   tool_type TEXT,
+  tool_context TEXT,
   image_provider TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   completed_at TIMESTAMPTZ
