@@ -26,6 +26,8 @@ const ZOOM_MAX = 6;
 export interface DesignCanvasHandle {
   fitToItem: (itemId: string) => void;
   pulseItem: (itemId: string) => void;
+  /** 自动适配所有 items 的 bbox，让画布默认就把全部图片铺满可视区 ~80% */
+  fitAll: () => void;
 }
 
 interface DesignCanvasProps {
@@ -53,6 +55,8 @@ interface DesignCanvasProps {
    * 由父组件根据 mobile 状态自行决定布局。
    */
   selectionToolbar?: ReactNode;
+  /** 画布右下角状态 chip（如 Provider 状态），与 zoom 同行 */
+  statusChip?: ReactNode;
 }
 
 export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
@@ -76,6 +80,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onCutoutItem,
       onExpandItem,
       selectionToolbar = null,
+      statusChip = null,
     },
     ref,
   ) {
@@ -135,9 +140,38 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       window.setTimeout(() => setPulseId(null), 2000);
     }, []);
 
-    useImperativeHandle(ref, () => ({ fitToItem, pulseItem }), [
+    const fitAll = useCallback(() => {
+      const container = containerRef.current;
+      if (!container || items.length === 0) {
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+        return;
+      }
+      const minX = Math.min(...items.map((i) => i.x));
+      const minY = Math.min(...items.map((i) => i.y));
+      const maxX = Math.max(...items.map((i) => i.x + i.width));
+      const maxY = Math.max(...items.map((i) => i.y + i.height));
+      const bboxW = maxX - minX;
+      const bboxH = maxY - minY;
+
+      const rect = container.getBoundingClientRect();
+      const pad = 32;
+      const scaleX = (rect.width - pad * 2) / bboxW;
+      const scaleY = (rect.height - pad * 2) / bboxH;
+      const nextZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.min(scaleX, scaleY)));
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      setZoom(nextZoom);
+      setPan({
+        x: rect.width / 2 - cx * nextZoom,
+        y: rect.height / 2 - cy * nextZoom,
+      });
+    }, [items]);
+
+    useImperativeHandle(ref, () => ({ fitToItem, pulseItem, fitAll }), [
       fitToItem,
       pulseItem,
+      fitAll,
     ]);
 
     const handleTool = useCallback(
@@ -146,8 +180,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         else if (id === "zoom-out")
           setZoom((z) => Math.max(ZOOM_MIN, z - zoomStep));
         else if (id === "fit") {
-          setZoom(1);
-          setPan({ x: 0, y: 0 });
+          fitAll();
         } else if (id === "grid") setGridOn((g) => !g);
         else if (id === "upload") {
           if (!readOnly) onUpload();
@@ -158,7 +191,15 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
           else setTool("select");
         } else setTool(id);
       },
-      [onUpload, onDownload, onDeleteSelected, selectedId, readOnly, zoomStep],
+      [
+        onUpload,
+        onDownload,
+        onDeleteSelected,
+        selectedId,
+        readOnly,
+        zoomStep,
+        fitAll,
+      ],
     );
 
     function onCanvasPointerDown(e: React.PointerEvent) {
@@ -408,6 +449,10 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                     }}
                     onPointerDown={(e) => onItemPointerDown(e, item)}
                     onClick={(e) => e.stopPropagation()}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      fitToItem(item.id);
+                    }}
                     className={`overflow-hidden rounded-xl border-2 bg-zinc-900 text-left shadow-lg transition ${
                       tool === "select"
                         ? "cursor-grab active:cursor-grabbing"
@@ -444,9 +489,14 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               )}
             </div>
 
-            <div className="absolute bottom-3 right-3 rounded-lg bg-black/60 px-2 py-1 text-[10px] text-zinc-500">
-              {Math.round(zoom * 100)}%
-              {canvasSelectionHint(mobile, Boolean(selectedId))}
+            <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-10 flex items-center justify-between gap-2 text-[10px] text-zinc-500">
+              <div className="pointer-events-auto rounded-lg bg-black/60 px-2 py-1 backdrop-blur">
+                {Math.round(zoom * 100)}%
+                {canvasSelectionHint(mobile, Boolean(selectedId))}
+              </div>
+              {statusChip ? (
+                <div className="pointer-events-auto">{statusChip}</div>
+              ) : null}
             </div>
 
             {selectionToolbar}

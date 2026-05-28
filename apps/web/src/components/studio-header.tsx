@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { FolderOpen, Home, Menu, Plus } from "lucide-react";
+import { Flag, FolderOpen, Home, Menu, Plus } from "lucide-react";
 import { buildStudioUrl } from "@/lib/studio-navigation";
 import { useAuth } from "@/lib/auth-context";
 import { LoginDialog } from "@/components/login-dialog";
@@ -11,23 +11,29 @@ import { CreditsDialog } from "@/components/credits-dialog";
 import { SessionTitleActions } from "@/components/session-title-actions";
 import { BrandLogo } from "@/components/brand-logo";
 import { fetchSignStatus, getToken, signIn } from "@/lib/api-client";
+import type { SessionKind } from "@/lib/session-kind";
 
 interface StudioHeaderProps {
   sessionId?: string;
   sessionTitle?: string;
+  sessionKind?: SessionKind;
   onMenuClick?: () => void;
   onTitleSaved?: (title: string) => void;
   onSessionDeleted?: () => void;
   sessionReadOnly?: boolean;
+  /** 点击举报小图标时回调（在 dock 内打开举报对话框） */
+  onReportClick?: () => void;
 }
 
 export function StudioHeader({
   sessionId,
   sessionTitle = "未命名",
+  sessionKind,
   onMenuClick,
   onTitleSaved,
   onSessionDeleted,
   sessionReadOnly = false,
+  onReportClick,
 }: StudioHeaderProps) {
   const router = useRouter();
   const { user, logout, loading, refreshUser } = useAuth();
@@ -79,23 +85,35 @@ export function StudioHeader({
             markSize="sm"
             className="hidden sm:inline-flex"
           />
-          <div className="group flex min-w-0 max-w-[min(100%,280px)] items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5 sm:max-w-xs">
+          <div className="group flex min-w-0 max-w-[min(100%,300px)] items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5 sm:max-w-xs">
             <FolderOpen className="size-4 shrink-0 text-zinc-500" />
             <div className="min-w-0 flex-1">
-              {sessionId && user ? (
-                <SessionTitleActions
-                  sessionId={sessionId}
-                  title={sessionTitle}
-                  variant="header"
-                  disabled={sessionReadOnly}
-                  onTitleSaved={onTitleSaved}
-                  onDeleted={onSessionDeleted}
-                />
-              ) : (
-                <p className="truncate text-sm font-medium text-zinc-100">
-                  {sessionTitle}
-                </p>
-              )}
+              <div className="flex min-w-0 items-center gap-1.5">
+                <div className="min-w-0 flex-1">
+                  {sessionId && user ? (
+                    <SessionTitleActions
+                      sessionId={sessionId}
+                      title={sessionTitle}
+                      variant="header"
+                      disabled={sessionReadOnly}
+                      onTitleSaved={onTitleSaved}
+                      onDeleted={onSessionDeleted}
+                    />
+                  ) : (
+                    <p className="truncate text-sm font-medium text-zinc-100">
+                      {sessionTitle}
+                    </p>
+                  )}
+                </div>
+                {sessionKind === "project" ? (
+                  <span
+                    title="交付项目 · 出图与套图均归档于画布"
+                    className="shrink-0 rounded bg-purple-500/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-purple-300"
+                  >
+                    项目
+                  </span>
+                ) : null}
+              </div>
               <p className="truncate text-[10px] text-zinc-600">
                 内容由 AI 生成
               </p>
@@ -113,6 +131,17 @@ export function StudioHeader({
           >
             <Plus className="size-5" />
           </button>
+          {sessionId && user && onReportClick ? (
+            <button
+              type="button"
+              onClick={onReportClick}
+              className="hidden rounded-lg p-2 text-zinc-500 hover:bg-white/5 hover:text-amber-300 sm:inline-flex"
+              aria-label="举报违规内容"
+              title="举报违规内容"
+            >
+              <Flag className="size-4" />
+            </button>
+          ) : null}
           {!loading && user && getToken() ? (
             <>
               <button

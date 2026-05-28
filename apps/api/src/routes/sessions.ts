@@ -20,9 +20,53 @@ import {
 } from "../lib/session-access.js";
 import { listSessionsForUser } from "../lib/session-list.js";
 import { resolveWorkspaceIdForUser } from "../lib/workspaces.js";
+import { rowToCanonical } from "../lib/inspiration.js";
 
 const SESSION_SELECT =
   "id, user_id, workspace_id, title, mode, kind, status, created_at, updated_at";
+
+/**
+ * 根据 source_inspiration_id 拉对应灵感模板，返回前端 StudioInspirationApply 所需结构。
+ * - 即使 inspiration 已下线/删除也返回 null（不抛错），让会话继续可用。
+ */
+function loadSourceInspirationForSession(sessionId: string) {
+  const row = db
+    .prepare(
+      `SELECT s.source_inspiration_id, s.title AS session_title, t.*
+       FROM image_sessions s
+       LEFT JOIN inspiration_templates t ON t.id = s.source_inspiration_id
+       WHERE s.id = ?`,
+    )
+    .get(sessionId) as
+    | (Record<string, unknown> & {
+        source_inspiration_id: string | null;
+        session_title: string;
+        id?: string;
+        status?: string;
+      })
+    | undefined;
+  if (!row || !row.source_inspiration_id || !row.id) return null;
+  if (row.status && row.status !== "published") return null;
+
+  const canonical = rowToCanonical(
+    row as unknown as Parameters<typeof rowToCanonical>[0],
+  );
+  return {
+    id: canonical.id,
+    title: row.session_title || canonical.title,
+    prompt: canonical.prompt,
+    modelId: canonical.modelId,
+    aspectRatio: canonical.aspectRatio,
+    resolution: canonical.resolution,
+    variables: canonical.variables,
+    /** 默认变量值映射，前端进入即可填默认值 */
+    variableValues: Object.fromEntries(
+      (canonical.variables ?? []).map((v) => [v.key, v.default]),
+    ),
+    referenceUrls: canonical.referenceAssets.map((a) => a.url),
+    coverUrl: canonical.coverUrl,
+  };
+}
 
 const sessions = new Hono<{ Variables: AuthVariables }>();
 
@@ -50,7 +94,12 @@ sessions.post("/ensure", async (c) => {
     if (!canReadSession(userId, existing)) {
       throw new AppError(400, "SESSION_TAKEN", "会话 ID 冲突，请刷新页面");
     }
-    return c.json({ data: mapSessionForUser(existing, userId) });
+    return c.json({
+      data: {
+        ...mapSessionForUser(existing, userId),
+        sourceInspiration: loadSourceInspirationForSession(body.sessionId),
+      },
+    });
   }
 
   const taken = db
@@ -83,7 +132,15 @@ sessions.post("/ensure", async (c) => {
   );
 
   const session = loadSessionRow(body.sessionId);
-  return c.json({ data: mapSessionForUser(session!, userId) }, 201);
+  return c.json(
+    {
+      data: {
+        ...mapSessionForUser(session!, userId),
+        sourceInspiration: loadSourceInspirationForSession(body.sessionId),
+      },
+    },
+    201,
+  );
 });
 
 sessions.post("/create", async (c) => {
