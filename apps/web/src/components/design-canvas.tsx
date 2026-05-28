@@ -7,6 +7,7 @@ import {
   useImperativeHandle,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import { assetUrl } from "@/lib/api-client";
 import type { CanvasItem, CanvasToolId } from "@/lib/canvas-tools";
@@ -41,6 +42,13 @@ interface DesignCanvasProps {
   selectSourceBanner?: string | null;
   onCutoutItem?: (item: CanvasItem) => void;
   onExpandItem?: (item: CanvasItem) => void;
+  /**
+   * 画布选中图片后浮出的 AI 工具栏（slot）。
+   * - PC：建议绝对定位画布右上角（vertical layout）
+   * - Mobile：建议浮在画布顶部 banner 区（horizontal layout）
+   * 由父组件根据 mobile 状态自行决定布局。
+   */
+  selectionToolbar?: ReactNode;
 }
 
 export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
@@ -63,6 +71,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       selectSourceBanner = null,
       onCutoutItem,
       onExpandItem,
+      selectionToolbar = null,
     },
     ref,
   ) {
@@ -432,6 +441,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               {Math.round(zoom * 100)}%
               {canvasSelectionHint(mobile, Boolean(selectedId))}
             </div>
+
+            {selectionToolbar}
           </div>
 
           {mobile ? (

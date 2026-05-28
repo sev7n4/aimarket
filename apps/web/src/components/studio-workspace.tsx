@@ -14,6 +14,7 @@ import {
   type DesignCanvasHandle,
 } from "@/components/design-canvas";
 import { CreationPanel } from "@/components/creation-panel";
+import { CanvasSelectionToolbar } from "@/components/canvas-selection-toolbar";
 import { StudioHeader } from "@/components/studio-header";
 import { ProviderStatusBanner } from "@/components/provider-status-banner";
 import { ContentReportDialog } from "@/components/content-report-dialog";
@@ -119,6 +120,7 @@ export function StudioWorkspace({
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(
     null,
   );
+  const [pendingToolId, setPendingToolId] = useState<string | null>(null);
 
   const handleWorkspaceChange = useCallback((id: string) => {
     setActiveWorkspaceId(id);
@@ -305,6 +307,54 @@ export function StudioWorkspace({
       setSelectSourceBanner(
         err instanceof Error ? err.message : "工具执行失败",
       );
+    }
+  }
+
+  /**
+   * 选中画布图片后，从浮层 AI 工具栏一键跑工具。
+   * - 优先 outputId（已生成图）；其次 assetId（上传图）。
+   * - clientOnly 工具（如 crop）不在浮层显示，由画布原生工具栏承担。
+   */
+  async function handleRunSelectionTool(
+    tool: StudioTool,
+    item: CanvasItem,
+  ) {
+    if (!user) {
+      setLoginOpen(true);
+      return;
+    }
+    if (readOnly || tool.clientOnly) return;
+    setSelectedCanvasId(item.id);
+    const referenceOutputIds = item.outputId ? [item.outputId] : undefined;
+    const assetIds =
+      !referenceOutputIds && item.assetId ? [item.assetId] : undefined;
+    if (tool.requiresSource && !referenceOutputIds && !assetIds) {
+      setSelectSourceBanner("请先在画布点选一张已生成的图片");
+      return;
+    }
+    setPendingToolId(tool.id);
+    try {
+      const { jobId } = await runTool(tool.id, {
+        sessionId,
+        prompt: tool.defaultPrompt,
+        referenceOutputIds,
+        assetIds,
+        resolution: resolveToolResolution(tool.id),
+        ...(tool.id === "upscale" ? { scale: "2x" as const } : {}),
+      });
+      void trackEvent("tool_run", {
+        tool_id: tool.id,
+        job_id: jobId,
+        has_reference: true,
+      });
+      setPollingJobId(jobId);
+      setSelectSourceBanner(null);
+    } catch (err) {
+      setSelectSourceBanner(
+        err instanceof Error ? err.message : "工具执行失败",
+      );
+    } finally {
+      setPendingToolId(null);
     }
   }
 
@@ -538,7 +588,10 @@ export function StudioWorkspace({
               selectedId={selectedCanvasId}
               onSelect={(id) => {
                 setSelectedCanvasId(id);
-                if (id) hapticLight();
+                if (id) {
+                  hapticLight();
+                  setSelectSourceBanner(null);
+                }
               }}
               onItemsChange={setCanvasItems}
               onUpload={handleCanvasUpload}
@@ -553,6 +606,16 @@ export function StudioWorkspace({
               selectSourceBanner={selectSourceBanner}
               onCutoutItem={(item) => handleQuickToolFromCanvas(item, "cutout")}
               onExpandItem={(item) => handleQuickToolFromCanvas(item, "expand")}
+              selectionToolbar={
+                <CanvasSelectionToolbar
+                  tools={tools}
+                  selectedItem={selectedCanvasItem}
+                  readOnly={readOnly}
+                  pendingToolId={pendingToolId}
+                  layout={mobile ? "horizontal" : "vertical"}
+                  onRunTool={(tool, item) => void handleRunSelectionTool(tool, item)}
+                />
+              }
             />
             {user ? (
               <div className="mt-2 px-1">
