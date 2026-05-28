@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -29,6 +30,7 @@ const ZOOM_MAX = 6;
 
 export interface DesignCanvasHandle {
   fitToItem: (itemId: string) => void;
+  fitToBatch: (batchId: string) => void;
   pulseItem: (itemId: string) => void;
   /** 自动适配所有 items 的 bbox，让画布默认就把全部图片铺满可视区 ~80% */
   fitAll: () => void;
@@ -159,6 +161,31 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       });
     }, [items]);
 
+    const fitToBatch = useCallback((batchId: string) => {
+      const batchItems = items.filter((i) => i.batchId === batchId);
+      const container = containerRef.current;
+      if (!container || batchItems.length === 0) return;
+
+      const minX = Math.min(...batchItems.map((i) => i.x));
+      const minY = Math.min(...batchItems.map((i) => i.y));
+      const maxX = Math.max(...batchItems.map((i) => i.x + i.width));
+      const maxY = Math.max(...batchItems.map((i) => i.y + i.height));
+      const bboxW = maxX - minX;
+      const bboxH = maxY - minY;
+      const rect = container.getBoundingClientRect();
+      const pad = mobile ? 44 : 64;
+      const scaleX = (rect.width - pad * 2) / bboxW;
+      const scaleY = (rect.height - pad * 2) / bboxH;
+      const nextZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.min(scaleX, scaleY, 1.15)));
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      setZoom(nextZoom);
+      setPan({
+        x: rect.width / 2 - cx * nextZoom,
+        y: rect.height / 2 - cy * nextZoom,
+      });
+    }, [items, mobile]);
+
     const pulseItem = useCallback((itemId: string) => {
       setPulseId(itemId);
       hapticLight();
@@ -193,8 +220,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       });
     }, [items]);
 
-    useImperativeHandle(ref, () => ({ fitToItem, pulseItem, fitAll }), [
+    useImperativeHandle(ref, () => ({ fitToItem, fitToBatch, pulseItem, fitAll }), [
       fitToItem,
+      fitToBatch,
       pulseItem,
       fitAll,
     ]);
@@ -328,7 +356,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     );
 
     function onCanvasPointerDown(e: React.PointerEvent) {
-      if (tool !== "pan") return;
+      if (tool !== "pan" && !(mobile && e.pointerType === "touch" && !brushActive)) {
+        return;
+      }
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       panStart.current = {
         x: e.clientX,
@@ -447,7 +477,13 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
           e.preventDefault();
           const delta = e.deltaY > 0 ? -wheelZoomStep : wheelZoomStep;
           setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z + delta)));
+          return;
         }
+        e.preventDefault();
+        setPan((p) => ({
+          x: p.x - e.deltaX,
+          y: p.y - e.deltaY,
+        }));
       }
       el.addEventListener("wheel", onWheel, { passive: false });
       return () => el.removeEventListener("wheel", onWheel);
@@ -564,6 +600,33 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       Boolean(jobStreamStatus) &&
       jobStreamStatus !== "succeeded" &&
       jobStreamStatus !== "failed";
+    const batchSections = useMemo(() => {
+      const groups = new Map<string, CanvasItem[]>();
+      for (const item of items) {
+        const key = item.batchId ?? `item-${item.id}`;
+        groups.set(key, [...(groups.get(key) ?? []), item]);
+      }
+      return Array.from(groups.entries())
+        .map(([id, batchItems]) => {
+          const minX = Math.min(...batchItems.map((i) => i.x));
+          const minY = Math.min(...batchItems.map((i) => i.y));
+          const maxX = Math.max(...batchItems.map((i) => i.x + i.width));
+          const maxY = Math.max(...batchItems.map((i) => i.y + i.height));
+          const first = batchItems[0];
+          return {
+            id,
+            index: first.batchIndex ?? 0,
+            title: first.batchTitle ?? "批次",
+            subtitle: first.batchSubtitle,
+            count: batchItems.length,
+            x: minX - 24,
+            y: minY - 58,
+            width: maxX - minX + 48,
+            height: maxY - minY + 88,
+          };
+        })
+        .sort((a, b) => a.index - b.index || a.y - b.y);
+    }, [items]);
 
     return (
       <div
@@ -688,94 +751,131 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                   <p className="text-sm text-zinc-600">{emptyHint}</p>
                 </div>
               ) : (
-                items.map((item) => (
-                  <div
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    style={{
-                      position: "absolute",
-                      left: item.x,
-                      top: item.y,
-                      width: item.width,
-                    }}
-                    onPointerDown={(e) => onItemPointerDown(e, item)}
-                    onClick={(e) => e.stopPropagation()}
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      fitToItem(item.id);
-                    }}
-                    className={`relative overflow-hidden rounded-xl border-2 bg-zinc-900 text-left shadow-lg transition ${
-                      tool === "select"
-                        ? "cursor-grab active:cursor-grabbing"
-                        : ""
-                    } ${
-                      selectedId === item.id
-                        ? "border-orange-500 ring-2 ring-orange-500/30"
-                        : "border-white/10 hover:border-white/25"
-                    } ${pulseId === item.id ? "animate-pulse ring-4 ring-orange-400/50" : ""}`}
-                  >
-                    {item.label ? (
-                      <span className="block bg-black/60 px-2 py-0.5 text-[10px] text-zinc-400">
-                        {item.label}
-                      </span>
-                    ) : null}
-                    {item.isVideo ? (
-                      <video
-                        src={assetUrl(item.url)}
-                        className="w-full object-cover"
-                        style={{ height: item.height }}
-                      />
-                    ) : (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={assetUrl(item.url)}
-                        alt=""
-                        className="pointer-events-none w-full object-cover"
-                        style={{ height: item.height }}
-                        draggable={false}
-                      />
-                    )}
-                    {brushActive && brushItem?.id === item.id ? (
-                      <svg
-                        viewBox={`0 0 ${item.width} ${item.height}`}
-                        className="absolute inset-0 z-10 touch-none bg-purple-500/10"
-                        onPointerDown={(e) => onMaskPointerDown(e, item)}
-                        onPointerMove={(e) => onMaskPointerMove(e, item)}
-                        onPointerUp={endMaskPointer}
-                        onPointerCancel={endMaskPointer}
-                        onPointerLeave={endMaskPointer}
-                      >
-                        {maskBoxes.map((box, i) => (
-                          <rect
-                            key={`box-${i}`}
-                            x={box.x}
-                            y={box.y}
-                            width={box.width}
-                            height={box.height}
-                            fill="rgba(168,85,247,0.28)"
-                            stroke="rgb(216,180,254)"
-                            strokeWidth={2}
-                            vectorEffect="non-scaling-stroke"
-                          />
-                        ))}
-                        {maskStrokes.map((stroke, i) => (
-                          <polyline
-                            key={`stroke-${i}`}
-                            points={stroke.map((p) => `${p.x},${p.y}`).join(" ")}
-                            fill="none"
-                            stroke="rgb(216,180,254)"
-                            strokeWidth={18}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            opacity={0.85}
-                            vectorEffect="non-scaling-stroke"
-                          />
-                        ))}
-                      </svg>
-                    ) : null}
-                  </div>
-                ))
+                <>
+                  {batchSections.map((section) => (
+                    <button
+                      key={section.id}
+                      type="button"
+                      className="absolute rounded-3xl border border-white/10 bg-black/15 text-left transition hover:border-white/20"
+                      style={{
+                        left: section.x,
+                        top: section.y,
+                        width: section.width,
+                        height: section.height,
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fitToBatch(section.id);
+                      }}
+                    >
+                      <div className="pointer-events-none flex items-center justify-between gap-4 px-4 py-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-zinc-200">
+                            {section.index >= 0
+                              ? `批次 ${section.index + 1} · ${section.title}`
+                              : section.title}
+                          </p>
+                          {section.subtitle ? (
+                            <p className="mt-0.5 truncate text-[11px] text-zinc-500">
+                              {section.subtitle}
+                            </p>
+                          ) : null}
+                        </div>
+                        <span className="shrink-0 rounded-full border border-white/10 px-2 py-1 text-[10px] text-zinc-500">
+                          {section.count} 张
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                  {items.map((item) => (
+                    <div
+                      key={item.id}
+                      role="button"
+                      tabIndex={0}
+                      style={{
+                        position: "absolute",
+                        left: item.x,
+                        top: item.y,
+                        width: item.width,
+                      }}
+                      onPointerDown={(e) => onItemPointerDown(e, item)}
+                      onClick={(e) => e.stopPropagation()}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        fitToItem(item.id);
+                      }}
+                      className={`relative overflow-hidden rounded-xl border-2 bg-zinc-900 text-left shadow-lg transition ${
+                        tool === "select"
+                          ? "cursor-grab active:cursor-grabbing"
+                          : ""
+                      } ${
+                        selectedId === item.id
+                          ? "border-orange-500 ring-2 ring-orange-500/30"
+                          : "border-white/10 hover:border-white/25"
+                      } ${pulseId === item.id ? "animate-pulse ring-4 ring-orange-400/50" : ""}`}
+                    >
+                      {item.label ? (
+                        <span className="block bg-black/60 px-2 py-0.5 text-[10px] text-zinc-400">
+                          {item.label}
+                        </span>
+                      ) : null}
+                      {item.isVideo ? (
+                        <video
+                          src={assetUrl(item.url)}
+                          className="w-full object-cover"
+                          style={{ height: item.height }}
+                        />
+                      ) : (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={assetUrl(item.url)}
+                          alt=""
+                          className="pointer-events-none w-full object-cover"
+                          style={{ height: item.height }}
+                          draggable={false}
+                        />
+                      )}
+                      {brushActive && brushItem?.id === item.id ? (
+                        <svg
+                          viewBox={`0 0 ${item.width} ${item.height}`}
+                          className="absolute inset-0 z-10 touch-none bg-purple-500/10"
+                          onPointerDown={(e) => onMaskPointerDown(e, item)}
+                          onPointerMove={(e) => onMaskPointerMove(e, item)}
+                          onPointerUp={endMaskPointer}
+                          onPointerCancel={endMaskPointer}
+                          onPointerLeave={endMaskPointer}
+                        >
+                          {maskBoxes.map((box, i) => (
+                            <rect
+                              key={`box-${i}`}
+                              x={box.x}
+                              y={box.y}
+                              width={box.width}
+                              height={box.height}
+                              fill="rgba(168,85,247,0.28)"
+                              stroke="rgb(216,180,254)"
+                              strokeWidth={2}
+                              vectorEffect="non-scaling-stroke"
+                            />
+                          ))}
+                          {maskStrokes.map((stroke, i) => (
+                            <polyline
+                              key={`stroke-${i}`}
+                              points={stroke.map((p) => `${p.x},${p.y}`).join(" ")}
+                              fill="none"
+                              stroke="rgb(216,180,254)"
+                              strokeWidth={18}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              opacity={0.85}
+                              vectorEffect="non-scaling-stroke"
+                            />
+                          ))}
+                        </svg>
+                      ) : null}
+                    </div>
+                  ))}
+                </>
               )}
             </div>
 

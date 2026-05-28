@@ -62,6 +62,14 @@ export interface CanvasItem {
   assetId?: string;
   /** 关联 message_outputs.id，供 AI 工具引用 */
   outputId?: string;
+  /** 同一次生成 / 工具运行的批次，用于纵向历史流分组 */
+  batchId?: string;
+  /** 批次在时间线中的顺序，越大越新 */
+  batchIndex?: number;
+  batchTitle?: string;
+  batchSubtitle?: string;
+  parentBatchId?: string;
+  sourceItemId?: string;
 }
 
 export interface CanvasMaskSelection {
@@ -80,6 +88,36 @@ export interface CanvasMaskSelection {
 
 const CELL_W = 200;
 const GAP = 24;
+const BATCH_LEFT = 96;
+const BATCH_TOP = 120;
+const BATCH_GAP = 132;
+const BATCH_TITLE_GAP = 56;
+const BATCH_COLS = 4;
+
+function truncateBatchTitle(value: string | undefined, fallback: string) {
+  const text = value?.trim();
+  if (!text) return fallback;
+  return text.length > 30 ? `${text.slice(0, 30)}...` : text;
+}
+
+function formatBatchSubtitle(createdAt?: string, count?: number) {
+  const pieces: string[] = [];
+  if (createdAt) {
+    const date = new Date(createdAt);
+    if (!Number.isNaN(date.getTime())) {
+      pieces.push(
+        date.toLocaleString("zh-CN", {
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      );
+    }
+  }
+  if (count) pieces.push(`${count} 张结果`);
+  return pieces.join(" · ");
+}
 
 export function nextCanvasPosition(
   items: CanvasItem[],
@@ -101,17 +139,31 @@ export function nextCanvasPosition(
 export function buildCanvasItemsFromMessages(
   messages: {
     id: string;
+    role?: "user" | "assistant" | "system";
+    content?: string;
+    job_id?: string | null;
+    created_at?: string;
     outputs: { id?: string; url: string; sort_order: number; label?: string }[];
   }[],
 ): CanvasItem[] {
   const items: CanvasItem[] = [];
-  let idx = 0;
+  let batchIndex = 0;
+  let yCursor = BATCH_TOP;
+  let lastUserPrompt = "";
 
   for (const msg of messages) {
+    if (msg.role === "user") {
+      lastUserPrompt = msg.content ?? "";
+    }
     if (!msg.outputs?.length) continue;
+    const batchId = msg.job_id ?? msg.id;
+    const batchTitle = truncateBatchTitle(lastUserPrompt, `批次 ${batchIndex + 1}`);
+    const batchSubtitle = formatBatchSubtitle(msg.created_at, msg.outputs.length);
+    const rows = Math.ceil(msg.outputs.length / BATCH_COLS);
+
     msg.outputs.forEach((out, i) => {
-      const col = idx % 3;
-      const row = Math.floor(idx / 3);
+      const col = i % BATCH_COLS;
+      const row = Math.floor(i / BATCH_COLS);
       const isVideo =
         out.url.includes(".mp4") || out.url.includes("video");
       const height = isVideo ? Math.round(CELL_W * 0.56) : CELL_W;
@@ -124,16 +176,21 @@ export function buildCanvasItemsFromMessages(
         outputId: out.id,
         url: out.url,
         label: out.label ?? fallbackLabel,
-        x: 80 + col * (CELL_W + GAP),
-        y: 80 + row * (CELL_W + GAP),
+        x: BATCH_LEFT + col * (CELL_W + GAP),
+        y: yCursor + BATCH_TITLE_GAP + row * (CELL_W + GAP),
         width: CELL_W,
         height,
         isVideo,
         source: "generation",
         role: "output",
+        batchId,
+        batchIndex,
+        batchTitle,
+        batchSubtitle,
       });
-      idx += 1;
     });
+    yCursor += BATCH_TITLE_GAP + rows * CELL_W + Math.max(0, rows - 1) * GAP + BATCH_GAP;
+    batchIndex += 1;
   }
   return items;
 }
@@ -143,9 +200,28 @@ export function mergeCanvasItems(
   saved: CanvasItem[],
   incoming: CanvasItem[],
 ): CanvasItem[] {
-  const urlSeen = new Set(saved.map((i) => i.url));
-  const idSeen = new Set(saved.map((i) => i.id));
-  const merged = [...saved];
+  const incomingById = new Map(incoming.map((i) => [i.id, i]));
+  const incomingByUrl = new Map(incoming.map((i) => [i.url, i]));
+  const merged = saved.map((item) => {
+    const match = incomingById.get(item.id) ?? incomingByUrl.get(item.url);
+    if (!match) return item;
+    const missingBatch = !item.batchId && match.batchId;
+    return {
+      ...item,
+      outputId: item.outputId ?? match.outputId,
+      batchId: item.batchId ?? match.batchId,
+      batchIndex: item.batchIndex ?? match.batchIndex,
+      batchTitle: item.batchTitle ?? match.batchTitle,
+      batchSubtitle: item.batchSubtitle ?? match.batchSubtitle,
+      parentBatchId: item.parentBatchId ?? match.parentBatchId,
+      sourceItemId: item.sourceItemId ?? match.sourceItemId,
+      ...(missingBatch
+        ? { x: match.x, y: match.y, width: match.width, height: match.height }
+        : {}),
+    };
+  });
+  const urlSeen = new Set(merged.map((i) => i.url));
+  const idSeen = new Set(merged.map((i) => i.id));
 
   for (const item of incoming) {
     if (urlSeen.has(item.url)) continue;
@@ -153,11 +229,9 @@ export function mergeCanvasItems(
     if (idSeen.has(id)) {
       id = `${item.id}-${randomUUID().slice(0, 8)}`;
     }
-    const slot = nextCanvasPosition(merged, item.width, item.height);
     merged.push({
       ...item,
       id,
-      ...slot,
       source: item.source ?? "generation",
     });
     urlSeen.add(item.url);
@@ -171,7 +245,8 @@ export function createUploadCanvasItem(
   items: CanvasItem[],
   options?: { assetId?: string; role?: CanvasItemRole; label?: string },
 ): CanvasItem {
-  const pos = nextCanvasPosition(items);
+  const uploadItems = items.filter((item) => item.batchId === "uploads");
+  const pos = nextCanvasPosition(uploadItems);
   const role = options?.role ?? "product";
   return {
     id: `upload-${randomUUID()}`,
@@ -182,6 +257,10 @@ export function createUploadCanvasItem(
     isVideo: false,
     source: "upload",
     label: options?.label ?? (role === "product" ? "商品素材" : "上传"),
+    batchId: "uploads",
+    batchIndex: -1,
+    batchTitle: "素材区",
+    batchSubtitle: "上传与参考素材",
   };
 }
 

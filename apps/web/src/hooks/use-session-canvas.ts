@@ -28,6 +28,13 @@ function toLayoutDto(items: CanvasItem[]): CanvasLayoutDto {
       source: i.source,
       role: i.role,
       assetId: i.assetId,
+      outputId: i.outputId,
+      batchId: i.batchId,
+      batchIndex: i.batchIndex,
+      batchTitle: i.batchTitle,
+      batchSubtitle: i.batchSubtitle,
+      parentBatchId: i.parentBatchId,
+      sourceItemId: i.sourceItemId,
     })),
   };
 }
