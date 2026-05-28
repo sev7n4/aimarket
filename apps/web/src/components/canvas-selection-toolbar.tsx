@@ -2,6 +2,7 @@
 
 import {
   ArrowUpToLine,
+  AtSign,
   Brush,
   Crop,
   Eraser,
@@ -13,8 +14,7 @@ import {
   Type,
   type LucideIcon,
 } from "lucide-react";
-import type { CanvasItem, CanvasItemRole } from "@/lib/canvas-tools";
-import { CANVAS_ROLE_LABELS } from "@/lib/canvas-roles";
+import type { CanvasItem } from "@/lib/canvas-tools";
 import type { StudioTool } from "@/lib/types";
 
 const TOOL_ICONS: Record<string, LucideIcon> = {
@@ -49,8 +49,8 @@ interface CanvasSelectionToolbarProps {
   pendingToolId?: string | null;
   layout: "vertical" | "horizontal";
   onRunTool: (tool: StudioTool, item: CanvasItem) => void;
-  /** 角色变更回调（用于把上传图标记为「商品/参考」） */
-  onAssignRole?: (itemId: string, role: CanvasItemRole) => void;
+  /** 把当前选中图片 @ 到工作台输入框，作为本次生成/修图上下文 */
+  onMentionItem?: (item: CanvasItem) => void;
 }
 
 /**
@@ -59,7 +59,9 @@ interface CanvasSelectionToolbarProps {
  * - 移动：画布上方一行横向滚动 chip（图标+短名）
  *
  * 工具列表来自 fetchTools()，去掉 clientOnly（如 crop，由画布原生工具栏承担）。
- * 点击直接以选中图为参考一键运行，不需要"先选工具再点运行"两步。
+ * 点击后的执行策略由 StudioWorkspace 统一决定：
+ * - 一键类：二次确认后运行
+ * - 画笔/提示词类：@ 到工作台，等待用户补充指令再提交
  */
 export function CanvasSelectionToolbar({
   tools,
@@ -68,21 +70,15 @@ export function CanvasSelectionToolbar({
   pendingToolId = null,
   layout,
   onRunTool,
-  onAssignRole,
+  onMentionItem,
 }: CanvasSelectionToolbarProps) {
   if (!selectedItem || readOnly) return null;
   const hasSource = Boolean(selectedItem.outputId || selectedItem.assetId);
   if (!hasSource) return null;
 
   const visibleTools = tools.filter((t) => !t.clientOnly);
-  /**
-   * 角色按钮仅对「上传/导入素材」开放：生成态产物（output）的角色由系统自动维护。
-   * 对应原 CanvasRoleActions 的 `item.source === "generation"` 时不显示的逻辑。
-   */
-  const showRoleButtons =
-    Boolean(onAssignRole) && selectedItem.source !== "generation";
 
-  if (visibleTools.length === 0 && !showRoleButtons) return null;
+  if (visibleTools.length === 0 && !onMentionItem) return null;
 
   if (layout === "vertical") {
     return (
@@ -94,6 +90,21 @@ export function CanvasSelectionToolbar({
             </span>
             <span className="uppercase tracking-wider">工具</span>
           </div>
+        ) : null}
+        {onMentionItem ? (
+          <button
+            type="button"
+            title="@ 到工作台"
+            onClick={() => onMentionItem(selectedItem)}
+            className="group flex items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs text-zinc-300 transition hover:bg-white/10 hover:text-white"
+          >
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-purple-300 group-hover:bg-purple-500/15">
+              <AtSign className="size-4" strokeWidth={1.6} />
+            </span>
+            <span className="whitespace-nowrap pr-1 text-[11px] leading-tight">
+              引用
+            </span>
+          </button>
         ) : null}
         {visibleTools.map((tool) => {
           const Icon = TOOL_ICONS[tool.id] ?? Sparkles;
@@ -123,27 +134,6 @@ export function CanvasSelectionToolbar({
           );
         })}
 
-        {showRoleButtons ? (
-          <div className="mt-1 border-t border-white/10 pt-1.5">
-            <div className="px-1.5 pb-1 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
-              画布素材
-            </div>
-            <div className="flex flex-col gap-1">
-              <RoleButton
-                active={selectedItem.role === "product"}
-                label={CANVAS_ROLE_LABELS.product}
-                onClick={() => onAssignRole?.(selectedItem.id, "product")}
-                color="orange"
-              />
-              <RoleButton
-                active={selectedItem.role === "reference"}
-                label={CANVAS_ROLE_LABELS.reference}
-                onClick={() => onAssignRole?.(selectedItem.id, "reference")}
-                color="violet"
-              />
-            </div>
-          </div>
-        ) : null}
       </div>
     );
   }
@@ -154,6 +144,17 @@ export function CanvasSelectionToolbar({
         <span className="flex shrink-0 items-center pl-1 pr-1 text-base leading-none" aria-label="工具">
           🎩
         </span>
+        {onMentionItem ? (
+          <button
+            type="button"
+            title="@ 到工作台"
+            onClick={() => onMentionItem(selectedItem)}
+            className="group flex shrink-0 items-center gap-1.5 rounded-full border border-purple-400/20 bg-purple-500/10 px-2.5 py-1.5 text-[11px] text-purple-100 transition hover:border-purple-300/50 hover:bg-purple-500/20"
+          >
+            <AtSign className="size-3.5 text-purple-300" strokeWidth={1.6} />
+            <span className="whitespace-nowrap">引用</span>
+          </button>
+        ) : null}
         {visibleTools.map((tool) => {
           const Icon = TOOL_ICONS[tool.id] ?? Sparkles;
           const short = TOOL_SHORT[tool.id] ?? tool.name;
@@ -176,61 +177,7 @@ export function CanvasSelectionToolbar({
             </button>
           );
         })}
-        {showRoleButtons ? (
-          <>
-            <span className="mx-1 h-4 w-px shrink-0 bg-white/10" aria-hidden />
-            <RoleButton
-              active={selectedItem.role === "product"}
-              label="商品"
-              onClick={() => onAssignRole?.(selectedItem.id, "product")}
-              color="orange"
-              compact
-            />
-            <RoleButton
-              active={selectedItem.role === "reference"}
-              label="参考"
-              onClick={() => onAssignRole?.(selectedItem.id, "reference")}
-              color="violet"
-              compact
-            />
-          </>
-        ) : null}
       </div>
     </div>
-  );
-}
-
-function RoleButton({
-  active,
-  label,
-  onClick,
-  color,
-  compact = false,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-  color: "orange" | "violet";
-  compact?: boolean;
-}) {
-  const activeCls =
-    color === "orange"
-      ? "bg-orange-500 text-black"
-      : "bg-violet-500 text-white";
-  const inactiveCls =
-    color === "orange"
-      ? "border border-white/10 text-zinc-300 hover:border-orange-400/40"
-      : "border border-white/10 text-zinc-300 hover:border-violet-400/40";
-  const padCls = compact ? "px-2.5 py-1 text-[11px]" : "px-2 py-1.5 text-[11px]";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`shrink-0 rounded-full transition ${padCls} ${
-        active ? activeCls : inactiveCls
-      }`}
-    >
-      {label}
-    </button>
   );
 }
