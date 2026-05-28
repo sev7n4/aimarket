@@ -1,10 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Flag, FolderOpen, Home, Menu, Plus } from "lucide-react";
-import { buildStudioUrl } from "@/lib/studio-navigation";
+import { Flag, FolderOpen, Home, Menu } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { LoginDialog } from "@/components/login-dialog";
 import { CreditsDialog } from "@/components/credits-dialog";
@@ -35,7 +33,6 @@ export function StudioHeader({
   sessionReadOnly = false,
   onReportClick,
 }: StudioHeaderProps) {
-  const router = useRouter();
   const { user, logout, loading, refreshUser } = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
@@ -54,10 +51,6 @@ export function StudioHeader({
       .then((s) => setSignedToday(s.signedToday))
       .catch(() => setSignedToday(true));
   }, [user]);
-
-  function newProject() {
-    router.push(buildStudioUrl("project"));
-  }
 
   return (
     <>
@@ -122,15 +115,6 @@ export function StudioHeader({
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <button
-            type="button"
-            onClick={newProject}
-            className="rounded-lg p-2 text-zinc-400 hover:bg-white/5 hover:text-white"
-            aria-label="新建项目"
-            title="新建项目"
-          >
-            <Plus className="size-5" />
-          </button>
           {sessionId && user && onReportClick ? (
             <button
               type="button"

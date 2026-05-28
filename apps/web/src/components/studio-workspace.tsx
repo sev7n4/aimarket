@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SessionTitleActions } from "@/components/session-title-actions";
 import { InspirationSetGenerateBar } from "@/components/inspiration-set-generate-bar";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, FolderKanban, Plus, X } from "lucide-react";
 import { LoginDialog } from "@/components/login-dialog";
-import { AppLeftRail } from "@/components/app-left-rail";
 import {
   DesignCanvas,
   type DesignCanvasHandle,
@@ -108,12 +107,15 @@ export function StudioWorkspace({
 }: StudioWorkspaceProps) {
   const router = useRouter();
   const mobile = useIsMobile(MOBILE_BREAKPOINT);
+  const compactLayout = useIsMobile(1024);
   const canvasRef = useRef<DesignCanvasHandle>(null);
   const prevItemCountRef = useRef(0);
   const { user, loading: authLoading, refreshUser } = useAuth();
   const uploadRef = useRef<HTMLInputElement>(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
+  const [workstationCollapsed, setWorkstationCollapsed] = useState(false);
   const [restoredAssets, setRestoredAssets] = useState<PendingAsset[]>([]);
   const [inspirationApply, setInspirationApply] =
     useState<StudioInspirationApply | null>(null);
@@ -128,6 +130,10 @@ export function StudioWorkspace({
   useEffect(() => {
     setMode(initialMode);
   }, [initialMode]);
+
+  useEffect(() => {
+    setWorkstationCollapsed(compactLayout);
+  }, [compactLayout]);
 
   useEffect(() => {
     if (!user) return;
@@ -559,10 +565,59 @@ export function StudioWorkspace({
       : isEcommerce
         ? "上传商品图，生成结果将出现在画布"
         : "生成结果将显示在画布上";
+  const stationContent = (
+    <>
+      {inspirationApply ? (
+        <div className="mb-1.5">
+          <InspirationSetGenerateBar
+            sessionId={sessionId}
+            canvasItems={canvasItems}
+            prompt={inspirationApply.prompt}
+            inspirationApply={inspirationApply}
+            readOnly={readOnly}
+            onJobStarted={(jobId) => setPollingJobId(jobId)}
+            collapsed={inspirationBarCollapsed}
+            onCollapsedChange={setInspirationBarCollapsed}
+          />
+        </div>
+      ) : null}
+
+      {!user || !ready ? (
+        <button
+          type="button"
+          onClick={() => setLoginOpen(true)}
+          className="mb-2 w-full text-center text-xs text-orange-400"
+        >
+          登录后开始创作
+        </button>
+      ) : null}
+      {readOnly ? (
+        <p className="mb-2 text-center text-xs text-amber-400/90">
+          只读会话：无法在此生成或编辑
+        </p>
+      ) : null}
+      <CreationPanel
+        variant="dock"
+        showModeTabs={false}
+        rotatingPlaceholder
+        enablePolish
+        mode={mode}
+        sessionId={sessionId}
+        initialPrompt={initialPrompt}
+        restoredAssets={restoredAssets}
+        inspirationApply={inspirationApply}
+        onAuthRequired={() => setLoginOpen(true)}
+        onJobStarted={(jobId) => setPollingJobId(jobId)}
+        jobStreamStatus={jobStreamStatus}
+        readOnly={readOnly}
+        canvasItems={canvasItems}
+        mentionItemRequest={mentionItemRequest}
+      />
+    </>
+  );
 
   return (
     <>
-      <AppLeftRail />
       <StudioHeader
         sessionId={user ? sessionId : undefined}
         sessionTitle={sessionTitle}
@@ -596,12 +651,16 @@ export function StudioWorkspace({
         ) : null}
 
         <aside
-          className={`fixed inset-y-12 left-0 z-50 flex w-64 flex-col border-r border-white/5 bg-[#080808] p-3 transition-transform md:left-14 lg:static lg:z-0 lg:translate-x-0 ${
+          className={`fixed inset-y-12 left-0 z-50 flex w-72 flex-col border-r border-white/5 bg-[#080808] p-3 transition-all lg:static lg:z-0 lg:m-2 lg:mr-0 lg:rounded-2xl lg:border lg:bg-[#090909]/95 ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          } ${
+            workspaceCollapsed
+              ? "lg:w-12 lg:translate-x-0 lg:items-center lg:p-2"
+              : "lg:w-64 lg:translate-x-0"
           }`}
         >
           <div className="mb-2 flex items-center justify-between lg:hidden">
-            <span className="text-xs font-medium text-zinc-500">菜单</span>
+            <span className="text-xs font-medium text-zinc-500">工作区</span>
             <button
               type="button"
               onClick={() => setSidebarOpen(false)}
@@ -610,179 +669,273 @@ export function StudioWorkspace({
               <X className="size-4" />
             </button>
           </div>
-          {user ? (
-            <WorkspaceSwitcher onWorkspaceChange={handleWorkspaceChange} />
-          ) : null}
-          <p className="mb-2 mt-3 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
-            历史会话
-          </p>
-          <ul className="flex max-h-[40vh] flex-col gap-0.5 overflow-y-auto">
-            {sessions.map((s) => (
-              <li key={s.id} className="group">
+
+          <button
+            type="button"
+            onClick={() => setWorkspaceCollapsed((v) => !v)}
+            className="mb-2 hidden size-8 items-center justify-center rounded-full border border-white/10 text-zinc-500 transition hover:bg-white/5 hover:text-white lg:flex"
+            aria-label={workspaceCollapsed ? "展开工作区" : "收起工作区"}
+            title={workspaceCollapsed ? "展开工作区" : "收起工作区"}
+          >
+            {workspaceCollapsed ? (
+              <ChevronRight className="size-4" />
+            ) : (
+              <ChevronLeft className="size-4" />
+            )}
+          </button>
+
+          {workspaceCollapsed ? (
+            <div className="hidden flex-1 items-center justify-center [writing-mode:vertical-rl] lg:flex">
+              <span className="text-[11px] font-medium tracking-[0.3em] text-zinc-500">
+                工作区
+              </span>
+            </div>
+          ) : (
+            <>
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-zinc-100">工作区</p>
+                  <p className="text-[10px] text-zinc-600">最近创作与空间</p>
+                </div>
                 <Link
-                  href={studioUrlForSession({
-                    id: s.id,
-                    mode: s.mode,
-                    kind: s.kind,
-                  })}
+                  href={buildStudioUrl("canvas")}
                   onClick={() => setSidebarOpen(false)}
-                  className={`block rounded-lg px-3 py-2 text-sm transition ${
-                    s.id === sessionId
-                      ? "bg-white/10 text-white"
-                      : "text-zinc-500 hover:bg-white/5"
-                  }`}
+                  className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-black transition hover:bg-zinc-200"
                 >
-                  <SessionTitleActions
-                    sessionId={s.id}
-                    title={s.title}
-                    variant="row"
-                    disabled={!user || s.can_edit === false}
-                    onTitleSaved={(title) => {
-                      setSessions((prev) =>
-                        prev.map((x) =>
-                          x.id === s.id ? { ...x, title } : x,
-                        ),
-                      );
-                    }}
-                    onDeleted={() => handleSessionDeleted(s.id)}
-                  />
-                  <div className="text-[10px] text-zinc-600">
-                    {SESSION_KIND_LABEL[s.kind === "project" ? "project" : "canvas"]}{" "}
-                    · {s.mode}
-                  </div>
+                  <Plus className="size-3.5" />
+                  新建
                 </Link>
-              </li>
-            ))}
-          </ul>
+              </div>
+
+              {user ? (
+                <WorkspaceSwitcher onWorkspaceChange={handleWorkspaceChange} />
+              ) : null}
+
+              <Link
+                href={user ? "/projects" : "/studio"}
+                onClick={(e) => {
+                  if (!user) {
+                    e.preventDefault();
+                    setLoginOpen(true);
+                    return;
+                  }
+                  setSidebarOpen(false);
+                }}
+                className="mt-3 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-zinc-300 transition hover:bg-white/5 hover:text-white"
+              >
+                <FolderKanban className="size-4 text-zinc-500" />
+                项目库
+              </Link>
+
+              <p className="mb-2 mt-4 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+                最近创作
+              </p>
+              <ul className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
+                {sessions.map((s) => (
+                  <li key={s.id} className="group">
+                    <Link
+                      href={studioUrlForSession({
+                        id: s.id,
+                        mode: s.mode,
+                        kind: s.kind,
+                      })}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`block rounded-lg px-3 py-2 text-sm transition ${
+                        s.id === sessionId
+                          ? "bg-white/10 text-white"
+                          : "text-zinc-500 hover:bg-white/5"
+                      }`}
+                    >
+                      <SessionTitleActions
+                        sessionId={s.id}
+                        title={s.title}
+                        variant="row"
+                        disabled={!user || s.can_edit === false}
+                        onTitleSaved={(title) => {
+                          setSessions((prev) =>
+                            prev.map((x) =>
+                              x.id === s.id ? { ...x, title } : x,
+                            ),
+                          );
+                        }}
+                        onDeleted={() => handleSessionDeleted(s.id)}
+                      />
+                      <div className="text-[10px] text-zinc-600">
+                        {SESSION_KIND_LABEL[
+                          s.kind === "project" ? "project" : "canvas"
+                        ]}{" "}
+                        · {s.mode}
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </aside>
 
-        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-1 p-2 md:gap-1.5 md:p-3">
-          {readOnly ? (
-            <p className="shrink-0 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200/90">
-              只读：他人会话，仅创建者或管理员可编辑与生成
-            </p>
-          ) : null}
-          <DesignCanvas
-            ref={canvasRef}
-            items={canvasItems}
-            selectedId={selectedCanvasId}
-            onSelect={(id) => {
-              setSelectedCanvasId(id);
-              if (id) {
-                hapticLight();
-                setSelectSourceBanner(null);
-              }
-            }}
-            onItemsChange={setCanvasItems}
-            onUpload={handleCanvasUpload}
-            onDownload={() => void handleCanvasDownload()}
-            onDeleteSelected={handleDeleteCanvasItem}
-            emptyHint={canvasEmptyHint}
-            readOnly={readOnly}
-            jobStreamStatus={jobStreamStatus}
-            jobFailed={jobFailed}
-            jobProgressCompleted={jobProgressCompleted}
-            jobProgressTotal={jobProgressTotal}
-            selectSourceBanner={selectSourceBanner}
-            onCutoutItem={(item) => handleQuickToolFromCanvas(item, "cutout")}
-            onExpandItem={(item) => handleQuickToolFromCanvas(item, "expand")}
-            brushRequest={brushRequest}
-            onBrushCancel={() => {
-              setBrushRequest(null);
-              setSelectSourceBanner(null);
-            }}
-            onBrushComplete={(selection) => {
-              const item = canvasItems.find((i) => i.id === selection.itemId);
-              if (!item) return;
-              const tool = tools.find((t) => t.id === selection.toolId);
-              setBrushRequest(null);
-              setMentionItemRequest((prev) => ({
-                key: (prev?.key ?? 0) + 1,
-                item,
-                promptSuffix: buildToolPromptSuffix(
-                  tool ?? {
-                    id: selection.toolId,
-                    name: "局部编辑",
-                    description: "",
-                    defaultPrompt: "请根据圈选区域进行局部编辑",
-                  },
-                ),
-                maskSelection: selection,
-              }));
-              setSelectSourceBanner(
-                "已完成圈选：区域 mask 已加入工作台，请补充提示词后提交。",
-              );
-              hapticLight();
-            }}
-            selectionToolbar={
-              <CanvasSelectionToolbar
-                tools={tools}
-                selectedItem={selectedCanvasItem}
-                readOnly={readOnly}
-                pendingToolId={pendingToolId}
-                layout={mobile ? "horizontal" : "vertical"}
-                onRunTool={(tool, item) => void handleRunSelectionTool(tool, item)}
-                onMentionItem={(item) => {
-                  setMentionItemRequest((prev) => ({
-                    key: (prev?.key ?? 0) + 1,
-                    item,
-                  }));
-                  hapticLight();
-                }}
-              />
-            }
-            statusChip={<ProviderStatusChip />}
-          />
-
-          {/* 工作台 dock：与画布紧密贴合，常驻；按需向上叠加同款套图栏 */}
-          <div className="shrink-0">
-            {inspirationApply ? (
-              <div className="mb-1.5">
-                <InspirationSetGenerateBar
-                  sessionId={sessionId}
-                  canvasItems={canvasItems}
-                  prompt={inspirationApply.prompt}
-                  inspirationApply={inspirationApply}
-                  readOnly={readOnly}
-                  onJobStarted={(jobId) => setPollingJobId(jobId)}
-                  collapsed={inspirationBarCollapsed}
-                  onCollapsedChange={setInspirationBarCollapsed}
-                />
-              </div>
-            ) : null}
-
-            {!user || !ready ? (
-              <button
-                type="button"
-                onClick={() => setLoginOpen(true)}
-                className="mb-2 w-full text-center text-xs text-orange-400"
-              >
-                登录后开始创作
-              </button>
-            ) : null}
+        <div className="relative flex min-h-0 min-w-0 flex-1 gap-2 p-2 lg:gap-3">
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-1 md:gap-1.5">
             {readOnly ? (
-              <p className="mb-2 text-center text-xs text-amber-400/90">
-                只读会话：无法在此生成或编辑
+              <p className="shrink-0 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200/90">
+                只读：他人会话，仅创建者或管理员可编辑与生成
               </p>
             ) : null}
-            <CreationPanel
-              variant="dock"
-              showModeTabs={false}
-              rotatingPlaceholder
-              enablePolish
-              mode={mode}
-              sessionId={sessionId}
-              initialPrompt={initialPrompt}
-              restoredAssets={restoredAssets}
-              inspirationApply={inspirationApply}
-              onAuthRequired={() => setLoginOpen(true)}
-              onJobStarted={(jobId) => setPollingJobId(jobId)}
-              jobStreamStatus={jobStreamStatus}
+            <DesignCanvas
+              ref={canvasRef}
+              items={canvasItems}
+              selectedId={selectedCanvasId}
+              onSelect={(id) => {
+                setSelectedCanvasId(id);
+                if (id) {
+                  hapticLight();
+                  setSelectSourceBanner(null);
+                }
+              }}
+              onItemsChange={setCanvasItems}
+              onUpload={handleCanvasUpload}
+              onDownload={() => void handleCanvasDownload()}
+              onDeleteSelected={handleDeleteCanvasItem}
+              emptyHint={canvasEmptyHint}
               readOnly={readOnly}
-              canvasItems={canvasItems}
-              mentionItemRequest={mentionItemRequest}
+              jobStreamStatus={jobStreamStatus}
+              jobFailed={jobFailed}
+              jobProgressCompleted={jobProgressCompleted}
+              jobProgressTotal={jobProgressTotal}
+              selectSourceBanner={selectSourceBanner}
+              onCutoutItem={(item) => handleQuickToolFromCanvas(item, "cutout")}
+              onExpandItem={(item) => handleQuickToolFromCanvas(item, "expand")}
+              brushRequest={brushRequest}
+              onBrushCancel={() => {
+                setBrushRequest(null);
+                setSelectSourceBanner(null);
+              }}
+              onBrushComplete={(selection) => {
+                const item = canvasItems.find((i) => i.id === selection.itemId);
+                if (!item) return;
+                const tool = tools.find((t) => t.id === selection.toolId);
+                setBrushRequest(null);
+                setMentionItemRequest((prev) => ({
+                  key: (prev?.key ?? 0) + 1,
+                  item,
+                  promptSuffix: buildToolPromptSuffix(
+                    tool ?? {
+                      id: selection.toolId,
+                      name: "局部编辑",
+                      description: "",
+                      defaultPrompt: "请根据圈选区域进行局部编辑",
+                    },
+                  ),
+                  maskSelection: selection,
+                }));
+                setSelectSourceBanner(
+                  "已完成圈选：区域 mask 已加入工作台，请补充提示词后提交。",
+                );
+                hapticLight();
+              }}
+              selectionToolbar={
+                <CanvasSelectionToolbar
+                  tools={tools}
+                  selectedItem={selectedCanvasItem}
+                  readOnly={readOnly}
+                  pendingToolId={pendingToolId}
+                  layout={mobile ? "horizontal" : "vertical"}
+                  onRunTool={(tool, item) =>
+                    void handleRunSelectionTool(tool, item)
+                  }
+                  onMentionItem={(item) => {
+                    setMentionItemRequest((prev) => ({
+                      key: (prev?.key ?? 0) + 1,
+                      item,
+                    }));
+                    hapticLight();
+                  }}
+                />
+              }
+              statusChip={<ProviderStatusChip />}
             />
           </div>
+
+          <section
+            className={`hidden min-h-0 shrink-0 flex-col rounded-2xl border border-white/10 bg-[#0b0b0b]/95 transition-all lg:flex ${
+              workstationCollapsed
+                ? "w-14 items-center justify-center p-2"
+                : "w-[360px] p-3 xl:w-[380px]"
+            }`}
+            aria-label="工作站"
+          >
+            {workstationCollapsed ? (
+              <button
+                type="button"
+                onClick={() => setWorkstationCollapsed(false)}
+                className="flex h-full w-full items-center justify-center rounded-xl text-xs font-medium uppercase tracking-[0.28em] text-zinc-400 transition hover:bg-white/5 hover:text-white [writing-mode:vertical-rl]"
+                aria-label="展开工作站"
+                title="展开工作站"
+              >
+                studio
+              </button>
+            ) : (
+              <>
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-zinc-100">工作站</p>
+                    <p className="text-[10px] text-zinc-600">
+                      输入、工具与生成状态
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setWorkstationCollapsed(true)}
+                    className="flex size-8 items-center justify-center rounded-full border border-white/10 text-zinc-500 transition hover:bg-white/5 hover:text-white"
+                    aria-label="收起工作站"
+                    title="收起工作站"
+                  >
+                    <ChevronRight className="size-4" />
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  {stationContent}
+                </div>
+              </>
+            )}
+          </section>
+
+          {workstationCollapsed ? (
+            <button
+              type="button"
+              onClick={() => setWorkstationCollapsed(false)}
+              className="fixed bottom-16 right-4 z-40 flex size-12 items-center justify-center rounded-full border border-white/10 bg-white text-base font-semibold text-black shadow-2xl shadow-black/50 transition hover:scale-105 active:scale-95 lg:hidden"
+              aria-label="打开工作站"
+              title="打开工作站"
+            >
+              S
+            </button>
+          ) : (
+            <section
+              className="fixed inset-x-2 bottom-2 z-40 max-h-[70dvh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0b0b0b] p-3 shadow-2xl shadow-black/60 lg:hidden"
+              aria-label="工作站"
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-zinc-100">
+                    studio 工作站
+                  </p>
+                  <p className="text-[10px] text-zinc-600">
+                    输入、工具与生成状态
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setWorkstationCollapsed(true)}
+                  className="flex size-8 items-center justify-center rounded-full border border-white/10 text-zinc-500"
+                  aria-label="收起工作站"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+              {stationContent}
+            </section>
+          )}
         </div>
       </div>
 

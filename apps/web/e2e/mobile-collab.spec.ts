@@ -42,15 +42,32 @@ test.describe("mobile collab", () => {
     await expect(page.getByText("继续编辑")).toBeVisible({ timeout: 15_000 });
   });
 
-  test("创作页移动默认展示画布与工作台 dock 并存", async ({ page }) => {
+  test("创作页移动默认展示画布与可展开工作站", async ({ page }) => {
     await registerAndLogin(page);
+    await page.addInitScript(() => {
+      localStorage.setItem("aimarket_studio_mobile_coach_v1", "1");
+    });
     await page.goto("/studio");
     await expect(page.getByText(/画布\s*·/).first()).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.locator("textarea").first()).toBeVisible({
+    await expect(page.getByRole("button", { name: "打开工作站" })).toBeVisible({
       timeout: 15_000,
     });
+    await expect(page.locator("textarea").first()).not.toBeVisible();
+    await page.getByRole("button", { name: "打开工作站" }).click();
+    const mobileStation = page
+      .locator('section[aria-label="工作站"]')
+      .filter({ hasText: "studio 工作站" });
+    await expect(mobileStation.locator("textarea")).toBeVisible({
+      timeout: 15_000,
+    });
+    await mobileStation.getByRole("button", { name: "收起工作站" }).click();
+    await page.getByRole("button", { name: "打开侧栏" }).click();
+    await expect(page.getByRole("button", { name: "重命名" }).first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByRole("button", { name: "删除项目" }).first()).toBeVisible();
     await expect(page.getByText("Del 删除")).not.toBeVisible();
   });
 

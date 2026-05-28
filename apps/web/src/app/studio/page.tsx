@@ -38,7 +38,7 @@ export default async function StudioPage({ searchParams }: PageProps) {
     (params.kind === "project" ? "新建项目" : params.kind === "canvas" ? "新建画布" : undefined);
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-[#030303] md:pl-14">
+    <div className="flex h-dvh flex-col overflow-hidden bg-[#030303]">
       <StudioWorkspace
         sessionId={sessionId}
         initialMode={mode}
