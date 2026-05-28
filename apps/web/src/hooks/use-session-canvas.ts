@@ -8,9 +8,11 @@ import {
   type CanvasLayoutDto,
 } from "@/lib/api-client";
 import {
+  applyPendingBatchLineage,
   buildCanvasItemsFromMessages,
   mergeCanvasItems,
   type CanvasItem,
+  type PendingBatchLineage,
 } from "@/lib/canvas-tools";
 
 function toLayoutDto(items: CanvasItem[]): CanvasLayoutDto {
@@ -47,6 +49,18 @@ export function useSessionCanvas(sessionId: string, enabled: boolean) {
   const [canEdit, setCanEdit] = useState(true);
   const persistReady = useRef(false);
   const skipNextSave = useRef(true);
+  const pendingLineageRef = useRef(new Map<string, PendingBatchLineage>());
+
+  const withPendingLineage = useCallback((items: CanvasItem[]) => {
+    return applyPendingBatchLineage(items, pendingLineageRef.current);
+  }, []);
+
+  const registerBatchLineage = useCallback(
+    (jobId: string, lineage: PendingBatchLineage) => {
+      pendingLineageRef.current.set(jobId, lineage);
+    },
+    [],
+  );
 
   const load = useCallback(async () => {
     const [layout, msgRes] = await Promise.all([
@@ -60,12 +74,13 @@ export function useSessionCanvas(sessionId: string, enabled: boolean) {
     setCanEdit(msgRes.meta?.can_edit ?? true);
     const fromMsgs = buildCanvasItemsFromMessages(msgRes.messages);
     const saved = (layout.items ?? []) as CanvasItem[];
-    const merged =
-      saved.length > 0 ? mergeCanvasItems(saved, fromMsgs) : fromMsgs;
+    const merged = withPendingLineage(
+      saved.length > 0 ? mergeCanvasItems(saved, fromMsgs) : fromMsgs,
+    );
     skipNextSave.current = true;
     setItems(merged);
     persistReady.current = true;
-  }, [sessionId]);
+  }, [sessionId, withPendingLineage]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -78,10 +93,10 @@ export function useSessionCanvas(sessionId: string, enabled: boolean) {
       setMessages(msgs);
       setItems((prev) => {
         const incoming = buildCanvasItemsFromMessages(msgs);
-        return mergeCanvasItems(prev, incoming);
+        return withPendingLineage(mergeCanvasItems(prev, incoming));
       });
     },
-    [],
+    [withPendingLineage],
   );
 
   useEffect(() => {
@@ -111,6 +126,7 @@ export function useSessionCanvas(sessionId: string, enabled: boolean) {
     setMessages,
     load,
     syncFromMessages,
+    registerBatchLineage,
     canEdit,
     setCanEdit,
   };

@@ -60,6 +60,8 @@ export interface ChatMessage {
   content: string;
   job_id: string | null;
   created_at: string;
+  parent_job_id?: string;
+  source_output_id?: string;
   outputs: MessageOutput[];
 }
 

@@ -12,7 +12,12 @@ import {
   submitEcommerceRerunSlide,
 } from "@/lib/api-client";
 import { resolveApiBase } from "@/lib/api-base";
-import type { CanvasItem } from "@/lib/canvas-tools";
+import {
+  pendingLineageToApiFields,
+  resolveInspirationSetLineage,
+  type CanvasItem,
+  type PendingBatchLineage,
+} from "@/lib/canvas-tools";
 import { findCanvasItemByRole } from "@/lib/canvas-roles";
 import type { StudioInspirationApply } from "@/lib/inspiration-studio";
 import type { ProductSetInit } from "@/lib/types";
@@ -34,7 +39,7 @@ interface InspirationSetGenerateBarProps {
   prompt: string;
   inspirationApply?: StudioInspirationApply | null;
   readOnly?: boolean;
-  onJobStarted: (jobId: string) => void;
+  onJobStarted: (jobId: string, lineage?: PendingBatchLineage) => void;
   /** 是否折叠（默认仅显示一行进度 chip，紧贴 dock 顶部） */
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
@@ -87,6 +92,12 @@ export function InspirationSetGenerateBar({
         title: inspirationApply?.title,
         sourceInspirationId: inspirationApply?.id,
       });
+      const lineage = resolveInspirationSetLineage(
+        canvasItems,
+        productItem,
+        referenceItem,
+      );
+      const lineageApi = pendingLineageToApiFields(lineage);
       const res = await submitEcommerceGenerate({
         sessionId,
         platform: init?.platforms[0] ?? "淘宝",
@@ -96,8 +107,9 @@ export function InspirationSetGenerateBar({
         resolution: inspirationApply?.resolution ?? "2k",
         productAssetId: productItem.assetId,
         referenceAssetId: referenceItem?.assetId,
+        ...lineageApi,
       });
-      onJobStarted(res.jobId);
+      onJobStarted(res.jobId, lineage);
       setHint(`套图生成中 · 约 ${res.estimatedPoints} 积分 · ${res.slideCount} 张`);
     } catch (err) {
       setHint(err instanceof Error ? err.message : "套图生成失败");
@@ -127,6 +139,12 @@ export function InspirationSetGenerateBar({
         title: inspirationApply?.title,
         sourceInspirationId: inspirationApply?.id,
       });
+      const lineage = resolveInspirationSetLineage(
+        canvasItems,
+        productItem,
+        referenceItem,
+      );
+      const lineageApi = pendingLineageToApiFields(lineage);
       const res = await submitEcommerceRerunSlide({
         sessionId,
         slideKey: slide.key,
@@ -137,8 +155,9 @@ export function InspirationSetGenerateBar({
         resolution: inspirationApply?.resolution ?? "2k",
         productAssetId: productItem.assetId,
         referenceAssetId: referenceItem?.assetId,
+        ...lineageApi,
       });
-      onJobStarted(res.jobId);
+      onJobStarted(res.jobId, lineage);
       setHint(`正在重跑「${res.slideLabel}」· 约 ${res.estimatedPoints} 积分`);
     } catch (err) {
       setHint(err instanceof Error ? err.message : "单张重跑失败");
@@ -198,6 +217,12 @@ export function InspirationSetGenerateBar({
       setHint("请先至少生成 2 张套图结果，再生成宣传短视频");
       return;
     }
+    const videoLineage = resolveInspirationSetLineage(
+      canvasItems,
+      productItem,
+      referenceItem,
+    );
+    const videoLineageApi = pendingLineageToApiFields(videoLineage);
     const highlights = Array.from(
       new Set(
         outputItems
@@ -228,8 +253,9 @@ export function InspirationSetGenerateBar({
         prompt: videoPrompt,
         modelId: "seedance-2",
         count: 1,
+        ...videoLineageApi,
       });
-      onJobStarted(res.jobId);
+      onJobStarted(res.jobId, videoLineage);
       setHint(`宣传短视频生成中 · 约 ${res.estimatedPoints} 积分`);
     } catch (err) {
       setHint(err instanceof Error ? err.message : "宣传短视频生成失败");

@@ -34,6 +34,8 @@ export interface CreateJobInput {
   toolType?: string;
   toolContext?: ToolContext;
   slideLabels?: string[];
+  parentJobId?: string | null;
+  sourceOutputId?: string | null;
 }
 
 export function createGenerationJob(input: CreateJobInput) {
@@ -70,8 +72,8 @@ export function createGenerationJob(input: CreateJobInput) {
 
     db.prepare(
       `INSERT INTO generation_jobs
-       (id, session_id, user_id, model_id, prompt, mode, count, resolution, aspect_ratio, status, points_cost, tool_type, tool_context)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?)`,
+       (id, session_id, user_id, model_id, prompt, mode, count, resolution, aspect_ratio, status, points_cost, tool_type, tool_context, parent_job_id, source_output_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?)`,
     ).run(
       jobId,
       input.sessionId,
@@ -85,6 +87,8 @@ export function createGenerationJob(input: CreateJobInput) {
       pointsCost,
       input.toolType ?? null,
       input.toolContext ? JSON.stringify(input.toolContext) : null,
+      input.parentJobId ?? null,
+      input.sourceOutputId ?? null,
     );
 
     db.prepare(

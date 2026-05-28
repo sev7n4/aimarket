@@ -142,6 +142,20 @@ try {
   /* column exists */
 }
 try {
+  database.exec(
+    `ALTER TABLE generation_jobs ADD COLUMN parent_job_id TEXT REFERENCES generation_jobs(id)`,
+  );
+} catch {
+  /* column exists */
+}
+try {
+  database.exec(
+    `ALTER TABLE generation_jobs ADD COLUMN source_output_id TEXT`,
+  );
+} catch {
+  /* column exists */
+}
+try {
   database.exec(`ALTER TABLE image_sessions ADD COLUMN canvas_layout TEXT`);
 } catch {
   /* column exists */

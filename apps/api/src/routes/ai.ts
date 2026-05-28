@@ -20,6 +20,7 @@ import { AppError } from "../lib/errors.js";
 import { assertPromptAllowed } from "../lib/content-moderation.js";
 import { rateLimit } from "../lib/rate-limit.js";
 import { toolContextSchema } from "../lib/tools.js";
+import { resolveJobLineage } from "../lib/job-lineage.js";
 
 const ai = new Hono<{ Variables: AuthVariables }>();
 
@@ -102,6 +103,8 @@ ai.post("/generate", async (c) => {
       referenceOutputIds: z.array(z.string().uuid()).optional(),
       autoRoute: z.boolean().default(false),
       toolContext: toolContextSchema.optional(),
+      parentJobId: z.string().uuid().optional(),
+      sourceOutputId: z.string().uuid().optional(),
     })
     .parse(await c.req.json());
 
@@ -156,6 +159,12 @@ ai.post("/generate", async (c) => {
   }
   await assertPromptAllowed(prompt);
 
+  const lineage = resolveJobLineage({
+    parentJobId: body.parentJobId,
+    sourceOutputId: body.sourceOutputId,
+    referenceOutputIds: body.referenceOutputIds,
+  });
+
   const { jobId, pointsCost } = createGenerationJob({
     sessionId: body.sessionId,
     userId,
@@ -167,6 +176,8 @@ ai.post("/generate", async (c) => {
     aspectRatio: body.aspectRatio,
     toolType: body.toolContext?.toolId,
     toolContext: body.toolContext,
+    parentJobId: lineage.parentJobId,
+    sourceOutputId: lineage.sourceOutputId,
   });
 
   return c.json({
@@ -198,10 +209,17 @@ ai.post("/generate/video", async (c) => {
       modelId: z.enum(["seedance-2", "wan-2.6"]).default("seedance-2"),
       count: z.number().int().min(1).max(2).default(1),
       resolution: z.enum(["1k", "2k"]).default("1k"),
+      parentJobId: z.string().uuid().optional(),
+      sourceOutputId: z.string().uuid().optional(),
     })
     .parse(await c.req.json());
 
   await assertPromptAllowed(body.prompt);
+
+  const lineage = resolveJobLineage({
+    parentJobId: body.parentJobId,
+    sourceOutputId: body.sourceOutputId,
+  });
 
   const { jobId, pointsCost } = createGenerationJob({
     sessionId: body.sessionId,
@@ -212,6 +230,8 @@ ai.post("/generate/video", async (c) => {
     count: body.count,
     resolution: body.resolution,
     toolType: "video",
+    parentJobId: lineage.parentJobId,
+    sourceOutputId: lineage.sourceOutputId,
   });
 
   return c.json({

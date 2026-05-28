@@ -35,7 +35,11 @@ import {
   runTool,
   uploadAsset,
 } from "@/lib/api-client";
-import { createUploadCanvasItem } from "@/lib/canvas-tools";
+import {
+  createUploadCanvasItem,
+  pickLatestBatchFocusTarget,
+  type PendingBatchLineage,
+} from "@/lib/canvas-tools";
 import {
   coerceInspirationAspect,
   importInspirationReferencesToCanvas,
@@ -144,6 +148,7 @@ export function StudioWorkspace({
     items: canvasItems,
     setItems: setCanvasItems,
     load: loadCanvas,
+    registerBatchLineage,
     canEdit: canvasCanEdit,
     setCanEdit,
   } = useSessionCanvas(sessionId, Boolean(user));
@@ -288,17 +293,48 @@ export function StudioWorkspace({
     }
   }, [initialToolId, tools]);
 
+  const registerToolBatchLineage = useCallback(
+    (jobId: string, item: CanvasItem, toolName?: string) => {
+      registerBatchLineage(jobId, {
+        parentBatchId: item.batchId,
+        sourceItemId: item.id,
+        sourceOutputId: item.outputId,
+        toolName,
+      });
+    },
+    [registerBatchLineage],
+  );
+
+  const handleJobStarted = useCallback(
+    (jobId: string, lineage?: PendingBatchLineage) => {
+      if (lineage) registerBatchLineage(jobId, lineage);
+      setPollingJobId(jobId);
+    },
+    [registerBatchLineage],
+  );
+
   const focusLatestCanvasItem = useCallback(() => {
-    if (!canvasItems.length) return;
-    const latest = canvasItems[canvasItems.length - 1];
-    setSelectedCanvasId(latest.id);
-    if (latest.batchId) {
-      canvasRef.current?.fitToBatch(latest.batchId);
+    const target = pickLatestBatchFocusTarget(canvasItems);
+    if (!target) return;
+    setSelectedCanvasId(target.itemId);
+    if (target.batchId) {
+      canvasRef.current?.fitToBatch(target.batchId);
     } else {
-      canvasRef.current?.fitToItem(latest.id);
+      canvasRef.current?.fitToItem(target.itemId);
     }
-    canvasRef.current?.pulseItem(latest.id);
+    canvasRef.current?.pulseItem(target.itemId);
   }, [canvasItems]);
+
+  const handleJumpToParentBatch = useCallback(
+    (parentBatchId: string, sourceItemId?: string) => {
+      canvasRef.current?.fitToBatch(parentBatchId);
+      if (sourceItemId) {
+        setSelectedCanvasId(sourceItemId);
+        canvasRef.current?.pulseItem(sourceItemId);
+      }
+    },
+    [],
+  );
 
   const handleJobComplete = useCallback(async () => {
     setJobFailed(false);
@@ -390,6 +426,7 @@ export function StudioWorkspace({
         referenceOutputIds: [item.outputId],
         resolution: resolveToolResolution(tool.id),
       });
+      registerToolBatchLineage(jobId, item, tool.name);
       setPollingJobId(jobId);
       setSelectSourceBanner(null);
     } catch (err) {
@@ -470,6 +507,7 @@ export function StudioWorkspace({
         job_id: jobId,
         has_reference: true,
       });
+      registerToolBatchLineage(jobId, item, tool.name);
       setPollingJobId(jobId);
       setSelectSourceBanner(null);
     } catch (err) {
@@ -574,7 +612,7 @@ export function StudioWorkspace({
             prompt={inspirationApply.prompt}
             inspirationApply={inspirationApply}
             readOnly={readOnly}
-            onJobStarted={(jobId) => setPollingJobId(jobId)}
+            onJobStarted={handleJobStarted}
             collapsed={inspirationBarCollapsed}
             onCollapsedChange={setInspirationBarCollapsed}
           />
@@ -606,7 +644,7 @@ export function StudioWorkspace({
         restoredAssets={restoredAssets}
         inspirationApply={inspirationApply}
         onAuthRequired={() => setLoginOpen(true)}
-        onJobStarted={(jobId) => setPollingJobId(jobId)}
+        onJobStarted={handleJobStarted}
         jobStreamStatus={jobStreamStatus}
         readOnly={readOnly}
         canvasItems={canvasItems}
@@ -783,6 +821,7 @@ export function StudioWorkspace({
             <DesignCanvas
               ref={canvasRef}
               items={canvasItems}
+              onJumpToParentBatch={handleJumpToParentBatch}
               selectedId={selectedCanvasId}
               onSelect={(id) => {
                 setSelectedCanvasId(id);
