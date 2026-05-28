@@ -25,8 +25,7 @@ import { resolveApiBase } from "@/lib/api-base";
 import { trackEvent } from "@/lib/api-client";
 import { type CreationMode } from "@aimarket/ui";
 import type { ImageSession, StudioTool } from "@/lib/types";
-import type { CanvasItem, CanvasItemRole } from "@/lib/canvas-tools";
-import { assignCanvasItemRole } from "@/lib/canvas-roles";
+import type { CanvasItem } from "@/lib/canvas-tools";
 import { useAuth } from "@/lib/auth-context";
 import {
   assetUrl,
@@ -53,6 +52,40 @@ import { canvasEmptyHintMobile } from "@/lib/mobile-labels";
 import { SESSION_KIND_LABEL, type SessionKind } from "@/lib/session-kind";
 import { buildStudioUrl, studioUrlForSession } from "@/lib/studio-navigation";
 import { useIsMobile } from "@/hooks/use-is-mobile";
+
+type SelectionToolInteraction = "direct" | "brush" | "prompt";
+
+const TOOL_INTERACTIONS: Record<string, SelectionToolInteraction> = {
+  cutout: "direct",
+  upscale: "direct",
+  enhance: "direct",
+  erase: "brush",
+  inpaint: "brush",
+  expand: "prompt",
+  text: "prompt",
+  blend: "prompt",
+};
+
+function getToolInteraction(toolId: string): SelectionToolInteraction {
+  return TOOL_INTERACTIONS[toolId] ?? "prompt";
+}
+
+function buildToolPromptSuffix(tool: StudioTool): string {
+  switch (tool.id) {
+    case "erase":
+      return "请处理局部区域：去掉/清理 ";
+    case "inpaint":
+      return "请局部重绘：把指定区域改成 ";
+    case "expand":
+      return "请扩展画面，方向和要求是：";
+    case "text":
+      return "请修改图片文字为：";
+    case "blend":
+      return "请与另一个 @ 图片融合，要求是：";
+    default:
+      return `${tool.defaultPrompt}，要求是：`;
+  }
+}
 
 interface StudioWorkspaceProps {
   sessionId: string;
@@ -120,6 +153,11 @@ export function StudioWorkspace({
     null,
   );
   const [pendingToolId, setPendingToolId] = useState<string | null>(null);
+  const [mentionItemRequest, setMentionItemRequest] = useState<{
+    key: number;
+    item: CanvasItem;
+    promptSuffix?: string;
+  } | null>(null);
   /** 同款套图栏折叠态：默认折叠成 36px 单行 chip，紧贴 dock 顶部 */
   const [inspirationBarCollapsed, setInspirationBarCollapsed] = useState(true);
   /** 受控的内容举报对话框（StudioHeader 右上 ⚠ 触发） */
@@ -371,6 +409,28 @@ export function StudioWorkspace({
       setSelectSourceBanner("请先在画布点选一张已生成的图片");
       return;
     }
+
+    const interaction = getToolInteraction(tool.id);
+    if (interaction === "brush" || interaction === "prompt") {
+      setMentionItemRequest((prev) => ({
+        key: (prev?.key ?? 0) + 1,
+        item,
+        promptSuffix: buildToolPromptSuffix(tool),
+      }));
+      setSelectSourceBanner(
+        interaction === "brush"
+          ? `${tool.name} 需要先描述局部区域，已把当前图 @ 到工作台；补充位置/修改要求后提交。`
+          : `${tool.name} 需要结合提示词，已把当前图 @ 到工作台；补充要求后提交。`,
+      );
+      hapticLight();
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `${tool.name} 会立即基于当前图片生成新图，确认执行？`,
+    );
+    if (!confirmed) return;
+
     setPendingToolId(tool.id);
     try {
       const { jobId } = await runTool(tool.id, {
@@ -443,14 +503,6 @@ export function StudioWorkspace({
       );
     }
   }
-
-  const handleAssignCanvasRole = useCallback(
-    (itemId: string, role: CanvasItemRole) => {
-      setCanvasItems((prev) => assignCanvasItemRole(prev, itemId, role));
-      hapticLight();
-    },
-    [setCanvasItems],
-  );
 
   function handleDeleteCanvasItem() {
     if (readOnly || !selectedCanvasId) return;
@@ -623,7 +675,13 @@ export function StudioWorkspace({
                 pendingToolId={pendingToolId}
                 layout={mobile ? "horizontal" : "vertical"}
                 onRunTool={(tool, item) => void handleRunSelectionTool(tool, item)}
-                onAssignRole={handleAssignCanvasRole}
+                onMentionItem={(item) => {
+                  setMentionItemRequest((prev) => ({
+                    key: (prev?.key ?? 0) + 1,
+                    item,
+                  }));
+                  hapticLight();
+                }}
               />
             }
             statusChip={<ProviderStatusChip />}
@@ -674,6 +732,8 @@ export function StudioWorkspace({
               onJobStarted={(jobId) => setPollingJobId(jobId)}
               jobStreamStatus={jobStreamStatus}
               readOnly={readOnly}
+              canvasItems={canvasItems}
+              mentionItemRequest={mentionItemRequest}
             />
           </div>
         </div>

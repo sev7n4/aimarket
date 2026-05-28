@@ -40,7 +40,12 @@ import { jobStatusLabel } from "@/lib/job-stream";
 import type { ImageModel, AgentPlan } from "@/lib/types";
 import { AgentPlanPreview } from "@/components/agent-plan-preview";
 import { useAuth } from "@/lib/auth-context";
-import { MentionPicker } from "@/components/mention-picker";
+import {
+  MentionPicker,
+  canvasItemToMentionItem,
+  type MentionItem,
+} from "@/components/mention-picker";
+import type { CanvasItem } from "@/lib/canvas-tools";
 import type { SessionReference } from "@/lib/types";
 import { useRotatingPlaceholder } from "@/hooks/use-rotating-placeholder";
 import { randomUUID } from "@/lib/uuid";
@@ -117,6 +122,21 @@ interface CreationPanelProps {
    * 隐藏模型/数量/分辨率/Agent 计划预览等高级控件，把 dock 高度收缩到 ~56px。
    */
   collapsed?: boolean;
+  /**
+   * 画布上的图片（用于 @ 上下文引用候选项）。
+   * 仿 Cursor 的 @ 体验，工作台输入框 @ 后弹 popover 列出画布所有图片，
+   * 选中后插入 chip token 并把对应 assetId/outputId 一同提交。
+   */
+  canvasItems?: CanvasItem[];
+  /**
+   * 画布工具浮层触发的 @ 当前图请求。
+   * key 每次递增，避免同一张图连续 @ 时被 React 依赖去重。
+   */
+  mentionItemRequest?: {
+    key: number;
+    item: CanvasItem;
+    promptSuffix?: string;
+  } | null;
 }
 
 export function CreationPanel({
@@ -143,6 +163,8 @@ export function CreationPanel({
   inspirationCoverUrl,
   inspirationActive = false,
   collapsed = false,
+  canvasItems = [],
+  mentionItemRequest = null,
 }: CreationPanelProps) {
   const shouldNavigateOnSubmit =
     navigateOnSubmit ?? (!sessionId && !homeDirectSubmit);
@@ -187,6 +209,14 @@ export function CreationPanel({
   const [references, setReferences] = useState<SessionReference[]>([]);
   const [selectedRefs, setSelectedRefs] = useState<SessionReference[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
+  /** @ 后的查询字符串（从光标往前找 @ 截取） */
+  const [mentionQuery, setMentionQuery] = useState("");
+  /** 已通过 @ 引用的 canvas-asset 项，提交时把 assetId 合并到请求 */
+  const [mentionedAssetIds, setMentionedAssetIds] = useState<string[]>([]);
+  const [mentionedAssetPreviews, setMentionedAssetPreviews] = useState<
+    UploadPreviewItem[]
+  >([]);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [navigating, setNavigating] = useState(false);
   const [uploadPreviews, setUploadPreviews] = useState<UploadPreviewItem[]>([]);
   const [reversing, setReversing] = useState(false);
@@ -363,13 +393,72 @@ export function CreationPanel({
     fileRef.current?.click();
   }
 
-  function insertMention(ref: SessionReference) {
-    if (!selectedRefs.find((r) => r.id === ref.id)) {
-      setSelectedRefs((prev) => [...prev, ref]);
+  /**
+   * 从 textarea 当前光标位置往前找到最近的 @，截取 [@..光标] 区间，
+   * 用 chip 文本 `@${label} ` 整体替换，并把对应 assetId/outputId 落到提交字段。
+   */
+  function insertMention(item: MentionItem, promptSuffix = "") {
+    const textarea = textareaRef.current;
+    const labelTok = `@${item.label} `;
+    const insertText = promptSuffix ? `${labelTok}${promptSuffix}` : labelTok;
+    if (textarea) {
+      const value = textarea.value;
+      const caret = textarea.selectionStart ?? value.length;
+      const before = value.slice(0, caret);
+      const after = value.slice(caret);
+      const atIdx = before.lastIndexOf("@");
+      const replaceFrom = atIdx >= 0 ? atIdx : caret;
+      const next = `${value.slice(0, replaceFrom)}${insertText}${after}`;
+      setPrompt(next);
+      requestAnimationFrame(() => {
+        if (!textareaRef.current) return;
+        const pos = replaceFrom + insertText.length;
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(pos, pos);
+      });
+    } else {
+      setPrompt((p) => `${p}${insertText}`);
     }
-    setPrompt((p) => `${p}${p.endsWith("@") ? "" : " "}@${ref.label} `);
+
+    if (item.source === "history-output" || item.source === "canvas-output") {
+      const refLike: SessionReference = {
+        id: item.outputId,
+        url: item.url,
+        label: item.label,
+        createdAt: new Date().toISOString(),
+      };
+      setSelectedRefs((prev) =>
+        prev.find((r) => r.id === refLike.id) ? prev : [...prev, refLike],
+      );
+    } else if (item.source === "canvas-asset") {
+      setMentionedAssetIds((prev) =>
+        prev.includes(item.assetId) ? prev : [...prev, item.assetId],
+      );
+      setMentionedAssetPreviews((prev) =>
+        prev.find((p) => p.id === item.assetId)
+          ? prev
+          : [...prev, { id: item.assetId, url: item.url }],
+      );
+    }
+
     setMentionOpen(false);
+    setMentionQuery("");
   }
+
+  useEffect(() => {
+    if (!mentionItemRequest) return;
+    const index = canvasItems.findIndex(
+      (item) => item.id === mentionItemRequest.item.id,
+    );
+    const mention = canvasItemToMentionItem(
+      mentionItemRequest.item,
+      index >= 0 ? index : 0,
+    );
+    if (!mention) return;
+    insertMention(mention, mentionItemRequest.promptSuffix ?? "");
+    // 只响应外部请求 key，避免 canvasItems 刷新时重复插入同一 @ token。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mentionItemRequest?.key]);
 
   async function handlePromptReverse() {
     if (!user || !sessionId) {
@@ -504,6 +593,10 @@ export function CreationPanel({
           jobId = res.jobId;
           if (res.plan.reason) setRouteHint(res.plan.reason);
         } else {
+          // 把 @ 引用的画布素材 assetIds 合并到本次提交，去重
+          const mergedAssetIds = Array.from(
+            new Set([...assetIds, ...mentionedAssetIds]),
+          );
           const res = await submitGeneration({
             sessionId,
             prompt: prompt.trim(),
@@ -512,7 +605,7 @@ export function CreationPanel({
             resolution,
             aspectRatio,
             mode,
-            assetIds: assetIds.length ? assetIds : undefined,
+            assetIds: mergedAssetIds.length ? mergedAssetIds : undefined,
             referenceOutputIds: selectedRefs.map((r) => r.id),
             autoRoute: useAuto || mode === "quick",
           });
@@ -525,6 +618,8 @@ export function CreationPanel({
       setAssetIds([]);
       setUploadPreviews([]);
       setSelectedRefs([]);
+      setMentionedAssetIds([]);
+      setMentionedAssetPreviews([]);
       await refreshUser();
       void trackEvent("generation_submit", { mode, sessionId });
       onJobStarted?.(jobId);
@@ -631,10 +726,15 @@ export function CreationPanel({
 
       <div className={`relative ${isDock ? "" : "mt-3"}`}>
         <MentionPicker
+          canvasItems={canvasItems}
           references={references}
+          query={mentionQuery}
           open={mentionOpen}
           onSelect={insertMention}
-          onClose={() => setMentionOpen(false)}
+          onClose={() => {
+            setMentionOpen(false);
+            setMentionQuery("");
+          }}
         />
         <div
           className={
@@ -686,11 +786,28 @@ export function CreationPanel({
             ) : null}
             <div className="relative min-w-0 flex-1">
               <textarea
+                ref={textareaRef}
                 value={prompt}
                 onChange={(e) => {
                   const v = e.target.value;
                   setPrompt(v);
-                  if (v.endsWith("@") && mode === "chat") setMentionOpen(true);
+                  // 检测光标前的 @<query>，弹出/更新引用 popover
+                  const caret = e.target.selectionStart ?? v.length;
+                  const before = v.slice(0, caret);
+                  const atIdx = before.lastIndexOf("@");
+                  if (atIdx >= 0) {
+                    const between = before.slice(atIdx + 1);
+                    // 空格或换行视为退出 mention（避免「我 @abc 然后 」一直弹）
+                    if (/^[^\s\n]*$/.test(between)) {
+                      setMentionOpen(true);
+                      setMentionQuery(between);
+                      return;
+                    }
+                  }
+                  if (mentionOpen) {
+                    setMentionOpen(false);
+                    setMentionQuery("");
+                  }
                 }}
                 placeholder={
                   rotatingPlaceholder && !prompt.trim()
@@ -698,7 +815,7 @@ export function CreationPanel({
                     : effectiveMode === "ecommerce"
                       ? placeholders.ecommerce
                       : mode === "chat"
-                        ? "输入您想要的修改效果（@ 选择生成图片）"
+                        ? "输入想要的修改效果，@ 可引用画布上的图片"
                         : placeholders[mode]
                 }
                 rows={
@@ -753,8 +870,24 @@ export function CreationPanel({
           </div>
         {selectedRefs.length > 0 ? (
           <p className="mt-1 text-xs text-purple-400">
-            已引用 {selectedRefs.length} 张历史图
+            @ 引用了 {selectedRefs.length} 张生成图
           </p>
+        ) : null}
+        {mentionedAssetIds.length > 0 ? (
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-purple-400">
+            <span>@ 引用了 {mentionedAssetIds.length} 张画布素材</span>
+            <span className="flex -space-x-1">
+              {mentionedAssetPreviews.slice(0, 4).map((item) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={item.id}
+                  src={item.url}
+                  alt=""
+                  className="size-5 rounded border border-black/40 object-cover"
+                />
+              ))}
+            </span>
+          </div>
         ) : null}
         {assetIds.length > 0 ? (
           <p className="mt-1 text-xs text-zinc-500">
@@ -811,7 +944,8 @@ export function CreationPanel({
               type="button"
               onClick={() => setMentionOpen((o) => !o)}
               className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
-              aria-label="引用历史图"
+              aria-label="引用画布图片"
+              title="@ 引用画布图片"
             >
               <AtSign className="size-4" />
             </button>
