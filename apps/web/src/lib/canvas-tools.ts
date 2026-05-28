@@ -72,6 +72,187 @@ export interface CanvasItem {
   sourceItemId?: string;
 }
 
+/** 工具/编辑 job 完成前登记，用于写入新批次的血缘 */
+export type PendingBatchLineage = {
+  parentBatchId?: string;
+  sourceItemId: string;
+  sourceOutputId?: string;
+  toolName?: string;
+};
+
+export function pendingLineageToApiFields(lineage?: PendingBatchLineage): {
+  parentJobId?: string;
+  sourceOutputId?: string;
+} {
+  if (!lineage) return {};
+  return {
+    parentJobId: lineage.parentBatchId,
+    sourceOutputId: lineage.sourceOutputId,
+  };
+}
+
+/** 灵感套图条：从商品/参考/最近生成批解析血缘 */
+export function resolveInspirationSetLineage(
+  canvasItems: CanvasItem[],
+  productItem?: CanvasItem | null,
+  referenceItem?: CanvasItem | null,
+): PendingBatchLineage | undefined {
+  const fromItem = (item: CanvasItem, toolName: string): PendingBatchLineage => ({
+    parentBatchId:
+      item.batchId && item.batchId !== "uploads" ? item.batchId : undefined,
+    sourceItemId: item.id,
+    sourceOutputId: item.outputId,
+    toolName,
+  });
+
+  if (productItem?.batchId && productItem.batchId !== "uploads") {
+    return fromItem(productItem, "套图生成");
+  }
+  if (productItem?.outputId) {
+    return fromItem(productItem, "套图生成");
+  }
+  if (referenceItem?.batchId && referenceItem.batchId !== "uploads") {
+    return fromItem(referenceItem, "套图生成");
+  }
+  const latest = pickLatestBatchFocusTarget(canvasItems);
+  if (latest) {
+    const item = canvasItems.find((i) => i.id === latest.itemId);
+    if (item?.batchId && item.batchId !== "uploads") {
+      return fromItem(item, "套图生成");
+    }
+  }
+  if (productItem) {
+    return {
+      sourceItemId: productItem.id,
+      sourceOutputId: productItem.outputId,
+      toolName: "套图生成",
+    };
+  }
+  return undefined;
+}
+
+export function registerPendingBatchLineage(
+  pending: Map<string, PendingBatchLineage>,
+  jobId: string,
+  lineage: PendingBatchLineage,
+) {
+  pending.set(jobId, lineage);
+}
+
+export function applyPendingBatchLineage(
+  items: CanvasItem[],
+  pending: Map<string, PendingBatchLineage>,
+): CanvasItem[] {
+  if (pending.size === 0) return items;
+  const appliedJobIds = new Set<string>();
+  const next = items.map((item) => {
+    if (!item.batchId) return item;
+    const lin = pending.get(item.batchId);
+    if (!lin) return item;
+    appliedJobIds.add(item.batchId);
+    let batchTitle = item.batchTitle;
+    if (
+      lin.toolName &&
+      (!batchTitle || !batchTitle.startsWith(`【${lin.toolName}】`))
+    ) {
+      const base =
+        batchTitle && !/^批次 \d+$/.test(batchTitle) ? batchTitle : "编辑结果";
+      batchTitle = `【${lin.toolName}】${base}`;
+    }
+    return {
+      ...item,
+      parentBatchId: item.parentBatchId ?? lin.parentBatchId,
+      sourceItemId: item.sourceItemId ?? lin.sourceItemId,
+      batchTitle,
+    };
+  });
+  for (const jobId of appliedJobIds) pending.delete(jobId);
+  return next;
+}
+
+/** 聚焦目标：生成批按 batchIndex 取最新，否则 uploads / 最后一项 */
+export function pickLatestBatchFocusTarget(
+  items: CanvasItem[],
+): { batchId?: string; itemId: string } | null {
+  if (!items.length) return null;
+
+  const generation = items.filter(
+    (i) =>
+      i.batchId &&
+      i.batchId !== "uploads" &&
+      (i.source === "generation" || i.role === "output" || Boolean(i.outputId)),
+  );
+  if (generation.length) {
+    let best = generation[0];
+    for (const item of generation) {
+      const idx = item.batchIndex ?? -1;
+      const bestIdx = best.batchIndex ?? -1;
+      if (idx > bestIdx || (idx === bestIdx && item.y > best.y)) {
+        best = item;
+      }
+    }
+    return { batchId: best.batchId, itemId: best.id };
+  }
+
+  const uploads = items.filter((i) => i.batchId === "uploads");
+  if (uploads.length) {
+    const last = uploads[uploads.length - 1]!;
+    return { batchId: last.batchId, itemId: last.id };
+  }
+
+  const last = items[items.length - 1]!;
+  return { batchId: last.batchId, itemId: last.id };
+}
+
+export function pickLatestBatchId(items: CanvasItem[]): string | null {
+  return pickLatestBatchFocusTarget(items)?.batchId ?? null;
+}
+
+export function batchDisplayIndex(
+  items: CanvasItem[],
+  batchId: string,
+): number | null {
+  const item = items.find((i) => i.batchId === batchId);
+  if (!item || item.batchIndex == null || item.batchIndex < 0) return null;
+  return item.batchIndex + 1;
+}
+
+export function resolveSubmitBatchLineage(
+  canvasItems: CanvasItem[],
+  opts: {
+    maskSelection?: CanvasMaskSelection | null;
+    referenceOutputIds?: string[];
+    toolName?: string;
+  },
+): PendingBatchLineage | undefined {
+  if (opts.maskSelection) {
+    const item = canvasItems.find((i) => i.id === opts.maskSelection!.itemId);
+    if (item) {
+      return {
+        parentBatchId: item.batchId,
+        sourceItemId: item.id,
+        sourceOutputId: item.outputId,
+        toolName: opts.toolName ?? opts.maskSelection.toolId,
+      };
+    }
+  }
+  const refId = opts.referenceOutputIds?.[0];
+  if (refId) {
+    const item = canvasItems.find(
+      (i) => i.outputId === refId || i.id === refId,
+    );
+    if (item) {
+      return {
+        parentBatchId: item.batchId,
+        sourceItemId: item.id,
+        sourceOutputId: item.outputId ?? refId,
+        toolName: opts.toolName,
+      };
+    }
+  }
+  return undefined;
+}
+
 export interface CanvasMaskSelection {
   id: string;
   itemId: string;
@@ -142,6 +323,8 @@ export function buildCanvasItemsFromMessages(
     role?: "user" | "assistant" | "system";
     content?: string;
     job_id?: string | null;
+    parent_job_id?: string | null;
+    source_output_id?: string | null;
     created_at?: string;
     outputs: { id?: string; url: string; sort_order: number; label?: string }[];
   }[],
@@ -187,6 +370,8 @@ export function buildCanvasItemsFromMessages(
         batchIndex,
         batchTitle,
         batchSubtitle,
+        parentBatchId: msg.parent_job_id ?? undefined,
+        sourceItemId: msg.source_output_id ?? undefined,
       });
     });
     yCursor += BATCH_TITLE_GAP + rows * CELL_W + Math.max(0, rows - 1) * GAP + BATCH_GAP;
@@ -213,8 +398,8 @@ export function mergeCanvasItems(
       batchIndex: item.batchIndex ?? match.batchIndex,
       batchTitle: item.batchTitle ?? match.batchTitle,
       batchSubtitle: item.batchSubtitle ?? match.batchSubtitle,
-      parentBatchId: item.parentBatchId ?? match.parentBatchId,
-      sourceItemId: item.sourceItemId ?? match.sourceItemId,
+      parentBatchId: match.parentBatchId ?? item.parentBatchId,
+      sourceItemId: match.sourceItemId ?? item.sourceItemId,
       ...(missingBatch
         ? { x: match.x, y: match.y, width: match.width, height: match.height }
         : {}),

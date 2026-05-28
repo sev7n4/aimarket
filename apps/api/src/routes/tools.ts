@@ -15,6 +15,7 @@ import { toPublicAssetUrl } from "../lib/public-url.js";
 import { AppError } from "../lib/errors.js";
 import { recordAnalyticsEvent } from "../lib/analytics.js";
 import { db } from "../db/index.js";
+import { resolveJobLineage } from "../lib/job-lineage.js";
 
 const tools = new Hono<{ Variables: AuthVariables }>();
 
@@ -100,6 +101,9 @@ tools.post("/:toolId/run", async (c) => {
 
   const route = suggestModel("chat", prompt);
   const modelId = body.modelId ?? route.modelId;
+  const lineage = resolveJobLineage({
+    referenceOutputIds: body.referenceOutputIds,
+  });
   const { jobId, pointsCost } = createGenerationJob({
     sessionId: body.sessionId,
     userId,
@@ -110,6 +114,8 @@ tools.post("/:toolId/run", async (c) => {
     resolution: body.resolution,
     toolType: toolId,
     toolContext: body.toolContext,
+    parentJobId: lineage.parentJobId,
+    sourceOutputId: lineage.sourceOutputId,
   });
 
   void recordAnalyticsEvent(userId, "tool.run", {

@@ -29,6 +29,7 @@ runs:
         MOCK_GENERATION_DELAY_MS=1200
         STORAGE_PROVIDER=local
         PAYMENT_PROVIDER=mock
+        E2E_RELAX_RATE_LIMIT=true
         EOF
         cd "$API_DIR"
         pnpm exec tsx --env-file=.env src/index.ts >> /tmp/aimarket-api.log 2>&1 &

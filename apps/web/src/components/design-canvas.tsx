@@ -16,6 +16,7 @@ import type {
   CanvasMaskSelection,
   CanvasToolId,
 } from "@/lib/canvas-tools";
+import { batchDisplayIndex, pickLatestBatchId } from "@/lib/canvas-tools";
 import { CanvasToolbar } from "@/components/canvas-toolbar";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
 import { CanvasContextMenu } from "@/components/canvas-context-menu";
@@ -71,6 +72,11 @@ interface DesignCanvasProps {
   selectionToolbar?: ReactNode;
   /** 画布右下角状态 chip（如 Provider 状态），与 zoom 同行 */
   statusChip?: ReactNode;
+  /** 点击批次头「源自批次」时跳转到父批 */
+  onJumpToParentBatch?: (
+    parentBatchId: string,
+    sourceItemId?: string,
+  ) => void;
 }
 
 export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
@@ -98,6 +104,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onBrushCancel,
       selectionToolbar = null,
       statusChip = null,
+      onJumpToParentBatch,
     },
     ref,
   ) {
@@ -333,7 +340,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         else if (id === "zoom-out")
           setZoom((z) => Math.max(ZOOM_MIN, z - zoomStep));
         else if (id === "fit") {
-          fitAll();
+          const latestBatch = pickLatestBatchId(items);
+          if (latestBatch) fitToBatch(latestBatch);
+          else fitAll();
         } else if (id === "grid") setGridOn((g) => !g);
         else if (id === "upload") {
           if (!readOnly) onUpload();
@@ -352,6 +361,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         readOnly,
         zoomStep,
         fitAll,
+        fitToBatch,
+        items,
       ],
     );
 
@@ -618,6 +629,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             index: first.batchIndex ?? 0,
             title: first.batchTitle ?? "批次",
             subtitle: first.batchSubtitle,
+            parentBatchId: first.parentBatchId,
+            sourceItemId: first.sourceItemId,
             count: batchItems.length,
             x: minX - 24,
             y: minY - 58,
@@ -752,11 +765,18 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 </div>
               ) : (
                 <>
-                  {batchSections.map((section) => (
-                    <button
+                  {batchSections.map((section) => {
+                    const parentNum =
+                      section.parentBatchId
+                        ? batchDisplayIndex(items, section.parentBatchId)
+                        : null;
+                    return (
+                    <div
                       key={section.id}
-                      type="button"
-                      className="absolute rounded-3xl border border-white/10 bg-black/15 text-left transition hover:border-white/20"
+                      role="button"
+                      tabIndex={0}
+                      data-testid={`canvas-batch-section-${section.id}`}
+                      className="absolute cursor-pointer rounded-3xl border border-white/10 bg-black/15 text-left transition hover:border-white/20"
                       style={{
                         left: section.x,
                         top: section.y,
@@ -766,6 +786,12 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                       onClick={(e) => {
                         e.stopPropagation();
                         fitToBatch(section.id);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          fitToBatch(section.id);
+                        }
                       }}
                     >
                       <div className="pointer-events-none flex items-center justify-between gap-4 px-4 py-3">
@@ -780,13 +806,30 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                               {section.subtitle}
                             </p>
                           ) : null}
+                          {section.parentBatchId && parentNum ? (
+                            <button
+                              type="button"
+                              data-testid={`canvas-batch-parent-${section.id}`}
+                              className="pointer-events-auto mt-1 truncate text-[11px] text-orange-400/90 underline-offset-2 hover:underline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onJumpToParentBatch?.(
+                                  section.parentBatchId!,
+                                  section.sourceItemId,
+                                );
+                              }}
+                            >
+                              源自批次 {parentNum}
+                            </button>
+                          ) : null}
                         </div>
                         <span className="shrink-0 rounded-full border border-white/10 px-2 py-1 text-[10px] text-zinc-500">
                           {section.count} 张
                         </span>
                       </div>
-                    </button>
-                  ))}
+                    </div>
+                    );
+                  })}
                   {items.map((item) => (
                     <div
                       key={item.id}

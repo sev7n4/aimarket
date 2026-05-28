@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowUp,
   AtSign,
@@ -45,7 +45,13 @@ import {
   canvasItemToMentionItem,
   type MentionItem,
 } from "@/components/mention-picker";
-import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
+import {
+  pendingLineageToApiFields,
+  resolveSubmitBatchLineage,
+  type CanvasItem,
+  type CanvasMaskSelection,
+  type PendingBatchLineage,
+} from "@/lib/canvas-tools";
 import type { SessionReference } from "@/lib/types";
 import { useRotatingPlaceholder } from "@/hooks/use-rotating-placeholder";
 import { randomUUID } from "@/lib/uuid";
@@ -93,7 +99,7 @@ interface CreationPanelProps {
   showModeTabs?: boolean;
   sessionId?: string;
   onAuthRequired?: () => void;
-  onJobStarted?: (jobId: string) => void;
+  onJobStarted?: (jobId: string, lineage?: PendingBatchLineage) => void;
   /** Studio 父级 SSE/轮询推送的状态（对标椒图进度感） */
   jobStreamStatus?: string | null;
   navigateOnSubmit?: boolean;
@@ -310,12 +316,20 @@ export function CreationPanel({
     }
   }, [mode]);
 
+  const canvasMentionSignature = useMemo(
+    () =>
+      canvasItems
+        .map((i) => `${i.id}:${i.outputId ?? ""}:${i.assetId ?? ""}`)
+        .join("|"),
+    [canvasItems],
+  );
+
   useEffect(() => {
     if (!user || !sessionId) return;
     fetchReferences(sessionId)
       .then(setReferences)
       .catch(() => setReferences([]));
-  }, [user, sessionId]);
+  }, [user, sessionId, canvasMentionSignature]);
 
   useEffect(() => {
     if (!user || !getToken()) {
@@ -542,6 +556,16 @@ export function CreationPanel({
     setPending(true);
     try {
       await ensureSession(sessionId, mode);
+      const submitLineage = resolveSubmitBatchLineage(canvasItems, {
+        maskSelection:
+          mentionedMasks.length > 0
+            ? mentionedMasks[mentionedMasks.length - 1]
+            : null,
+        referenceOutputIds:
+          selectedRefs.length > 0 ? selectedRefs.map((r) => r.id) : undefined,
+        toolName: mentionedMasks[mentionedMasks.length - 1]?.toolId,
+      });
+      const lineageApi = pendingLineageToApiFields(submitLineage);
       let jobId: string;
       if (isVideoModel) {
         const res = await submitVideoGeneration({
@@ -549,6 +573,7 @@ export function CreationPanel({
           prompt: prompt.trim(),
           modelId,
           count,
+          ...lineageApi,
         });
         jobId = res.jobId;
       } else if (effectiveMode === "ecommerce") {
@@ -630,6 +655,7 @@ export function CreationPanel({
                   })),
                 }
               : undefined,
+            ...lineageApi,
           });
           jobId = res.jobId;
           if (res.routeReason) setRouteHint(res.routeReason);
@@ -645,7 +671,7 @@ export function CreationPanel({
       setMentionedMasks([]);
       await refreshUser();
       void trackEvent("generation_submit", { mode, sessionId });
-      onJobStarted?.(jobId);
+      onJobStarted?.(jobId, submitLineage);
       if (sessionId) {
         const refs = await fetchReferences(sessionId);
         setReferences(refs);
@@ -749,6 +775,7 @@ export function CreationPanel({
 
       <div className={`relative ${isDock ? "" : "mt-3"}`}>
         <MentionPicker
+          placement={isDock ? "below" : "above"}
           canvasItems={canvasItems}
           uploadedAssets={uploadPreviews
             .filter((preview) => assetIds.includes(preview.id))
@@ -827,10 +854,13 @@ export function CreationPanel({
                   const atIdx = before.lastIndexOf("@");
                   if (atIdx >= 0) {
                     const between = before.slice(atIdx + 1);
-                    // 空格或换行视为退出 mention（避免「我 @abc 然后 」一直弹）
-                    if (/^[^\s\n]*$/.test(between)) {
+                    // @ 后仅空格仍展示列表；出现「空格+非空字符」视为已结束 mention 段
+                    if (
+                      !between.includes("\n") &&
+                      !/\s\S/.test(between)
+                    ) {
                       setMentionOpen(true);
-                      setMentionQuery(between);
+                      setMentionQuery(between.trimStart());
                       return;
                     }
                   }
@@ -974,7 +1004,7 @@ export function CreationPanel({
               )}
             </button>
           ) : null}
-          {mode === "chat" && sessionId ? (
+          {sessionId ? (
             <button
               type="button"
               onClick={() => setMentionOpen((o) => !o)}

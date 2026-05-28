@@ -173,7 +173,9 @@ async function findOrCreateByWechat(code: string, inviteCode?: string) {
 
 auth.post("/register", async (c) => {
   const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-  await rateLimit(`register:${ip}`, 10, 60 * 60 * 1000);
+  const registerLimit =
+    process.env.E2E_RELAX_RATE_LIMIT === "true" ? 10_000 : 10;
+  await rateLimit(`register:${ip}`, registerLimit, 60 * 60 * 1000);
   const body = registerSchema.parse(await c.req.json());
   const existing = db
     .prepare("SELECT id FROM users WHERE email = ?")

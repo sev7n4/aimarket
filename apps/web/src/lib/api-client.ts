@@ -354,6 +354,8 @@ export async function submitGeneration(body: {
       normalizedBbox: { x: number; y: number; width: number; height: number };
     }>;
   };
+  parentJobId?: string;
+  sourceOutputId?: string;
 }) {
   const res = await request<{
     data: {
@@ -382,6 +384,8 @@ export async function submitEcommerceGenerate(body: {
   resolution?: string;
   productAssetId?: string;
   referenceAssetId?: string;
+  parentJobId?: string;
+  sourceOutputId?: string;
 }) {
   const res = await request<{
     data: {
@@ -411,6 +415,8 @@ export async function submitEcommerceRerunSlide(body: {
   resolution?: string;
   productAssetId?: string;
   referenceAssetId?: string;
+  parentJobId?: string;
+  sourceOutputId?: string;
 }) {
   const res = await request<{
     data: {
@@ -481,6 +487,8 @@ export async function submitVideoGeneration(body: {
   prompt: string;
   modelId: string;
   count?: number;
+  parentJobId?: string;
+  sourceOutputId?: string;
 }) {
   const res = await request<{
     data: { jobId: string; estimatedPoints: number };

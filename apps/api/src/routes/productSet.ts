@@ -16,6 +16,7 @@ import { AppError } from "../lib/errors.js";
 import { assertPromptAllowed } from "../lib/content-moderation.js";
 import { assertSessionWrite } from "../lib/session-access.js";
 import { rateLimit } from "../lib/rate-limit.js";
+import { resolveJobLineage } from "../lib/job-lineage.js";
 
 export const productSetPublic = new Hono();
 
@@ -45,6 +46,8 @@ const ecommerceGenerateBodySchema = z.object({
   resolution: z.enum(["1k", "2k", "4k"]).default("2k"),
   productAssetId: z.string().uuid().optional(),
   referenceAssetId: z.string().uuid().optional(),
+  parentJobId: z.string().uuid().optional(),
+  sourceOutputId: z.string().uuid().optional(),
 });
 
 function resolveAssetUrls(
@@ -112,6 +115,10 @@ productSetAuthed.post("/generate", async (c) => {
   const modelId = body.modelId ?? route.modelId;
   const count = ECOMMERCE_SLIDES.length;
 
+  const lineage = resolveJobLineage({
+    parentJobId: body.parentJobId,
+    sourceOutputId: body.sourceOutputId,
+  });
   const { jobId, pointsCost } = createGenerationJob({
     sessionId: body.sessionId,
     userId,
@@ -122,6 +129,8 @@ productSetAuthed.post("/generate", async (c) => {
     resolution: body.resolution,
     toolType: "ecommerce-set",
     slideLabels: ECOMMERCE_SLIDES.map((s) => s.label),
+    parentJobId: lineage.parentJobId,
+    sourceOutputId: lineage.sourceOutputId,
   });
 
   return c.json({
@@ -152,6 +161,10 @@ productSetAuthed.post("/rerun-slide", async (c) => {
   const modelId = body.modelId ?? route.modelId;
   const slideLabel = getEcommerceSlideLabel(body.slideKey as EcommerceSlideKey);
 
+  const lineage = resolveJobLineage({
+    parentJobId: body.parentJobId,
+    sourceOutputId: body.sourceOutputId,
+  });
   const { jobId, pointsCost } = createGenerationJob({
     sessionId: body.sessionId,
     userId,
@@ -162,6 +175,8 @@ productSetAuthed.post("/rerun-slide", async (c) => {
     resolution: body.resolution,
     toolType: "ecommerce-set",
     slideLabels: [slideLabel],
+    parentJobId: lineage.parentJobId,
+    sourceOutputId: lineage.sourceOutputId,
   });
 
   return c.json({

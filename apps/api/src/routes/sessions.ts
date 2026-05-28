@@ -273,8 +273,11 @@ sessions.get("/:sessionId/messages", (c) => {
 
   const messages = db
     .prepare(
-      `SELECT id, role, content, job_id, created_at FROM messages
-       WHERE session_id = ? ORDER BY created_at ASC`,
+      `SELECT m.id, m.role, m.content, m.job_id, m.created_at,
+              j.parent_job_id, j.source_output_id
+       FROM messages m
+       LEFT JOIN generation_jobs j ON j.id = m.job_id
+       WHERE m.session_id = ? ORDER BY m.created_at ASC`,
     )
     .all(sessionId) as {
     id: string;
@@ -282,6 +285,8 @@ sessions.get("/:sessionId/messages", (c) => {
     content: string;
     job_id: string | null;
     created_at: string;
+    parent_job_id: string | null;
+    source_output_id: string | null;
   }[];
 
   const data = messages.map((m) => {
@@ -296,7 +301,13 @@ sessions.get("/:sessionId/messages", (c) => {
       label: string | null;
     }[];
     return {
-      ...m,
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      job_id: m.job_id,
+      created_at: m.created_at,
+      parent_job_id: m.parent_job_id ?? undefined,
+      source_output_id: m.source_output_id ?? undefined,
       outputs: outputs.map((o) => ({
         id: o.id,
         url: o.url,
