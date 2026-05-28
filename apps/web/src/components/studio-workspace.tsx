@@ -904,10 +904,11 @@ export function StudioWorkspace({
             <button
               type="button"
               onClick={() => setWorkstationCollapsed(false)}
-              className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 rounded-full border border-white/10 bg-white px-5 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-black shadow-2xl shadow-black/50 lg:hidden"
-              aria-label="展开工作站"
+              className="fixed bottom-16 right-4 z-40 flex size-12 items-center justify-center rounded-full border border-white/10 bg-white text-base font-semibold text-black shadow-2xl shadow-black/50 transition hover:scale-105 active:scale-95 lg:hidden"
+              aria-label="打开工作站"
+              title="打开工作站"
             >
-              studio
+              S
             </button>
           ) : (
             <section

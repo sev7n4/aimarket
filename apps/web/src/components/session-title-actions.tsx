@@ -81,6 +81,10 @@ export function SessionTitleActions({
       : variant === "card"
         ? "truncate font-medium"
         : "truncate font-medium";
+  const actionClass =
+    variant === "row"
+      ? "opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus:opacity-100"
+      : "opacity-0 group-hover:opacity-100 focus:opacity-100";
 
   if (editing) {
     return (
@@ -119,7 +123,8 @@ export function SessionTitleActions({
             type="button"
             onClick={startEdit}
             title="重命名"
-            className="shrink-0 rounded p-1 text-zinc-500 opacity-0 transition hover:bg-white/10 hover:text-zinc-300 group-hover:opacity-100 focus:opacity-100"
+            aria-label="重命名"
+            className={`shrink-0 rounded p-1 text-zinc-500 transition hover:bg-white/10 hover:text-zinc-300 ${actionClass}`}
           >
             <Pencil className="size-3.5" />
           </button>
@@ -127,7 +132,8 @@ export function SessionTitleActions({
             type="button"
             onClick={(e) => void handleDelete(e)}
             title="删除项目"
-            className="shrink-0 rounded p-1 text-zinc-500 opacity-0 transition hover:bg-red-500/20 hover:text-red-400 group-hover:opacity-100 focus:opacity-100"
+            aria-label="删除项目"
+            className={`shrink-0 rounded p-1 text-zinc-500 transition hover:bg-red-500/20 hover:text-red-400 ${actionClass}`}
           >
             <Trash2 className="size-3.5" />
           </button>
