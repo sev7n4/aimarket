@@ -337,6 +337,16 @@ export async function submitGeneration(body: {
   assetIds?: string[];
   referenceOutputIds?: string[];
   autoRoute?: boolean;
+  toolContext?: {
+    toolId: string;
+    masks: Array<{
+      itemId: string;
+      mode: "brush" | "box";
+      maskDataUrl: string;
+      bbox: { x: number; y: number; width: number; height: number };
+      normalizedBbox: { x: number; y: number; width: number; height: number };
+    }>;
+  };
 }) {
   const res = await request<{
     data: {
@@ -644,6 +654,16 @@ export async function runTool(
     referenceOutputIds?: string[];
     assetIds?: string[];
     scale?: "2x" | "4x";
+    toolContext?: {
+      toolId: string;
+      masks: Array<{
+        itemId: string;
+        mode: "brush" | "box";
+        maskDataUrl: string;
+        bbox: { x: number; y: number; width: number; height: number };
+        normalizedBbox: { x: number; y: number; width: number; height: number };
+      }>;
+    };
   },
 ) {
   const res = await request<{

@@ -6,6 +6,16 @@ export interface ToolRunParams {
   aspectRatio?: string;
   referenceUrls: string[];
   count?: number;
+  toolContext?: {
+    toolId: string;
+    masks: Array<{
+      itemId: string;
+      mode: "brush" | "box";
+      maskDataUrl: string;
+      bbox: { x: number; y: number; width: number; height: number };
+      normalizedBbox: { x: number; y: number; width: number; height: number };
+    }>;
+  };
 }
 
 export interface ToolRunResult {

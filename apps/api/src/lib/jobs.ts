@@ -3,7 +3,7 @@ import { db } from "../db/index.js";
 import { ECOMMERCE_SLIDES } from "./ecommerce.js";
 import { estimatePoints, estimateToolPoints } from "./pricing.js";
 import { getModel } from "./models.js";
-import { getTool } from "./tools.js";
+import { getTool, type ToolContext } from "./tools.js";
 import { AppError } from "./errors.js";
 import { assertSessionWrite, assertSessionRead } from "./session-access.js";
 import { recordAnalyticsEvent } from "./analytics.js";
@@ -32,6 +32,7 @@ export interface CreateJobInput {
   resolution: string;
   aspectRatio?: string;
   toolType?: string;
+  toolContext?: ToolContext;
   slideLabels?: string[];
 }
 
@@ -69,8 +70,8 @@ export function createGenerationJob(input: CreateJobInput) {
 
     db.prepare(
       `INSERT INTO generation_jobs
-       (id, session_id, user_id, model_id, prompt, mode, count, resolution, aspect_ratio, status, points_cost, tool_type)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?)`,
+       (id, session_id, user_id, model_id, prompt, mode, count, resolution, aspect_ratio, status, points_cost, tool_type, tool_context)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?)`,
     ).run(
       jobId,
       input.sessionId,
@@ -83,6 +84,7 @@ export function createGenerationJob(input: CreateJobInput) {
       input.aspectRatio ?? "1:1",
       pointsCost,
       input.toolType ?? null,
+      input.toolContext ? JSON.stringify(input.toolContext) : null,
     );
 
     db.prepare(
@@ -119,7 +121,7 @@ export async function processGenerationJob({
 }: JobQueuePayload) {
   const job = db
     .prepare(
-      `SELECT id, session_id, user_id, prompt, count, points_cost, status, mode, tool_type, model_id, resolution, aspect_ratio
+      `SELECT id, session_id, user_id, prompt, count, points_cost, status, mode, tool_type, tool_context, model_id, resolution, aspect_ratio
        FROM generation_jobs WHERE id = ?`,
     )
     .get(jobId) as
@@ -133,6 +135,7 @@ export async function processGenerationJob({
         status: string;
         mode: string;
         tool_type: string | null;
+        tool_context: string | null;
         model_id: string;
         resolution: string;
         aspect_ratio: string;
@@ -180,6 +183,14 @@ export async function processGenerationJob({
         : undefined);
 
     let urls: string[] = [];
+    let toolContext: ToolContext | undefined;
+    if (job.tool_context) {
+      try {
+        toolContext = JSON.parse(job.tool_context) as ToolContext;
+      } catch {
+        toolContext = undefined;
+      }
+    }
 
     if (model?.type === "video") {
       const video = await generateVideos({
@@ -234,6 +245,7 @@ export async function processGenerationJob({
         count: job.count,
         resolution: job.resolution,
         aspectRatio: job.aspect_ratio ?? "1:1",
+        toolContext,
       });
       urls = result.urls;
       imageProvider = result.provider;

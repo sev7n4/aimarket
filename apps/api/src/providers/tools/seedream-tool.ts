@@ -21,6 +21,7 @@ const SUPPORTED_TOOL_IDS = new Set([
   "cutout",
   "upscale",
   "enhance",
+  "erase",
   "expand",
   "inpaint",
 ]);
@@ -88,6 +89,8 @@ function buildPrompt(params: ToolRunParams): string {
       return `提升图像清晰度、对比度与色彩饱和度，修复细节，不改变主体内容。${userPrompt}`;
     case "expand":
       return `向四周智能扩展画面，保持原主体与光影一致，自然延展场景。${userPrompt || "横向 21:9 扩图"}`;
+    case "erase":
+      return `根据 mask 区域智能消除多余元素，并自然补全背景。${userPrompt || "去除圈选区域内容"}`;
     case "inpaint":
       return userPrompt || "按上下文进行自然局部重绘";
     default:
@@ -123,6 +126,12 @@ export const seedreamToolProvider: ImageToolProvider = {
     };
     if (params.referenceUrls.length > 0) {
       body.image = params.referenceUrls[0];
+    }
+    if (params.toolContext?.masks.length) {
+      // 兼容自建/未来官方局部编辑网关：同时传 mask 图和归一化 bbox。
+      body.mask = params.toolContext.masks[0].maskDataUrl;
+      body.mask_bbox = params.toolContext.masks[0].normalizedBbox;
+      body.mask_mode = params.toolContext.masks[0].mode;
     }
 
     const res = await fetch(`${base}/images/generations`, {

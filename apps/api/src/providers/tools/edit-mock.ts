@@ -2,7 +2,7 @@ import { resolveImageDimensions } from "../../lib/image-size.js";
 import { saveGeneratedImage } from "../../lib/storage.js";
 import type { ImageToolProvider, ToolRunParams, ToolRunResult } from "./types.js";
 
-const EDIT_TOOL_IDS = new Set(["expand", "inpaint"]);
+const EDIT_TOOL_IDS = new Set(["expand", "inpaint", "erase"]);
 
 /** 最小 JPEG 占位（mock 扩图 / 局部重绘） */
 const PLACEHOLDER_JPEG = Buffer.from(

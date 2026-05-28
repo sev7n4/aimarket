@@ -45,7 +45,7 @@ import {
   canvasItemToMentionItem,
   type MentionItem,
 } from "@/components/mention-picker";
-import type { CanvasItem } from "@/lib/canvas-tools";
+import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
 import type { SessionReference } from "@/lib/types";
 import { useRotatingPlaceholder } from "@/hooks/use-rotating-placeholder";
 import { randomUUID } from "@/lib/uuid";
@@ -136,6 +136,7 @@ interface CreationPanelProps {
     key: number;
     item: CanvasItem;
     promptSuffix?: string;
+    maskSelection?: CanvasMaskSelection;
   } | null;
 }
 
@@ -216,6 +217,9 @@ export function CreationPanel({
   const [mentionedAssetPreviews, setMentionedAssetPreviews] = useState<
     UploadPreviewItem[]
   >([]);
+  const [mentionedMasks, setMentionedMasks] = useState<CanvasMaskSelection[]>(
+    [],
+  );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [navigating, setNavigating] = useState(false);
   const [uploadPreviews, setUploadPreviews] = useState<UploadPreviewItem[]>([]);
@@ -430,7 +434,7 @@ export function CreationPanel({
       setSelectedRefs((prev) =>
         prev.find((r) => r.id === refLike.id) ? prev : [...prev, refLike],
       );
-    } else if (item.source === "canvas-asset") {
+    } else if (item.source === "canvas-asset" || item.source === "upload-asset") {
       setMentionedAssetIds((prev) =>
         prev.includes(item.assetId) ? prev : [...prev, item.assetId],
       );
@@ -456,6 +460,12 @@ export function CreationPanel({
     );
     if (!mention) return;
     insertMention(mention, mentionItemRequest.promptSuffix ?? "");
+    if (mentionItemRequest.maskSelection) {
+      setMentionedMasks((prev) => [
+        ...prev.filter((m) => m.id !== mentionItemRequest.maskSelection!.id),
+        mentionItemRequest.maskSelection!,
+      ]);
+    }
     // 只响应外部请求 key，避免 canvasItems 刷新时重复插入同一 @ token。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mentionItemRequest?.key]);
@@ -608,6 +618,18 @@ export function CreationPanel({
             assetIds: mergedAssetIds.length ? mergedAssetIds : undefined,
             referenceOutputIds: selectedRefs.map((r) => r.id),
             autoRoute: useAuto || mode === "quick",
+            toolContext: mentionedMasks.length
+              ? {
+                  toolId: mentionedMasks[mentionedMasks.length - 1].toolId,
+                  masks: mentionedMasks.map((m) => ({
+                    itemId: m.itemId,
+                    mode: m.mode,
+                    maskDataUrl: m.maskDataUrl,
+                    bbox: m.bbox,
+                    normalizedBbox: m.normalizedBbox,
+                  })),
+                }
+              : undefined,
           });
           jobId = res.jobId;
           if (res.routeReason) setRouteHint(res.routeReason);
@@ -620,6 +642,7 @@ export function CreationPanel({
       setSelectedRefs([]);
       setMentionedAssetIds([]);
       setMentionedAssetPreviews([]);
+      setMentionedMasks([]);
       await refreshUser();
       void trackEvent("generation_submit", { mode, sessionId });
       onJobStarted?.(jobId);
@@ -727,6 +750,13 @@ export function CreationPanel({
       <div className={`relative ${isDock ? "" : "mt-3"}`}>
         <MentionPicker
           canvasItems={canvasItems}
+          uploadedAssets={uploadPreviews
+            .filter((preview) => assetIds.includes(preview.id))
+            .map((preview, idx) => ({
+              id: preview.id,
+              url: preview.url,
+              label: `上传图${idx + 1}`,
+            }))}
           references={references}
           query={mentionQuery}
           open={mentionOpen}
@@ -875,7 +905,7 @@ export function CreationPanel({
         ) : null}
         {mentionedAssetIds.length > 0 ? (
           <div className="mt-1 flex items-center gap-1.5 text-xs text-purple-400">
-            <span>@ 引用了 {mentionedAssetIds.length} 张画布素材</span>
+            <span>@ 引用了 {mentionedAssetIds.length} 张素材图</span>
             <span className="flex -space-x-1">
               {mentionedAssetPreviews.slice(0, 4).map((item) => (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -888,6 +918,11 @@ export function CreationPanel({
               ))}
             </span>
           </div>
+        ) : null}
+        {mentionedMasks.length > 0 ? (
+          <p className="mt-1 text-xs text-amber-300">
+            已圈选 {mentionedMasks.length} 个局部区域，将随提示词一起提交
+          </p>
         ) : null}
         {assetIds.length > 0 ? (
           <p className="mt-1 text-xs text-zinc-500">

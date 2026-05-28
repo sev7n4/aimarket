@@ -25,7 +25,7 @@ import { resolveApiBase } from "@/lib/api-base";
 import { trackEvent } from "@/lib/api-client";
 import { type CreationMode } from "@aimarket/ui";
 import type { ImageSession, StudioTool } from "@/lib/types";
-import type { CanvasItem } from "@/lib/canvas-tools";
+import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
 import { useAuth } from "@/lib/auth-context";
 import {
   assetUrl,
@@ -157,6 +157,13 @@ export function StudioWorkspace({
     key: number;
     item: CanvasItem;
     promptSuffix?: string;
+    maskSelection?: CanvasMaskSelection;
+  } | null>(null);
+  const [brushRequest, setBrushRequest] = useState<{
+    key: number;
+    itemId: string;
+    toolId: string;
+    toolName: string;
   } | null>(null);
   /** 同款套图栏折叠态：默认折叠成 36px 单行 chip，紧贴 dock 顶部 */
   const [inspirationBarCollapsed, setInspirationBarCollapsed] = useState(true);
@@ -411,16 +418,28 @@ export function StudioWorkspace({
     }
 
     const interaction = getToolInteraction(tool.id);
-    if (interaction === "brush" || interaction === "prompt") {
+    if (interaction === "brush") {
+      setBrushRequest((prev) => ({
+        key: (prev?.key ?? 0) + 1,
+        itemId: item.id,
+        toolId: tool.id,
+        toolName: tool.name,
+      }));
+      setSelectSourceBanner(
+        `${tool.name}：请在图片上用手指/鼠标圈选区域，完成后再到工作台补充提示词。`,
+      );
+      hapticLight();
+      return;
+    }
+
+    if (interaction === "prompt") {
       setMentionItemRequest((prev) => ({
         key: (prev?.key ?? 0) + 1,
         item,
         promptSuffix: buildToolPromptSuffix(tool),
       }));
       setSelectSourceBanner(
-        interaction === "brush"
-          ? `${tool.name} 需要先描述局部区域，已把当前图 @ 到工作台；补充位置/修改要求后提交。`
-          : `${tool.name} 需要结合提示词，已把当前图 @ 到工作台；补充要求后提交。`,
+        `${tool.name} 需要结合提示词，已把当前图 @ 到工作台；补充要求后提交。`,
       );
       hapticLight();
       return;
@@ -667,6 +686,34 @@ export function StudioWorkspace({
             selectSourceBanner={selectSourceBanner}
             onCutoutItem={(item) => handleQuickToolFromCanvas(item, "cutout")}
             onExpandItem={(item) => handleQuickToolFromCanvas(item, "expand")}
+            brushRequest={brushRequest}
+            onBrushCancel={() => {
+              setBrushRequest(null);
+              setSelectSourceBanner(null);
+            }}
+            onBrushComplete={(selection) => {
+              const item = canvasItems.find((i) => i.id === selection.itemId);
+              if (!item) return;
+              const tool = tools.find((t) => t.id === selection.toolId);
+              setBrushRequest(null);
+              setMentionItemRequest((prev) => ({
+                key: (prev?.key ?? 0) + 1,
+                item,
+                promptSuffix: buildToolPromptSuffix(
+                  tool ?? {
+                    id: selection.toolId,
+                    name: "局部编辑",
+                    description: "",
+                    defaultPrompt: "请根据圈选区域进行局部编辑",
+                  },
+                ),
+                maskSelection: selection,
+              }));
+              setSelectSourceBanner(
+                "已完成圈选：区域 mask 已加入工作台，请补充提示词后提交。",
+              );
+              hapticLight();
+            }}
             selectionToolbar={
               <CanvasSelectionToolbar
                 tools={tools}

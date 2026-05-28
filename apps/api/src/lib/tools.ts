@@ -17,6 +17,34 @@ export interface StudioToolDefinition {
   legacyAliases?: string[];
 }
 
+export const toolMaskSchema = z.object({
+  itemId: z.string().min(1),
+  mode: z.enum(["brush", "box"]),
+  maskDataUrl: z
+    .string()
+    .startsWith("data:image/png;base64,")
+    .max(1_500_000),
+  bbox: z.object({
+    x: z.number().min(0),
+    y: z.number().min(0),
+    width: z.number().positive(),
+    height: z.number().positive(),
+  }),
+  normalizedBbox: z.object({
+    x: z.number().min(0).max(1),
+    y: z.number().min(0).max(1),
+    width: z.number().positive().max(1),
+    height: z.number().positive().max(1),
+  }),
+});
+
+export const toolContextSchema = z.object({
+  toolId: z.string().min(1).max(40),
+  masks: z.array(toolMaskSchema).max(4),
+});
+
+export type ToolContext = z.infer<typeof toolContextSchema>;
+
 export const STUDIO_TOOLS: StudioToolDefinition[] = [
   {
     id: "expand",
@@ -116,6 +144,7 @@ const toolRunBodySchema = z.object({
   referenceOutputIds: z.array(z.string().uuid()).optional(),
   assetIds: z.array(z.string().uuid()).optional(),
   scale: z.enum(["2x", "4x"]).optional(),
+  toolContext: toolContextSchema.optional(),
 });
 
 export type ToolRunBody = z.infer<typeof toolRunBodySchema>;

@@ -64,6 +64,20 @@ export interface CanvasItem {
   outputId?: string;
 }
 
+export interface CanvasMaskSelection {
+  id: string;
+  itemId: string;
+  toolId: string;
+  /** brush = 手指/鼠标自由圈选；box = 矩形框选 */
+  mode: "brush" | "box";
+  /** 黑底白色 mask PNG data URL，坐标系与原画布 item 尺寸一致 */
+  maskDataUrl: string;
+  /** 被圈选区域在源图上的像素 bbox */
+  bbox: { x: number; y: number; width: number; height: number };
+  /** 归一化 bbox，便于供应商/后端按原图尺寸换算 */
+  normalizedBbox: { x: number; y: number; width: number; height: number };
+}
+
 const CELL_W = 200;
 const GAP = 24;
 
