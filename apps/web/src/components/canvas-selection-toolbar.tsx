@@ -11,7 +11,6 @@ import {
   Scissors,
   Sparkles,
   Type,
-  Wand2,
   type LucideIcon,
 } from "lucide-react";
 import type { CanvasItem, CanvasItemRole } from "@/lib/canvas-tools";
@@ -89,9 +88,11 @@ export function CanvasSelectionToolbar({
     return (
       <div className="pointer-events-auto absolute right-3 top-3 z-20 flex max-h-[calc(100%-1.5rem)] w-[112px] flex-col gap-1 overflow-y-auto rounded-2xl border border-white/10 bg-[#0d0d0d]/95 p-1.5 shadow-2xl backdrop-blur scrollbar-none">
         {visibleTools.length > 0 ? (
-          <div className="flex items-center gap-1 px-1.5 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
-            <Wand2 className="size-3" strokeWidth={1.6} />
-            AI 工具
+          <div className="flex items-center gap-1 px-1.5 pb-1 pt-0.5 text-[10px] font-medium text-zinc-500">
+            <span className="text-sm leading-none" aria-hidden>
+              🎩
+            </span>
+            <span className="uppercase tracking-wider">工具</span>
           </div>
         ) : null}
         {visibleTools.map((tool) => {
@@ -150,9 +151,8 @@ export function CanvasSelectionToolbar({
   return (
     <div className="pointer-events-auto absolute left-2 right-2 top-2 z-20">
       <div className="flex items-center gap-1.5 overflow-x-auto rounded-2xl border border-white/10 bg-[#0d0d0d]/95 px-2 py-1.5 shadow-xl backdrop-blur scrollbar-none">
-        <span className="flex shrink-0 items-center gap-1 pl-1 pr-1 text-[10px] font-medium text-zinc-500">
-          <Wand2 className="size-3" strokeWidth={1.6} />
-          AI
+        <span className="flex shrink-0 items-center pl-1 pr-1 text-base leading-none" aria-label="工具">
+          🎩
         </span>
         {visibleTools.map((tool) => {
           const Icon = TOOL_ICONS[tool.id] ?? Sparkles;

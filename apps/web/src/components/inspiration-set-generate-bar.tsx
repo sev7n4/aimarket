@@ -316,7 +316,19 @@ export function InspirationSetGenerateBar({
   }
 
   return (
-    <div className="rounded-xl border border-orange-500/25 bg-orange-500/5 p-3">
+    <div className="relative rounded-xl border border-orange-500/25 bg-orange-500/5 p-3 pr-10">
+      {/* 收起按钮固定在右上角，确保展开态与折叠态的「展开 / 收起」入口都位于右侧 */}
+      {onCollapsedChange ? (
+        <button
+          type="button"
+          onClick={() => onCollapsedChange(true)}
+          aria-label="收起同款套图栏"
+          title="收起"
+          className="absolute right-2 top-2 inline-flex size-7 items-center justify-center rounded-full border border-white/10 text-zinc-400 hover:border-white/30 hover:text-zinc-200"
+        >
+          <ChevronUp className="size-3.5" />
+        </button>
+      ) : null}
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <Sparkles className="size-3.5 shrink-0 text-orange-300" />
@@ -332,17 +344,6 @@ export function InspirationSetGenerateBar({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          {onCollapsedChange ? (
-            <button
-              type="button"
-              onClick={() => onCollapsedChange(true)}
-              aria-label="收起同款套图栏"
-              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/10 px-2 py-1 text-[10px] text-zinc-400 hover:border-white/30 hover:text-zinc-200"
-            >
-              <ChevronUp className="size-3" />
-              收起
-            </button>
-          ) : null}
           <button
             type="button"
             disabled={readOnly || pending || agentPending || videoPending || !ready}
