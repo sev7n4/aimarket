@@ -957,6 +957,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                     return (
                       <div
                         key={section.id}
+                        data-testid={`canvas-batch-section-${section.id}`}
                         className="rounded-2xl border border-white/10 bg-black/20 p-3"
                       >
                         <div className="flex items-center justify-between gap-4 mb-3">
