@@ -153,13 +153,13 @@ const toolRunBodySchema = z.object({
   prompt: z.string().max(4000).optional(),
   modelId: z.string().optional(),
   resolution: z.enum(["1k", "2k", "4k"]).default("1k"),
+  aspectRatio: z.enum(["auto","1:1","4:3","3:4","16:9","9:16","3:2","2:3","4:5","5:4","21:9"]).default("auto"),
+  count: z.number().int().min(1).max(4).default(1),
   referenceOutputIds: z.array(z.string().uuid()).optional(),
   assetIds: z.array(z.string().uuid()).optional(),
   scale: z.enum(["2x", "4x"]).optional(),
   toolContext: toolContextSchema.optional(),
-  /** 焦点编辑：识别后的焦点列表（1–10） */
   focusPoints: z.array(focusPointEntrySchema).min(1).max(10).optional(),
-  /** 焦点编辑：edit=局部修改，replace=对象替换 */
   intent: z.enum(["edit", "replace"]).optional(),
 });
 

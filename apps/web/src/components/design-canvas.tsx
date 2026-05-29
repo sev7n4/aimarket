@@ -208,6 +208,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     const [refineItemId, setRefineItemId] = useState<string | null>(null);
     const refineItem = refineItemId ? items.find((item) => item.id === refineItemId) : null;
     const isRefineMode = Boolean(refineItemId && refineItem && internalLayoutMode === "free");
+  const showBatchHeaders = layoutMode === "scroll" || internalLayoutMode === "scroll";
     const activeStrokeRef = useRef<Array<{ x: number; y: number }> | null>(null);
     const activeBoxRef = useRef<{ x: number; y: number } | null>(null);
     const mobile = useIsMobile(MOBILE_BREAKPOINT);
@@ -558,13 +559,22 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         } else if (id === "redo") {
           redo();
         } else if (id === "layout-scroll") {
+          setRefineItemId(null);
           setInternalLayoutMode("scroll");
           onLayoutModeChange?.("scroll");
           setZoom(1);
           setPan({ x: 0, y: 0 });
         } else if (id === "layout-free") {
+          const targetId = selectedId ?? items[0]?.id;
+          if (targetId) {
+            setRefineItemId(targetId);
+            onSelect(targetId);
+          }
           setInternalLayoutMode("free");
           onLayoutModeChange?.("free");
+          if (targetId) {
+            setTimeout(() => { fitToItem(targetId); }, 100);
+          }
         } else if (id === "preview") {
           if (items.length > 0) {
             const startIndex = selectedId 
@@ -1256,7 +1266,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 </div>
               ) : (
                 <>
-                  {batchSections.map((section) => {
+                  {showBatchHeaders && batchSections.map((section) => {
                     const parentNum =
                       section.parentBatchId
                         ? batchDisplayIndex(items, section.parentBatchId)
@@ -1322,7 +1332,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                     );
                   })}
                   {items.map((item) => {
-                    if (isRefineMode && item.id !== refineItemId) {
+                    if (internalLayoutMode === "free" && refineItemId && item.id !== refineItemId) {
                       return null;
                     }
                     const batchItems = items.filter((i) => i.batchId === item.batchId);
