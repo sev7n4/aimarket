@@ -25,8 +25,14 @@ const providers: ImageToolProvider[] = [
   mockToolProvider,
 ];
 
+/** focus-edit 生成走 inpaint 类 provider（局部重绘 / Seedream 编辑） */
+export function effectiveToolId(toolId: string): string {
+  return toolId === "focus-edit" ? "inpaint" : toolId;
+}
+
 export function resolveToolProvider(toolId: string): ImageToolProvider {
   const mode = process.env.TOOL_IMAGE_PROVIDER ?? "auto";
+  const resolved = effectiveToolId(toolId);
 
   if (mode === "mock") {
     return mockToolProvider;
@@ -37,7 +43,7 @@ export function resolveToolProvider(toolId: string): ImageToolProvider {
   }
 
   for (const p of providers) {
-    if (p.supports(toolId)) return p;
+    if (p.supports(resolved)) return p;
   }
 
   return mockToolProvider;
@@ -55,8 +61,10 @@ export async function runToolImages(
   const referenceUrls = toPublicAssetUrls(rawRefs);
 
   const provider = resolveToolProvider(params.toolId);
+  const resolvedToolId = effectiveToolId(params.toolId);
   const result = await provider.run({
     ...params,
+    toolId: resolvedToolId,
     referenceUrls,
     count: params.count ?? 1,
   });
@@ -86,6 +94,7 @@ export function getToolProviderStatus() {
   const enhanceProvider = resolveToolProvider("enhance").name;
   const expandProvider = resolveToolProvider("expand").name;
   const inpaintProvider = resolveToolProvider("inpaint").name;
+  const focusEditProvider = resolveToolProvider("focus-edit").name;
   const genericToolProvider = resolveToolProvider("blend").name;
 
   const allMock =
@@ -106,6 +115,7 @@ export function getToolProviderStatus() {
     enhanceProvider,
     expandProvider,
     inpaintProvider,
+    focusEditProvider,
     editMode,
     editHttpConfigured,
     seedreamConfigured,

@@ -24,6 +24,7 @@ const SUPPORTED_TOOL_IDS = new Set([
   "erase",
   "expand",
   "inpaint",
+  "focus-edit",
 ]);
 
 function isSeedreamConfigured(): boolean {
@@ -92,6 +93,7 @@ function buildPrompt(params: ToolRunParams): string {
     case "erase":
       return `根据 mask 区域智能消除多余元素，并自然补全背景。${userPrompt || "去除圈选区域内容"}`;
     case "inpaint":
+    case "focus-edit":
       return userPrompt || "按上下文进行自然局部重绘";
     default:
       return userPrompt;
@@ -168,9 +170,12 @@ export const seedreamToolProvider: ImageToolProvider = {
       urls,
       provider: "tool-seedream",
       mimeType: isCutout ? "image/png" : "image/jpeg",
-      variant: params.toolId === "expand" || params.toolId === "inpaint"
-        ? params.toolId
-        : undefined,
+      variant:
+        params.toolId === "expand" ||
+        params.toolId === "inpaint" ||
+        params.toolId === "focus-edit"
+          ? params.toolId === "focus-edit" ? "inpaint" : params.toolId
+          : undefined,
       scale:
         params.toolId === "upscale"
           ? /4\s*[xX倍]/.test(params.prompt) ? "4x" : "2x"

@@ -91,6 +91,22 @@ gantt
 
 ---
 
+## Phase 2.5 — 焦点编辑（Focus Edit，约 4 人日）
+
+> 规格见 **`docs/spec/FOCUS_EDIT.md`**（含飞书用法、对象替换、椒图 API 对标）。
+
+| ID    | 任务 | 分支建议 | 估时 | 依赖 | 验收标准 |
+| ----- | ---- | -------- | ---- | ---- | -------- |
+| FE-1  | 规格文档 `FOCUS_EDIT.md` + backlog 条目 | `docs/focus-edit-spec` | — | P2 | 评审通过 |
+| FE-2  | `POST /focus/point` + `focus-mock` + 工具注册 `focus-edit` | `feature/focus-edit` | 1d | P2 | 集成测试识别接口 |
+| FE-3  | 画布点选模式 + Chip 列表 + `focus-edit/run`（`intent` edit/replace） | 同上 | 1.5d | FE-2 | 手测改字 + 替换各 1 次 |
+| FE-4  | Seedream 生成 + prompt 模板 | 同上 | 1d | P4-4 | staging 真图 |
+| FE-5  | 集成测试 + E2E 冒烟 + 快捷键 | 同上 | 0.5d | FE-3 | CI 绿 |
+
+**FE 里程碑**：Studio 完成「点选物体 → 短 prompt（含替换）→ 出新图」闭环。
+
+---
+
 ## Phase 3 — 图生文 + SSE 产品化（P3，约 4 人日）
 
 

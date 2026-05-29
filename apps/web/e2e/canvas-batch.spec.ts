@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { registerViaEmail } from "./helpers/auth";
+import { studioWorkstation } from "./helpers/studio";
 
 async function startGenerationFromHome(
   page: import("@playwright/test").Page,
@@ -33,7 +34,7 @@ async function submitSecondGenerationInStudio(
   page: import("@playwright/test").Page,
   prompt: string,
 ) {
-  const station = page.locator('section[aria-label="工作站"]');
+  const station = studioWorkstation(page);
   const textarea = station.locator("textarea").first();
   await expect(textarea).toBeVisible({ timeout: 15_000 });
   await textarea.fill(prompt);
