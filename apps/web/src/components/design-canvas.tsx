@@ -998,6 +998,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                               key={item.id}
                               role="button"
                               tabIndex={0}
+                              data-testid={`canvas-item-${item.id}`}
                               className={`relative overflow-hidden rounded-xl border-2 bg-zinc-900 shadow-lg transition ${
                                 selectedId === item.id
                                   ? "border-orange-500 ring-2 ring-orange-500/30"
@@ -1005,11 +1006,20 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                               } ${pulseId === item.id ? "animate-pulse ring-4 ring-orange-400/50" : ""}`}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onSelect(item.id);
-                                hapticLight();
+                                if (focusClickActive && focusItem?.id === item.id) {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const x = (e.clientX - rect.left) / rect.width;
+                                  const y = (e.clientY - rect.top) / rect.height;
+                                  onFocusImageClick?.(item, { x, y });
+                                  hapticLight();
+                                } else {
+                                  onSelect(item.id);
+                                  hapticLight();
+                                }
                               }}
                               onDoubleClick={(e) => {
                                 e.stopPropagation();
+                                if (focusClickActive) return;
                                 setLightbox({ items: batchItems, index: batchItems.findIndex((i) => i.id === item.id) });
                               }}
                               onKeyDown={(e) => {
