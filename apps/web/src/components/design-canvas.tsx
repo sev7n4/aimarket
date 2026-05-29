@@ -378,7 +378,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       setInternalLayoutMode("free");
       onLayoutModeChange?.("free");
       onSelect(itemId);
-      setActionBarPosition(null);
       setTimeout(() => {
         fitToItem(itemId);
       }, 100);
@@ -1120,7 +1119,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                                 e.stopPropagation();
                                 if (focusClickActive) return;
                                 setLightbox({ items: batchItems, index: batchItems.findIndex((i) => i.id === item.id) });
-                                setActionBarPosition(null);
                               }}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" || e.key === " ") {
