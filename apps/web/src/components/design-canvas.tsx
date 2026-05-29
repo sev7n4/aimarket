@@ -26,7 +26,7 @@ import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { canvasSelectionHint } from "@/lib/mobile-labels";
 import { hapticLight } from "@/lib/haptics";
 import { useIsMobile } from "@/hooks/use-is-mobile";
-import { Sparkles, Wand2, Expand, Crop, Eraser, Eye, Trash2, ArrowLeft, RotateCcw } from "lucide-react";
+import { Sparkles, Wand2, Expand, Crop, Eraser, Eye, Trash2, ArrowLeft, RotateCcw, Minus, Plus } from "lucide-react";
 
 const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 6;
@@ -567,8 +567,16 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
           setZoom(1);
           setPan({ x: 0, y: 0 });
         } else if (id === "layout-free") {
+          const targetId = selectedId ?? items[0]?.id;
+          if (targetId) {
+            setRefineItemId(targetId);
+            onSelect(targetId);
+          }
           setInternalLayoutMode("free");
           onLayoutModeChange?.("free");
+          if (targetId) {
+            setTimeout(() => { fitToItem(targetId); }, 100);
+          }
         } else if (id === "preview") {
           if (items.length > 0) {
             const startIndex = selectedId 
@@ -576,7 +584,16 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               : 0;
             setLightbox({ items, index: startIndex >= 0 ? startIndex : 0 });
           }
-        } else setTool(id);
+        } else {
+          setTool(id);
+          if (internalLayoutMode === "free") {
+            if (id === "brush" || id === "focus-click") {
+              setZoom((z) => Math.min(ZOOM_MAX, Math.max(z, 2.0)));
+            } else if (id === "expand") {
+              setZoom((z) => Math.max(ZOOM_MIN, Math.min(z, 0.75)));
+            }
+          }
+        }
       },
       [
         onUpload,
@@ -1463,8 +1480,50 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             </div>
 
             <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-10 flex items-center justify-between gap-2 text-[10px] text-zinc-500">
-              <div className="pointer-events-auto rounded-lg bg-black/60 px-2 py-1 backdrop-blur">
-                {Math.round(zoom * 100)}%
+              <div className="pointer-events-auto flex items-center gap-2 rounded-lg bg-black/60 px-2 py-1 backdrop-blur">
+                <button
+                  type="button"
+                  onClick={() => setZoom((z) => Math.max(ZOOM_MIN, z - 0.1))}
+                  className="text-zinc-400 hover:text-white"
+                  title="缩小"
+                >
+                  <Minus className="size-3" />
+                </button>
+                <input
+                  type="range"
+                  min={ZOOM_MIN * 100}
+                  max={ZOOM_MAX * 100}
+                  step={5}
+                  value={Math.round(zoom * 100)}
+                  onChange={(e) => setZoom(Number(e.target.value) / 100)}
+                  title="缩放比例"
+                  className="h-1 w-20 cursor-pointer appearance-none rounded-full bg-zinc-600 [&::-webkit-slider-thumb]:size-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-orange-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => setZoom((z) => Math.min(ZOOM_MAX, z + 0.1))}
+                  className="text-zinc-400 hover:text-white"
+                  title="放大"
+                >
+                  <Plus className="size-3" />
+                </button>
+                <span className="min-w-[3ch] text-center">{Math.round(zoom * 100)}%</span>
+                <button
+                  type="button"
+                  onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+                  className="rounded px-1 text-zinc-400 hover:bg-white/10 hover:text-white"
+                  title="重置为 100%"
+                >
+                  1:1
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { if (refineItemId) fitToItem(refineItemId); }}
+                  className="rounded px-1 text-zinc-400 hover:bg-white/10 hover:text-white"
+                  title="适应画布"
+                >
+                  适应
+                </button>
                 {canvasSelectionHint(mobile, Boolean(selectedId))}
               </div>
               {statusChip ? (
