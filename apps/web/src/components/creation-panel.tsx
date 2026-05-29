@@ -608,6 +608,8 @@ export function CreationPanel({
           prompt: prompt.trim(),
           modelId,
           count,
+          resolution,
+          aspectRatio,
           ...lineageApi,
         });
         jobId = res.jobId;

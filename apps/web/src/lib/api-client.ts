@@ -487,6 +487,8 @@ export async function submitVideoGeneration(body: {
   prompt: string;
   modelId: string;
   count?: number;
+  resolution?: string;
+  aspectRatio?: string;
   parentJobId?: string;
   sourceOutputId?: string;
 }) {
@@ -683,6 +685,8 @@ export async function runTool(
     sessionId: string;
     prompt?: string;
     resolution?: string;
+    aspectRatio?: string;
+    count?: number;
     referenceOutputIds?: string[];
     assetIds?: string[];
     scale?: "2x" | "4x";

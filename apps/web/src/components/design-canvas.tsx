@@ -558,13 +558,22 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         } else if (id === "redo") {
           redo();
         } else if (id === "layout-scroll") {
+          setRefineItemId(null);
           setInternalLayoutMode("scroll");
           onLayoutModeChange?.("scroll");
           setZoom(1);
           setPan({ x: 0, y: 0 });
         } else if (id === "layout-free") {
+          const targetId = selectedId ?? items[0]?.id;
+          if (targetId) {
+            setRefineItemId(targetId);
+            onSelect(targetId);
+          }
           setInternalLayoutMode("free");
           onLayoutModeChange?.("free");
+          if (targetId) {
+            setTimeout(() => { fitToItem(targetId); }, 100);
+          }
         } else if (id === "preview") {
           if (items.length > 0) {
             const startIndex = selectedId 
@@ -1256,7 +1265,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 </div>
               ) : (
                 <>
-                  {batchSections.map((section) => {
+                  {internalLayoutMode === "scroll" && batchSections.map((section) => {
                     const parentNum =
                       section.parentBatchId
                         ? batchDisplayIndex(items, section.parentBatchId)
@@ -1322,7 +1331,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                     );
                   })}
                   {items.map((item) => {
-                    if (isRefineMode && item.id !== refineItemId) {
+                    if (internalLayoutMode === "free" && refineItemId && item.id !== refineItemId) {
                       return null;
                     }
                     const batchItems = items.filter((i) => i.batchId === item.batchId);

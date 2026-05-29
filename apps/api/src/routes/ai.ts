@@ -211,6 +211,7 @@ ai.post("/generate/video", async (c) => {
       modelId: z.enum(["seedance-2", "wan-2.6"]).default("seedance-2"),
       count: z.number().int().min(1).max(2).default(1),
       resolution: z.enum(["1k", "2k"]).default("1k"),
+      aspectRatio: z.enum(["auto","1:1","4:3","3:4","16:9","9:16","3:2","2:3","4:5","5:4","21:9"]).default("auto"),
       parentJobId: z.string().uuid().optional(),
       sourceOutputId: z.string().uuid().optional(),
     })
@@ -231,6 +232,7 @@ ai.post("/generate/video", async (c) => {
     mode: "chat",
     count: body.count,
     resolution: body.resolution,
+    aspectRatio: body.aspectRatio,
     toolType: "video",
     parentJobId: lineage.parentJobId,
     sourceOutputId: lineage.sourceOutputId,
