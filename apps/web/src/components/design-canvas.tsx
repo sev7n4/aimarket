@@ -15,17 +15,19 @@ import type {
   CanvasItem,
   CanvasMaskSelection,
   CanvasToolId,
+  CanvasLayoutMode,
 } from "@/lib/canvas-tools";
 import { batchDisplayIndex, pickLatestBatchId } from "@/lib/canvas-tools";
 import { CanvasToolbar } from "@/components/canvas-toolbar";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
 import { CanvasContextMenu } from "@/components/canvas-context-menu";
+import { CanvasLightbox } from "@/components/canvas-lightbox";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { canvasSelectionHint } from "@/lib/mobile-labels";
 import { hapticLight } from "@/lib/haptics";
 import { useIsMobile } from "@/hooks/use-is-mobile";
+import { Sparkles, Wand2, Expand, Crop, Eraser } from "lucide-react";
 
-/** 画布缩放范围：放宽到 6 倍，便于查看出图细节；下限 0.2 便于全图概览 */
 const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 6;
 
@@ -33,9 +35,27 @@ export interface DesignCanvasHandle {
   fitToItem: (itemId: string) => void;
   fitToBatch: (batchId: string) => void;
   pulseItem: (itemId: string) => void;
-  /** 自动适配所有 items 的 bbox，让画布默认就把全部图片铺满可视区 ~80% */
   fitAll: () => void;
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
+
+interface AiToolAction {
+  id: string;
+  label: string;
+  icon: ReactNode;
+  action: string;
+}
+
+const aiTools: AiToolAction[] = [
+  { id: "remix", label: "变体", icon: <Sparkles className="size-3.5" />, action: "remix" },
+  { id: "expand", label: "扩图", icon: <Expand className="size-3.5" />, action: "expand" },
+  { id: "crop", label: "裁剪", icon: <Crop className="size-3.5" />, action: "crop" },
+  { id: "erase", label: "擦除", icon: <Eraser className="size-3.5" />, action: "erase" },
+  { id: "edit", label: "编辑", icon: <Wand2 className="size-3.5" />, action: "edit" },
+];
 
 interface DesignCanvasProps {
   items: CanvasItem[];
@@ -63,7 +83,6 @@ interface DesignCanvasProps {
   } | null;
   onBrushComplete?: (selection: CanvasMaskSelection) => void;
   onBrushCancel?: () => void;
-  /** 焦点编辑：在图片上点击取点（归一化坐标） */
   focusClickRequest?: {
     key: number;
     itemId: string;
@@ -75,20 +94,15 @@ interface DesignCanvasProps {
     point: { x: number; y: number },
   ) => void;
   onFocusClickCancel?: () => void;
-  /**
-   * 画布选中图片后浮出的 AI 工具栏（slot）。
-   * - PC：建议绝对定位画布右上角（vertical layout）
-   * - Mobile：建议浮在画布顶部 banner 区（horizontal layout）
-   * 由父组件根据 mobile 状态自行决定布局。
-   */
   selectionToolbar?: ReactNode;
-  /** 画布右下角状态 chip（如 Provider 状态），与 zoom 同行 */
   statusChip?: ReactNode;
-  /** 点击批次头「源自批次」时跳转到父批 */
   onJumpToParentBatch?: (
     parentBatchId: string,
     sourceItemId?: string,
   ) => void;
+  onAiToolAction?: (item: CanvasItem, action: string) => void;
+  layoutMode?: CanvasLayoutMode;
+  onLayoutModeChange?: (mode: CanvasLayoutMode) => void;
 }
 
 export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
@@ -120,10 +134,14 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       selectionToolbar = null,
       statusChip = null,
       onJumpToParentBatch,
+      onAiToolAction,
+      layoutMode = "scroll",
+      onLayoutModeChange,
     },
     ref,
   ) {
     const containerRef = useRef<HTMLDivElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [tool, setTool] = useState<CanvasToolId>("select");
     const [gridOn, setGridOn] = useState(true);
     const [zoom, setZoom] = useState(1);
@@ -139,6 +157,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     const [maskBoxes, setMaskBoxes] = useState<
       Array<{ x: number; y: number; width: number; height: number }>
     >([]);
+    const [lightbox, setLightbox] = useState<{ items: CanvasItem[]; index: number } | null>(null);
+    const [internalLayoutMode, setInternalLayoutMode] = useState<CanvasLayoutMode>(layoutMode);
     const activeStrokeRef = useRef<Array<{ x: number; y: number }> | null>(null);
     const activeBoxRef = useRef<{ x: number; y: number } | null>(null);
     const mobile = useIsMobile(MOBILE_BREAKPOINT);
@@ -168,6 +188,61 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       originY: number;
     } | null>(null);
     const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    
+    const historyRef = useRef<CanvasItem[][]>([]);
+    const historyIndexRef = useRef<number>(-1);
+    const canUndo = historyIndexRef.current > 0;
+    const canRedo = historyIndexRef.current < historyRef.current.length - 1;
+    
+    useEffect(() => {
+      if (layoutMode !== internalLayoutMode) {
+        setInternalLayoutMode(layoutMode);
+      }
+    }, [layoutMode]);
+    
+    const pushHistory = useCallback((newItems: CanvasItem[]) => {
+      const currentHistory = historyRef.current;
+      const currentIndex = historyIndexRef.current;
+      if (currentIndex < currentHistory.length - 1) {
+        currentHistory.splice(currentIndex + 1);
+      }
+      currentHistory.push(newItems);
+      historyIndexRef.current = currentHistory.length - 1;
+      if (currentHistory.length > 50) {
+        currentHistory.shift();
+        historyIndexRef.current -= 1;
+      }
+    }, []);
+    
+    useEffect(() => {
+      if (items.length > 0 && historyRef.current.length === 0) {
+        historyRef.current = [items];
+        historyIndexRef.current = 0;
+      }
+    }, [items]);
+    
+    const undo = useCallback(() => {
+      if (historyIndexRef.current <= 0) return;
+      historyIndexRef.current -= 1;
+      const prevItems = historyRef.current[historyIndexRef.current];
+      if (prevItems) {
+        onItemsChange(prevItems);
+      }
+    }, [onItemsChange]);
+    
+    const redo = useCallback(() => {
+      if (historyIndexRef.current >= historyRef.current.length - 1) return;
+      historyIndexRef.current += 1;
+      const nextItems = historyRef.current[historyIndexRef.current];
+      if (nextItems) {
+        onItemsChange(nextItems);
+      }
+    }, [onItemsChange]);
+    
+    const handleItemsChangeWithHistory = useCallback((newItems: CanvasItem[]) => {
+      pushHistory(newItems);
+      onItemsChange(newItems);
+    }, [pushHistory, onItemsChange]);
 
     const fitToItem = useCallback((itemId: string) => {
       const item = items.find((i) => i.id === itemId);
@@ -247,11 +322,24 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       });
     }, [items]);
 
-    useImperativeHandle(ref, () => ({ fitToItem, fitToBatch, pulseItem, fitAll }), [
+    useImperativeHandle(ref, () => ({ 
+      fitToItem, 
+      fitToBatch, 
+      pulseItem, 
+      fitAll, 
+      undo, 
+      redo, 
+      canUndo, 
+      canRedo 
+    }), [
       fitToItem,
       fitToBatch,
       pulseItem,
       fitAll,
+      undo,
+      redo,
+      canUndo,
+      canRedo,
     ]);
 
     useEffect(() => {
@@ -378,6 +466,25 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
           if (readOnly) return;
           if (selectedId) onDeleteSelected();
           else setTool("select");
+        } else if (id === "undo") {
+          undo();
+        } else if (id === "redo") {
+          redo();
+        } else if (id === "layout-scroll") {
+          setInternalLayoutMode("scroll");
+          onLayoutModeChange?.("scroll");
+          setZoom(1);
+          setPan({ x: 0, y: 0 });
+        } else if (id === "layout-free") {
+          setInternalLayoutMode("free");
+          onLayoutModeChange?.("free");
+        } else if (id === "preview") {
+          if (items.length > 0) {
+            const startIndex = selectedId 
+              ? items.findIndex((i) => i.id === selectedId) 
+              : 0;
+            setLightbox({ items, index: startIndex >= 0 ? startIndex : 0 });
+          }
         } else setTool(id);
       },
       [
@@ -390,11 +497,17 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         fitAll,
         fitToBatch,
         items,
+        undo,
+        redo,
+        onLayoutModeChange,
       ],
     );
 
     function onCanvasPointerDown(e: React.PointerEvent) {
-      if (tool !== "pan" && !(mobile && e.pointerType === "touch" && !brushActive)) {
+      if (internalLayoutMode === "scroll") {
+        return;
+      }
+      if (tool !== "pan" && !(mobile && e.pointerType === "touch")) {
         return;
       }
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -407,11 +520,12 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     }
 
     function onCanvasPointerMove(e: React.PointerEvent) {
+      if (internalLayoutMode === "scroll") return;
       if (!readOnly && dragRef.current && tool === "select") {
         const d = dragRef.current;
         const dx = (e.clientX - d.startX) / zoom;
         const dy = (e.clientY - d.startY) / zoom;
-        onItemsChange(
+        handleItemsChangeWithHistory(
           items.map((it) =>
             it.id === d.id
               ? { ...it, x: d.originX + dx, y: d.originY + dy }
@@ -521,6 +635,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       const el = containerRef.current;
       if (!el) return;
       function onWheel(e: WheelEvent) {
+        if (internalLayoutMode === "scroll") {
+          return;
+        }
         const pinchZoom = e.ctrlKey || e.metaKey;
         const touchPinch = touchUi && !pinchZoom;
         if (pinchZoom || touchPinch) {
@@ -537,7 +654,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       }
       el.addEventListener("wheel", onWheel, { passive: false });
       return () => el.removeEventListener("wheel", onWheel);
-    }, [touchUi, wheelZoomStep]);
+    }, [touchUi, wheelZoomStep, internalLayoutMode]);
 
     /**
      * 用 ref 保存最新 zoom/pan，避免 useEffect 依赖触发 cleanup + re-bind
@@ -635,16 +752,26 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
 
     useEffect(() => {
       function onKey(e: KeyboardEvent) {
-        if (e.key !== "Delete" && e.key !== "Backspace") return;
-        const tag = (e.target as HTMLElement).tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA") return;
-        if (readOnly || !selectedId) return;
-        e.preventDefault();
-        onDeleteSelected();
+        if (e.key === "Delete" || e.key === "Backspace") {
+          const tag = (e.target as HTMLElement).tagName;
+          if (tag === "INPUT" || tag === "TEXTAREA") return;
+          if (readOnly || !selectedId) return;
+          e.preventDefault();
+          onDeleteSelected();
+        } else if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+          const tag = (e.target as HTMLElement).tagName;
+          if (tag === "INPUT" || tag === "TEXTAREA") return;
+          e.preventDefault();
+          if (e.shiftKey) {
+            redo();
+          } else {
+            undo();
+          }
+        }
       }
       window.addEventListener("keydown", onKey);
       return () => window.removeEventListener("keydown", onKey);
-    }, [selectedId, onDeleteSelected, readOnly]);
+    }, [selectedId, onDeleteSelected, readOnly, undo, redo]);
 
     const showJobOverlay =
       Boolean(jobStreamStatus) &&
@@ -687,7 +814,14 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         }`}
       >
         {!mobile ? (
-          <CanvasToolbar active={tool} gridOn={gridOn} onTool={handleTool} />
+          <CanvasToolbar 
+            active={tool} 
+            gridOn={gridOn} 
+            onTool={handleTool} 
+            layoutMode={internalLayoutMode}
+            canUndo={canUndo}
+            canRedo={canRedo}
+          />
         ) : null}
 
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
@@ -696,6 +830,21 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               {selectSourceBanner}
             </div>
           ) : null}
+          
+          <div className="absolute right-2 top-2 z-20 flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => handleTool(internalLayoutMode === "scroll" ? "layout-free" : "layout-scroll")}
+              className={`rounded-lg px-2.5 py-1.5 text-xs transition ${
+                internalLayoutMode === "scroll"
+                  ? "bg-white/15 text-white"
+                  : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+              }`}
+            >
+              {internalLayoutMode === "scroll" ? "纵向滚动" : "自由布局"}
+            </button>
+          </div>
+          
           {focusClickActive && focusClickRequest ? (
             <div
               data-testid="focus-edit-canvas-banner"
@@ -777,28 +926,180 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             </div>
           ) : null}
 
-          <div
-            ref={containerRef}
-            className={`relative min-h-0 flex-1 touch-none overflow-hidden ${
-              tool === "pan"
-                ? "cursor-grab active:cursor-grabbing"
-                : "cursor-default"
-            }`}
-            onPointerDown={onCanvasPointerDown}
-            onPointerMove={onCanvasPointerMove}
-            onPointerUp={endPointer}
-            onPointerLeave={endPointer}
-            onClick={() => tool === "select" && onSelect(null)}
-          >
-            {showJobOverlay || jobFailed ? (
-              <CanvasJobOverlay
-                status={jobStreamStatus}
-                failed={jobFailed}
-                onOpenChat={onOpenChatPanel}
-                completed={jobProgressCompleted}
-                total={jobProgressTotal}
-              />
-            ) : null}
+          {internalLayoutMode === "scroll" ? (
+            <div
+              ref={scrollContainerRef}
+              className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+              onClick={() => onSelect(null)}
+            >
+              {showJobOverlay || jobFailed ? (
+                <CanvasJobOverlay
+                  status={jobStreamStatus}
+                  failed={jobFailed}
+                  onOpenChat={onOpenChatPanel}
+                  completed={jobProgressCompleted}
+                  total={jobProgressTotal}
+                />
+              ) : null}
+              
+              {items.length === 0 ? (
+                <div className="flex h-[min(60vh,480px)] w-full items-center justify-center p-8">
+                  <p className="text-sm text-zinc-600">{emptyHint}</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-6 p-4">
+                  {batchSections.map((section) => {
+                    const batchItems = items.filter((i) => i.batchId === section.id);
+                    const parentNum =
+                      section.parentBatchId
+                        ? batchDisplayIndex(items, section.parentBatchId)
+                        : null;
+                    return (
+                      <div
+                        key={section.id}
+                        data-testid={`canvas-batch-section-${section.id}`}
+                        className="rounded-2xl border border-white/10 bg-black/20 p-3"
+                      >
+                        <div className="flex items-center justify-between gap-4 mb-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-zinc-200">
+                              {section.index >= 0
+                                ? `批次 ${section.index + 1} · ${section.title}`
+                                : section.title}
+                            </p>
+                            {section.subtitle ? (
+                              <p className="mt-0.5 truncate text-[11px] text-zinc-500">
+                                {section.subtitle}
+                              </p>
+                            ) : null}
+                            {section.parentBatchId && parentNum ? (
+                              <button
+                                type="button"
+                                className="mt-1 truncate text-[11px] text-orange-400/90 underline-offset-2 hover:underline"
+                                onClick={() => {
+                                  onJumpToParentBatch?.(
+                                    section.parentBatchId!,
+                                    section.sourceItemId,
+                                  );
+                                }}
+                              >
+                                源自批次 {parentNum}
+                              </button>
+                            ) : null}
+                          </div>
+                          <span className="shrink-0 rounded-full border border-white/10 px-2 py-1 text-[10px] text-zinc-500">
+                            {section.count} 张
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                          {batchItems.map((item) => (
+                            <div
+                              key={item.id}
+                              role="button"
+                              tabIndex={0}
+                              data-testid={`canvas-item-${item.id}`}
+                              className={`relative overflow-hidden rounded-xl border-2 bg-zinc-900 shadow-lg transition ${
+                                selectedId === item.id
+                                  ? "border-orange-500 ring-2 ring-orange-500/30"
+                                  : "border-white/10 hover:border-white/25"
+                              } ${pulseId === item.id ? "animate-pulse ring-4 ring-orange-400/50" : ""}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (focusClickActive && focusItem?.id === item.id) {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const x = (e.clientX - rect.left) / rect.width;
+                                  const y = (e.clientY - rect.top) / rect.height;
+                                  onFocusImageClick?.(item, { x, y });
+                                  hapticLight();
+                                } else {
+                                  onSelect(item.id);
+                                  hapticLight();
+                                }
+                              }}
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                if (focusClickActive) return;
+                                setLightbox({ items: batchItems, index: batchItems.findIndex((i) => i.id === item.id) });
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  onSelect(item.id);
+                                }
+                              }}
+                            >
+                              {item.label ? (
+                                <span className="block bg-black/60 px-2 py-0.5 text-[10px] text-zinc-400">
+                                  {item.label}
+                                </span>
+                              ) : null}
+                              {item.isVideo ? (
+                                <video
+                                  src={assetUrl(item.url)}
+                                  className="w-full aspect-square object-cover"
+                                />
+                              ) : (
+                                <img
+                                  src={assetUrl(item.url)}
+                                  alt=""
+                                  className="pointer-events-none w-full aspect-square object-cover"
+                                  draggable={false}
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {onAiToolAction && batchItems.length > 0 && (
+                          <div className="mt-3 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+                            {aiTools.map((aiTool) => (
+                              <button
+                                key={aiTool.id}
+                                type="button"
+                                onClick={() => {
+                                  const firstItem = batchItems[0];
+                                  if (firstItem) {
+                                    onAiToolAction(firstItem, aiTool.action);
+                                  }
+                                }}
+                                className="flex items-center gap-1.5 rounded-lg bg-white/5 px-2.5 py-1.5 text-xs text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200"
+                              >
+                                {aiTool.icon}
+                                <span>{aiTool.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div
+              ref={containerRef}
+              className={`relative min-h-0 flex-1 touch-none overflow-hidden ${
+                tool === "pan"
+                  ? "cursor-grab active:cursor-grabbing"
+                  : "cursor-default"
+              }`}
+              onPointerDown={onCanvasPointerDown}
+              onPointerMove={onCanvasPointerMove}
+              onPointerUp={endPointer}
+              onPointerLeave={endPointer}
+              onClick={() => tool === "select" && onSelect(null)}
+            >
+              {showJobOverlay || jobFailed ? (
+                <CanvasJobOverlay
+                  status={jobStreamStatus}
+                  failed={jobFailed}
+                  onOpenChat={onOpenChatPanel}
+                  completed={jobProgressCompleted}
+                  total={jobProgressTotal}
+                />
+              ) : null}
 
             {gridOn ? (
               <div
@@ -891,7 +1192,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                     </div>
                     );
                   })}
-                  {items.map((item) => (
+                  {items.map((item) => {
+                    const batchItems = items.filter((i) => i.batchId === item.batchId);
+                    return (
                     <div
                       key={item.id}
                       role="button"
@@ -906,7 +1209,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                       onClick={(e) => e.stopPropagation()}
                       onDoubleClick={(e) => {
                         e.stopPropagation();
-                        fitToItem(item.id);
+                        setLightbox({ items: batchItems.length > 0 ? batchItems : [item], index: batchItems.findIndex((i) => i.id === item.id) || 0 });
                       }}
                       className={`relative overflow-hidden rounded-xl border-2 bg-zinc-900 text-left shadow-lg transition ${
                         focusClickActive && focusItem?.id === item.id
@@ -932,7 +1235,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                           style={{ height: item.height }}
                         />
                       ) : (
-                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img
                           src={assetUrl(item.url)}
                           alt=""
@@ -1009,7 +1311,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                         </svg>
                       ) : null}
                     </div>
-                  ))}
+                    );
+                  })}
                 </>
               )}
             </div>
@@ -1026,6 +1329,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
 
             {selectionToolbar}
           </div>
+          )}
 
           {mobile ? (
             <CanvasToolbar
@@ -1033,6 +1337,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               gridOn={gridOn}
               onTool={handleTool}
               layout="horizontal"
+              layoutMode={internalLayoutMode}
+              canUndo={canUndo}
+              canRedo={canRedo}
             />
           ) : null}
         </div>
@@ -1063,6 +1370,14 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             }
           />
         ) : null}
+        
+        {lightbox && (
+          <CanvasLightbox
+            items={lightbox.items}
+            initialIndex={lightbox.index}
+            onClose={() => setLightbox(null)}
+          />
+        )}
       </div>
     );
   },
