@@ -40,7 +40,7 @@ test.describe("focus edit", () => {
     await expect(canvasImage).toBeVisible({ timeout: 20_000 });
     await canvasImage.click();
 
-    await page.getByTestId("studio-tool-focus-edit").click();
+    await station.getByTestId("studio-tool-focus-edit").click();
     await expect(page.getByTestId("focus-edit-canvas-banner")).toBeVisible({
       timeout: 10_000,
     });
