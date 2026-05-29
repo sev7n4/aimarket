@@ -208,6 +208,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     const [refineItemId, setRefineItemId] = useState<string | null>(null);
     const refineItem = refineItemId ? items.find((item) => item.id === refineItemId) : null;
     const isRefineMode = Boolean(refineItemId && refineItem && internalLayoutMode === "free");
+  const showBatchHeaders = layoutMode === "scroll" || internalLayoutMode === "scroll";
     const activeStrokeRef = useRef<Array<{ x: number; y: number }> | null>(null);
     const activeBoxRef = useRef<{ x: number; y: number } | null>(null);
     const mobile = useIsMobile(MOBILE_BREAKPOINT);
@@ -1265,7 +1266,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 </div>
               ) : (
                 <>
-                  {internalLayoutMode === "scroll" && batchSections.map((section) => {
+                  {showBatchHeaders && batchSections.map((section) => {
                     const parentNum =
                       section.parentBatchId
                         ? batchDisplayIndex(items, section.parentBatchId)
