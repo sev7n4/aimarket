@@ -49,18 +49,16 @@ interface ImageActionBarProps {
   onPreview: () => void;
   onRefine: () => void;
   onDelete: () => void;
-  position: { top: number; left: number };
 }
 
-function ImageActionBar({ item, onPreview, onRefine, onDelete, position }: ImageActionBarProps) {
+function ImageActionBar({ item, onPreview, onRefine, onDelete }: ImageActionBarProps) {
   return (
     <div
-      className="absolute z-30 flex items-center gap-1 rounded-lg bg-black/90 border border-white/20 px-2 py-1.5 shadow-xl backdrop-blur-sm"
-      style={{ top: position.top, left: position.left }}
+      className="absolute inset-x-0 bottom-0 z-30 flex items-center justify-center gap-1 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-2 py-2"
     >
       <button
         type="button"
-        onClick={onPreview}
+        onClick={(e) => { e.stopPropagation(); onPreview(); }}
         className="flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300 transition hover:bg-white/20 hover:text-white"
         title="预览"
       >
@@ -69,7 +67,7 @@ function ImageActionBar({ item, onPreview, onRefine, onDelete, position }: Image
       </button>
       <button
         type="button"
-        onClick={onRefine}
+        onClick={(e) => { e.stopPropagation(); onRefine(); }}
         className="flex items-center gap-1 rounded-md bg-orange-500/20 px-2 py-1 text-xs text-orange-300 transition hover:bg-orange-500/30 hover:text-orange-100"
         title="精修"
       >
@@ -78,7 +76,7 @@ function ImageActionBar({ item, onPreview, onRefine, onDelete, position }: Image
       </button>
       <button
         type="button"
-        onClick={onDelete}
+        onClick={(e) => { e.stopPropagation(); onDelete(); }}
         className="flex items-center gap-1 rounded-md bg-red-500/20 px-2 py-1 text-xs text-red-300 transition hover:bg-red-500/30 hover:text-red-100"
         title="删除"
       >
@@ -208,7 +206,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     const [lightbox, setLightbox] = useState<{ items: CanvasItem[]; index: number } | null>(null);
     const [internalLayoutMode, setInternalLayoutMode] = useState<CanvasLayoutMode>(layoutMode);
     const [refineItemId, setRefineItemId] = useState<string | null>(null);
-    const [actionBarPosition, setActionBarPosition] = useState<{ top: number; left: number } | null>(null);
     const refineItem = refineItemId ? items.find((item) => item.id === refineItemId) : null;
     const isRefineMode = Boolean(refineItemId && refineItem && internalLayoutMode === "free");
     const activeStrokeRef = useRef<Array<{ x: number; y: number }> | null>(null);
@@ -381,7 +378,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       setInternalLayoutMode("free");
       onLayoutModeChange?.("free");
       onSelect(itemId);
-      setActionBarPosition(null);
       setTimeout(() => {
         fitToItem(itemId);
       }, 100);
@@ -1116,11 +1112,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                                   hapticLight();
                                 } else {
                                   onSelect(item.id);
-                                  const rect = e.currentTarget.getBoundingClientRect();
-                                  setActionBarPosition({
-                                    top: rect.bottom + 8,
-                                    left: rect.left,
-                                  });
                                   hapticLight();
                                 }
                               }}
@@ -1128,7 +1119,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                                 e.stopPropagation();
                                 if (focusClickActive) return;
                                 setLightbox({ items: batchItems, index: batchItems.findIndex((i) => i.id === item.id) });
-                                setActionBarPosition(null);
                               }}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" || e.key === " ") {
@@ -1137,12 +1127,11 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                                 }
                               }}
                             >
-                              {selectedId === item.id && actionBarPosition && !focusClickActive && (
+                              {selectedId === item.id && !focusClickActive && (
                                 <ImageActionBar
                                   item={item}
                                   onPreview={() => {
                                     setLightbox({ items: batchItems, index: batchItems.findIndex((i) => i.id === item.id) });
-                                    setActionBarPosition(null);
                                   }}
                                   onRefine={() => {
                                     enterRefineMode(item.id);
@@ -1150,9 +1139,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                                   onDelete={() => {
                                     onSelect(item.id);
                                     onDeleteSelected();
-                                    setActionBarPosition(null);
                                   }}
-                                  position={actionBarPosition}
                                 />
                               )}
                               {item.label ? (

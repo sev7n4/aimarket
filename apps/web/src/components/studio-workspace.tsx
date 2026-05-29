@@ -616,6 +616,28 @@ export function StudioWorkspace({
     }
   }
 
+  async function handleAiToolAction(item: CanvasItem, action: string) {
+    if (!user || readOnly) return;
+    setSelectedCanvasId(item.id);
+    
+    const toolMap: Record<string, string> = {
+      rerun: "rerun",
+      remix: "remix",
+      expand: "expand",
+      crop: "crop",
+      erase: "inpaint",
+      edit: "inpaint",
+    };
+    
+    const toolId = toolMap[action];
+    if (!toolId) return;
+    
+    const tool = tools.find((t) => t.id === toolId);
+    if (!tool) return;
+    
+    await handleRunSelectionTool(tool, item);
+  }
+
   async function handleCanvasDownload() {
     const selected = canvasItems.find((i) => i.id === selectedCanvasId);
     if (selected) {
@@ -1121,6 +1143,7 @@ export function StudioWorkspace({
                 />
               }
               statusChip={<ProviderStatusChip />}
+              onAiToolAction={handleAiToolAction}
             />
           </div>
 
