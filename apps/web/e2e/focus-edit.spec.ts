@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { registerViaEmail } from "./helpers/auth";
+import { studioWorkstation } from "./helpers/studio";
 
 const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
@@ -21,7 +22,7 @@ test.describe("focus edit", () => {
     await page.goto(`/studio?sessionId=${sessionId}&mode=chat`);
     await expect(page).toHaveURL(/\/studio/, { timeout: 15_000 });
 
-    const station = page.locator('section[aria-label="工作站"]');
+    const station = studioWorkstation(page);
     await expect(station).toBeVisible({ timeout: 15_000 });
 
     const fileInput = page.locator('input[type="file"]').first();
