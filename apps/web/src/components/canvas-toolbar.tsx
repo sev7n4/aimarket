@@ -21,7 +21,10 @@ export function CanvasToolbar({
   canUndo = false,
   canRedo = false,
 }: CanvasToolbarProps) {
+  const canvasOnlyTools = ["pan", "zoom-in", "zoom-out", "grid", "fit"];
+  
   const filteredTools = canvasTools.filter((tool) => {
+    if (layoutMode === "scroll" && canvasOnlyTools.includes(tool.id)) return false;
     if (tool.id === "undo" && !canUndo) return false;
     if (tool.id === "redo" && !canRedo) return false;
     if (tool.id === "layout-scroll" && layoutMode === "scroll") return false;
