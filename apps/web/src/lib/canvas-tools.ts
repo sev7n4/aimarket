@@ -5,9 +5,13 @@ import {
   Grid3x3,
   Hand,
   ImagePlus,
+  LayoutGrid,
+  List,
   Maximize2,
   MousePointer2,
+  Redo2,
   Trash2,
+  Undo2,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -21,7 +25,14 @@ export type CanvasToolId =
   | "upload"
   | "download"
   | "delete"
-  | "grid";
+  | "grid"
+  | "layout-scroll"
+  | "layout-free"
+  | "undo"
+  | "redo"
+  | "preview";
+
+export type CanvasLayoutMode = "scroll" | "free";
 
 export interface CanvasToolDef {
   id: CanvasToolId;
@@ -36,6 +47,10 @@ export const canvasTools: CanvasToolDef[] = [
   { id: "zoom-in", label: "放大", icon: ZoomIn },
   { id: "zoom-out", label: "缩小", icon: ZoomOut },
   { id: "fit", label: "适应画布", icon: Maximize2 },
+  { id: "layout-scroll", label: "纵向滚动", icon: List },
+  { id: "layout-free", label: "自由布局", icon: LayoutGrid },
+  { id: "undo", label: "撤销", icon: Undo2 },
+  { id: "redo", label: "重做", icon: Redo2 },
   { id: "upload", label: "上传图片", icon: ImagePlus },
   { id: "download", label: "下载", icon: Download },
   { id: "delete", label: "删除选中", icon: Trash2 },
@@ -268,11 +283,11 @@ export interface CanvasMaskSelection {
 }
 
 const CELL_W = 200;
-const GAP = 24;
-const BATCH_LEFT = 96;
-const BATCH_TOP = 120;
-const BATCH_GAP = 132;
-const BATCH_TITLE_GAP = 56;
+const GAP = 16;
+const BATCH_LEFT = 48;
+const BATCH_TOP = 80;
+const BATCH_GAP = 64;
+const BATCH_TITLE_GAP = 48;
 const BATCH_COLS = 4;
 
 function truncateBatchTitle(value: string | undefined, fallback: string) {
