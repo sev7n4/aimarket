@@ -32,6 +32,7 @@ import {
   trackEvent,
   optimizePromptApi,
   reversePromptFromImage,
+  renderInspiration,
 } from "@/lib/api-client";
 import { polishPrompt } from "@/lib/prompt-polish";
 import { jobStatusLabel } from "@/lib/job-stream";
@@ -226,6 +227,9 @@ export function CreationPanel({
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
   const [estimated, setEstimated] = useState<number | null>(null);
   const [routeHint, setRouteHint] = useState<string | null>(null);
+  const [inspirationVars, setInspirationVars] = useState<
+    Record<string, string>
+  >({});
   const [pending, setPending] = useState(false);
   const [assetIds, setAssetIds] = useState<string[]>([]);
   const [productAssetId, setProductAssetId] = useState<string | null>(null);
@@ -298,6 +302,12 @@ export function CreationPanel({
     setModelId(inspirationApply.modelId);
     setAspectRatio(coerceAspectRatio(inspirationApply.aspectRatio));
     setResolution(inspirationApply.resolution);
+    const vars: Record<string, string> = {};
+    for (const v of inspirationApply.variables ?? []) {
+      vars[v.key] =
+        inspirationApply.variableValues[v.key] ?? v.default;
+    }
+    setInspirationVars(vars);
     if (inspirationApply.referenceUrls.length > 0) {
       setUploadPreviews(
         inspirationApply.referenceUrls.map((url, i) => ({
@@ -308,6 +318,16 @@ export function CreationPanel({
       setAssetIds([]);
     }
   }, [inspirationApply?.applyKey]);
+
+  useEffect(() => {
+    if (!inspirationApply?.id || !Object.keys(inspirationVars).length) return;
+    const t = setTimeout(() => {
+      void renderInspiration(inspirationApply.id, inspirationVars)
+        .then((data) => setPrompt(data.prompt))
+        .catch(() => {});
+    }, 350);
+    return () => clearTimeout(t);
+  }, [inspirationApply?.id, inspirationVars]);
 
   useEffect(() => {
     if (effectiveMode === "ecommerce") {
@@ -608,8 +628,6 @@ export function CreationPanel({
           prompt: prompt.trim(),
           modelId,
           count,
-          resolution,
-          aspectRatio,
           ...lineageApi,
         });
         jobId = res.jobId;
@@ -725,7 +743,31 @@ export function CreationPanel({
         </div>
       ) : null}
 
-
+      {!collapsed && inspirationApply && (inspirationApply.variables?.length ?? 0) > 0 ? (
+        <div className="mb-3 rounded-xl border border-orange-500/20 bg-orange-500/5 p-3">
+          <p className="mb-2 text-xs font-medium text-orange-200/90">
+            同款模板 · {inspirationApply.title}
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {inspirationApply.variables!.map((v) => (
+              <label key={v.key} className="block space-y-1">
+                <span className="text-[10px] text-zinc-500">{v.label}</span>
+                <input
+                  type="text"
+                  value={inspirationVars[v.key] ?? v.default}
+                  onChange={(e) =>
+                    setInspirationVars((prev) => ({
+                      ...prev,
+                      [v.key]: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-zinc-100 outline-none focus:border-orange-500/40"
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {showModeTabs && variant === "default" ? (
         <div className="mb-4 flex justify-center overflow-x-auto">

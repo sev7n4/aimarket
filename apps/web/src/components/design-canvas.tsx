@@ -1316,7 +1316,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 </div>
               ) : (
                 <>
-                  {batchSections.map((section) => {
+                  {!isRefineMode && batchSections.map((section) => {
                     const parentNum =
                       section.parentBatchId
                         ? batchDisplayIndex(items, section.parentBatchId)
@@ -1403,7 +1403,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                         e.stopPropagation();
                         setLightbox({ items: batchItems.length > 0 ? batchItems : [item], index: batchItems.findIndex((i) => i.id === item.id) || 0 });
                       }}
-                      className={`relative overflow-hidden rounded-xl border-2 bg-zinc-900 text-left shadow-lg transition ${
+                      className={`group relative overflow-hidden rounded-lg bg-zinc-900 text-left transition ${
                         focusClickActive && focusItem?.id === item.id
                           ? "cursor-crosshair"
                           : tool === "select"
@@ -1411,10 +1411,28 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                             : ""
                       } ${
                         selectedId === item.id
-                          ? "border-orange-500 ring-2 ring-orange-500/30"
-                          : "border-white/10 hover:border-white/25"
+                          ? isRefineMode
+                            ? "ring-1 ring-orange-400/50"
+                            : "border border-orange-500/80 ring-1 ring-orange-500/30"
+                          : isRefineMode
+                            ? "hover:ring-1 hover:ring-white/20"
+                            : "border border-white/10 hover:border-white/25"
                       } ${pulseId === item.id ? "animate-pulse ring-4 ring-orange-400/50" : ""}`}
                     >
+                      <ImageActionBar
+                        item={item}
+                        selected={selectedId === item.id}
+                        onPreview={() => {
+                          setLightbox({ items: batchItems.length > 0 ? batchItems : [item], index: batchItems.findIndex((i) => i.id === item.id) || 0 });
+                        }}
+                        onRefine={() => {
+                          enterRefineMode(item.id);
+                        }}
+                        onDelete={() => {
+                          onSelect(item.id);
+                          onDeleteSelected();
+                        }}
+                      />
                       {item.label ? (
                         <span className="block bg-black/60 px-2 py-0.5 text-[10px] text-zinc-400">
                           {item.label}
