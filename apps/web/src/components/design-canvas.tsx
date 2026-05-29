@@ -1117,8 +1117,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                                 } else {
                                   onSelect(item.id);
                                   const rect = e.currentTarget.getBoundingClientRect();
+                                  const scrollTop = scrollContainerRef.current?.scrollTop ?? 0;
                                   setActionBarPosition({
-                                    top: rect.bottom + 8,
+                                    top: rect.bottom + 8 - scrollTop,
                                     left: rect.left,
                                   });
                                   hapticLight();
