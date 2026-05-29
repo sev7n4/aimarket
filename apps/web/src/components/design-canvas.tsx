@@ -26,7 +26,7 @@ import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { canvasSelectionHint } from "@/lib/mobile-labels";
 import { hapticLight } from "@/lib/haptics";
 import { useIsMobile } from "@/hooks/use-is-mobile";
-import { Sparkles, Wand2, Expand, Crop, Eraser, Eye, Trash2, ArrowLeft, RotateCcw } from "lucide-react";
+import { Sparkles, Wand2, Expand, Crop, Eraser, Eye, Trash2, ArrowLeft, RotateCcw, Minus, Plus, ImagePlus } from "lucide-react";
 
 const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 6;
@@ -49,12 +49,13 @@ interface ImageActionBarProps {
   onPreview: () => void;
   onRefine: () => void;
   onDelete: () => void;
+  selected?: boolean;
 }
 
-function ImageActionBar({ item, onPreview, onRefine, onDelete }: ImageActionBarProps) {
+function ImageActionBar({ onPreview, onRefine, onDelete, selected }: ImageActionBarProps) {
   return (
     <div
-      className="absolute inset-x-0 bottom-0 z-30 flex items-center justify-center gap-1 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-2 py-2"
+      className={`absolute inset-x-0 bottom-0 z-30 flex items-center justify-center gap-1 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-2 py-2 transition-opacity ${selected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
     >
       <button
         type="button"
@@ -208,7 +209,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     const [refineItemId, setRefineItemId] = useState<string | null>(null);
     const refineItem = refineItemId ? items.find((item) => item.id === refineItemId) : null;
     const isRefineMode = Boolean(refineItemId && refineItem && internalLayoutMode === "free");
-  const showBatchHeaders = layoutMode === "scroll" || internalLayoutMode === "scroll";
     const activeStrokeRef = useRef<Array<{ x: number; y: number }> | null>(null);
     const activeBoxRef = useRef<{ x: number; y: number } | null>(null);
     const mobile = useIsMobile(MOBILE_BREAKPOINT);
@@ -559,7 +559,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         } else if (id === "redo") {
           redo();
         } else if (id === "layout-scroll") {
-          setRefineItemId(null);
           setInternalLayoutMode("scroll");
           onLayoutModeChange?.("scroll");
           setZoom(1);
@@ -582,7 +581,17 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               : 0;
             setLightbox({ items, index: startIndex >= 0 ? startIndex : 0 });
           }
-        } else setTool(id);
+        } else {
+          setTool(id);
+          const zoomTarget: string = id;
+          if (internalLayoutMode === "free") {
+            if (zoomTarget === "brush" || zoomTarget === "focus-click") {
+              setZoom((z) => Math.min(ZOOM_MAX, Math.max(z, 2.0)));
+            } else if (zoomTarget === "expand") {
+              setZoom((z) => Math.max(ZOOM_MIN, Math.min(z, 0.75)));
+            }
+          }
+        }
       },
       [
         onUpload,
@@ -848,27 +857,54 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     }, []);
 
     useEffect(() => {
+      let spaceHeld = false;
       function onKey(e: KeyboardEvent) {
+        const tag = (e.target as HTMLElement).tagName;
+        const inInput = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+
+        if (e.key === " " && !inInput && internalLayoutMode === "free") {
+          e.preventDefault();
+          if (!spaceHeld) {
+            spaceHeld = true;
+            setTool("pan");
+          }
+          return;
+        }
+
         if (e.key === "Delete" || e.key === "Backspace") {
-          const tag = (e.target as HTMLElement).tagName;
-          if (tag === "INPUT" || tag === "TEXTAREA") return;
+          if (inInput) return;
           if (readOnly || !selectedId) return;
           e.preventDefault();
           onDeleteSelected();
         } else if ((e.metaKey || e.ctrlKey) && e.key === "z") {
-          const tag = (e.target as HTMLElement).tagName;
-          if (tag === "INPUT" || tag === "TEXTAREA") return;
+          if (inInput) return;
           e.preventDefault();
           if (e.shiftKey) {
             redo();
           } else {
             undo();
           }
+        } else if (e.key === "Escape") {
+          if (refineItemId && internalLayoutMode === "free") {
+            exitRefineMode();
+          } else if (tool !== "select") {
+            setTool("select");
+          }
+        }
+      }
+      function onKeyUp(e: KeyboardEvent) {
+        if (e.key === " " && spaceHeld) {
+          spaceHeld = false;
+          setTool("select");
         }
       }
       window.addEventListener("keydown", onKey);
-      return () => window.removeEventListener("keydown", onKey);
-    }, [selectedId, onDeleteSelected, readOnly, undo, redo]);
+      window.addEventListener("keyup", onKeyUp);
+      return () => {
+        window.removeEventListener("keydown", onKey);
+        window.removeEventListener("keyup", onKeyUp);
+      };
+    }, [selectedId, onDeleteSelected, readOnly, undo, redo, refineItemId, internalLayoutMode, exitRefineMode, tool]);
 
     const showJobOverlay =
       Boolean(jobStreamStatus) &&
@@ -1051,8 +1087,14 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               ) : null}
               
               {items.length === 0 ? (
-                <div className="flex h-[min(60vh,480px)] w-full items-center justify-center p-8">
-                  <p className="text-sm text-zinc-600">{emptyHint}</p>
+                <div className="flex h-[min(60vh,480px)] w-full flex-col items-center justify-center gap-4 p-8">
+                  <div className="flex size-16 items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/5">
+                    <ImagePlus className="size-7 text-zinc-600" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-zinc-400">{emptyHint}</p>
+                    <p className="mt-1 text-xs text-zinc-600">在下方输入提示词，或拖拽图片到画布</p>
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col gap-6 p-4">
@@ -1107,9 +1149,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                               role="button"
                               tabIndex={0}
                               data-testid={`canvas-item-${item.id}`}
-                              className={`relative overflow-hidden rounded-xl border-2 bg-zinc-900 shadow-lg transition ${
+                              className={`group relative overflow-hidden rounded-xl border bg-zinc-900 shadow-lg transition ${
                                 selectedId === item.id
-                                  ? "border-orange-500 ring-2 ring-orange-500/30"
+                                  ? "border-orange-500/80 ring-1 ring-orange-500/30"
                                   : "border-white/10 hover:border-white/25"
                               } ${pulseId === item.id ? "animate-pulse ring-4 ring-orange-400/50" : ""}`}
                               onClick={(e) => {
@@ -1137,21 +1179,20 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                                 }
                               }}
                             >
-                              {selectedId === item.id && !focusClickActive && (
-                                <ImageActionBar
-                                  item={item}
-                                  onPreview={() => {
-                                    setLightbox({ items: batchItems, index: batchItems.findIndex((i) => i.id === item.id) });
-                                  }}
-                                  onRefine={() => {
-                                    enterRefineMode(item.id);
-                                  }}
-                                  onDelete={() => {
-                                    onSelect(item.id);
-                                    onDeleteSelected();
-                                  }}
-                                />
-                              )}
+                              <ImageActionBar
+                                item={item}
+                                selected={selectedId === item.id}
+                                onPreview={() => {
+                                  setLightbox({ items: batchItems, index: batchItems.findIndex((i) => i.id === item.id) });
+                                }}
+                                onRefine={() => {
+                                  enterRefineMode(item.id);
+                                }}
+                                onDelete={() => {
+                                  onSelect(item.id);
+                                  onDeleteSelected();
+                                }}
+                              />
                               {item.label ? (
                                 <span className="block bg-black/60 px-2 py-0.5 text-[10px] text-zinc-400">
                                   {item.label}
@@ -1166,8 +1207,11 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                                 <img
                                   src={assetUrl(item.url)}
                                   alt=""
-                                  className="pointer-events-none w-full aspect-square object-cover"
+                                  loading="lazy"
+                                  className="pointer-events-none w-full aspect-square bg-zinc-800 object-cover transition-opacity duration-300"
                                   draggable={false}
+                                  onLoad={(e) => { (e.target as HTMLImageElement).style.opacity = "1"; }}
+                                  style={{ opacity: 0 }}
                                 />
                               )}
                             </div>
@@ -1261,12 +1305,18 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               }}
             >
               {items.length === 0 ? (
-                <div className="flex h-[min(60vh,480px)] w-[min(90vw,720px)] items-center justify-center p-8">
-                  <p className="text-sm text-zinc-600">{emptyHint}</p>
+                <div className="flex h-[min(60vh,480px)] w-[min(90vw,720px)] flex-col items-center justify-center gap-4 p-8">
+                  <div className="flex size-16 items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/5">
+                    <ImagePlus className="size-7 text-zinc-600" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-zinc-400">{emptyHint}</p>
+                    <p className="mt-1 text-xs text-zinc-600">在下方输入提示词，或拖拽图片到画布</p>
+                  </div>
                 </div>
               ) : (
                 <>
-                  {showBatchHeaders && batchSections.map((section) => {
+                  {!isRefineMode && batchSections.map((section) => {
                     const parentNum =
                       section.parentBatchId
                         ? batchDisplayIndex(items, section.parentBatchId)
@@ -1332,7 +1382,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                     );
                   })}
                   {items.map((item) => {
-                    if (internalLayoutMode === "free" && refineItemId && item.id !== refineItemId) {
+                    if (isRefineMode && item.id !== refineItemId) {
                       return null;
                     }
                     const batchItems = items.filter((i) => i.batchId === item.batchId);
@@ -1353,7 +1403,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                         e.stopPropagation();
                         setLightbox({ items: batchItems.length > 0 ? batchItems : [item], index: batchItems.findIndex((i) => i.id === item.id) || 0 });
                       }}
-                      className={`relative overflow-hidden rounded-xl border-2 bg-zinc-900 text-left shadow-lg transition ${
+                      className={`group relative overflow-hidden rounded-lg bg-zinc-900 text-left transition ${
                         focusClickActive && focusItem?.id === item.id
                           ? "cursor-crosshair"
                           : tool === "select"
@@ -1361,10 +1411,28 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                             : ""
                       } ${
                         selectedId === item.id
-                          ? "border-orange-500 ring-2 ring-orange-500/30"
-                          : "border-white/10 hover:border-white/25"
+                          ? isRefineMode
+                            ? "ring-1 ring-orange-400/50"
+                            : "border border-orange-500/80 ring-1 ring-orange-500/30"
+                          : isRefineMode
+                            ? "hover:ring-1 hover:ring-white/20"
+                            : "border border-white/10 hover:border-white/25"
                       } ${pulseId === item.id ? "animate-pulse ring-4 ring-orange-400/50" : ""}`}
                     >
+                      <ImageActionBar
+                        item={item}
+                        selected={selectedId === item.id}
+                        onPreview={() => {
+                          setLightbox({ items: batchItems.length > 0 ? batchItems : [item], index: batchItems.findIndex((i) => i.id === item.id) || 0 });
+                        }}
+                        onRefine={() => {
+                          enterRefineMode(item.id);
+                        }}
+                        onDelete={() => {
+                          onSelect(item.id);
+                          onDeleteSelected();
+                        }}
+                      />
                       {item.label ? (
                         <span className="block bg-black/60 px-2 py-0.5 text-[10px] text-zinc-400">
                           {item.label}
@@ -1380,9 +1448,11 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                         <img
                           src={assetUrl(item.url)}
                           alt=""
-                          className="pointer-events-none w-full object-cover"
-                          style={{ height: item.height }}
+                          loading="lazy"
+                          className="pointer-events-none w-full bg-zinc-800 object-cover transition-opacity duration-300"
+                          style={{ height: item.height, opacity: 0 }}
                           draggable={false}
+                          onLoad={(e) => { (e.target as HTMLImageElement).style.opacity = "1"; }}
                         />
                       )}
                       {focusClickActive &&
@@ -1460,8 +1530,50 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             </div>
 
             <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-10 flex items-center justify-between gap-2 text-[10px] text-zinc-500">
-              <div className="pointer-events-auto rounded-lg bg-black/60 px-2 py-1 backdrop-blur">
-                {Math.round(zoom * 100)}%
+              <div className="pointer-events-auto flex items-center gap-2 rounded-lg bg-black/60 px-2 py-1 backdrop-blur">
+                <button
+                  type="button"
+                  onClick={() => setZoom((z) => Math.max(ZOOM_MIN, z - 0.1))}
+                  className="text-zinc-400 hover:text-white"
+                  title="缩小"
+                >
+                  <Minus className="size-3" />
+                </button>
+                <input
+                  type="range"
+                  min={ZOOM_MIN * 100}
+                  max={ZOOM_MAX * 100}
+                  step={5}
+                  value={Math.round(zoom * 100)}
+                  onChange={(e) => setZoom(Number(e.target.value) / 100)}
+                  title="缩放比例"
+                  className="h-1 w-20 cursor-pointer appearance-none rounded-full bg-zinc-600 [&::-webkit-slider-thumb]:size-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-orange-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => setZoom((z) => Math.min(ZOOM_MAX, z + 0.1))}
+                  className="text-zinc-400 hover:text-white"
+                  title="放大"
+                >
+                  <Plus className="size-3" />
+                </button>
+                <span className="min-w-[3ch] text-center">{Math.round(zoom * 100)}%</span>
+                <button
+                  type="button"
+                  onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+                  className="rounded px-1 text-zinc-400 hover:bg-white/10 hover:text-white"
+                  title="重置为 100%"
+                >
+                  1:1
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { if (refineItemId) fitToItem(refineItemId); }}
+                  className="rounded px-1 text-zinc-400 hover:bg-white/10 hover:text-white"
+                  title="适应画布"
+                >
+                  适应
+                </button>
                 {canvasSelectionHint(mobile, Boolean(selectedId))}
               </div>
               {statusChip ? (

@@ -38,22 +38,22 @@ export interface CanvasToolDef {
   id: CanvasToolId;
   label: string;
   icon: LucideIcon;
+  shortcut?: string;
 }
 
-/** 画布区操作工具（对标椒图左侧竖栏，与 AI 修图工具区分） */
 export const canvasTools: CanvasToolDef[] = [
-  { id: "select", label: "选择 / 拖拽", icon: MousePointer2 },
-  { id: "pan", label: "移动画布", icon: Hand },
+  { id: "select", label: "选择 / 拖拽", icon: MousePointer2, shortcut: "V" },
+  { id: "pan", label: "移动画布", icon: Hand, shortcut: "Space" },
   { id: "zoom-in", label: "放大", icon: ZoomIn },
   { id: "zoom-out", label: "缩小", icon: ZoomOut },
   { id: "fit", label: "适应画布", icon: Maximize2 },
   { id: "layout-scroll", label: "纵向滚动", icon: List },
   { id: "layout-free", label: "自由布局", icon: LayoutGrid },
-  { id: "undo", label: "撤销", icon: Undo2 },
-  { id: "redo", label: "重做", icon: Redo2 },
+  { id: "undo", label: "撤销", icon: Undo2, shortcut: "⌘Z" },
+  { id: "redo", label: "重做", icon: Redo2, shortcut: "⌘⇧Z" },
   { id: "upload", label: "上传图片", icon: ImagePlus },
   { id: "download", label: "下载", icon: Download },
-  { id: "delete", label: "删除选中", icon: Trash2 },
+  { id: "delete", label: "删除选中", icon: Trash2, shortcut: "Del" },
   { id: "grid", label: "网格", icon: Grid3x3 },
 ];
 

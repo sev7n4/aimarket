@@ -22,7 +22,7 @@ export function CanvasToolbar({
   canRedo = false,
 }: CanvasToolbarProps) {
   const canvasOnlyTools = ["pan", "zoom-in", "zoom-out", "grid", "fit"];
-  
+
   const filteredTools = canvasTools.filter((tool) => {
     if (layoutMode === "scroll" && canvasOnlyTools.includes(tool.id)) return false;
     if (tool.id === "undo" && !canUndo) return false;
@@ -47,7 +47,7 @@ export function CanvasToolbar({
               <button
                 key={tool.id}
                 type="button"
-                title={tool.label}
+                title={tool.shortcut ? `${tool.label} (${tool.shortcut})` : tool.label}
                 onClick={() => onTool(tool.id)}
                 disabled={isDisabled}
                 className={`flex size-10 shrink-0 items-center justify-center rounded-lg transition ${
@@ -83,7 +83,7 @@ export function CanvasToolbar({
           <button
             key={tool.id}
             type="button"
-            title={tool.label}
+            title={tool.shortcut ? `${tool.label} (${tool.shortcut})` : tool.label}
             onClick={() => onTool(tool.id)}
             disabled={isDisabled}
             className={`flex size-9 items-center justify-center rounded-lg transition ${

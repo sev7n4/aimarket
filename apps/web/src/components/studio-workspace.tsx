@@ -56,7 +56,7 @@ import { useSessionCanvas } from "@/hooks/use-session-canvas";
 import { watchJob } from "@/lib/job-stream";
 import { consumePendingAssets, type PendingAsset } from "@/lib/pending-assets";
 import { consumePendingInspiration } from "@/lib/pending-inspiration";
-import { resolveToolResolution, inferAspectRatio } from "@/lib/tool-resolution";
+import { resolveToolResolution } from "@/lib/tool-resolution";
 import { hapticLight } from "@/lib/haptics";
 import { canvasEmptyHintMobile } from "@/lib/mobile-labels";
 import { SESSION_KIND_LABEL, type SessionKind } from "@/lib/session-kind";
@@ -440,7 +440,6 @@ export function StudioWorkspace({
         prompt: tool.defaultPrompt,
         referenceOutputIds: [item.outputId],
         resolution: resolveToolResolution(tool.id),
-        aspectRatio: inferAspectRatio(item.width, item.height),
       });
       registerToolBatchLineage(jobId, item, tool.name);
       setPollingJobId(jobId);
@@ -598,7 +597,6 @@ export function StudioWorkspace({
         referenceOutputIds,
         assetIds,
         resolution: resolveToolResolution(tool.id),
-        aspectRatio: inferAspectRatio(item.width, item.height),
         ...(tool.id === "upscale" ? { scale: "2x" as const } : {}),
       });
       void trackEvent("tool_run", {
@@ -616,40 +614,6 @@ export function StudioWorkspace({
     } finally {
       setPendingToolId(null);
     }
-  }
-
-  async function handleAiToolAction(item: CanvasItem, action: string) {
-    if (!user || readOnly) return;
-    setSelectedCanvasId(item.id);
-    if (action === "rerun" || action === "remix") {
-      setMentionItemRequest((prev) => ({
-        key: (prev?.key ?? 0) + 1,
-        item,
-        promptSuffix: action === "remix" ? "变体：" : "",
-      }));
-      setSelectSourceBanner(
-        action === "rerun"
-          ? "重跑：已把当前图 @ 到工作台，确认后提交即可重新生成。"
-          : "变体：已把当前图 @ 到工作台，修改提示词后提交生成变体。",
-      );
-      hapticLight();
-      return;
-    }
-    
-    const toolMap: Record<string, string> = {
-      expand: "expand",
-      crop: "crop",
-      erase: "inpaint",
-      edit: "inpaint",
-    };
-    
-    const toolId = toolMap[action];
-    if (!toolId) return;
-    
-    const tool = tools.find((t) => t.id === toolId);
-    if (!tool) return;
-    
-    await handleRunSelectionTool(tool, item);
   }
 
   async function handleCanvasDownload() {
@@ -879,7 +843,6 @@ export function StudioWorkspace({
             referenceOutputIds,
             assetIds,
             resolution: resolveToolResolution("focus-edit"),
-            aspectRatio: inferAspectRatio(item.width, item.height),
             intent,
             focusPoints: points.map((p) => ({
               pointId: p.pointId,
@@ -1158,7 +1121,6 @@ export function StudioWorkspace({
                 />
               }
               statusChip={<ProviderStatusChip />}
-              onAiToolAction={handleAiToolAction}
             />
           </div>
 
