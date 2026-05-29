@@ -39,6 +39,7 @@ import {
 } from "@/lib/api-client";
 import {
   MAX_FOCUS_POINTS,
+  DEFAULT_CROP_SIZE,
   type FocusEditSession,
   type FocusPointChip,
 } from "@/lib/focus-edit";
@@ -470,6 +471,7 @@ export function StudioWorkspace({
       itemId: item.id,
       points: [],
       intent: "edit",
+      cropSize: DEFAULT_CROP_SIZE,
     });
     setFocusClickKey((k) => k + 1);
     setSelectedCanvasId(item.id);
@@ -502,6 +504,7 @@ export function StudioWorkspace({
           imageUrl,
           x: point.x,
           y: point.y,
+          cropSize: focusEditSession.cropSize,
         });
         const chip: FocusPointChip = {
           pointId: data.pointId,
@@ -814,6 +817,7 @@ export function StudioWorkspace({
             ? {
                 points: focusEditSession.points,
                 intent: focusEditSession.intent,
+                cropSize: focusEditSession.cropSize,
                 recognizing: focusRecognizing,
                 onIntentChange: (intent) =>
                   setFocusEditSession((prev) =>
@@ -827,6 +831,21 @@ export function StudioWorkspace({
                           points: prev.points.filter((p) => p.pointId !== pointId),
                         }
                       : prev,
+                  ),
+                onEditPoint: (pointId, newName) =>
+                  setFocusEditSession((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          points: prev.points.map((p) =>
+                            p.pointId === pointId ? { ...p, objectName: newName } : p,
+                          ),
+                        }
+                      : prev,
+                  ),
+                onCropSizeChange: (size) =>
+                  setFocusEditSession((prev) =>
+                    prev ? { ...prev, cropSize: size } : prev,
                   ),
                 onCancel: exitFocusEditMode,
               }

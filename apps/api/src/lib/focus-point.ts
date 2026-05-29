@@ -1,3 +1,4 @@
+import sharp from "sharp";
 import {
   type FocusPointBody,
   newFocusPointId,
@@ -20,9 +21,10 @@ const MOCK_NAMES = [
 const FOCUS_VISION_MODEL =
   process.env.FOCUS_VISION_MODEL ?? "qwen-vl-plus";
 
-/**
- * 焦点识别（mock | DashScope 视觉 | 回落 mock）
- */
+const DEFAULT_CROP_SIZE = 128;
+const MIN_CROP_SIZE = 64;
+const MAX_CROP_SIZE = 256;
+
 export async function recognizeFocusPoint(
   body: FocusPointBody,
 ): Promise<FocusPointResult> {
@@ -66,24 +68,88 @@ function resolveVisionImageUrl(body: FocusPointBody): string | null {
   return `data:image/png;base64,${b64}`;
 }
 
-/** 通义千问 VL：描述点击处附近物体（2–8 字） */
+async function cropImageRegion(
+  imageUrl: string,
+  x: number,
+  y: number,
+  cropSize: number,
+): Promise<string> {
+  let imageBuffer: Buffer;
+
+  if (imageUrl.startsWith("data:")) {
+    const base64Match = imageUrl.match(/^data:image\/\w+;base64,(.+)$/);
+    if (!base64Match) {
+      throw new Error("无效的 base64 图片格式");
+    }
+    imageBuffer = Buffer.from(base64Match[1], "base64");
+  } else {
+    const res = await fetch(imageUrl);
+    if (!res.ok) {
+      throw new Error(`获取图片失败: ${res.status}`);
+    }
+    const arrayBuffer = await res.arrayBuffer();
+    imageBuffer = Buffer.from(arrayBuffer);
+  }
+
+  const metadata = await sharp(imageBuffer).metadata();
+  const width = metadata.width ?? 0;
+  const height = metadata.height ?? 0;
+
+  if (width === 0 || height === 0) {
+    throw new Error("无法获取图片尺寸");
+  }
+
+  const clampedCropSize = Math.max(MIN_CROP_SIZE, Math.min(MAX_CROP_SIZE, cropSize));
+
+  const centerX = Math.round(x * width);
+  const centerY = Math.round(y * height);
+
+  const halfSize = Math.round(clampedCropSize / 2);
+  let left = centerX - halfSize;
+  let top = centerY - halfSize;
+
+  left = Math.max(0, Math.min(width - clampedCropSize, left));
+  top = Math.max(0, Math.min(height - clampedCropSize, top));
+
+  const croppedBuffer = await sharp(imageBuffer)
+    .extract({
+      left,
+      top,
+      width: clampedCropSize,
+      height: clampedCropSize,
+    })
+    .jpeg({ quality: 85 })
+    .toBuffer();
+
+  return `data:image/jpeg;base64,${croppedBuffer.toString("base64")}`;
+}
+
 async function visionRecognize(
   body: FocusPointBody,
 ): Promise<FocusPointResult> {
   const apiKey = process.env.DASHSCOPE_API_KEY?.trim();
   if (!apiKey) return mockRecognize(body);
 
-  const imageUrl = resolveVisionImageUrl(body);
-  if (!imageUrl) return mockRecognize(body);
+  const rawImageUrl = resolveVisionImageUrl(body);
+  if (!rawImageUrl) return mockRecognize(body);
 
   const base = (
     process.env.DASHSCOPE_BASE_URL ?? "https://dashscope.aliyuncs.com"
   ).replace(/\/$/, "");
 
-  const posHint =
-    body.x != null && body.y != null
-      ? `用户点击位置约在画面横向 ${Math.round(body.x * 100)}%、纵向 ${Math.round(body.y * 100)}% 处。`
-      : "";
+  let visionImageUrl = rawImageUrl;
+  let posHint = "";
+
+  if (body.x != null && body.y != null) {
+    const cropSize = body.cropSize ?? DEFAULT_CROP_SIZE;
+    try {
+      visionImageUrl = await cropImageRegion(rawImageUrl, body.x, body.y, cropSize);
+      posHint = `这是图片中点击位置附近的局部区域（裁剪尺寸 ${cropSize}px），请识别其中的主要物体或文字。`;
+    } catch (err) {
+      console.warn("[focus-point] 裁剪失败，使用原图", err);
+      posHint = `用户点击位置约在画面横向 ${Math.round(body.x * 100)}%、纵向 ${Math.round(body.y * 100)}% 处。`;
+    }
+  }
 
   const res = await fetch(`${base}/compatible-mode/v1/chat/completions`, {
     method: "POST",
@@ -97,10 +163,10 @@ async function visionRecognize(
         {
           role: "user",
           content: [
-            { type: "image_url", image_url: { url: imageUrl } },
+            { type: "image_url", image_url: { url: visionImageUrl } },
             {
               type: "text",
-              text: `${posHint}请用 2–8 个汉字说出点击位置附近最主要的物体或文字区域名称，不要解释、不要标点。`,
+              text: `${posHint}请用 2–8 个汉字说出图中最主要的物体或文字区域名称，不要解释、不要标点。`,
             },
           ],
         },
@@ -155,5 +221,6 @@ export function getFocusPointProviderStatus() {
     activeProvider: active,
     dashscopeConfigured,
     visionModel: FOCUS_VISION_MODEL,
+    defaultCropSize: DEFAULT_CROP_SIZE,
   };
 }

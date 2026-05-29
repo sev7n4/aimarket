@@ -153,9 +153,12 @@ interface CreationPanelProps {
   focusEdit?: {
     points: FocusPointChip[];
     intent: FocusEditIntent;
+    cropSize?: number;
     recognizing?: boolean;
     onIntentChange: (intent: FocusEditIntent) => void;
     onRemovePoint: (pointId: string) => void;
+    onEditPoint?: (pointId: string, newName: string) => void;
+    onCropSizeChange?: (size: number) => void;
     onCancel: () => void;
   } | null;
   onFocusEditSubmit?: (args: {
@@ -1018,9 +1021,12 @@ export function CreationPanel({
           <FocusEditChips
             points={focusEdit.points}
             intent={focusEdit.intent}
+            cropSize={focusEdit.cropSize}
             recognizing={focusEdit.recognizing}
             onIntentChange={focusEdit.onIntentChange}
             onRemove={focusEdit.onRemovePoint}
+            onEdit={focusEdit.onEditPoint}
+            onCropSizeChange={focusEdit.onCropSizeChange}
             onCancel={focusEdit.onCancel}
           />
         ) : null}
