@@ -621,7 +621,6 @@ export function StudioWorkspace({
   async function handleAiToolAction(item: CanvasItem, action: string) {
     if (!user || readOnly) return;
     setSelectedCanvasId(item.id);
-
     if (action === "rerun" || action === "remix") {
       setMentionItemRequest((prev) => ({
         key: (prev?.key ?? 0) + 1,
