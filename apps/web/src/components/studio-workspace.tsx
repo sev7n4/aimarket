@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SessionTitleActions } from "@/components/session-title-actions";
-import { InspirationSetGenerateBar } from "@/components/inspiration-set-generate-bar";
 import { ChevronLeft, ChevronRight, FolderKanban, Plus, X } from "lucide-react";
 import { LoginDialog } from "@/components/login-dialog";
 import {
@@ -194,8 +193,6 @@ export function StudioWorkspace({
   const [focusRecognizing, setFocusRecognizing] = useState(false);
   const [focusClickKey, setFocusClickKey] = useState(0);
   const lastFocusClickAtRef = useRef(0);
-  /** 同款套图栏折叠态：默认折叠成 36px 单行 chip，紧贴 dock 顶部 */
-  const [inspirationBarCollapsed, setInspirationBarCollapsed] = useState(true);
   /** 受控的内容举报对话框（StudioHeader 右上 ⚠ 触发） */
   const [reportOpen, setReportOpen] = useState(false);
 
@@ -428,7 +425,7 @@ export function StudioWorkspace({
     if (canvasItems.length === 0) return;
     const t = window.setTimeout(() => focusLatestCanvasItem(), 80);
     return () => window.clearTimeout(t);
-  }, [inspirationBarCollapsed, canvasItems.length, focusLatestCanvasItem]);
+  }, [canvasItems.length, focusLatestCanvasItem]);
 
   async function handleQuickToolFromCanvas(
     item: CanvasItem,
@@ -767,21 +764,6 @@ export function StudioWorkspace({
         : "生成结果将显示在画布上";
   const stationContent = (
     <>
-      {inspirationApply ? (
-        <div className="mb-1.5">
-          <InspirationSetGenerateBar
-            sessionId={sessionId}
-            canvasItems={canvasItems}
-            prompt={inspirationApply.prompt}
-            inspirationApply={inspirationApply}
-            readOnly={readOnly}
-            onJobStarted={handleJobStarted}
-            collapsed={inspirationBarCollapsed}
-            onCollapsedChange={setInspirationBarCollapsed}
-          />
-        </div>
-      ) : null}
-
       {!user || !ready ? (
         <button
           type="button"

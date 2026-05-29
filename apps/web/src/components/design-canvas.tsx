@@ -26,7 +26,7 @@ import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { canvasSelectionHint } from "@/lib/mobile-labels";
 import { hapticLight } from "@/lib/haptics";
 import { useIsMobile } from "@/hooks/use-is-mobile";
-import { Sparkles, Wand2, Expand, Crop, Eraser, Eye, Trash2, ArrowLeft } from "lucide-react";
+import { Sparkles, Wand2, Expand, Crop, Eraser, Eye, Trash2, ArrowLeft, RotateCcw } from "lucide-react";
 
 const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 6;
@@ -97,6 +97,7 @@ interface AiToolAction {
 }
 
 const aiTools: AiToolAction[] = [
+  { id: "rerun", label: "重跑", icon: <RotateCcw className="size-3.5" />, action: "rerun" },
   { id: "remix", label: "变体", icon: <Sparkles className="size-3.5" />, action: "remix" },
   { id: "expand", label: "扩图", icon: <Expand className="size-3.5" />, action: "expand" },
   { id: "crop", label: "裁剪", icon: <Crop className="size-3.5" />, action: "crop" },
@@ -1180,6 +1181,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                           <div className="mt-3 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
                             {aiTools.map((aiTool) => {
                               const needsRefine = ["remix", "expand", "crop", "erase"].includes(aiTool.action);
+                              const isRerun = aiTool.action === "rerun";
                               return (
                               <button
                                 key={aiTool.id}
@@ -1200,7 +1202,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                                 className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition ${
                                   needsRefine
                                     ? "bg-orange-500/10 text-orange-300 hover:bg-orange-500/20 hover:text-orange-100"
-                                    : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+                                    : isRerun
+                                      ? "bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 hover:text-blue-100"
+                                      : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
                                 }`}
                               >
                                 {aiTool.icon}
