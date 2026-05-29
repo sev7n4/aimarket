@@ -26,7 +26,7 @@ import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { canvasSelectionHint } from "@/lib/mobile-labels";
 import { hapticLight } from "@/lib/haptics";
 import { useIsMobile } from "@/hooks/use-is-mobile";
-import { Sparkles, Wand2, Expand, Crop, Eraser, Eye, Trash2, ArrowLeft, RotateCcw, Minus, Plus } from "lucide-react";
+import { Sparkles, Wand2, Expand, Crop, Eraser, Eye, Trash2, ArrowLeft, RotateCcw, Minus, Plus, ImagePlus } from "lucide-react";
 
 const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 6;
@@ -583,10 +583,11 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
           }
         } else {
           setTool(id);
+          const zoomTarget: string = id;
           if (internalLayoutMode === "free") {
-            if (id === "brush" || id === "focus-click") {
+            if (zoomTarget === "brush" || zoomTarget === "focus-click") {
               setZoom((z) => Math.min(ZOOM_MAX, Math.max(z, 2.0)));
-            } else if (id === "expand") {
+            } else if (zoomTarget === "expand") {
               setZoom((z) => Math.max(ZOOM_MIN, Math.min(z, 0.75)));
             }
           }
