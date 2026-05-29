@@ -33,12 +33,10 @@ import {
   optimizePromptApi,
   reversePromptFromImage,
   renderInspiration,
-  executeAgentPlan,
 } from "@/lib/api-client";
 import { polishPrompt } from "@/lib/prompt-polish";
 import { jobStatusLabel } from "@/lib/job-stream";
-import type { ImageModel, AgentPlan } from "@/lib/types";
-import { AgentPlanPreview } from "@/components/agent-plan-preview";
+import type { ImageModel } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 import {
   MentionPicker,
@@ -229,7 +227,6 @@ export function CreationPanel({
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
   const [estimated, setEstimated] = useState<number | null>(null);
   const [routeHint, setRouteHint] = useState<string | null>(null);
-  const [agentPlan, setAgentPlan] = useState<AgentPlan | null>(null);
   const [inspirationVars, setInspirationVars] = useState<
     Record<string, string>
   >({});
@@ -653,72 +650,37 @@ export function CreationPanel({
         setReferenceAssetId(null);
       } else {
         const useAuto = modelId === AUTO_MODEL_ID;
-        const useAgent =
-          useAuto &&
-          mode === "chat" &&
-          agentPlan &&
-          (agentPlan.steps.some((s) => s.type === "tool") ||
-            agentPlan.requiresConfirm);
-
-        if (useAgent) {
-          if (agentPlan.requiresConfirm) {
-            const stepText = agentPlan.steps
-              .map((s, i) => `${i + 1}. ${s.label}`)
-              .join("\n");
-            const ok = window.confirm(
-              `Agent 将执行以下步骤（约 ${agentPlan.estimatedPoints} 积分）：\n${stepText}\n\n确认执行？`,
-            );
-            if (!ok) {
-              setPending(false);
-              return;
-            }
-          }
-          const res = await executeAgentPlan({
-            sessionId,
-            prompt: prompt.trim(),
-            mode,
-            modelId: useAuto ? undefined : modelId,
-            resolution,
-            aspectRatio,
-            count,
-            confirmed: true,
-          });
-          jobId = res.jobId;
-          if (res.plan.reason) setRouteHint(res.plan.reason);
-        } else {
-          // 把 @ 引用的画布素材 assetIds 合并到本次提交，去重
-          const mergedAssetIds = Array.from(
-            new Set([...assetIds, ...mentionedAssetIds]),
-          );
-          const res = await submitGeneration({
-            sessionId,
-            prompt: prompt.trim(),
-            modelId: useAuto ? undefined : modelId,
-            count,
-            resolution,
-            aspectRatio,
-            mode,
-            assetIds: mergedAssetIds.length ? mergedAssetIds : undefined,
-            referenceOutputIds: selectedRefs.map((r) => r.id),
-            autoRoute: useAuto || mode === "quick",
-            toolContext: mentionedMasks.length
-              ? {
-                  toolId: mentionedMasks[mentionedMasks.length - 1].toolId,
-                  masks: mentionedMasks.map((m) => ({
-                    itemId: m.itemId,
-                    mode: m.mode,
-                    maskDataUrl: m.maskDataUrl,
-                    bbox: m.bbox,
-                    normalizedBbox: m.normalizedBbox,
-                  })),
-                }
-              : undefined,
-            ...lineageApi,
-          });
-          jobId = res.jobId;
-          if (res.routeReason) setRouteHint(res.routeReason);
-          if (res.modelId && useAuto) setModelId(res.modelId);
-        }
+        const mergedAssetIds = Array.from(
+          new Set([...assetIds, ...mentionedAssetIds]),
+        );
+        const res = await submitGeneration({
+          sessionId,
+          prompt: prompt.trim(),
+          modelId: useAuto ? undefined : modelId,
+          count,
+          resolution,
+          aspectRatio,
+          mode,
+          assetIds: mergedAssetIds.length ? mergedAssetIds : undefined,
+          referenceOutputIds: selectedRefs.map((r) => r.id),
+          autoRoute: useAuto || mode === "quick",
+          toolContext: mentionedMasks.length
+            ? {
+                toolId: mentionedMasks[mentionedMasks.length - 1].toolId,
+                masks: mentionedMasks.map((m) => ({
+                  itemId: m.itemId,
+                  mode: m.mode,
+                  maskDataUrl: m.maskDataUrl,
+                  bbox: m.bbox,
+                  normalizedBbox: m.normalizedBbox,
+                })),
+              }
+            : undefined,
+          ...lineageApi,
+        });
+        jobId = res.jobId;
+        if (res.routeReason) setRouteHint(res.routeReason);
+        if (res.modelId && useAuto) setModelId(res.modelId);
       }
       setPrompt("");
       setAssetIds([]);
@@ -804,17 +766,6 @@ export function CreationPanel({
               </label>
             ))}
           </div>
-        </div>
-      ) : null}
-
-      {!collapsed && mode === "chat" && user ? (
-        <div className="mb-3">
-          <AgentPlanPreview
-            prompt={prompt}
-            mode={mode}
-            enabled={Boolean(user && prompt.trim())}
-            onPlanChange={setAgentPlan}
-          />
         </div>
       ) : null}
 
