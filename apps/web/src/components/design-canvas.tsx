@@ -26,7 +26,7 @@ import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { canvasSelectionHint } from "@/lib/mobile-labels";
 import { hapticLight } from "@/lib/haptics";
 import { useIsMobile } from "@/hooks/use-is-mobile";
-import { Sparkles, Wand2, Expand, Crop, Eraser } from "lucide-react";
+import { Sparkles, Wand2, Expand, Crop, Eraser, Eye, Trash2, ArrowLeft } from "lucide-react";
 
 const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 6;
@@ -40,6 +40,53 @@ export interface DesignCanvasHandle {
   redo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  enterRefineMode: (itemId: string) => void;
+  exitRefineMode: () => void;
+}
+
+interface ImageActionBarProps {
+  item: CanvasItem;
+  onPreview: () => void;
+  onRefine: () => void;
+  onDelete: () => void;
+  position: { top: number; left: number };
+}
+
+function ImageActionBar({ item, onPreview, onRefine, onDelete, position }: ImageActionBarProps) {
+  return (
+    <div
+      className="absolute z-30 flex items-center gap-1 rounded-lg bg-black/90 border border-white/20 px-2 py-1.5 shadow-xl backdrop-blur-sm"
+      style={{ top: position.top, left: position.left }}
+    >
+      <button
+        type="button"
+        onClick={onPreview}
+        className="flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300 transition hover:bg-white/20 hover:text-white"
+        title="预览"
+      >
+        <Eye className="size-3.5" />
+        <span>预览</span>
+      </button>
+      <button
+        type="button"
+        onClick={onRefine}
+        className="flex items-center gap-1 rounded-md bg-orange-500/20 px-2 py-1 text-xs text-orange-300 transition hover:bg-orange-500/30 hover:text-orange-100"
+        title="精修"
+      >
+        <Wand2 className="size-3.5" />
+        <span>精修</span>
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        className="flex items-center gap-1 rounded-md bg-red-500/20 px-2 py-1 text-xs text-red-300 transition hover:bg-red-500/30 hover:text-red-100"
+        title="删除"
+      >
+        <Trash2 className="size-3.5" />
+        <span>删除</span>
+      </button>
+    </div>
+  );
 }
 
 interface AiToolAction {
@@ -159,6 +206,10 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     >([]);
     const [lightbox, setLightbox] = useState<{ items: CanvasItem[]; index: number } | null>(null);
     const [internalLayoutMode, setInternalLayoutMode] = useState<CanvasLayoutMode>(layoutMode);
+    const [refineItemId, setRefineItemId] = useState<string | null>(null);
+    const [actionBarPosition, setActionBarPosition] = useState<{ top: number; left: number } | null>(null);
+    const refineItem = refineItemId ? items.find((item) => item.id === refineItemId) : null;
+    const isRefineMode = Boolean(refineItemId && refineItem && internalLayoutMode === "free");
     const activeStrokeRef = useRef<Array<{ x: number; y: number }> | null>(null);
     const activeBoxRef = useRef<{ x: number; y: number } | null>(null);
     const mobile = useIsMobile(MOBILE_BREAKPOINT);
@@ -322,6 +373,41 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       });
     }, [items]);
 
+    const enterRefineMode = useCallback((itemId: string) => {
+      const item = items.find((i) => i.id === itemId);
+      if (!item) return;
+      setRefineItemId(itemId);
+      setInternalLayoutMode("free");
+      onLayoutModeChange?.("free");
+      onSelect(itemId);
+      setActionBarPosition(null);
+      setTimeout(() => {
+        fitToItem(itemId);
+      }, 100);
+    }, [items, onLayoutModeChange, onSelect, fitToItem]);
+
+    const exitRefineMode = useCallback(() => {
+      const batchId = refineItem?.batchId;
+      setRefineItemId(null);
+      setInternalLayoutMode("scroll");
+      onLayoutModeChange?.("scroll");
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+      if (batchId) {
+        setTimeout(() => {
+          fitToBatch(batchId);
+        }, 100);
+      }
+    }, [refineItem, onLayoutModeChange, fitToBatch]);
+
+    useEffect(() => {
+      if (!refineItemId) return;
+      const item = items.find((i) => i.id === refineItemId);
+      if (!item) {
+        setRefineItemId(null);
+      }
+    }, [items, refineItemId]);
+
     useImperativeHandle(ref, () => ({ 
       fitToItem, 
       fitToBatch, 
@@ -330,7 +416,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       undo, 
       redo, 
       canUndo, 
-      canRedo 
+      canRedo,
+      enterRefineMode,
+      exitRefineMode,
     }), [
       fitToItem,
       fitToBatch,
@@ -340,6 +428,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       redo,
       canUndo,
       canRedo,
+      enterRefineMode,
+      exitRefineMode,
     ]);
 
     useEffect(() => {
@@ -832,17 +922,28 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
           ) : null}
           
           <div className="absolute right-2 top-2 z-20 flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => handleTool(internalLayoutMode === "scroll" ? "layout-free" : "layout-scroll")}
-              className={`rounded-lg px-2.5 py-1.5 text-xs transition ${
-                internalLayoutMode === "scroll"
-                  ? "bg-white/15 text-white"
-                  : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
-              }`}
-            >
-              {internalLayoutMode === "scroll" ? "纵向滚动" : "自由布局"}
-            </button>
+            {isRefineMode ? (
+              <button
+                type="button"
+                onClick={exitRefineMode}
+                className="flex items-center gap-1.5 rounded-lg bg-orange-500/20 px-3 py-1.5 text-xs text-orange-300 transition hover:bg-orange-500/30 hover:text-orange-100"
+              >
+                <ArrowLeft className="size-3.5" />
+                <span>返回纵向模式</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleTool(internalLayoutMode === "scroll" ? "layout-free" : "layout-scroll")}
+                className={`rounded-lg px-2.5 py-1.5 text-xs transition ${
+                  internalLayoutMode === "scroll"
+                    ? "bg-white/15 text-white"
+                    : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+                }`}
+              >
+                {internalLayoutMode === "scroll" ? "纵向滚动" : "自由布局"}
+              </button>
+            )}
           </div>
           
           {focusClickActive && focusClickRequest ? (
@@ -1014,6 +1115,11 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                                   hapticLight();
                                 } else {
                                   onSelect(item.id);
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setActionBarPosition({
+                                    top: rect.bottom + 8,
+                                    left: rect.left,
+                                  });
                                   hapticLight();
                                 }
                               }}
@@ -1021,6 +1127,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                                 e.stopPropagation();
                                 if (focusClickActive) return;
                                 setLightbox({ items: batchItems, index: batchItems.findIndex((i) => i.id === item.id) });
+                                setActionBarPosition(null);
                               }}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" || e.key === " ") {
@@ -1029,6 +1136,24 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                                 }
                               }}
                             >
+                              {selectedId === item.id && actionBarPosition && !focusClickActive && (
+                                <ImageActionBar
+                                  item={item}
+                                  onPreview={() => {
+                                    setLightbox({ items: batchItems, index: batchItems.findIndex((i) => i.id === item.id) });
+                                    setActionBarPosition(null);
+                                  }}
+                                  onRefine={() => {
+                                    enterRefineMode(item.id);
+                                  }}
+                                  onDelete={() => {
+                                    onSelect(item.id);
+                                    onDeleteSelected();
+                                    setActionBarPosition(null);
+                                  }}
+                                  position={actionBarPosition}
+                                />
+                              )}
                               {item.label ? (
                                 <span className="block bg-black/60 px-2 py-0.5 text-[10px] text-zinc-400">
                                   {item.label}
@@ -1053,22 +1178,35 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                         
                         {onAiToolAction && batchItems.length > 0 && (
                           <div className="mt-3 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
-                            {aiTools.map((aiTool) => (
+                            {aiTools.map((aiTool) => {
+                              const needsRefine = ["remix", "expand", "crop", "erase"].includes(aiTool.action);
+                              return (
                               <button
                                 key={aiTool.id}
                                 type="button"
                                 onClick={() => {
                                   const firstItem = batchItems[0];
                                   if (firstItem) {
-                                    onAiToolAction(firstItem, aiTool.action);
+                                    if (needsRefine) {
+                                      enterRefineMode(firstItem.id);
+                                      setTimeout(() => {
+                                        onAiToolAction(firstItem, aiTool.action);
+                                      }, 200);
+                                    } else {
+                                      onAiToolAction(firstItem, aiTool.action);
+                                    }
                                   }
                                 }}
-                                className="flex items-center gap-1.5 rounded-lg bg-white/5 px-2.5 py-1.5 text-xs text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200"
+                                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition ${
+                                  needsRefine
+                                    ? "bg-orange-500/10 text-orange-300 hover:bg-orange-500/20 hover:text-orange-100"
+                                    : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+                                }`}
                               >
                                 {aiTool.icon}
                                 <span>{aiTool.label}</span>
                               </button>
-                            ))}
+                            )})}
                           </div>
                         )}
                       </div>
@@ -1193,6 +1331,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                     );
                   })}
                   {items.map((item) => {
+                    if (isRefineMode && item.id !== refineItemId) {
+                      return null;
+                    }
                     const batchItems = items.filter((i) => i.batchId === item.batchId);
                     return (
                     <div
