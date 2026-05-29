@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-is-mobile";
@@ -12,11 +12,9 @@ interface CompactDockSheetProps {
   title: string;
   trigger: ReactNode;
   children: ReactNode;
-  /** 桌面端弹层宽度 */
   desktopWidthClass?: string;
 }
 
-/** 工作台底部控件：移动端底部抽屉，桌面端紧凑上弹层 */
 export function CompactDockSheet({
   open,
   onClose,
@@ -27,6 +25,7 @@ export function CompactDockSheet({
 }: CompactDockSheetProps) {
   const mobile = useIsMobile(MOBILE_BREAKPOINT);
   const anchorRef = useRef<HTMLDivElement>(null);
+  const [desktopPos, setDesktopPos] = useState<{ left: number; bottom: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -46,6 +45,18 @@ export function CompactDockSheet({
     return () => {
       document.body.style.overflow = prev;
     };
+  }, [open, mobile]);
+
+  useLayoutEffect(() => {
+    if (!open || mobile || !anchorRef.current) {
+      setDesktopPos(null);
+      return;
+    }
+    const rect = anchorRef.current.getBoundingClientRect();
+    setDesktopPos({
+      left: rect.left,
+      bottom: window.innerHeight - rect.top + 8,
+    });
   }, [open, mobile]);
 
   const panel = open ? (
@@ -75,9 +86,10 @@ export function CompactDockSheet({
           {children}
         </div>
       </div>
-    ) : (
+    ) : desktopPos ? (
       <div
-        className={`absolute bottom-full left-0 z-[120] mb-2 ${desktopWidthClass} max-h-[min(320px,50vh)] overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1a1a] p-3 shadow-xl`}
+        style={{ position: "fixed", left: desktopPos.left, bottom: desktopPos.bottom, zIndex: 120 }}
+        className={`${desktopWidthClass} max-h-[min(320px,50vh)] overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1a1a] p-3 shadow-xl`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
@@ -85,16 +97,14 @@ export function CompactDockSheet({
         </p>
         {children}
       </div>
-    )
+    ) : null
   ) : null;
 
   return (
     <div ref={anchorRef} className="relative shrink-0">
       {trigger}
-      {panel && mobile
-        ? typeof document !== "undefined"
-          ? createPortal(panel, document.body)
-          : panel
+      {panel && typeof document !== "undefined"
+        ? createPortal(panel, document.body)
         : panel}
     </div>
   );
