@@ -46,10 +46,10 @@ test.describe("focus edit", () => {
     });
 
     await canvasImage.click({ position: { x: 20, y: 20 }, force: true });
-    await expect(page.getByTestId("focus-edit-panel")).toBeVisible({
+    await expect(station.getByTestId("focus-edit-panel")).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.getByTestId("focus-edit-chip-0")).toBeVisible({
+    await expect(station.getByTestId("focus-edit-chip-0")).toBeVisible({
       timeout: 15_000,
     });
 
