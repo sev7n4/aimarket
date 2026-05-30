@@ -31,6 +31,7 @@ export function CompactDockSheet({
 }: CompactDockSheetProps) {
   const mobile = useIsMobile(MOBILE_BREAKPOINT);
   const anchorRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [desktopPos, setDesktopPos] = useState<{ left: number; top?: number; bottom?: number; minWidth?: number } | null>(null);
 
   useEffect(() => {
@@ -59,34 +60,36 @@ export function CompactDockSheet({
       return;
     }
     const rect = anchorRef.current.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const estimatedWidth = matchTriggerWidth ? rect.width : 352;
-    const rightEdge = rect.left + estimatedWidth;
-    const adjustedLeft = rightEdge > viewportWidth - 16
-      ? Math.max(16, viewportWidth - estimatedWidth - 16)
-      : rect.left;
     const base = placement === "below"
-      ? { left: adjustedLeft, top: rect.bottom + 8 }
-      : { left: adjustedLeft, bottom: window.innerHeight - rect.top + 8 };
+      ? { left: rect.left, top: rect.bottom + 8 }
+      : { left: rect.left, bottom: window.innerHeight - rect.top + 8 };
     setDesktopPos(
       matchTriggerWidth ? { ...base, minWidth: rect.width } : base,
     );
   }, [open, mobile, placement, matchTriggerWidth]);
+
+  useLayoutEffect(() => {
+    if (!open || mobile || !desktopPos || !panelRef.current) return;
+    const panelRect = panelRef.current.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const actualWidth = panelRect.width;
+    const rightEdge = desktopPos.left + actualWidth;
+    if (rightEdge > viewportWidth - 16) {
+      const adjustedLeft = Math.max(16, viewportWidth - actualWidth - 16);
+      setDesktopPos((prev) =>
+        prev ? { ...prev, left: adjustedLeft } : prev,
+      );
+    }
+  }, [open, mobile, desktopPos]);
 
   useEffect(() => {
     if (!open || mobile) return;
     function updatePos() {
       if (!anchorRef.current) return;
       const rect = anchorRef.current.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      const estimatedWidth = matchTriggerWidth ? rect.width : 352;
-      const rightEdge = rect.left + estimatedWidth;
-      const adjustedLeft = rightEdge > viewportWidth - 16
-        ? Math.max(16, viewportWidth - estimatedWidth - 16)
-        : rect.left;
       const base = placement === "below"
-        ? { left: adjustedLeft, top: rect.bottom + 8 }
-        : { left: adjustedLeft, bottom: window.innerHeight - rect.top + 8 };
+        ? { left: rect.left, top: rect.bottom + 8 }
+        : { left: rect.left, bottom: window.innerHeight - rect.top + 8 };
       setDesktopPos(
         matchTriggerWidth ? { ...base, minWidth: rect.width } : base,
       );
@@ -125,6 +128,7 @@ export function CompactDockSheet({
       </div>
     ) : desktopPos ? (
       <div
+        ref={panelRef}
         style={{
           position: "fixed",
           left: desktopPos.left,
