@@ -11,6 +11,15 @@ import {
   Eye,
   Trash2,
   RotateCcw,
+  Maximize2,
+  Scissors,
+  Pencil,
+  ZoomIn,
+  CircleDot,
+  Layers,
+  Move,
+  Grid3X3,
+  Layout,
 } from "lucide-react";
 
 export interface ImageActionBarProps {
@@ -90,39 +99,39 @@ export interface AiToolAction {
 
 export const aiTools: AiToolAction[] = [
   {
-    id: "rerun",
-    label: "重跑",
-    icon: <RotateCcw className="size-3.5" />,
-    action: "rerun",
+    id: "expand",
+    label: "AI扩图",
+    icon: <Maximize2 className="size-3.5" />,
+    action: "expand",
+  },
+  {
+    id: "cutout",
+    label: "一键抠图",
+    icon: <Scissors className="size-3.5" />,
+    action: "cutout",
+  },
+  {
+    id: "edit",
+    label: "局部修改",
+    icon: <Pencil className="size-3.5" />,
+    action: "edit",
+  },
+  {
+    id: "upscale",
+    label: "AI超清",
+    icon: <ZoomIn className="size-3.5" />,
+    action: "upscale",
+  },
+  {
+    id: "enhance",
+    label: "图片清晰",
+    icon: <CircleDot className="size-3.5" />,
+    action: "enhance",
   },
   {
     id: "remix",
     label: "变体",
     icon: <Sparkles className="size-3.5" />,
     action: "remix",
-  },
-  {
-    id: "expand",
-    label: "扩图",
-    icon: <Expand className="size-3.5" />,
-    action: "expand",
-  },
-  {
-    id: "crop",
-    label: "裁剪",
-    icon: <Crop className="size-3.5" />,
-    action: "crop",
-  },
-  {
-    id: "erase",
-    label: "擦除",
-    icon: <Eraser className="size-3.5" />,
-    action: "erase",
-  },
-  {
-    id: "edit",
-    label: "编辑",
-    icon: <Wand2 className="size-3.5" />,
-    action: "edit",
   },
 ];

@@ -27,7 +27,7 @@ import type { FreeCanvasHandle } from "@/components/free-canvas";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { hapticLight } from "@/lib/haptics";
 import { useIsMobile } from "@/hooks/use-is-mobile";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Grid3X3, Layout } from "lucide-react";
 
 export interface DesignCanvasHandle {
   fitToItem: (itemId: string) => void;
@@ -517,7 +517,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             </div>
           ) : null}
 
-          <div className="absolute right-2 top-2 z-20 flex items-center gap-1">
+          <div className="absolute left-2 top-2 z-20 flex items-center gap-1">
             {isRefineMode ? (
               <button
                 type="button"
@@ -537,13 +537,19 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                       : "layout-scroll",
                   )
                 }
-                className={`rounded-lg px-2.5 py-1.5 text-xs transition ${
+                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition ${
                   internalLayoutMode === "scroll"
                     ? "bg-white/15 text-white"
                     : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
                 }`}
+                title={internalLayoutMode === "scroll" ? "切换到自由布局" : "切换到纵向滚动"}
               >
-                {internalLayoutMode === "scroll" ? "纵向滚动" : "自由布局"}
+                {internalLayoutMode === "scroll" ? (
+                  <Grid3X3 className="size-3.5" />
+                ) : (
+                  <Layout className="size-3.5" />
+                )}
+                <span>{internalLayoutMode === "scroll" ? "纵向滚动" : "自由布局"}</span>
               </button>
             )}
           </div>
