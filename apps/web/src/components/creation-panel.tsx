@@ -229,9 +229,10 @@ export function CreationPanel({
   };
   const [internalPrompt, setInternalPrompt] = useState(initialPrompt);
   const prompt = controlledPrompt ?? internalPrompt;
-  const setPrompt = (p: string) => {
-    setInternalPrompt(p);
-    onPromptChange?.(p);
+  const setPrompt = (p: string | ((prev: string) => string)) => {
+    const next = typeof p === "function" ? p(prompt) : p;
+    setInternalPrompt(next);
+    onPromptChange?.(next);
   };
   // 电商套图表单 UI 已下线（由灵感扇形 + 画布上方 InspirationSetGenerateBar 承接），
   // 这些字段仅在历史兼容路径（非 dock variant）保留默认值
