@@ -1203,6 +1203,7 @@ export function StudioWorkspace({
               onDownload={() => void handleCanvasDownload()}
               onDeleteSelected={handleDeleteCanvasItem}
               onRerun={(item) => void handleRerun(item)}
+              onAiToolAction={(item, action) => handleQuickToolFromCanvas(item, action)}
               emptyHint={canvasEmptyHint}
               readOnly={readOnly}
               jobStreamStatus={jobStreamStatus}
