@@ -17,6 +17,7 @@ import { StudioHeader } from "@/components/studio-header";
 import { ProviderStatusChip } from "@/components/provider-status-banner";
 import { ContentReportDialog } from "@/components/content-report-dialog";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
+import { WorkspaceProvider } from "@/lib/workspace-context";
 import { StudioMobileCoach } from "@/components/studio-mobile-coach";
 import { getActiveWorkspaceId } from "@/lib/active-workspace";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
@@ -1029,7 +1030,7 @@ export function StudioWorkspace({
   );
 
   return (
-    <>
+    <WorkspaceProvider onWorkspaceChange={handleWorkspaceChange}>
       <StudioHeader
         sessionId={user ? sessionId : undefined}
         sessionTitle={sessionTitle}
@@ -1383,6 +1384,6 @@ export function StudioWorkspace({
         />
       ) : null}
       <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
-    </>
+    </WorkspaceProvider>
   );
 }
