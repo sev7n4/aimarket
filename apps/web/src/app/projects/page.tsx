@@ -19,7 +19,7 @@ const modeLabel: Record<string, string> = {
   ecommerce: "电商套图",
 };
 
-type SortOption = "updated" | "created" | "title";
+type SortOption = "updated" | "title";
 
 export default function ProjectsPage() {
   const router = useRouter();
@@ -52,9 +52,6 @@ export default function ProjectsPage() {
     .sort((a, b) => {
       if (sortBy === "updated") {
         return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-      }
-      if (sortBy === "created") {
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
       return a.title.localeCompare(b.title, "zh-CN");
     });
@@ -145,7 +142,6 @@ export default function ProjectsPage() {
                 <div className="absolute right-0 top-full z-10 mt-1 rounded-lg border border-white/10 bg-[#0b0b0b] p-1 shadow-xl">
                   {[
                     { value: "updated", label: "最近更新" },
-                    { value: "created", label: "创建时间" },
                     { value: "title", label: "名称" },
                   ].map((opt) => (
                     <button
