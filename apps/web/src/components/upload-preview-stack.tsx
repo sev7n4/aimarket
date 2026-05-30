@@ -63,6 +63,7 @@ export function UploadPreviewStack({
           className="relative z-10 flex size-14 flex-col items-center justify-center gap-0.5 rounded-xl border border-dashed border-white/25 bg-black/40 text-[10px] text-zinc-500 transition hover:border-orange-500/50 hover:text-zinc-300"
           style={{ transform: "rotate(-15deg)" }}
           aria-label="上传图片"
+          title="上传图片"
         >
           {uploading ? (
             <Loader2 className="size-5 animate-spin text-orange-400" />

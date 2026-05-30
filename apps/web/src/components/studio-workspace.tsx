@@ -327,7 +327,7 @@ export function StudioWorkspace({
         sessionId,
         pendingInspiration.referenceUrls,
       );
-      setCanvasItems((prev) => (prev.length > 0 ? prev : refItems));
+      setCanvasItems((prev) => [...prev, ...refItems]);
       if (refItems[0]) setSelectedCanvasId(refItems[0].id);
     }
     const [list, toolList] = await Promise.all([
@@ -730,6 +730,15 @@ export function StudioWorkspace({
     }
   }
 
+  function handleUploadToCanvas(assetId: string, url: string) {
+    if (readOnly) return;
+    setCanvasItems((prev) => [
+      ...prev,
+      createUploadCanvasItem(url, prev, { assetId, role: "product" }),
+    ]);
+    hapticLight();
+  }
+
   function handleDeleteCanvasItem() {
     if (readOnly || !selectedCanvasId) return;
     setCanvasItems((prev) => prev.filter((i) => i.id !== selectedCanvasId));
@@ -938,6 +947,7 @@ export function StudioWorkspace({
         readOnly={readOnly}
         canvasItems={canvasItems}
         mentionItemRequest={mentionItemRequest}
+        onUploadToCanvas={handleUploadToCanvas}
         focusEdit={
           focusEditSession
             ? {
@@ -1179,6 +1189,16 @@ export function StudioWorkspace({
           )}
         </aside>
 
+        {!workspaceCollapsed && (
+          <div
+            onMouseDown={handleWorkspaceDragStart}
+            className={`hidden lg:flex w-1 cursor-col-resize items-center justify-center transition-colors hover:bg-orange-500/30 ${
+              isDraggingWorkspace ? "bg-orange-500/50" : "bg-transparent"
+            }`}
+            title="拖拽调整工作区宽度"
+          />
+        )}
+
         <div className="relative flex min-h-0 min-w-0 flex-1 gap-2 p-2 lg:gap-3">
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-1 md:gap-1.5">
             {readOnly ? (
@@ -1186,6 +1206,10 @@ export function StudioWorkspace({
                 只读：他人会话，仅创建者或管理员可编辑与生成
               </p>
             ) : null}
+            <div className="mb-1 flex items-center gap-2">
+              <p className="text-sm font-medium text-zinc-100">画布</p>
+              <p className="text-[10px] text-zinc-600">生成结果与历史批次</p>
+            </div>
             <DesignCanvas
               ref={canvasRef}
               items={canvasItems}
@@ -1277,16 +1301,6 @@ export function StudioWorkspace({
               statusChip={<ProviderStatusChip />}
             />
           </div>
-
-          {!workspaceCollapsed && (
-            <div
-              onMouseDown={handleWorkspaceDragStart}
-              className={`hidden lg:flex w-1 cursor-col-resize items-center justify-center transition-colors hover:bg-orange-500/30 ${
-                isDraggingWorkspace ? "bg-orange-500/50" : "bg-transparent"
-              }`}
-              title="拖拽调整工作区宽度"
-            />
-          )}
 
           {!workstationCollapsed && (
             <div
