@@ -59,12 +59,40 @@ export function CompactDockSheet({
       return;
     }
     const rect = anchorRef.current.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const estimatedWidth = matchTriggerWidth ? rect.width : 352;
+    const rightEdge = rect.left + estimatedWidth;
+    const adjustedLeft = rightEdge > viewportWidth - 16
+      ? Math.max(16, viewportWidth - estimatedWidth - 16)
+      : rect.left;
     const base = placement === "below"
-      ? { left: rect.left, top: rect.bottom + 8 }
-      : { left: rect.left, bottom: window.innerHeight - rect.top + 8 };
+      ? { left: adjustedLeft, top: rect.bottom + 8 }
+      : { left: adjustedLeft, bottom: window.innerHeight - rect.top + 8 };
     setDesktopPos(
       matchTriggerWidth ? { ...base, minWidth: rect.width } : base,
     );
+  }, [open, mobile, placement, matchTriggerWidth]);
+
+  useEffect(() => {
+    if (!open || mobile) return;
+    function updatePos() {
+      if (!anchorRef.current) return;
+      const rect = anchorRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const estimatedWidth = matchTriggerWidth ? rect.width : 352;
+      const rightEdge = rect.left + estimatedWidth;
+      const adjustedLeft = rightEdge > viewportWidth - 16
+        ? Math.max(16, viewportWidth - estimatedWidth - 16)
+        : rect.left;
+      const base = placement === "below"
+        ? { left: adjustedLeft, top: rect.bottom + 8 }
+        : { left: adjustedLeft, bottom: window.innerHeight - rect.top + 8 };
+      setDesktopPos(
+        matchTriggerWidth ? { ...base, minWidth: rect.width } : base,
+      );
+    }
+    window.addEventListener("scroll", updatePos, true);
+    return () => window.removeEventListener("scroll", updatePos, true);
   }, [open, mobile, placement, matchTriggerWidth]);
 
   const panel = open ? (
@@ -103,7 +131,7 @@ export function CompactDockSheet({
           ...(desktopPos.minWidth ? { minWidth: desktopPos.minWidth } : {}),
           ...(placement === "below" ? { top: desktopPos.top } : { bottom: desktopPos.bottom }),
           maxHeight: maxHeight,
-          zIndex: 120,
+          zIndex: 200,
         }}
         className={`${desktopWidthClass} overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1a1a] p-3 shadow-xl`}
         onMouseDown={(e) => e.stopPropagation()}
