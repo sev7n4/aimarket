@@ -1041,6 +1041,7 @@ export function CreationPanel({
               onClick={() => openUpload("general")}
               className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
               aria-label="上传图片"
+              title="上传图片"
             >
               {uploading ? (
                 <Loader2 className="size-4 animate-spin" />
