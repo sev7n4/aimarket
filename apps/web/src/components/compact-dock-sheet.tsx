@@ -13,6 +13,7 @@ interface CompactDockSheetProps {
   trigger: ReactNode;
   children: ReactNode;
   desktopWidthClass?: string;
+  matchTriggerWidth?: boolean;
   placement?: "above" | "below";
   maxHeight?: string;
 }
@@ -24,12 +25,13 @@ export function CompactDockSheet({
   trigger,
   children,
   desktopWidthClass = "w-56",
+  matchTriggerWidth = false,
   placement = "above",
   maxHeight = "min(320px,50vh)",
 }: CompactDockSheetProps) {
   const mobile = useIsMobile(MOBILE_BREAKPOINT);
   const anchorRef = useRef<HTMLDivElement>(null);
-  const [desktopPos, setDesktopPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
+  const [desktopPos, setDesktopPos] = useState<{ left: number; top?: number; bottom?: number; width?: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -57,18 +59,13 @@ export function CompactDockSheet({
       return;
     }
     const rect = anchorRef.current.getBoundingClientRect();
-    if (placement === "below") {
-      setDesktopPos({
-        left: rect.left,
-        top: rect.bottom + 8,
-      });
-    } else {
-      setDesktopPos({
-        left: rect.left,
-        bottom: window.innerHeight - rect.top + 8,
-      });
-    }
-  }, [open, mobile, placement]);
+    const base = placement === "below"
+      ? { left: rect.left, top: rect.bottom + 8 }
+      : { left: rect.left, bottom: window.innerHeight - rect.top + 8 };
+    setDesktopPos(
+      matchTriggerWidth ? { ...base, width: rect.width } : base,
+    );
+  }, [open, mobile, placement, matchTriggerWidth]);
 
   const panel = open ? (
     mobile ? (
@@ -103,11 +100,12 @@ export function CompactDockSheet({
         style={{
           position: "fixed",
           left: desktopPos.left,
+          ...(desktopPos.width ? { width: desktopPos.width } : {}),
           ...(placement === "below" ? { top: desktopPos.top } : { bottom: desktopPos.bottom }),
           maxHeight: maxHeight,
           zIndex: 120,
         }}
-        className={`${desktopWidthClass} overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1a1a] p-3 shadow-xl`}
+        className={`${desktopPos.width ? "" : desktopWidthClass} overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1a1a] p-3 shadow-xl`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-zinc-500">

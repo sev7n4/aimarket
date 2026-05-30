@@ -1,11 +1,11 @@
 "use client";
 
-import { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
+import { forwardRef, useCallback, useImperativeHandle, useRef, type ReactNode } from "react";
 import { assetUrl } from "@/lib/api-client";
 import type { CanvasItem, BatchSection } from "@/lib/canvas-tools";
 import { batchDisplayIndex } from "@/lib/canvas-tools";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
-import { ImageActionBar, aiTools } from "@/components/image-action-bar";
+import { ImageActionBar } from "@/components/image-action-bar";
 import { hapticLight } from "@/lib/haptics";
 import { ImagePlus } from "lucide-react";
 
@@ -29,7 +29,6 @@ interface ScrollCanvasProps {
     parentBatchId: string,
     sourceItemId?: string,
   ) => void;
-  onAiToolAction?: (item: CanvasItem, action: string) => void;
   jobStreamStatus?: string | null;
   jobFailed?: boolean;
   jobProgressCompleted?: number;
@@ -41,6 +40,7 @@ interface ScrollCanvasProps {
     item: CanvasItem,
     point: { x: number; y: number },
   ) => void;
+  selectionToolbar?: ReactNode;
 }
 
 export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
@@ -58,7 +58,6 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       onDeleteSelected,
       onRerun,
       onJumpToParentBatch,
-      onAiToolAction,
       jobStreamStatus,
       jobFailed,
       jobProgressCompleted,
@@ -67,6 +66,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       focusClickActive,
       focusItem,
       onFocusImageClick,
+      selectionToolbar,
     },
     ref,
   ) {
@@ -105,6 +105,8 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
             total={jobProgressTotal}
           />
         ) : null}
+
+        {selectionToolbar}
 
         {items.length === 0 ? (
           <div className="flex h-[min(60vh,480px)] w-full flex-col items-center justify-center gap-4 p-8">
@@ -262,54 +264,6 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                       </div>
                     ))}
                   </div>
-
-                  {onAiToolAction && batchItems.length > 0 && (
-                    <div className="mt-3 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
-                      <span className="flex shrink-0 items-center pl-1 pr-1 text-base leading-none" aria-label="工具">
-                        🎩
-                      </span>
-                      {aiTools.map((aiTool) => {
-                        const needsRefine = [
-                          "expand",
-                          "cutout",
-                          "edit",
-                          "upscale",
-                          "enhance",
-                          "remix",
-                        ].includes(aiTool.action);
-                        return (
-                          <button
-                            key={aiTool.id}
-                            type="button"
-                            onClick={() => {
-                              const firstItem = batchItems[0];
-                              if (firstItem) {
-                                if (needsRefine) {
-                                  onEnterRefineMode(firstItem.id);
-                                  setTimeout(() => {
-                                    onAiToolAction(
-                                      firstItem,
-                                      aiTool.action,
-                                    );
-                                  }, 200);
-                                } else {
-                                  onAiToolAction(firstItem, aiTool.action);
-                                }
-                              }
-                            }}
-                            className={`group flex shrink-0 items-center justify-center rounded-full border px-2.5 py-1.5 transition ${
-                              needsRefine
-                                ? "border-orange-400/20 bg-orange-500/10 text-orange-300 hover:border-orange-300/50 hover:bg-orange-500/20"
-                                : "border-white/10 bg-white/[0.04] text-zinc-300 hover:border-orange-400/40 hover:bg-orange-500/15 hover:text-orange-100"
-                            }`}
-                            title={aiTool.label}
-                          >
-                            {aiTool.icon}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
               );
             })}

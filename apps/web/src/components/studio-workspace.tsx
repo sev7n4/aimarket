@@ -1187,16 +1187,12 @@ export function StudioWorkspace({
         )}
 
         <div className="relative flex min-h-0 min-w-0 flex-1 gap-2 p-2 lg:gap-3">
-          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-1 md:gap-1.5">
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col md:gap-1.5">
             {readOnly ? (
               <p className="shrink-0 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200/90">
                 只读：他人会话，仅创建者或管理员可编辑与生成
               </p>
             ) : null}
-            <div className="mb-1 flex items-center gap-2">
-              <p className="text-sm font-medium text-zinc-100">画布</p>
-              <p className="text-[10px] text-zinc-600">生成结果与历史批次</p>
-            </div>
             <DesignCanvas
               ref={canvasRef}
               items={canvasItems}
@@ -1214,12 +1210,6 @@ export function StudioWorkspace({
               onDownload={() => void handleCanvasDownload()}
               onDeleteSelected={handleDeleteCanvasItem}
               onRerun={(item) => void handleRerun(item)}
-              onAiToolAction={(item, action) => {
-                const tool = tools.find((t) => t.id === action);
-                if (tool) {
-                  void handleRunSelectionTool(tool, item);
-                }
-              }}
               emptyHint={canvasEmptyHint}
               readOnly={readOnly}
               jobStreamStatus={jobStreamStatus}

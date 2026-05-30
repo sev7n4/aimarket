@@ -18,7 +18,6 @@ import type {
 } from "@/lib/canvas-tools";
 import { batchDisplayIndex } from "@/lib/canvas-tools";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
-import { aiTools } from "@/components/image-action-bar";
 import { hapticLight } from "@/lib/haptics";
 import { canvasSelectionHint } from "@/lib/mobile-labels";
 import { Minus, Plus, ImagePlus } from "lucide-react";
@@ -61,7 +60,6 @@ interface FreeCanvasProps {
   ) => void;
   onDeleteSelected: () => void;
   onRerun: (item: CanvasItem) => void;
-  onAiToolAction?: (item: CanvasItem, action: string) => void;
   tool: CanvasToolId;
   onToolChange: (tool: CanvasToolId) => void;
   gridOn: boolean;
@@ -114,7 +112,6 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       onJumpToParentBatch,
       onDeleteSelected,
       onRerun,
-      onAiToolAction,
       tool,
       onToolChange,
       gridOn,

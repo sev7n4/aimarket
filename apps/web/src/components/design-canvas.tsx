@@ -27,7 +27,7 @@ import type { FreeCanvasHandle } from "@/components/free-canvas";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { hapticLight } from "@/lib/haptics";
 import { useIsMobile } from "@/hooks/use-is-mobile";
-import { ArrowLeft, Grid3X3, Layout } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 export interface DesignCanvasHandle {
   fitToItem: (itemId: string) => void;
@@ -85,7 +85,6 @@ interface DesignCanvasProps {
     parentBatchId: string,
     sourceItemId?: string,
   ) => void;
-  onAiToolAction?: (item: CanvasItem, action: string) => void;
   onRerun?: (item: CanvasItem) => void;
   layoutMode?: CanvasLayoutMode;
   onLayoutModeChange?: (mode: CanvasLayoutMode) => void;
@@ -120,7 +119,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       selectionToolbar = null,
       statusChip = null,
       onJumpToParentBatch,
-      onAiToolAction,
       onRerun,
       layoutMode = "scroll",
       onLayoutModeChange,
@@ -495,7 +493,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
 
     return (
       <div
-        className={`flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d0d] ${
+        className={`flex min-h-0 min-w-0 flex-1 overflow-hidden bg-[#0d0d0d] ${
           mobile ? "flex-col" : "flex-row"
         }`}
       >
@@ -527,31 +525,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 <ArrowLeft className="size-3.5" />
                 <span>返回纵向模式</span>
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() =>
-                  handleTool(
-                    internalLayoutMode === "scroll"
-                      ? "layout-free"
-                      : "layout-scroll",
-                  )
-                }
-                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition ${
-                  internalLayoutMode === "scroll"
-                    ? "bg-white/15 text-white"
-                    : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
-                }`}
-                title={internalLayoutMode === "scroll" ? "切换到自由布局" : "切换到纵向滚动"}
-              >
-                {internalLayoutMode === "scroll" ? (
-                  <Grid3X3 className="size-3.5" />
-                ) : (
-                  <Layout className="size-3.5" />
-                )}
-                <span>{internalLayoutMode === "scroll" ? "纵向滚动" : "自由布局"}</span>
-              </button>
-            )}
+            ) : null}
           </div>
 
           {focusClickActive && focusClickRequest ? (
@@ -593,7 +567,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               onDeleteSelected={onDeleteSelected}
               onRerun={(item) => onRerun?.(item)}
               onJumpToParentBatch={onJumpToParentBatch}
-              onAiToolAction={onAiToolAction}
               jobStreamStatus={jobStreamStatus}
               jobFailed={jobFailed}
               jobProgressCompleted={jobProgressCompleted}
@@ -602,6 +575,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               focusClickActive={focusClickActive}
               focusItem={focusItem ?? null}
               onFocusImageClick={onFocusImageClick}
+              selectionToolbar={selectionToolbar}
             />
           ) : (
             <FreeCanvas
@@ -623,7 +597,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               onJumpToParentBatch={onJumpToParentBatch}
               onDeleteSelected={onDeleteSelected}
               onRerun={(item) => onRerun?.(item)}
-              onAiToolAction={onAiToolAction}
               tool={tool}
               onToolChange={setTool}
               gridOn={gridOn}
