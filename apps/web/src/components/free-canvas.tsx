@@ -60,6 +60,7 @@ interface FreeCanvasProps {
     sourceItemId?: string,
   ) => void;
   onDeleteSelected: () => void;
+  onRerun: (item: CanvasItem) => void;
   tool: CanvasToolId;
   onToolChange: (tool: CanvasToolId) => void;
   gridOn: boolean;
@@ -111,6 +112,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       onSetContextMenu,
       onJumpToParentBatch,
       onDeleteSelected,
+      onRerun,
       tool,
       onToolChange,
       gridOn,
@@ -909,6 +911,9 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                       }}
                       onRefine={() => {
                         onEnterRefineMode(item.id);
+                      }}
+                      onRerun={() => {
+                        onRerun(item);
                       }}
                       onDelete={() => {
                         onSelect(item.id);

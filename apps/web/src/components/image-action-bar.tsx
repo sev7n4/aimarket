@@ -17,6 +17,7 @@ export interface ImageActionBarProps {
   item: CanvasItem;
   onPreview: () => void;
   onRefine: () => void;
+  onRerun: () => void;
   onDelete: () => void;
   selected?: boolean;
 }
@@ -24,6 +25,7 @@ export interface ImageActionBarProps {
 export function ImageActionBar({
   onPreview,
   onRefine,
+  onRerun,
   onDelete,
   selected,
 }: ImageActionBarProps) {
@@ -52,6 +54,17 @@ export function ImageActionBar({
         title="精修"
       >
         <Wand2 className="size-4" />
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRerun();
+        }}
+        className="flex items-center justify-center rounded-full bg-blue-500/20 p-2 text-blue-300 transition hover:bg-blue-500/30 hover:text-blue-100"
+        title="重跑"
+      >
+        <RotateCcw className="size-4" />
       </button>
       <button
         type="button"

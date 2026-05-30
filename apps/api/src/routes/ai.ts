@@ -201,6 +201,59 @@ ai.get("/jobs/:jobId", (c) => {
   return c.json({ data: job });
 });
 
+ai.post("/jobs/:jobId/cancel", (c) => {
+  const userId = c.get("userId");
+  const jobId = c.req.param("jobId");
+  
+  const job = db
+    .prepare(
+      `SELECT id, session_id, user_id, status, points_cost FROM generation_jobs WHERE id = ?`,
+    )
+    .get(jobId) as {
+    id: string;
+    session_id: string;
+    user_id: string;
+    status: string;
+    points_cost: number;
+  } | undefined;
+
+  if (!job) {
+    throw new AppError(404, "NOT_FOUND", "任务不存在");
+  }
+
+  assertSessionWrite(userId, job.session_id);
+
+  if (job.status !== "queued" && job.status !== "running") {
+    throw new AppError(400, "INVALID_STATUS", "任务已完成或已取消，无法再次取消");
+  }
+
+  db.transaction(() => {
+    db.prepare(
+      `UPDATE generation_jobs SET status = 'cancelled', error = '用户取消任务', completed_at = datetime('now') WHERE id = ?`,
+    ).run(jobId);
+    
+    db.prepare(
+      "UPDATE users SET credits = credits + ? WHERE id = ?",
+    ).run(job.points_cost, userId);
+    
+    db.prepare(
+      `UPDATE image_sessions SET status = 'idle', updated_at = datetime('now') WHERE id = ?`,
+    ).run(job.session_id);
+    
+    db.prepare(
+      `INSERT INTO messages (id, session_id, role, content, job_id)
+       VALUES (?, ?, 'assistant', ?, ?)`,
+    ).run(
+      randomUUID(),
+      job.session_id,
+      `任务已取消，积分已退回。`,
+      jobId,
+    );
+  });
+
+  return c.json({ data: { status: "cancelled", refundedPoints: job.points_cost } });
+});
+
 ai.post("/generate/video", async (c) => {
   const userId = c.get("userId");
   await rateLimit(`video:${userId}`, 20, 60_000);

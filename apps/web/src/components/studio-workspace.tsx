@@ -28,12 +28,14 @@ import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
 import { useAuth } from "@/lib/auth-context";
 import {
   assetUrl,
+  cancelJob,
   ensureSession,
   exportSession,
   fetchTools,
   listSessions,
   recognizeFocusPoint,
   runTool,
+  submitGeneration,
   uploadAsset,
 } from "@/lib/api-client";
 import {
@@ -734,6 +736,81 @@ export function StudioWorkspace({
     setSelectedCanvasId(null);
   }
 
+  async function handleRerun(item: CanvasItem) {
+    if (!user) {
+      setLoginOpen(true);
+      return;
+    }
+    if (readOnly || !item.generationParams) {
+      setSelectSourceBanner("此图片无法重跑：缺少原始生成参数");
+      return;
+    }
+
+    const params = item.generationParams;
+    setSelectSourceBanner("正在重跑任务...");
+
+    try {
+      let jobId: string;
+      
+      if (params.toolType) {
+        const { jobId: id } = await runTool(params.toolType, {
+          sessionId,
+          prompt: params.prompt,
+          resolution: params.resolution,
+          referenceOutputIds: item.outputId ? [item.outputId] : undefined,
+        });
+        jobId = id;
+        void trackEvent("tool_run", {
+          tool_id: params.toolType,
+          job_id: jobId,
+          has_reference: Boolean(item.outputId),
+        });
+        registerToolBatchLineage(jobId, item, params.toolType);
+      } else {
+        const { jobId: id } = await submitGeneration({
+          sessionId,
+          prompt: params.prompt,
+          modelId: params.modelId,
+          count: params.count ?? 1,
+          resolution: params.resolution ?? "standard",
+          aspectRatio: params.aspectRatio,
+          mode,
+        });
+        jobId = id;
+        void trackEvent("generation_rerun", {
+          job_id: jobId,
+          model_id: params.modelId,
+        });
+      }
+      
+      setPollingJobId(jobId);
+      setSelectSourceBanner(null);
+    } catch (err) {
+      setSelectSourceBanner(
+        err instanceof Error ? err.message : "重跑失败",
+      );
+    }
+  }
+
+  async function handleCancelJob() {
+    if (!pollingJobId || !user) return;
+    
+    try {
+      const result = await cancelJob(pollingJobId);
+      setPollingJobId(null);
+      setJobStreamStatus(null);
+      setJobProgressCompleted(0);
+      setJobProgressTotal(0);
+      setSelectSourceBanner(`任务已取消，积分已退回（${result.refundedPoints}积分）`);
+      await refreshUser();
+      await loadCanvas();
+    } catch (err) {
+      setSelectSourceBanner(
+        err instanceof Error ? err.message : "取消任务失败",
+      );
+    }
+  }
+
   const handleTitleSaved = useCallback((title: string) => {
     setSessions((prev) =>
       prev.map((s) => (s.id === sessionId ? { ...s, title } : s)),
@@ -856,6 +933,8 @@ export function StudioWorkspace({
         onAuthRequired={() => setLoginOpen(true)}
         onJobStarted={handleJobStarted}
         jobStreamStatus={jobStreamStatus}
+        pollingJobId={pollingJobId}
+        onCancelJob={handleCancelJob}
         readOnly={readOnly}
         canvasItems={canvasItems}
         mentionItemRequest={mentionItemRequest}
@@ -1123,6 +1202,7 @@ export function StudioWorkspace({
               onUpload={handleCanvasUpload}
               onDownload={() => void handleCanvasDownload()}
               onDeleteSelected={handleDeleteCanvasItem}
+              onRerun={(item) => void handleRerun(item)}
               emptyHint={canvasEmptyHint}
               readOnly={readOnly}
               jobStreamStatus={jobStreamStatus}

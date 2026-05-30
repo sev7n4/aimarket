@@ -274,7 +274,7 @@ sessions.get("/:sessionId/messages", (c) => {
   const messages = db
     .prepare(
       `SELECT m.id, m.role, m.content, m.job_id, m.created_at,
-              j.parent_job_id, j.source_output_id
+              j.parent_job_id, j.source_output_id, j.model_id, j.resolution, j.aspect_ratio, j.tool_type, j.prompt, j.count
        FROM messages m
        LEFT JOIN generation_jobs j ON j.id = m.job_id
        WHERE m.session_id = ? ORDER BY m.created_at ASC`,
@@ -287,6 +287,12 @@ sessions.get("/:sessionId/messages", (c) => {
     created_at: string;
     parent_job_id: string | null;
     source_output_id: string | null;
+    model_id: string | null;
+    resolution: string | null;
+    aspect_ratio: string | null;
+    tool_type: string | null;
+    prompt: string | null;
+    count: number | null;
   }[];
 
   const data = messages.map((m) => {
@@ -314,6 +320,14 @@ sessions.get("/:sessionId/messages", (c) => {
         sort_order: o.sort_order,
         label: o.label ?? undefined,
       })),
+      generation_params: m.job_id ? {
+        prompt: m.prompt ?? "",
+        modelId: m.model_id ?? undefined,
+        resolution: m.resolution ?? undefined,
+        aspectRatio: m.aspect_ratio ?? undefined,
+        toolType: m.tool_type ?? undefined,
+        count: m.count ?? undefined,
+      } : undefined,
     };
   });
 
