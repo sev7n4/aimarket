@@ -85,6 +85,16 @@ export interface CanvasItem {
   batchSubtitle?: string;
   parentBatchId?: string;
   sourceItemId?: string;
+  /** 原始生成参数，用于重跑 */
+  generationParams?: {
+    prompt: string;
+    modelId?: string;
+    resolution?: string;
+    aspectRatio?: string;
+    count?: number;
+    toolType?: string;
+    toolContext?: unknown;
+  };
 }
 
 /** 工具/编辑 job 完成前登记，用于写入新批次的血缘 */
@@ -352,6 +362,14 @@ export function buildCanvasItemsFromMessages(
     source_output_id?: string | null;
     created_at?: string;
     outputs: { id?: string; url: string; sort_order: number; label?: string }[];
+    generation_params?: {
+      prompt: string;
+      modelId?: string;
+      resolution?: string;
+      aspectRatio?: string;
+      toolType?: string;
+      count?: number;
+    };
   }[],
 ): CanvasItem[] {
   const items: CanvasItem[] = [];
@@ -397,6 +415,7 @@ export function buildCanvasItemsFromMessages(
         batchSubtitle,
         parentBatchId: msg.parent_job_id ?? undefined,
         sourceItemId: msg.source_output_id ?? undefined,
+        generationParams: msg.generation_params,
       });
     });
     yCursor += BATCH_TITLE_GAP + rows * CELL_W + Math.max(0, rows - 1) * GAP + BATCH_GAP;

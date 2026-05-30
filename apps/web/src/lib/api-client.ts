@@ -723,6 +723,15 @@ export async function fetchJob(jobId: string) {
   return res.data;
 }
 
+export async function cancelJob(jobId: string) {
+  const res = await request<{
+    data: { status: string; refundedPoints: number };
+  }>(`/api/v1/ai/jobs/${jobId}/cancel`, {
+    method: "POST",
+  });
+  return res.data;
+}
+
 export async function fetchPackages() {
   const res = await request<{ data: CreditPackage[] }>(
     "/api/v1/product/packages",

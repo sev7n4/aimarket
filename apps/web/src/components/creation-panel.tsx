@@ -105,6 +105,10 @@ interface CreationPanelProps {
   onJobStarted?: (jobId: string, lineage?: PendingBatchLineage) => void;
   /** Studio 父级 SSE/轮询推送的状态（对标椒图进度感） */
   jobStreamStatus?: string | null;
+  /** 当前正在运行的任务ID，用于取消任务 */
+  pollingJobId?: string | null;
+  /** 取消任务的回调 */
+  onCancelJob?: () => void;
   navigateOnSubmit?: boolean;
   /** 首页：左侧虚线上传位 */
   leadingUpload?: boolean;
@@ -179,6 +183,8 @@ export function CreationPanel({
   onAuthRequired,
   onJobStarted,
   jobStreamStatus = null,
+  pollingJobId = null,
+  onCancelJob,
   homeDirectSubmit = false,
   navigateOnSubmit,
   leadingUpload = false,
@@ -730,16 +736,28 @@ export function CreationPanel({
     <>
       {jobStreamStatus ? (
         <div
-          className={`mb-2 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
+          className={`mb-2 flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs ${
             jobStreamStatus === "failed"
               ? "border-red-500/30 bg-red-500/5 text-red-300"
               : "border-orange-500/20 bg-orange-500/5 text-orange-200/90"
           }`}
         >
-          {streamBusy ? (
-            <Loader2 className="size-3.5 shrink-0 animate-spin" />
+          <div className="flex items-center gap-2">
+            {streamBusy ? (
+              <Loader2 className="size-3.5 shrink-0 animate-spin" />
+            ) : null}
+            <span>{jobStatusLabel(jobStreamStatus)}</span>
+          </div>
+          {streamBusy && pollingJobId && onCancelJob ? (
+            <button
+              type="button"
+              onClick={onCancelJob}
+              className="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300 transition hover:bg-white/20 hover:text-white"
+              title="取消任务"
+            >
+              取消
+            </button>
           ) : null}
-          <span>{jobStatusLabel(jobStreamStatus)}</span>
         </div>
       ) : null}
 

@@ -86,6 +86,7 @@ interface DesignCanvasProps {
     sourceItemId?: string,
   ) => void;
   onAiToolAction?: (item: CanvasItem, action: string) => void;
+  onRerun?: (item: CanvasItem) => void;
   layoutMode?: CanvasLayoutMode;
   onLayoutModeChange?: (mode: CanvasLayoutMode) => void;
 }
@@ -120,6 +121,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       statusChip = null,
       onJumpToParentBatch,
       onAiToolAction,
+      onRerun,
       layoutMode = "scroll",
       onLayoutModeChange,
     },
@@ -583,6 +585,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               onEnterRefineMode={enterRefineMode}
               onSetLightbox={setLightbox}
               onDeleteSelected={onDeleteSelected}
+              onRerun={(item) => onRerun?.(item)}
               onJumpToParentBatch={onJumpToParentBatch}
               onAiToolAction={onAiToolAction}
               jobStreamStatus={jobStreamStatus}
@@ -613,6 +616,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               onSetContextMenu={setContextMenu}
               onJumpToParentBatch={onJumpToParentBatch}
               onDeleteSelected={onDeleteSelected}
+              onRerun={(item) => onRerun?.(item)}
               tool={tool}
               onToolChange={setTool}
               gridOn={gridOn}

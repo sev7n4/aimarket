@@ -24,6 +24,7 @@ interface ScrollCanvasProps {
   onEnterRefineMode: (itemId: string) => void;
   onSetLightbox: (lb: { items: CanvasItem[]; index: number } | null) => void;
   onDeleteSelected: () => void;
+  onRerun: (item: CanvasItem) => void;
   onJumpToParentBatch?: (
     parentBatchId: string,
     sourceItemId?: string,
@@ -55,6 +56,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       onEnterRefineMode,
       onSetLightbox,
       onDeleteSelected,
+      onRerun,
       onJumpToParentBatch,
       onAiToolAction,
       jobStreamStatus,
@@ -224,6 +226,9 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                           }}
                           onRefine={() => {
                             onEnterRefineMode(item.id);
+                          }}
+                          onRerun={() => {
+                            onRerun(item);
                           }}
                           onDelete={() => {
                             onSelect(item.id);
