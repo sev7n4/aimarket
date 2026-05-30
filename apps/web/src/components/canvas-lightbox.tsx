@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useState } from "react";
 import { assetUrl } from "@/lib/api-client";
-import { X, RotateLeft, RotateRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, RotateCcw, RotateCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 
@@ -135,7 +135,7 @@ export function CanvasLightbox({
           className="rounded-lg bg-white/10 p-2 text-white/80 transition hover:bg-white/20"
           title="逆时针旋转"
         >
-          <RotateLeft className="size-4" />
+          <RotateCcw className="size-4" />
         </button>
         <input
           type="range"
@@ -153,7 +153,7 @@ export function CanvasLightbox({
           className="rounded-lg bg-white/10 p-2 text-white/80 transition hover:bg-white/20"
           title="顺时针旋转"
         >
-          <RotateRight className="size-4" />
+          <RotateCw className="size-4" />
         </button>
       </div>
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
