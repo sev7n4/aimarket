@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useState } from "react";
 import { assetUrl } from "@/lib/api-client";
-import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, RotateLeft, RotateRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 
@@ -28,6 +28,7 @@ export function CanvasLightbox({
 }: CanvasLightboxProps) {
   const [index, setIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [dragStart, setDragStart] = useState<{ x: number; y: number; px: number; py: number } | null>(null);
   const mobile = useIsMobile(MOBILE_BREAKPOINT);
@@ -36,16 +37,17 @@ export function CanvasLightbox({
   const hasNext = index < items.length - 1;
   const hasPrev = index > 0;
 
-  const handleZoomIn = useCallback(() => {
-    setZoom((z) => Math.min(ZOOM_MAX, z + ZOOM_STEP));
+  const handleRotateLeft = useCallback(() => {
+    setRotation((r) => (r - 90 + 360) % 360);
   }, []);
 
-  const handleZoomOut = useCallback(() => {
-    setZoom((z) => Math.max(ZOOM_MIN, z - ZOOM_STEP));
+  const handleRotateRight = useCallback(() => {
+    setRotation((r) => (r + 90) % 360);
   }, []);
 
   const handleResetZoom = useCallback(() => {
     setZoom(1);
+    setRotation(0);
     setPan({ x: 0, y: 0 });
   }, []);
 
@@ -90,13 +92,11 @@ export function CanvasLightbox({
       if (e.key === "Escape") onClose();
       else if (e.key === "ArrowLeft") handlePrev();
       else if (e.key === "ArrowRight") handleNext();
-      else if (e.key === "+" || e.key === "=") handleZoomIn();
-      else if (e.key === "-") handleZoomOut();
       else if (e.key === "0") handleResetZoom();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose, handlePrev, handleNext, handleZoomIn, handleZoomOut, handleResetZoom]);
+  }, [onClose, handlePrev, handleNext, handleResetZoom]);
 
   if (!current) return null;
 
@@ -122,34 +122,48 @@ export function CanvasLightbox({
           type="button"
           onClick={onClose}
           className="rounded-full bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
+          title="关闭"
         >
           <X className="size-5" />
         </button>
       </div>
 
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10">
+      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10">
         <button
           type="button"
-          onClick={handleZoomOut}
-          disabled={zoom <= ZOOM_MIN}
-          className="rounded-lg bg-white/10 p-2 text-white/80 transition hover:bg-white/20 disabled:opacity-40"
+          onClick={handleRotateLeft}
+          className="rounded-lg bg-white/10 p-2 text-white/80 transition hover:bg-white/20"
+          title="逆时针旋转"
         >
-          <ZoomOut className="size-4" />
+          <RotateLeft className="size-4" />
         </button>
+        <input
+          type="range"
+          min={ZOOM_MIN}
+          max={ZOOM_MAX}
+          step={0.1}
+          value={zoom}
+          onChange={(e) => setZoom(parseFloat(e.target.value))}
+          className="w-32 accent-orange-500"
+          title="缩放"
+        />
+        <button
+          type="button"
+          onClick={handleRotateRight}
+          className="rounded-lg bg-white/10 p-2 text-white/80 transition hover:bg-white/20"
+          title="顺时针旋转"
+        >
+          <RotateRight className="size-4" />
+        </button>
+      </div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
         <button
           type="button"
           onClick={handleResetZoom}
           className="rounded-lg bg-white/10 px-3 py-2 text-sm text-white/80 transition hover:bg-white/20"
+          title="重置"
         >
           {Math.round(zoom * 100)}%
-        </button>
-        <button
-          type="button"
-          onClick={handleZoomIn}
-          disabled={zoom >= ZOOM_MAX}
-          className="rounded-lg bg-white/10 p-2 text-white/80 transition hover:bg-white/20 disabled:opacity-40"
-        >
-          <ZoomIn className="size-4" />
         </button>
       </div>
 
@@ -158,6 +172,7 @@ export function CanvasLightbox({
           type="button"
           onClick={handlePrev}
           className="absolute left-4 top-1/2 -translate-y-1/2 z-10 rounded-full bg-white/10 p-3 text-white/80 transition hover:bg-white/20 hover:text-white"
+          title="上一张"
         >
           <ChevronLeft className="size-6" />
         </button>
@@ -168,6 +183,7 @@ export function CanvasLightbox({
           type="button"
           onClick={handleNext}
           className="absolute right-4 top-1/2 -translate-y-1/2 z-10 rounded-full bg-white/10 p-3 text-white/80 transition hover:bg-white/20 hover:text-white"
+          title="下一张"
         >
           <ChevronRight className="size-6" />
         </button>
@@ -185,7 +201,7 @@ export function CanvasLightbox({
       >
         <div
           style={{
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom}) rotate(${rotation}deg)`,
             transition: dragStart ? "none" : "transform 0.2s ease-out",
           }}
         >

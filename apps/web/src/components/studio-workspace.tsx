@@ -132,6 +132,10 @@ export function StudioWorkspace({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
   const [workstationCollapsed, setWorkstationCollapsed] = useState(false);
+  const [workspaceWidth, setWorkspaceWidth] = useState(264);
+  const [workstationWidth, setWorkstationWidth] = useState(360);
+  const [isDraggingWorkspace, setIsDraggingWorkspace] = useState(false);
+  const [isDraggingWorkstation, setIsDraggingWorkstation] = useState(false);
   const [restoredAssets, setRestoredAssets] = useState<PendingAsset[]>([]);
   const [inspirationApply, setInspirationApply] =
     useState<StudioInspirationApply | null>(null);
@@ -200,6 +204,67 @@ export function StudioWorkspace({
     setActiveWorkspaceId(id);
     void listSessions(20, undefined, id).then(setSessions);
   }, []);
+
+  const handleWorkspaceDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingWorkspace(true);
+  }, []);
+
+  const handleWorkspaceDrag = useCallback(
+    (e: MouseEvent) => {
+      if (!isDraggingWorkspace) return;
+      const newWidth = Math.max(200, Math.min(400, e.clientX));
+      setWorkspaceWidth(newWidth);
+    },
+    [isDraggingWorkspace],
+  );
+
+  const handleWorkspaceDragEnd = useCallback(() => {
+    setIsDraggingWorkspace(false);
+  }, []);
+
+  const handleWorkstationDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingWorkstation(true);
+  }, []);
+
+  const handleWorkstationDrag = useCallback(
+    (e: MouseEvent) => {
+      if (!isDraggingWorkstation) return;
+      const newWidth = Math.max(
+        280,
+        Math.min(500, window.innerWidth - e.clientX),
+      );
+      setWorkstationWidth(newWidth);
+    },
+    [isDraggingWorkstation],
+  );
+
+  const handleWorkstationDragEnd = useCallback(() => {
+    setIsDraggingWorkstation(false);
+  }, []);
+
+  useEffect(() => {
+    if (isDraggingWorkspace) {
+      window.addEventListener("mousemove", handleWorkspaceDrag);
+      window.addEventListener("mouseup", handleWorkspaceDragEnd);
+      return () => {
+        window.removeEventListener("mousemove", handleWorkspaceDrag);
+        window.removeEventListener("mouseup", handleWorkspaceDragEnd);
+      };
+    }
+  }, [isDraggingWorkspace, handleWorkspaceDrag, handleWorkspaceDragEnd]);
+
+  useEffect(() => {
+    if (isDraggingWorkstation) {
+      window.addEventListener("mousemove", handleWorkstationDrag);
+      window.addEventListener("mouseup", handleWorkstationDragEnd);
+      return () => {
+        window.removeEventListener("mousemove", handleWorkstationDrag);
+        window.removeEventListener("mouseup", handleWorkstationDragEnd);
+      };
+    }
+  }, [isDraggingWorkstation, handleWorkstationDrag, handleWorkstationDragEnd]);
 
   const currentSession = sessions.find((s) => s.id === sessionId);
   const canEditSession = currentSession?.can_edit ?? canvasCanEdit;
@@ -894,6 +959,8 @@ export function StudioWorkspace({
         capture="environment"
         className="hidden"
         onChange={(e) => void onFileSelected(e)}
+        aria-label="上传图片"
+        title="上传图片"
       />
 
       <StudioMobileCoach />
@@ -909,12 +976,13 @@ export function StudioWorkspace({
         ) : null}
 
         <aside
-          className={`fixed inset-y-12 left-0 z-50 flex w-72 flex-col border-r border-white/5 bg-[#080808] p-3 transition-all lg:static lg:z-0 lg:m-2 lg:mr-0 lg:rounded-2xl lg:border lg:bg-[#090909]/95 ${
+          style={{ width: workspaceCollapsed ? 48 : workspaceWidth }}
+          className={`fixed inset-y-12 left-0 z-50 flex flex-col border-r border-white/5 bg-[#080808] p-3 transition-all lg:static lg:z-0 lg:m-2 lg:mr-0 lg:rounded-2xl lg:border lg:bg-[#090909]/95 ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           } ${
             workspaceCollapsed
-              ? "lg:w-12 lg:translate-x-0 lg:items-center lg:p-2"
-              : "lg:w-64 lg:translate-x-0"
+              ? "lg:translate-x-0 lg:items-center lg:p-2"
+              : "lg:translate-x-0"
           }`}
         >
           <div className="mb-2 flex items-center justify-between lg:hidden">
@@ -923,6 +991,7 @@ export function StudioWorkspace({
               type="button"
               onClick={() => setSidebarOpen(false)}
               className="rounded-lg p-1 text-zinc-500 hover:text-white"
+              title="关闭侧栏"
             >
               <X className="size-4" />
             </button>
@@ -1124,11 +1193,32 @@ export function StudioWorkspace({
             />
           </div>
 
+          {!workspaceCollapsed && (
+            <div
+              onMouseDown={handleWorkspaceDragStart}
+              className={`hidden lg:flex w-1 cursor-col-resize items-center justify-center transition-colors hover:bg-orange-500/30 ${
+                isDraggingWorkspace ? "bg-orange-500/50" : "bg-transparent"
+              }`}
+              title="拖拽调整工作区宽度"
+            />
+          )}
+
+          {!workstationCollapsed && (
+            <div
+              onMouseDown={handleWorkstationDragStart}
+              className={`hidden lg:flex w-1 cursor-col-resize items-center justify-center transition-colors hover:bg-orange-500/30 ${
+                isDraggingWorkstation ? "bg-orange-500/50" : "bg-transparent"
+              }`}
+              title="拖拽调整创作台宽度"
+            />
+          )}
+
           <section
+            style={{ width: workstationCollapsed ? 56 : workstationWidth }}
             className={`hidden min-h-0 shrink-0 flex-col rounded-2xl border border-white/10 bg-[#0b0b0b]/95 transition-all lg:flex ${
               workstationCollapsed
-                ? "w-14 items-center justify-center p-2"
-                : "w-[360px] p-3 xl:w-[380px]"
+                ? "items-center justify-center p-2"
+                : "p-3"
             }`}
             aria-label="工作站"
           >
