@@ -61,6 +61,7 @@ interface FreeCanvasProps {
   ) => void;
   onDeleteSelected: () => void;
   onRerun: (item: CanvasItem) => void;
+  onAiToolAction?: (item: CanvasItem, action: string) => void;
   tool: CanvasToolId;
   onToolChange: (tool: CanvasToolId) => void;
   gridOn: boolean;
@@ -113,6 +114,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       onJumpToParentBatch,
       onDeleteSelected,
       onRerun,
+      onAiToolAction,
       tool,
       onToolChange,
       gridOn,

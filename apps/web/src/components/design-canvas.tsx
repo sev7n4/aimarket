@@ -623,6 +623,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               onJumpToParentBatch={onJumpToParentBatch}
               onDeleteSelected={onDeleteSelected}
               onRerun={(item) => onRerun?.(item)}
+              onAiToolAction={onAiToolAction}
               tool={tool}
               onToolChange={setTool}
               gridOn={gridOn}
