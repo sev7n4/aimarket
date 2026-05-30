@@ -26,7 +26,7 @@ test.describe("focus edit", () => {
     await expect(station).toBeVisible({ timeout: 15_000 });
 
     const fileInput = page.locator('input[type="file"]').first();
-    await page.getByTitle("上传图片").click();
+    await station.getByTitle("上传图片").click();
     await fileInput.setInputFiles({
       name: "focus-source.png",
       mimeType: "image/png",
