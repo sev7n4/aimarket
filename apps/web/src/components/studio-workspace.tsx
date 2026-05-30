@@ -1186,8 +1186,8 @@ export function StudioWorkspace({
           />
         )}
 
-        <div className="relative flex min-h-0 min-w-0 flex-1 gap-2 p-2 lg:gap-3">
-          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col md:gap-1.5">
+        <div className="relative flex min-h-0 min-w-0 flex-1 gap-0 p-0 lg:gap-0">
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
             {readOnly ? (
               <p className="shrink-0 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200/90">
                 只读：他人会话，仅创建者或管理员可编辑与生成

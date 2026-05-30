@@ -629,6 +629,12 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               canRedo={canRedo}
             />
           ) : null}
+
+          {internalLayoutMode === "scroll" && selectionToolbar ? (
+            <div className="pointer-events-none absolute inset-0 z-20">
+              {selectionToolbar}
+            </div>
+          ) : null}
         </div>
 
         {contextMenu ? (
