@@ -1,123 +1,51 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { User, Users, ChevronDown, Plus } from "lucide-react";
-import {
-  createWorkspace,
-  createWorkspaceInvite,
-  fetchWorkspaceMembers,
-  fetchWorkspaces,
-  removeWorkspaceMember,
-} from "@/lib/api-client";
-import {
-  getActiveWorkspaceId,
-  setActiveWorkspaceId,
-} from "@/lib/active-workspace";
-
-type Workspace = {
-  id: string;
-  name: string;
-  is_personal: number;
-  role: string;
-};
-
-type Member = {
-  id: string;
-  email: string;
-  role: string;
-};
+import { useState } from "react";
+import { User, Users, ChevronDown, Plus, Settings } from "lucide-react";
+import { createWorkspace } from "@/lib/api-client";
+import { useWorkspace } from "@/lib/workspace-context";
+import { TeamSettingsDialog } from "@/components/team-settings-dialog";
 
 interface WorkspaceSwitcherProps {
   onWorkspaceChange?: (workspaceId: string) => void;
 }
 
 export function WorkspaceSwitcher({ onWorkspaceChange }: WorkspaceSwitcherProps) {
-  const onWorkspaceChangeRef = useRef(onWorkspaceChange);
-  onWorkspaceChangeRef.current = onWorkspaceChange;
+  const {
+    workspaces,
+    activeWorkspace,
+    activeWorkspaceId,
+    loading,
+    switchWorkspace,
+    refreshWorkspaces,
+  } = useWorkspace();
 
-  const [list, setList] = useState<Workspace[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [showTeamCreate, setShowTeamCreate] = useState(false);
   const [teamName, setTeamName] = useState("");
+  const [teamSettingsOpen, setTeamSettingsOpen] = useState(false);
 
-  const active = list.find((w) => w.id === activeId) ?? list[0];
+  if (!workspaces.length) return null;
 
-  const load = useCallback(async () => {
-    try {
-      const workspaces = await fetchWorkspaces();
-      setList(workspaces);
-      const stored = getActiveWorkspaceId();
-      const next =
-        stored && workspaces.some((w) => w.id === stored)
-          ? stored
-          : workspaces.find((w) => w.is_personal)?.id ?? workspaces[0]?.id;
-      if (next) {
-        setActiveId(next);
-        setActiveWorkspaceId(next);
-        onWorkspaceChangeRef.current?.(next);
-        if (!workspaces.find((w) => w.id === next)?.is_personal) {
-          setMembers(await fetchWorkspaceMembers(next));
-        } else {
-          setMembers([]);
-        }
-      }
-    } catch {
-      setList([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  async function handleSelect(id: string) {
-    setActiveId(id);
-    setActiveWorkspaceId(id);
-    setOpen(false);
-    setInviteUrl(null);
-    setShowTeamCreate(false);
-    onWorkspaceChangeRef.current?.(id);
-    const ws = list.find((w) => w.id === id);
-    if (ws && !ws.is_personal) {
-      setMembers(await fetchWorkspaceMembers(id));
-    } else {
-      setMembers([]);
-    }
-  }
+  const personalWorkspace = workspaces.find((w) => w.is_personal);
+  const teamWorkspaces = workspaces.filter((w) => !w.is_personal);
 
   async function handleCreateTeam() {
     const name = teamName.trim() || "团队工作区";
     const ws = await createWorkspace(name);
     setTeamName("");
     setShowTeamCreate(false);
-    await load();
-    await handleSelect(ws.id);
+    await refreshWorkspaces();
+    await switchWorkspace(ws.id);
+    if (onWorkspaceChange) onWorkspaceChange(ws.id);
   }
 
-  async function handleInvite() {
-    if (!activeId || active?.is_personal) return;
-    const data = await createWorkspaceInvite(activeId);
-    setInviteUrl(data.joinUrl);
-    try {
-      await navigator.clipboard.writeText(data.joinUrl);
-    } catch {
-      // ignore
-    }
+  function handleSelect(id: string) {
+    switchWorkspace(id);
+    if (onWorkspaceChange) onWorkspaceChange(id);
+    setOpen(false);
+    setShowTeamCreate(false);
   }
-
-  async function handleRemoveMember(memberId: string) {
-    if (!activeId) return;
-    await removeWorkspaceMember(activeId, memberId);
-    setMembers(await fetchWorkspaceMembers(activeId));
-  }
-
-  if (!list.length) return null;
-
-  const personalWorkspace = list.find((w) => w.is_personal);
-  const teamWorkspaces = list.filter((w) => !w.is_personal);
 
   return (
     <div className="relative">
@@ -127,12 +55,12 @@ export function WorkspaceSwitcher({ onWorkspaceChange }: WorkspaceSwitcherProps)
         className="flex w-full items-center justify-between gap-2 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-zinc-200 transition hover:bg-black/50"
       >
         <div className="flex items-center gap-2">
-          {active?.is_personal ? (
+          {activeWorkspace?.is_personal ? (
             <User className="size-4 text-zinc-500" />
           ) : (
             <Users className="size-4 text-orange-400" />
           )}
-          <span className="truncate">{active?.name || "选择空间"}</span>
+          <span className="truncate">{activeWorkspace?.name || "选择空间"}</span>
         </div>
         <ChevronDown className={`size-4 text-zinc-500 transition ${open ? "rotate-180" : ""}`} />
       </button>
@@ -144,7 +72,7 @@ export function WorkspaceSwitcher({ onWorkspaceChange }: WorkspaceSwitcherProps)
               type="button"
               onClick={() => handleSelect(personalWorkspace.id)}
               className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
-                activeId === personalWorkspace.id
+                activeWorkspaceId === personalWorkspace.id
                   ? "bg-orange-500/20 text-orange-300"
                   : "text-zinc-300 hover:bg-white/5"
               }`}
@@ -162,14 +90,26 @@ export function WorkspaceSwitcher({ onWorkspaceChange }: WorkspaceSwitcherProps)
                   key={w.id}
                   type="button"
                   onClick={() => handleSelect(w.id)}
-                  className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
-                    activeId === w.id
+                  className={`flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
+                    activeWorkspaceId === w.id
                       ? "bg-orange-500/20 text-orange-300"
                       : "text-zinc-300 hover:bg-white/5"
                   }`}
                 >
-                  <Users className="size-4 text-zinc-500" />
-                  <span className="truncate">{w.name}</span>
+                  <div className="flex items-center gap-2">
+                    <Users className="size-4 text-zinc-500" />
+                    <span className="truncate">{w.name}</span>
+                  </div>
+                  {activeWorkspaceId === w.id && w.role === "owner" ? (
+                    <Settings
+                      className="size-3.5 text-zinc-400 hover:text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpen(false);
+                        setTeamSettingsOpen(true);
+                      }}
+                    />
+                  ) : null}
                 </button>
               ))}
             </div>
@@ -198,7 +138,8 @@ export function WorkspaceSwitcher({ onWorkspaceChange }: WorkspaceSwitcherProps)
               <button
                 type="button"
                 onClick={() => void handleCreateTeam()}
-                className="shrink-0 rounded-lg bg-orange-500 px-2 py-1 text-xs font-medium text-white hover:bg-orange-600"
+                disabled={loading}
+                className="shrink-0 rounded-lg bg-orange-500 px-2 py-1 text-xs font-medium text-white hover:bg-orange-600 disabled:opacity-50"
               >
                 创建
               </button>
@@ -207,41 +148,10 @@ export function WorkspaceSwitcher({ onWorkspaceChange }: WorkspaceSwitcherProps)
         </div>
       )}
 
-      {active && !active.is_personal && (
-        <div className="mt-2 space-y-1.5">
-          <button
-            type="button"
-            onClick={() => void handleInvite()}
-            className="w-full rounded-lg border border-white/10 bg-orange-500/10 px-2 py-1.5 text-xs text-orange-300 transition hover:bg-orange-500/20"
-          >
-            邀请成员
-          </button>
-          {inviteUrl && (
-            <p className="break-all rounded bg-emerald-500/10 px-2 py-1 text-[10px] text-emerald-400">
-              链接已复制
-            </p>
-          )}
-          {members.length > 0 && (
-            <ul className="max-h-20 space-y-0.5 overflow-y-auto text-[10px] text-zinc-500">
-              {members.map((m) => (
-                <li key={m.id} className="flex items-center justify-between gap-1">
-                  <span className="truncate">{m.email}</span>
-                  <span className="shrink-0 text-zinc-600">{m.role}</span>
-                  {active.role === "owner" && m.role !== "owner" ? (
-                    <button
-                      type="button"
-                      className="text-red-400/80 hover:text-red-300"
-                      onClick={() => void handleRemoveMember(m.id)}
-                    >
-                      移除
-                    </button>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+      <TeamSettingsDialog
+        open={teamSettingsOpen}
+        onClose={() => setTeamSettingsOpen(false)}
+      />
     </div>
   );
 }
