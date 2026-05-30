@@ -575,7 +575,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               focusClickActive={focusClickActive}
               focusItem={focusItem ?? null}
               onFocusImageClick={onFocusImageClick}
-              selectionToolbar={selectionToolbar}
             />
           ) : (
             <FreeCanvas
@@ -627,6 +626,12 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               canUndo={canUndo}
               canRedo={canRedo}
             />
+          ) : null}
+
+          {internalLayoutMode === "scroll" && selectionToolbar ? (
+            <div className="pointer-events-none absolute inset-0 z-20">
+              {selectionToolbar}
+            </div>
           ) : null}
         </div>
 

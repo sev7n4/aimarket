@@ -32,7 +32,9 @@ export function HomeMain() {
         style={{ height: "min(48vh, 340px)" }}
         aria-hidden
       />
-      <InspirationGallery />
+      <div id="inspiration">
+        <InspirationGallery />
+      </div>
     </>
   );
 }

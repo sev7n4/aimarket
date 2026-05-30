@@ -31,7 +31,7 @@ export function CompactDockSheet({
 }: CompactDockSheetProps) {
   const mobile = useIsMobile(MOBILE_BREAKPOINT);
   const anchorRef = useRef<HTMLDivElement>(null);
-  const [desktopPos, setDesktopPos] = useState<{ left: number; top?: number; bottom?: number; width?: number } | null>(null);
+  const [desktopPos, setDesktopPos] = useState<{ left: number; top?: number; bottom?: number; minWidth?: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -63,7 +63,7 @@ export function CompactDockSheet({
       ? { left: rect.left, top: rect.bottom + 8 }
       : { left: rect.left, bottom: window.innerHeight - rect.top + 8 };
     setDesktopPos(
-      matchTriggerWidth ? { ...base, width: rect.width } : base,
+      matchTriggerWidth ? { ...base, minWidth: rect.width } : base,
     );
   }, [open, mobile, placement, matchTriggerWidth]);
 
@@ -100,12 +100,12 @@ export function CompactDockSheet({
         style={{
           position: "fixed",
           left: desktopPos.left,
-          ...(desktopPos.width ? { width: desktopPos.width } : {}),
+          ...(desktopPos.minWidth ? { minWidth: desktopPos.minWidth } : {}),
           ...(placement === "below" ? { top: desktopPos.top } : { bottom: desktopPos.bottom }),
           maxHeight: maxHeight,
           zIndex: 120,
         }}
-        className={`${desktopPos.width ? "" : desktopWidthClass} overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1a1a] p-3 shadow-xl`}
+        className={`${desktopWidthClass} overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1a1a] p-3 shadow-xl`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-zinc-500">

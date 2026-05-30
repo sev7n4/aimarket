@@ -173,7 +173,7 @@ export function HomeScenarioFan({
               const rotate = FAN_OFFSETS_DESKTOP[index] ?? 0;
               const translateY = FAN_Y_OFFSETS_DESKTOP[index] ?? 0;
               const isActive = activeIndex === index;
-              const zIndex = isActive ? 50 : 30 - Math.abs(index - 3);
+              const zIndex = isActive ? 35 : 30 - Math.abs(index - 3);
               return (
                 <button
                   key={template.id}

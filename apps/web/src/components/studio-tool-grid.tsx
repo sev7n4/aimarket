@@ -1,33 +1,34 @@
 "use client";
 
 import {
+  ArrowUpToLine,
+  AtSign,
+  Brush,
   Crop,
   Crosshair,
   Eraser,
-  Expand,
   Layers,
-  Pencil,
+  Loader2,
+  Maximize2,
   Scissors,
   Sparkles,
   Type,
-  Video,
   Wand2,
-  ZoomIn,
+  type LucideIcon,
 } from "lucide-react";
 import type { StudioTool } from "@/lib/types";
 
-const TOOL_ICONS: Record<string, typeof Expand> = {
-  expand: Expand,
+const TOOL_ICONS: Record<string, LucideIcon> = {
+  expand: Maximize2,
   erase: Eraser,
   cutout: Scissors,
-  inpaint: Pencil,
+  inpaint: Brush,
   "focus-edit": Crosshair,
   text: Type,
-  upscale: ZoomIn,
+  upscale: ArrowUpToLine,
   enhance: Sparkles,
-  crop: Crop,
   blend: Layers,
-  video: Video,
+  crop: Crop,
 };
 
 interface StudioToolGridProps {
@@ -47,31 +48,39 @@ export function StudioToolGrid({
 
   return (
     <div className="mt-3 border-t border-white/5 pt-3">
-      <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
-        AI 工具
-      </p>
-      <div className="-mx-1 flex gap-2 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:pb-0 lg:grid-cols-7 [&::-webkit-scrollbar]:hidden">
+      <div className="mb-2 flex items-center gap-1 px-0.5 text-[10px] font-medium text-zinc-500">
+        <span className="text-sm leading-none" aria-hidden>
+          🎩
+        </span>
+        <span className="uppercase tracking-wider">工具</span>
+      </div>
+      <div className="flex flex-wrap gap-1">
         {tools.map((tool) => {
           const Icon = TOOL_ICONS[tool.id] ?? Wand2;
           const active = activeToolId === tool.id;
+          const isPending = activeToolId === tool.id;
           return (
             <button
               key={tool.id}
               type="button"
               data-testid={`studio-tool-${tool.id}`}
-              title={
-                tool.id === "focus-edit" ? `${tool.name}（Ctrl/⌘）` : tool.name
-              }
+              title={tool.description || tool.name}
               disabled={disabled}
               onClick={() => onSelect(tool)}
-              className={`flex w-[4.5rem] shrink-0 flex-col items-center gap-1.5 rounded-2xl border px-2 py-2.5 text-center transition md:w-auto ${
+              className={`group relative flex size-8 items-center justify-center rounded-lg transition ${
                 active
-                  ? "border-purple-500/40 bg-purple-500/10 text-white"
-                  : "border-white/8 bg-white/[0.02] text-zinc-400 hover:border-white/15 hover:bg-white/[0.05] hover:text-zinc-200"
+                  ? "bg-orange-500/20 text-orange-300"
+                  : "text-zinc-500 hover:bg-white/10 hover:text-zinc-300"
               } disabled:opacity-50`}
             >
-              <Icon className="size-5 shrink-0" strokeWidth={1.5} />
-              <span className="text-[10px] leading-tight">{tool.name}</span>
+              {isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Icon className="size-4" strokeWidth={1.5} />
+              )}
+              <span className="pointer-events-none absolute -top-8 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md bg-zinc-800 px-2 py-1 text-[10px] text-zinc-200 opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                {tool.name}
+              </span>
             </button>
           );
         })}

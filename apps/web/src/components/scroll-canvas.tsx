@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useCallback, useImperativeHandle, useRef, type ReactNode } from "react";
+import { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
 import { assetUrl } from "@/lib/api-client";
 import type { CanvasItem, BatchSection } from "@/lib/canvas-tools";
 import { batchDisplayIndex } from "@/lib/canvas-tools";
@@ -40,7 +40,6 @@ interface ScrollCanvasProps {
     item: CanvasItem,
     point: { x: number; y: number },
   ) => void;
-  selectionToolbar?: ReactNode;
 }
 
 export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
@@ -66,7 +65,6 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       focusClickActive,
       focusItem,
       onFocusImageClick,
-      selectionToolbar,
     },
     ref,
   ) {
@@ -105,8 +103,6 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
             total={jobProgressTotal}
           />
         ) : null}
-
-        {selectionToolbar}
 
         {items.length === 0 ? (
           <div className="flex h-[min(60vh,480px)] w-full flex-col items-center justify-center gap-4 p-8">
