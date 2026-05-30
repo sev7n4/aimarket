@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Plus, Rows3, Search, Trash2, ArrowUpDown, Check } from "lucide-react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -21,8 +21,7 @@ const modeLabel: Record<string, string> = {
 
 type SortOption = "updated" | "title";
 
-export default function ProjectsPage() {
-  const router = useRouter();
+function ProjectsContent() {
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
   const [sessions, setSessions] = useState<ImageSession[]>([]);
@@ -256,5 +255,13 @@ export default function ProjectsPage() {
       </main>
       <SiteFooter />
     </div>
+  );
+}
+
+export default function ProjectsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-dvh flex items-center justify-center"><p className="text-zinc-500">加载中...</p></div>}>
+      <ProjectsContent />
+    </Suspense>
   );
 }

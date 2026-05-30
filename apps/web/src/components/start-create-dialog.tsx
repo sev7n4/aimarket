@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { Sparkles, Plus, Wand2 } from "lucide-react";
 import { buildStudioUrl } from "@/lib/studio-navigation";
-import { useAuth } from "@/lib/auth-context";
 
 interface StartCreateDialogProps {
   open: boolean;
@@ -12,7 +11,6 @@ interface StartCreateDialogProps {
 
 export function StartCreateDialog({ open, onClose }: StartCreateDialogProps) {
   const router = useRouter();
-  const { user } = useAuth();
 
   function handleCreateNew() {
     router.push(buildStudioUrl("canvas"));
