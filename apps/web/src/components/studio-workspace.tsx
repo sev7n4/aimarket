@@ -960,7 +960,6 @@ export function StudioWorkspace({
         className="hidden"
         onChange={(e) => void onFileSelected(e)}
         aria-label="上传图片"
-        title="上传图片"
       />
 
       <StudioMobileCoach />
