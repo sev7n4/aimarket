@@ -85,7 +85,7 @@ export interface CanvasItem {
   batchSubtitle?: string;
   parentBatchId?: string;
   sourceItemId?: string;
-  /** 原始生成参数，用于重跑 */
+  locked?: boolean;
   generationParams?: {
     prompt: string;
     modelId?: string;

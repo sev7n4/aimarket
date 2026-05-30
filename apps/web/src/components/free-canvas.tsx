@@ -20,10 +20,14 @@ import { batchDisplayIndex } from "@/lib/canvas-tools";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
 import { hapticLight } from "@/lib/haptics";
 import { canvasSelectionHint } from "@/lib/mobile-labels";
-import { Minus, Plus, ImagePlus } from "lucide-react";
+import { Minus, Plus, ImagePlus, Lock, Unlock } from "lucide-react";
 
 const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 6;
+const DRAG_THRESHOLD = 4;
+const SNAP_GRID = 20;
+const MOMENTUM_FRICTION = 0.92;
+const MOMENTUM_THRESHOLD = 0.5;
 
 export interface FreeCanvasHandle {
   fitToItem: (itemId: string) => void;
@@ -90,6 +94,10 @@ interface FreeCanvasProps {
   jobProgressTotal?: number;
   onOpenChatPanel?: () => void;
   mobile: boolean;
+}
+
+function snapToGrid(value: number, grid: number): number {
+  return Math.round(value / grid) * grid;
 }
 
 export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
@@ -159,7 +167,15 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       originX: number;
       originY: number;
     } | null>(null);
+    const pendingDragRef = useRef<{
+      id: string;
+      startX: number;
+      startY: number;
+      originX: number;
+      originY: number;
+    } | null>(null);
     const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const momentumRef = useRef<{ vx: number; vy: number; raf: number } | null>(null);
 
     const touchUi = mobile;
     const zoomStep = touchUi ? 0.28 : 0.15;
@@ -179,6 +195,26 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       Boolean(jobStreamStatus) &&
       jobStreamStatus !== "succeeded" &&
       jobStreamStatus !== "failed";
+
+    const zoomAtPoint = useCallback(
+      (newZoom: number, cursorX: number, cursorY: number) => {
+        const container = containerRef.current;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        const cx = cursorX - rect.left;
+        const cy = cursorY - rect.top;
+        setZoom((oldZoom) => {
+          const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, newZoom));
+          const ratio = clamped / oldZoom;
+          setPan((p) => ({
+            x: cx - (cx - p.x) * ratio,
+            y: cy - (cy - p.y) * ratio,
+          }));
+          return clamped;
+        });
+      },
+      [],
+    );
 
     const fitToItem = useCallback(
       (itemId: string) => {
@@ -270,12 +306,18 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
     }, []);
 
     const zoomIn = useCallback(() => {
-      setZoom((z) => Math.min(ZOOM_MAX, z + zoomStep));
-    }, [zoomStep]);
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      zoomAtPoint(zoom + zoomStep, rect.left + rect.width / 2, rect.top + rect.height / 2);
+    }, [zoom, zoomStep, zoomAtPoint]);
 
     const zoomOut = useCallback(() => {
-      setZoom((z) => Math.max(ZOOM_MIN, z - zoomStep));
-    }, [zoomStep]);
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      zoomAtPoint(zoom - zoomStep, rect.left + rect.width / 2, rect.top + rect.height / 2);
+    }, [zoom, zoomStep, zoomAtPoint]);
 
     const setZoomForTool = useCallback((toolId: string) => {
       if (toolId === "brush" || toolId === "focus-click") {
@@ -413,10 +455,45 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       setMaskBoxes([]);
     }
 
-    function onCanvasPointerDown(e: React.PointerEvent) {
-      if (tool !== "pan" && !(mobile && e.pointerType === "touch")) {
-        return;
+    function startMomentum(vx: number, vy: number) {
+      if (momentumRef.current) {
+        cancelAnimationFrame(momentumRef.current.raf);
       }
+      function tick() {
+        const m = momentumRef.current;
+        if (!m) return;
+        m.vx *= MOMENTUM_FRICTION;
+        m.vy *= MOMENTUM_FRICTION;
+        if (Math.abs(m.vx) < MOMENTUM_THRESHOLD && Math.abs(m.vy) < MOMENTUM_THRESHOLD) {
+          momentumRef.current = null;
+          return;
+        }
+        setPan((p) => ({ x: p.x + m.vx, y: p.y + m.vy }));
+        m.raf = requestAnimationFrame(tick);
+      }
+      momentumRef.current = { vx, vy, raf: requestAnimationFrame(tick) };
+    }
+
+    function stopMomentum() {
+      if (momentumRef.current) {
+        cancelAnimationFrame(momentumRef.current.raf);
+        momentumRef.current = null;
+      }
+    }
+
+    const lastPanVelocity = useRef({ vx: 0, vy: 0 });
+
+    function onCanvasPointerDown(e: React.PointerEvent) {
+      const isPanTrigger =
+        tool === "pan" ||
+        e.button === 1 ||
+        e.button === 2 ||
+        (mobile && e.pointerType === "touch");
+
+      if (!isPanTrigger) return;
+
+      e.preventDefault();
+      stopMomentum();
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       panStart.current = {
         x: e.clientX,
@@ -424,27 +501,48 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
         px: pan.x,
         py: pan.y,
       };
+      lastPanVelocity.current = { vx: 0, vy: 0 };
     }
 
     function onCanvasPointerMove(e: React.PointerEvent) {
+      if (pendingDragRef.current && tool === "select") {
+        const pd = pendingDragRef.current;
+        const dx = e.clientX - pd.startX;
+        const dy = e.clientY - pd.startY;
+        if (Math.hypot(dx, dy) >= DRAG_THRESHOLD) {
+          const item = items.find((i) => i.id === pd.id);
+          if (item && item.locked) {
+            pendingDragRef.current = null;
+            return;
+          }
+          dragRef.current = pendingDragRef.current;
+          pendingDragRef.current = null;
+        }
+      }
+
       if (!readOnly && dragRef.current && tool === "select") {
         const d = dragRef.current;
         const dx = (e.clientX - d.startX) / zoom;
         const dy = (e.clientY - d.startY) / zoom;
+        const newX = snapToGrid(d.originX + dx, SNAP_GRID);
+        const newY = snapToGrid(d.originY + dy, SNAP_GRID);
         onItemsChangeWithHistory(
           items.map((it) =>
-            it.id === d.id
-              ? { ...it, x: d.originX + dx, y: d.originY + dy }
-              : it,
+            it.id === d.id ? { ...it, x: newX, y: newY } : it,
           ),
         );
         return;
       }
-      if (!panStart.current || tool !== "pan") return;
-      setPan({
-        x: panStart.current.px + (e.clientX - panStart.current.x) * panGain,
-        y: panStart.current.py + (e.clientY - panStart.current.y) * panGain,
-      });
+
+      if (panStart.current) {
+        const newPx = panStart.current.px + (e.clientX - panStart.current.x) * panGain;
+        const newPy = panStart.current.py + (e.clientY - panStart.current.y) * panGain;
+        lastPanVelocity.current = {
+          vx: (newPx - pan.x) * 0.3,
+          vy: (newPy - pan.y) * 0.3,
+        };
+        setPan({ x: newPx, y: newPy });
+      }
     }
 
     function endPointer() {
@@ -456,21 +554,28 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
           const itemRight = (item.x + item.width) * zoom + pan.x;
           const itemTop = item.y * zoom + pan.y;
           const itemBottom = (item.y + item.height) * zoom + pan.y;
-          
           const margin = 50;
-          const isOutside = 
+          const isOutside =
             itemRight < margin ||
             itemLeft > rect.width - margin ||
             itemBottom < margin ||
             itemTop > rect.height - margin;
-          
           if (isOutside) {
             fitToItem(item.id);
           }
         }
       }
+
+      if (panStart.current) {
+        const v = lastPanVelocity.current;
+        if (Math.abs(v.vx) > MOMENTUM_THRESHOLD || Math.abs(v.vy) > MOMENTUM_THRESHOLD) {
+          startMomentum(v.vx, v.vy);
+        }
+      }
+
       panStart.current = null;
       dragRef.current = null;
+      pendingDragRef.current = null;
       if (longPressRef.current) {
         clearTimeout(longPressRef.current);
         longPressRef.current = null;
@@ -478,6 +583,20 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
     }
 
     function onItemPointerDown(e: React.PointerEvent, item: CanvasItem) {
+      if (e.button === 1 || e.button === 2) {
+        e.stopPropagation();
+        stopMomentum();
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        panStart.current = {
+          x: e.clientX,
+          y: e.clientY,
+          px: pan.x,
+          py: pan.y,
+        };
+        lastPanVelocity.current = { vx: 0, vy: 0 };
+        return;
+      }
+
       if (focusClickActive && focusItem && item.id === focusItem.id) {
         e.stopPropagation();
         e.preventDefault();
@@ -504,8 +623,9 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       }
 
       if (readOnly) return;
+      if (item.locked) return;
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-      dragRef.current = {
+      pendingDragRef.current = {
         id: item.id,
         startX: e.clientX,
         startY: e.clientY,
@@ -566,8 +686,9 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
         const touchPinch = touchUi && !pinchZoom;
         if (pinchZoom || touchPinch) {
           e.preventDefault();
-          const delta = e.deltaY > 0 ? -wheelZoomStep : wheelZoomStep;
-          setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z + delta)));
+          const factor = e.deltaY > 0 ? 1 - wheelZoomStep : 1 + wheelZoomStep;
+          const newZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoomRef.current * factor));
+          zoomAtPoint(newZoom, e.clientX, e.clientY);
           return;
         }
         e.preventDefault();
@@ -578,7 +699,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       }
       el.addEventListener("wheel", onWheel, { passive: false });
       return () => el.removeEventListener("wheel", onWheel);
-    }, [touchUi, wheelZoomStep]);
+    }, [touchUi, wheelZoomStep, zoomAtPoint]);
 
     const zoomRef = useRef(zoom);
     const panRef = useRef(pan);
@@ -601,9 +722,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       } | null = null;
 
       function dist(a: Touch, b: Touch) {
-        const dx = a.clientX - b.clientX;
-        const dy = a.clientY - b.clientY;
-        return Math.hypot(dx, dy);
+        return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
       }
 
       function center(a: Touch, b: Touch) {
@@ -625,6 +744,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
           cy: c.y - rect.top,
         };
         dragRef.current = null;
+        pendingDragRef.current = null;
         panStart.current = null;
         if (longPressRef.current) {
           clearTimeout(longPressRef.current);
@@ -665,6 +785,31 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       };
     }, []);
 
+    useEffect(() => {
+      return () => stopMomentum();
+    }, []);
+
+    function toggleLock(itemId: string) {
+      onItemsChangeWithHistory(
+        items.map((it) =>
+          it.id === itemId ? { ...it, locked: !it.locked } : it,
+        ),
+      );
+    }
+
+    const minimapScale = 0.06;
+    const visibleItems = isRefineMode
+      ? items.filter((i) => i.id === refineItemId)
+      : items;
+    const minimapBounds = visibleItems.length > 0
+      ? {
+          minX: Math.min(...visibleItems.map((i) => i.x)),
+          minY: Math.min(...visibleItems.map((i) => i.y)),
+          maxX: Math.max(...visibleItems.map((i) => i.x + i.width)),
+          maxY: Math.max(...visibleItems.map((i) => i.y + i.height)),
+        }
+      : null;
+
     return (
       <div
         ref={containerRef}
@@ -678,39 +823,16 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
         onPointerUp={endPointer}
         onPointerLeave={endPointer}
         onClick={() => tool === "select" && onSelect(null)}
+        onContextMenu={(e) => e.preventDefault()}
       >
         {showJobOverlay || jobFailed ? (
           <CanvasJobOverlay
-            status={jobStreamStatus}
+            status={jobStreamStatus ?? null}
             failed={jobFailed}
             onOpenChat={onOpenChatPanel}
             completed={jobProgressCompleted}
             total={jobProgressTotal}
           />
-        ) : null}
-
-        {focusClickActive && focusClickRequest ? (
-          <div
-            data-testid="focus-edit-canvas-banner"
-            className="absolute left-2 right-2 top-2 z-30 rounded-2xl border border-purple-400/30 bg-black/80 p-2 text-xs text-zinc-200 shadow-xl backdrop-blur"
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-purple-200">
-                {focusClickRequest.toolName}：点击图片添加焦点
-              </span>
-              <button
-                type="button"
-                onClick={onFocusClickCancel}
-                className="ml-auto rounded-full bg-white/10 px-2.5 py-1 text-zinc-300"
-              >
-                完成点选
-              </button>
-            </div>
-            <p className="mt-1 text-[10px] text-zinc-500">
-              在工作站输入短 prompt
-              后提交；最多 10 个焦点，连续点击间隔约 1.5 秒。
-            </p>
-          </div>
         ) : null}
 
         {brushActive && brushRequest ? (
@@ -878,6 +1000,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                 const batchItems = items.filter(
                   (i) => i.batchId === item.batchId,
                 );
+                const isLocked = item.locked !== false;
                 return (
                   <div
                     key={item.id}
@@ -904,9 +1027,11 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                     className={`group relative overflow-hidden rounded-lg bg-zinc-900 text-left transition ${
                       focusClickActive && focusItem?.id === item.id
                         ? "cursor-crosshair"
-                        : tool === "select"
-                          ? "cursor-grab active:cursor-grabbing"
-                          : ""
+                        : isLocked
+                          ? "cursor-default"
+                          : tool === "select"
+                            ? "cursor-grab active:cursor-grabbing"
+                            : ""
                     } ${
                       selectedId === item.id
                         ? isRefineMode
@@ -917,6 +1042,25 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                           : "border border-white/10 hover:border-white/25"
                     } ${pulseId === item.id ? "animate-pulse ring-4 ring-orange-400/50" : ""}`}
                   >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleLock(item.id);
+                      }}
+                      className={`absolute top-1.5 right-1.5 z-30 flex size-6 items-center justify-center rounded-md transition-opacity ${
+                        isLocked
+                          ? "bg-amber-500/20 text-amber-400 opacity-60 group-hover:opacity-100"
+                          : "bg-white/10 text-zinc-400 opacity-0 group-hover:opacity-100"
+                      }`}
+                      title={isLocked ? "解锁位置（允许拖拽）" : "锁定位置（禁止拖拽）"}
+                    >
+                      {isLocked ? (
+                        <Lock className="size-3" />
+                      ) : (
+                        <Unlock className="size-3" />
+                      )}
+                    </button>
                     {item.label ? (
                       <span className="block bg-black/60 px-2 py-0.5 text-[10px] text-zinc-400">
                         {item.label}
@@ -954,7 +1098,6 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                             const startH = item.height;
                             const startXPos = item.x;
                             const startYPos = item.y;
-                            
                             const handleResize = (moveE: MouseEvent) => {
                               const dx = moveE.clientX - startX;
                               const dy = moveE.clientY - startY;
@@ -970,12 +1113,10 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                                 ),
                               );
                             };
-                            
                             const stopResize = () => {
                               window.removeEventListener("mousemove", handleResize);
                               window.removeEventListener("mouseup", stopResize);
                             };
-                            
                             window.addEventListener("mousemove", handleResize);
                             window.addEventListener("mouseup", stopResize);
                           }}
@@ -991,7 +1132,6 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                             const startW = item.width;
                             const startH = item.height;
                             const startYPos = item.y;
-                            
                             const handleResize = (moveE: MouseEvent) => {
                               const dx = moveE.clientX - startX;
                               const dy = moveE.clientY - startY;
@@ -1006,12 +1146,10 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                                 ),
                               );
                             };
-                            
                             const stopResize = () => {
                               window.removeEventListener("mousemove", handleResize);
                               window.removeEventListener("mouseup", stopResize);
                             };
-                            
                             window.addEventListener("mousemove", handleResize);
                             window.addEventListener("mouseup", stopResize);
                           }}
@@ -1027,7 +1165,6 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                             const startW = item.width;
                             const startH = item.height;
                             const startXPos = item.x;
-                            
                             const handleResize = (moveE: MouseEvent) => {
                               const dx = moveE.clientX - startX;
                               const dy = moveE.clientY - startY;
@@ -1042,12 +1179,10 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                                 ),
                               );
                             };
-                            
                             const stopResize = () => {
                               window.removeEventListener("mousemove", handleResize);
                               window.removeEventListener("mouseup", stopResize);
                             };
-                            
                             window.addEventListener("mousemove", handleResize);
                             window.addEventListener("mouseup", stopResize);
                           }}
@@ -1062,7 +1197,6 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                             const startY = e.clientY;
                             const startW = item.width;
                             const startH = item.height;
-                            
                             const handleResize = (moveE: MouseEvent) => {
                               const dx = moveE.clientX - startX;
                               const dy = moveE.clientY - startY;
@@ -1076,12 +1210,10 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                                 ),
                               );
                             };
-                            
                             const stopResize = () => {
                               window.removeEventListener("mousemove", handleResize);
                               window.removeEventListener("mouseup", stopResize);
                             };
-                            
                             window.addEventListener("mousemove", handleResize);
                             window.addEventListener("mouseup", stopResize);
                           }}
@@ -1165,11 +1297,69 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
           )}
         </div>
 
+        {minimapBounds && !isRefineMode && visibleItems.length > 1 && (
+          <div className="pointer-events-auto absolute bottom-14 right-3 z-10 overflow-hidden rounded-lg border border-white/10 bg-black/60 backdrop-blur">
+            <svg
+              width={120}
+              height={80}
+              viewBox={`${minimapBounds.minX - 40} ${minimapBounds.minY - 40} ${minimapBounds.maxX - minimapBounds.minX + 80} ${minimapBounds.maxY - minimapBounds.minY + 80}`}
+              className="block"
+            >
+              {visibleItems.map((item) => (
+                <rect
+                  key={item.id}
+                  x={item.x}
+                  y={item.y}
+                  width={item.width}
+                  height={item.height}
+                  fill={
+                    selectedId === item.id
+                      ? "rgba(249,115,22,0.5)"
+                      : "rgba(255,255,255,0.15)"
+                  }
+                  stroke="rgba(255,255,255,0.2)"
+                  strokeWidth={2}
+                />
+              ))}
+              {(() => {
+                const container = containerRef.current;
+                if (!container) return null;
+                const rect = container.getBoundingClientRect();
+                const vx = -pan.x / zoom;
+                const vy = -pan.y / zoom;
+                const vw = rect.width / zoom;
+                const vh = rect.height / zoom;
+                return (
+                  <rect
+                    x={vx}
+                    y={vy}
+                    width={vw}
+                    height={vh}
+                    fill="none"
+                    stroke="rgba(249,115,22,0.6)"
+                    strokeWidth={3}
+                    strokeDasharray="6 3"
+                  />
+                );
+              })()}
+            </svg>
+          </div>
+        )}
+
         <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-10 flex items-center justify-between gap-2 text-[10px] text-zinc-500">
           <div className="pointer-events-auto flex items-center gap-2 rounded-lg bg-black/60 px-2 py-1 backdrop-blur">
             <button
               type="button"
-              onClick={() => setZoom((z) => Math.max(ZOOM_MIN, z - 0.1))}
+              onClick={() => {
+                const container = containerRef.current;
+                if (!container) return;
+                const rect = container.getBoundingClientRect();
+                zoomAtPoint(
+                  Math.max(ZOOM_MIN, zoom - 0.1),
+                  rect.left + rect.width / 2,
+                  rect.top + rect.height / 2,
+                );
+              }}
               className="text-zinc-400 hover:text-white"
               title="缩小"
             >
@@ -1181,13 +1371,31 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
               max={ZOOM_MAX * 100}
               step={5}
               value={Math.round(zoom * 100)}
-              onChange={(e) => setZoom(Number(e.target.value) / 100)}
+              onChange={(e) => {
+                const container = containerRef.current;
+                if (!container) return;
+                const rect = container.getBoundingClientRect();
+                zoomAtPoint(
+                  Number(e.target.value) / 100,
+                  rect.left + rect.width / 2,
+                  rect.top + rect.height / 2,
+                );
+              }}
               title="缩放比例"
               className="h-1 w-20 cursor-pointer appearance-none rounded-full bg-zinc-600 [&::-webkit-slider-thumb]:size-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-orange-400"
             />
             <button
               type="button"
-              onClick={() => setZoom((z) => Math.min(ZOOM_MAX, z + 0.1))}
+              onClick={() => {
+                const container = containerRef.current;
+                if (!container) return;
+                const rect = container.getBoundingClientRect();
+                zoomAtPoint(
+                  Math.min(ZOOM_MAX, zoom + 0.1),
+                  rect.left + rect.width / 2,
+                  rect.top + rect.height / 2,
+                );
+              }}
               className="text-zinc-400 hover:text-white"
               title="放大"
             >
@@ -1208,6 +1416,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
               type="button"
               onClick={() => {
                 if (refineItemId) fitToItem(refineItemId);
+                else fitAll();
               }}
               className="rounded px-1 text-zinc-400 hover:bg-white/10 hover:text-white"
               title="适应画布"
