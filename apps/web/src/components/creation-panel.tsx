@@ -130,6 +130,10 @@ interface CreationPanelProps {
   inspirationCoverUrl?: string;
   /** 灵感面板当前是否展开（控制按钮高亮态） */
   inspirationActive?: boolean;
+  /** 受控 prompt（用于与 InspirationSetGenerateBar 同步） */
+  prompt?: string;
+  /** prompt 变化回调（用于与 InspirationSetGenerateBar 同步） */
+  onPromptChange?: (prompt: string) => void;
   /**
    * 折叠态（用于 Studio 「最大化画布」）：仅保留 textarea + 灵感/上传 + 发送按钮，
    * 隐藏模型/数量/分辨率/Agent 计划预览等高级控件，把 dock 高度收缩到 ~56px。
@@ -203,6 +207,8 @@ export function CreationPanel({
   mentionItemRequest = null,
   focusEdit = null,
   onFocusEditSubmit,
+  prompt: controlledPrompt,
+  onPromptChange,
   onUploadToCanvas,
 }: CreationPanelProps) {
   const shouldNavigateOnSubmit =
@@ -221,7 +227,13 @@ export function CreationPanel({
     setInternalMode(m);
     onModeChange?.(m);
   };
-  const [prompt, setPrompt] = useState(initialPrompt);
+  const [internalPrompt, setInternalPrompt] = useState(initialPrompt);
+  const prompt = controlledPrompt ?? internalPrompt;
+  const setPrompt = (p: string | ((prev: string) => string)) => {
+    const next = typeof p === "function" ? p(prompt) : p;
+    setInternalPrompt(next);
+    onPromptChange?.(next);
+  };
   // 电商套图表单 UI 已下线（由灵感扇形 + 画布上方 InspirationSetGenerateBar 承接），
   // 这些字段仅在历史兼容路径（非 dock variant）保留默认值
   const brand = "";

@@ -11,6 +11,7 @@ import {
   type DesignCanvasHandle,
 } from "@/components/design-canvas";
 import { CreationPanel } from "@/components/creation-panel";
+import { InspirationSetGenerateBar } from "@/components/inspiration-set-generate-bar";
 import { CanvasSelectionToolbar } from "@/components/canvas-selection-toolbar";
 import { StudioToolGrid } from "@/components/studio-tool-grid";
 import { StudioHeader } from "@/components/studio-header";
@@ -178,6 +179,7 @@ export function StudioWorkspace({
   const [jobStreamStatus, setJobStreamStatus] = useState<string | null>(null);
   const [jobProgressCompleted, setJobProgressCompleted] = useState(0);
   const [jobProgressTotal, setJobProgressTotal] = useState(0);
+  const [studioPrompt, setStudioPrompt] = useState(initialPrompt);
   const lastOutputCountRef = useRef(0);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(
     null,
@@ -930,6 +932,16 @@ export function StudioWorkspace({
           只读会话：无法在此生成或编辑
         </p>
       ) : null}
+      {inspirationApply && mode === "ecommerce" ? (
+        <InspirationSetGenerateBar
+          sessionId={sessionId}
+          canvasItems={canvasItems}
+          prompt={studioPrompt}
+          inspirationApply={inspirationApply}
+          readOnly={readOnly}
+          onJobStarted={handleJobStarted}
+        />
+      ) : null}
       <CreationPanel
         variant="dock"
         showModeTabs={false}
@@ -938,6 +950,8 @@ export function StudioWorkspace({
         mode={mode}
         sessionId={sessionId}
         initialPrompt={initialPrompt}
+        prompt={studioPrompt}
+        onPromptChange={setStudioPrompt}
         restoredAssets={restoredAssets}
         inspirationApply={inspirationApply}
         onAuthRequired={() => setLoginOpen(true)}
