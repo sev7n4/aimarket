@@ -2,22 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Rows3, User, Users } from "lucide-react";
+import { Plus, Rows3 } from "lucide-react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { SessionTitleActions } from "@/components/session-title-actions";
-import { listSessions, fetchWorkspaces } from "@/lib/api-client";
-import { getActiveWorkspaceId, setActiveWorkspaceId } from "@/lib/active-workspace";
+import { WorkspaceSwitcher } from "@/components/workspace-switcher";
+import { listSessions } from "@/lib/api-client";
+import { getActiveWorkspaceId } from "@/lib/active-workspace";
 import { studioUrlForSession } from "@/lib/studio-navigation";
 import { useAuth } from "@/lib/auth-context";
 import type { ImageSession } from "@/lib/types";
-
-type Workspace = {
-  id: string;
-  name: string;
-  is_personal: number;
-  role: string;
-};
 
 const modeLabel: Record<string, string> = {
   chat: "对话",
@@ -28,59 +22,28 @@ const modeLabel: Record<string, string> = {
 export default function ProjectsPage() {
   const { user, loading } = useAuth();
   const [sessions, setSessions] = useState<ImageSession[]>([]);
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [activeWorkspaceId, setActiveWsId] = useState<string | null>(null);
-  const [spaceFilter, setSpaceFilter] = useState<"personal" | "team">("personal");
-
-  const loadWorkspaces = useCallback(async () => {
-    if (!user) return;
-    try {
-      const ws = await fetchWorkspaces();
-      setWorkspaces(ws);
-      const stored = getActiveWorkspaceId();
-      const personal = ws.find((w) => w.is_personal);
-      if (stored && ws.some((w) => w.id === stored)) {
-        setActiveWsId(stored);
-      } else if (personal) {
-        setActiveWsId(personal.id);
-        setActiveWorkspaceId(personal.id);
-      }
-    } catch {
-      setWorkspaces([]);
-    }
-  }, [user]);
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
 
   const loadSessions = useCallback(async () => {
-    if (!user || !activeWorkspaceId) return;
+    if (!user) return;
+    const wsId = workspaceId ?? getActiveWorkspaceId() ?? undefined;
     try {
-      const data = await listSessions(50, undefined, activeWorkspaceId);
+      const data = await listSessions(50, undefined, wsId);
       setSessions(data);
     } catch {
       setSessions([]);
     }
-  }, [user, activeWorkspaceId]);
+  }, [user, workspaceId]);
 
   useEffect(() => {
-    void loadWorkspaces();
-  }, [loadWorkspaces]);
+    if (!user) return;
+    const stored = getActiveWorkspaceId();
+    if (stored) setWorkspaceId(stored);
+  }, [user]);
 
   useEffect(() => {
     void loadSessions();
   }, [loadSessions]);
-
-  function handleSpaceFilterChange(filter: "personal" | "team") {
-    setSpaceFilter(filter);
-    const target = workspaces.find((w) =>
-      filter === "personal" ? w.is_personal : !w.is_personal
-    );
-    if (target) {
-      setActiveWsId(target.id);
-      setActiveWorkspaceId(target.id);
-    }
-  }
-
-  const personalWorkspace = workspaces.find((w) => w.is_personal);
-  const teamWorkspaces = workspaces.filter((w) => !w.is_personal);
 
   return (
     <div className="min-h-dvh">
@@ -98,31 +61,8 @@ export default function ProjectsPage() {
         </div>
 
         {user ? (
-          <div className="mt-4 flex gap-2">
-            <button
-              type="button"
-              onClick={() => handleSpaceFilterChange("personal")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition ${
-                spaceFilter === "personal"
-                  ? "bg-orange-500/20 text-orange-300 border border-orange-500/30"
-                  : "bg-white/5 text-zinc-400 border border-white/10 hover:bg-white/10"
-              }`}
-            >
-              <User className="size-4" />
-              个人空间
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSpaceFilterChange("team")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition ${
-                spaceFilter === "team"
-                  ? "bg-orange-500/20 text-orange-300 border border-orange-500/30"
-                  : "bg-white/5 text-zinc-400 border border-white/10 hover:bg-white/10"
-              }`}
-            >
-              <Users className="size-4" />
-              团队空间
-            </button>
+          <div className="mt-4 max-w-xs">
+            <WorkspaceSwitcher onWorkspaceChange={setWorkspaceId} />
           </div>
         ) : null}
 

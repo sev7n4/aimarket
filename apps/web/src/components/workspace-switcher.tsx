@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@aimarket/ui";
+import { User, Users, ChevronDown, Plus } from "lucide-react";
 import {
   createWorkspace,
   createWorkspaceInvite,
@@ -37,15 +37,15 @@ export function WorkspaceSwitcher({ onWorkspaceChange }: WorkspaceSwitcherProps)
 
   const [list, setList] = useState<Workspace[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [showTeamCreate, setShowTeamCreate] = useState(false);
   const [teamName, setTeamName] = useState("");
 
   const active = list.find((w) => w.id === activeId) ?? list[0];
 
   const load = useCallback(async () => {
-    setLoading(true);
     try {
       const workspaces = await fetchWorkspaces();
       setList(workspaces);
@@ -59,14 +59,13 @@ export function WorkspaceSwitcher({ onWorkspaceChange }: WorkspaceSwitcherProps)
         setActiveWorkspaceId(next);
         onWorkspaceChangeRef.current?.(next);
         if (!workspaces.find((w) => w.id === next)?.is_personal) {
-          const m = await fetchWorkspaceMembers(next);
-          setMembers(m);
+          setMembers(await fetchWorkspaceMembers(next));
         } else {
           setMembers([]);
         }
       }
-    } finally {
-      setLoading(false);
+    } catch {
+      setList([]);
     }
   }, []);
 
@@ -77,7 +76,9 @@ export function WorkspaceSwitcher({ onWorkspaceChange }: WorkspaceSwitcherProps)
   async function handleSelect(id: string) {
     setActiveId(id);
     setActiveWorkspaceId(id);
+    setOpen(false);
     setInviteUrl(null);
+    setShowTeamCreate(false);
     onWorkspaceChangeRef.current?.(id);
     const ws = list.find((w) => w.id === id);
     if (ws && !ws.is_personal) {
@@ -91,6 +92,7 @@ export function WorkspaceSwitcher({ onWorkspaceChange }: WorkspaceSwitcherProps)
     const name = teamName.trim() || "团队工作区";
     const ws = await createWorkspace(name);
     setTeamName("");
+    setShowTeamCreate(false);
     await load();
     await handleSelect(ws.id);
   }
@@ -102,78 +104,134 @@ export function WorkspaceSwitcher({ onWorkspaceChange }: WorkspaceSwitcherProps)
     try {
       await navigator.clipboard.writeText(data.joinUrl);
     } catch {
-      /* ignore */
+      // ignore
     }
+  }
+
+  async function handleRemoveMember(memberId: string) {
+    if (!activeId) return;
+    await removeWorkspaceMember(activeId, memberId);
+    setMembers(await fetchWorkspaceMembers(activeId));
   }
 
   if (!list.length) return null;
 
+  const personalWorkspace = list.find((w) => w.is_personal);
+  const teamWorkspaces = list.filter((w) => !w.is_personal);
+
   return (
-    <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-xs">
-      <p className="font-medium text-zinc-400">工作区</p>
-      <select
-        value={activeId ?? ""}
-        onChange={(e) => void handleSelect(e.target.value)}
-        disabled={loading}
-        className="mt-2 w-full rounded-lg border border-white/10 bg-black/50 px-2 py-1.5 text-sm text-zinc-200"
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between gap-2 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-zinc-200 transition hover:bg-black/50"
       >
-        {list.map((w) => (
-          <option key={w.id} value={w.id}>
-            {w.name}
-            {w.is_personal ? "（个人）" : ""}
-          </option>
-        ))}
-      </select>
+        <div className="flex items-center gap-2">
+          {active?.is_personal ? (
+            <User className="size-4 text-zinc-500" />
+          ) : (
+            <Users className="size-4 text-orange-400" />
+          )}
+          <span className="truncate">{active?.name || "选择空间"}</span>
+        </div>
+        <ChevronDown className={`size-4 text-zinc-500 transition ${open ? "rotate-180" : ""}`} />
+      </button>
 
-      <div className="mt-2 flex flex-wrap gap-2">
-        <input
-          type="text"
-          value={teamName}
-          onChange={(e) => setTeamName(e.target.value)}
-          placeholder="新团队名称"
-          className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/50 px-2 py-1 text-zinc-300"
-        />
-        <Button
-          type="button"
-          variant="ghost"
-          className="shrink-0 text-xs"
-          onClick={() => void handleCreateTeam()}
-        >
-          新建团队
-        </Button>
-      </div>
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-xl border border-white/10 bg-[#0b0b0b] p-2 shadow-xl">
+          {personalWorkspace && (
+            <button
+              type="button"
+              onClick={() => handleSelect(personalWorkspace.id)}
+              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
+                activeId === personalWorkspace.id
+                  ? "bg-orange-500/20 text-orange-300"
+                  : "text-zinc-300 hover:bg-white/5"
+              }`}
+            >
+              <User className="size-4 text-zinc-500" />
+              <span>个人空间</span>
+            </button>
+          )}
 
-      {active && !active.is_personal ? (
-        <div className="mt-3 space-y-2 border-t border-white/5 pt-3">
-          <Button
+          {teamWorkspaces.length > 0 && (
+            <div className="mt-1.5 border-t border-white/5 pt-1.5">
+              <p className="mb-1 px-2 text-[10px] text-zinc-600">团队空间</p>
+              {teamWorkspaces.map((w) => (
+                <button
+                  key={w.id}
+                  type="button"
+                  onClick={() => handleSelect(w.id)}
+                  className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
+                    activeId === w.id
+                      ? "bg-orange-500/20 text-orange-300"
+                      : "text-zinc-300 hover:bg-white/5"
+                  }`}
+                >
+                  <Users className="size-4 text-zinc-500" />
+                  <span className="truncate">{w.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-1.5 border-t border-white/5 pt-1.5">
+            <button
+              type="button"
+              onClick={() => setShowTeamCreate(!showTeamCreate)}
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-zinc-400 transition hover:bg-white/5 hover:text-zinc-200"
+            >
+              <Plus className="size-4" />
+              <span>创建团队</span>
+            </button>
+          </div>
+
+          {showTeamCreate && (
+            <div className="mt-2 flex gap-2 px-2">
+              <input
+                type="text"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                placeholder="团队名称"
+                className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/50 px-2 py-1 text-xs text-zinc-300"
+              />
+              <button
+                type="button"
+                onClick={() => void handleCreateTeam()}
+                className="shrink-0 rounded-lg bg-orange-500 px-2 py-1 text-xs font-medium text-white hover:bg-orange-600"
+              >
+                创建
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {active && !active.is_personal && (
+        <div className="mt-2 space-y-1.5">
+          <button
             type="button"
-            variant="primary"
-            className="w-full text-xs"
             onClick={() => void handleInvite()}
+            className="w-full rounded-lg border border-white/10 bg-orange-500/10 px-2 py-1.5 text-xs text-orange-300 transition hover:bg-orange-500/20"
           >
-            生成邀请链接
-          </Button>
-          {inviteUrl ? (
-            <p className="break-all text-[10px] text-emerald-400/90">
-              已复制：{inviteUrl}
+            邀请成员
+          </button>
+          {inviteUrl && (
+            <p className="break-all rounded bg-emerald-500/10 px-2 py-1 text-[10px] text-emerald-400">
+              链接已复制
             </p>
-          ) : null}
-          {members.length > 0 ? (
-            <ul className="max-h-28 space-y-1 overflow-y-auto text-[10px] text-zinc-500">
+          )}
+          {members.length > 0 && (
+            <ul className="max-h-20 space-y-0.5 overflow-y-auto text-[10px] text-zinc-500">
               {members.map((m) => (
-                <li key={m.id} className="flex items-center justify-between gap-2">
+                <li key={m.id} className="flex items-center justify-between gap-1">
                   <span className="truncate">{m.email}</span>
-                  <span className="shrink-0">{m.role}</span>
+                  <span className="shrink-0 text-zinc-600">{m.role}</span>
                   {active.role === "owner" && m.role !== "owner" ? (
                     <button
                       type="button"
                       className="text-red-400/80 hover:text-red-300"
-                      onClick={() => {
-                        if (!activeId) return;
-                        void removeWorkspaceMember(activeId, m.id).then(() =>
-                          fetchWorkspaceMembers(activeId).then(setMembers),
-                        );
-                      }}
+                      onClick={() => void handleRemoveMember(m.id)}
                     >
                       移除
                     </button>
@@ -181,9 +239,9 @@ export function WorkspaceSwitcher({ onWorkspaceChange }: WorkspaceSwitcherProps)
                 </li>
               ))}
             </ul>
-          ) : null}
+          )}
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

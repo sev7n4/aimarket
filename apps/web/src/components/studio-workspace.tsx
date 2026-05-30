@@ -16,7 +16,7 @@ import { StudioToolGrid } from "@/components/studio-tool-grid";
 import { StudioHeader } from "@/components/studio-header";
 import { ProviderStatusChip } from "@/components/provider-status-banner";
 import { ContentReportDialog } from "@/components/content-report-dialog";
-import { SimpleWorkspaceSelector } from "@/components/simple-workspace-selector";
+import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { StudioMobileCoach } from "@/components/studio-mobile-coach";
 import { getActiveWorkspaceId } from "@/lib/active-workspace";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
@@ -1120,7 +1120,7 @@ export function StudioWorkspace({
               </div>
 
               {user ? (
-                <SimpleWorkspaceSelector onWorkspaceChange={handleWorkspaceChange} />
+                <WorkspaceSwitcher onWorkspaceChange={handleWorkspaceChange} />
               ) : null}
 
               <p className="mb-2 mt-4 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
