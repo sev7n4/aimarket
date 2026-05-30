@@ -1109,7 +1109,6 @@ export function StudioWorkspace({
           ) : (
             <>
               <div className="mb-3 flex items-center justify-between">
-                <p className="text-sm font-medium text-zinc-100">工作区</p>
                 <Link
                   href={buildStudioUrl("canvas")}
                   onClick={() => setSidebarOpen(false)}
@@ -1124,11 +1123,20 @@ export function StudioWorkspace({
                 <WorkspaceSwitcher onWorkspaceChange={handleWorkspaceChange} />
               ) : null}
 
-              <p className="mb-2 mt-4 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
-                最近创作
-              </p>
-              <ul className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
-                {sessions.map((s) => (
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+                  最近创作
+                </p>
+                <Link
+                  href="/projects"
+                  onClick={() => setSidebarOpen(false)}
+                  className="text-[10px] text-zinc-500 hover:text-orange-400"
+                >
+                  查看全部
+                </Link>
+              </div>
+              <ul className="mt-2 flex min-h-0 flex-col gap-0.5 overflow-y-auto">
+                {sessions.slice(0, 3).map((s) => (
                   <li key={s.id} className="group">
                     <Link
                       href={studioUrlForSession({
