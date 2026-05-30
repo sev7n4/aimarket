@@ -18,7 +18,7 @@ import type {
 } from "@/lib/canvas-tools";
 import { batchDisplayIndex } from "@/lib/canvas-tools";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
-import { ImageActionBar } from "@/components/image-action-bar";
+import { aiTools } from "@/components/image-action-bar";
 import { hapticLight } from "@/lib/haptics";
 import { canvasSelectionHint } from "@/lib/mobile-labels";
 import { Minus, Plus, ImagePlus } from "lucide-react";
@@ -61,6 +61,7 @@ interface FreeCanvasProps {
   ) => void;
   onDeleteSelected: () => void;
   onRerun: (item: CanvasItem) => void;
+  onAiToolAction?: (item: CanvasItem, action: string) => void;
   tool: CanvasToolId;
   onToolChange: (tool: CanvasToolId) => void;
   gridOn: boolean;
@@ -113,6 +114,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       onJumpToParentBatch,
       onDeleteSelected,
       onRerun,
+      onAiToolAction,
       tool,
       onToolChange,
       gridOn,
@@ -897,29 +899,24 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                           : "border border-white/10 hover:border-white/25"
                     } ${pulseId === item.id ? "animate-pulse ring-4 ring-orange-400/50" : ""}`}
                   >
-                    <ImageActionBar
-                      item={item}
-                      selected={selectedId === item.id}
-                      onPreview={() => {
-                        onSetLightbox({
-                          items:
-                            batchItems.length > 0 ? batchItems : [item],
-                          index:
-                            batchItems.findIndex((i) => i.id === item.id) ||
-                            0,
-                        });
-                      }}
-                      onRefine={() => {
-                        onEnterRefineMode(item.id);
-                      }}
-                      onRerun={() => {
-                        onRerun(item);
-                      }}
-                      onDelete={() => {
-                        onSelect(item.id);
-                        onDeleteSelected();
-                      }}
-                    />
+                    {isRefineMode && selectedId === item.id && (
+                      <div className="absolute inset-x-0 bottom-0 z-30 flex items-center justify-center gap-2 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-2 py-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {aiTools.map((aiTool) => (
+                          <button
+                            key={aiTool.id}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAiToolAction?.(item, aiTool.action);
+                            }}
+                            className="flex items-center justify-center rounded-full bg-orange-500/20 p-2 text-orange-300 transition hover:bg-orange-500/30 hover:text-orange-100"
+                            title={aiTool.label}
+                          >
+                            {aiTool.icon}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     {item.label ? (
                       <span className="block bg-black/60 px-2 py-0.5 text-[10px] text-zinc-400">
                         {item.label}
@@ -943,6 +940,154 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                           (e.target as HTMLImageElement).style.opacity = "1";
                         }}
                       />
+                    )}
+                    {isRefineMode && selectedId === item.id && (
+                      <>
+                        <div
+                          className="absolute top-0 left-0 z-20 h-3 w-3 cursor-se-resize rounded-full bg-orange-500/80 shadow-lg transition-transform hover:scale-125"
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+                            const startW = item.width;
+                            const startH = item.height;
+                            const startXPos = item.x;
+                            const startYPos = item.y;
+                            
+                            const handleResize = (moveE: MouseEvent) => {
+                              const dx = moveE.clientX - startX;
+                              const dy = moveE.clientY - startY;
+                              const newW = Math.max(100, startW - dx);
+                              const newH = Math.max(100, startH - dy);
+                              const newX = startXPos + (startW - newW);
+                              const newY = startYPos + (startH - newH);
+                              onItemsChangeWithHistory(
+                                items.map((it) =>
+                                  it.id === item.id
+                                    ? { ...it, width: newW, height: newH, x: newX, y: newY }
+                                    : it,
+                                ),
+                              );
+                            };
+                            
+                            const stopResize = () => {
+                              window.removeEventListener("mousemove", handleResize);
+                              window.removeEventListener("mouseup", stopResize);
+                            };
+                            
+                            window.addEventListener("mousemove", handleResize);
+                            window.addEventListener("mouseup", stopResize);
+                          }}
+                          title="左上角调整大小"
+                        />
+                        <div
+                          className="absolute top-0 right-0 z-20 h-3 w-3 cursor-sw-resize rounded-full bg-orange-500/80 shadow-lg transition-transform hover:scale-125"
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+                            const startW = item.width;
+                            const startH = item.height;
+                            const startYPos = item.y;
+                            
+                            const handleResize = (moveE: MouseEvent) => {
+                              const dx = moveE.clientX - startX;
+                              const dy = moveE.clientY - startY;
+                              const newW = Math.max(100, startW + dx);
+                              const newH = Math.max(100, startH - dy);
+                              const newY = startYPos + (startH - newH);
+                              onItemsChangeWithHistory(
+                                items.map((it) =>
+                                  it.id === item.id
+                                    ? { ...it, width: newW, height: newH, y: newY }
+                                    : it,
+                                ),
+                              );
+                            };
+                            
+                            const stopResize = () => {
+                              window.removeEventListener("mousemove", handleResize);
+                              window.removeEventListener("mouseup", stopResize);
+                            };
+                            
+                            window.addEventListener("mousemove", handleResize);
+                            window.addEventListener("mouseup", stopResize);
+                          }}
+                          title="右上角调整大小"
+                        />
+                        <div
+                          className="absolute bottom-0 left-0 z-20 h-3 w-3 cursor-ne-resize rounded-full bg-orange-500/80 shadow-lg transition-transform hover:scale-125"
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+                            const startW = item.width;
+                            const startH = item.height;
+                            const startXPos = item.x;
+                            
+                            const handleResize = (moveE: MouseEvent) => {
+                              const dx = moveE.clientX - startX;
+                              const dy = moveE.clientY - startY;
+                              const newW = Math.max(100, startW - dx);
+                              const newH = Math.max(100, startH + dy);
+                              const newX = startXPos + (startW - newW);
+                              onItemsChangeWithHistory(
+                                items.map((it) =>
+                                  it.id === item.id
+                                    ? { ...it, width: newW, height: newH, x: newX }
+                                    : it,
+                                ),
+                              );
+                            };
+                            
+                            const stopResize = () => {
+                              window.removeEventListener("mousemove", handleResize);
+                              window.removeEventListener("mouseup", stopResize);
+                            };
+                            
+                            window.addEventListener("mousemove", handleResize);
+                            window.addEventListener("mouseup", stopResize);
+                          }}
+                          title="左下角调整大小"
+                        />
+                        <div
+                          className="absolute bottom-0 right-0 z-20 h-3 w-3 cursor-nwse-resize rounded-full bg-orange-500/80 shadow-lg transition-transform hover:scale-125"
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+                            const startW = item.width;
+                            const startH = item.height;
+                            
+                            const handleResize = (moveE: MouseEvent) => {
+                              const dx = moveE.clientX - startX;
+                              const dy = moveE.clientY - startY;
+                              const newW = Math.max(100, startW + dx);
+                              const newH = Math.max(100, startH + dy);
+                              onItemsChangeWithHistory(
+                                items.map((it) =>
+                                  it.id === item.id
+                                    ? { ...it, width: newW, height: newH }
+                                    : it,
+                                ),
+                              );
+                            };
+                            
+                            const stopResize = () => {
+                              window.removeEventListener("mousemove", handleResize);
+                              window.removeEventListener("mouseup", stopResize);
+                            };
+                            
+                            window.addEventListener("mousemove", handleResize);
+                            window.addEventListener("mouseup", stopResize);
+                          }}
+                          title="右下角调整大小"
+                        />
+                      </>
                     )}
                     {focusClickActive &&
                     focusClickRequest &&
