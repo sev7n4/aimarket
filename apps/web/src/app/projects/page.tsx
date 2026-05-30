@@ -2,16 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { LayoutGrid, Plus, Rows3 } from "lucide-react";
-import { AppLeftRail } from "@/components/app-left-rail";
-import { SessionTitleActions } from "@/components/session-title-actions";
+import { Plus, Rows3 } from "lucide-react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { SessionTitleActions } from "@/components/session-title-actions";
+import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { listSessions } from "@/lib/api-client";
 import { getActiveWorkspaceId } from "@/lib/active-workspace";
-import { WorkspaceSwitcher } from "@/components/workspace-switcher";
-import { SESSION_KIND_LABEL, type SessionKind } from "@/lib/session-kind";
-import { buildStudioUrl, studioUrlForSession } from "@/lib/studio-navigation";
+import { studioUrlForSession } from "@/lib/studio-navigation";
 import { useAuth } from "@/lib/auth-context";
 import type { ImageSession } from "@/lib/types";
 
@@ -21,28 +19,21 @@ const modeLabel: Record<string, string> = {
   ecommerce: "电商套图",
 };
 
-type FilterKind = "all" | SessionKind;
-
-const tabs: { id: FilterKind; label: string }[] = [
-  { id: "all", label: "全部" },
-  { id: "canvas", label: "画布" },
-  { id: "project", label: "项目" },
-];
-
 export default function ProjectsPage() {
   const { user, loading } = useAuth();
   const [sessions, setSessions] = useState<ImageSession[]>([]);
-  const [filter, setFilter] = useState<FilterKind>("all");
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
 
-  const loadSessions = useCallback(() => {
+  const loadSessions = useCallback(async () => {
     if (!user) return;
-    const kind = filter === "all" ? undefined : filter;
     const wsId = workspaceId ?? getActiveWorkspaceId() ?? undefined;
-    listSessions(50, kind, wsId)
-      .then(setSessions)
-      .catch(() => setSessions([]));
-  }, [user, filter, workspaceId]);
+    try {
+      const data = await listSessions(50, undefined, wsId);
+      setSessions(data);
+    } catch {
+      setSessions([]);
+    }
+  }, [user, workspaceId]);
 
   useEffect(() => {
     if (!user) return;
@@ -51,59 +42,29 @@ export default function ProjectsPage() {
   }, [user]);
 
   useEffect(() => {
-    loadSessions();
+    void loadSessions();
   }, [loadSessions]);
 
   return (
-    <div className="min-h-dvh md:pl-14">
-      <AppLeftRail />
+    <div className="min-h-dvh">
       <SiteHeader />
       <main className="mx-auto max-w-4xl px-4 py-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold">项目库</h1>
-          <div className="flex gap-2">
-            <Link
-              href={buildStudioUrl("canvas")}
-              className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-2 text-sm text-zinc-300 hover:bg-white/5"
-            >
-              <Plus className="size-4" />
-              新建画布
-            </Link>
-            <Link
-              href={buildStudioUrl("project")}
-              className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-orange-500 to-purple-600 px-4 py-2 text-sm font-medium text-white"
-            >
-              <LayoutGrid className="size-4" />
-              新建项目
-            </Link>
-          </div>
+          <h1 className="text-2xl font-bold text-white">项目库</h1>
+          <Link
+            href="/studio?kind=canvas&title=新建画布"
+            className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-orange-500 to-orange-400 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-orange-500/25 transition hover:from-orange-600 hover:to-orange-500"
+          >
+            <Plus className="size-4" />
+            新建画布
+          </Link>
         </div>
-        <p className="mt-1 text-sm text-zinc-500">
-          画布用于单轮探索；项目是可交付单元（Session → 精修 → 导出）
-        </p>
 
         {user ? (
           <div className="mt-4 max-w-xs">
             <WorkspaceSwitcher onWorkspaceChange={setWorkspaceId} />
           </div>
         ) : null}
-
-        <div className="mt-6 flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setFilter(tab.id)}
-              className={`rounded-lg px-4 py-2 text-sm transition ${
-                filter === tab.id
-                  ? "bg-white/10 text-white"
-                  : "text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
 
         {!loading && !user ? (
           <p className="mt-12 text-center text-zinc-500">
@@ -134,20 +95,6 @@ export default function ProjectsPage() {
                   })}
                   className="block p-4"
                 >
-                  <div className="mb-1 flex items-center gap-2">
-                    <span
-                      className={`rounded px-1.5 py-0.5 text-[10px] ${
-                        s.kind === "project"
-                          ? "bg-purple-500/20 text-purple-200"
-                          : "bg-zinc-700/50 text-zinc-400"
-                      }`}
-                    >
-                      {SESSION_KIND_LABEL[s.kind === "project" ? "project" : "canvas"]}
-                    </span>
-                    {s.mode === "ecommerce" ? (
-                      <span className="text-[10px] text-orange-400/80">套图</span>
-                    ) : null}
-                  </div>
                   <SessionTitleActions
                     sessionId={s.id}
                     title={s.title}
@@ -172,9 +119,7 @@ export default function ProjectsPage() {
             ))}
             {user && sessions.length === 0 ? (
               <li className="col-span-full py-12 text-center text-zinc-500">
-                {filter === "all"
-                  ? "暂无记录，点击上方按钮开始创作"
-                  : `暂无${SESSION_KIND_LABEL[filter]}，点击新建`}
+                暂无画布，点击上方按钮开始创作
               </li>
             ) : null}
           </ul>
