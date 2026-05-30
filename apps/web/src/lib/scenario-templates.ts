@@ -35,7 +35,16 @@ export interface ScenarioTemplate {
 }
 
 function cover(seed: string, w = 480, h = 640) {
-  return `https://picsum.photos/seed/aimarket-scenario-${seed}/${w}/${h}`;
+  const covers: Record<string, string> = {
+    "apparel-tryon": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=520&h=700&fit=crop",
+    "apparel-white": "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=520&h=520&fit=crop",
+    "apparel-street": "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=520&h=700&fit=crop",
+    "apparel-selling": "https://images.unsplash.com/photo-1445205170230-053b83016050?w=520&h=700&fit=crop",
+    "apparel-colorways": "https://images.unsplash.com/photo-1489987707025-5b9d4a9bbd2b?w=520&h=520&fit=crop",
+    "apparel-detail": "https://images.unsplash.com/photo-1558171813-4c088753af8f?w=520&h=700&fit=crop",
+    "apparel-video": "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=520&h=700&fit=crop",
+  };
+  return covers[seed] ?? `https://picsum.photos/seed/aimarket-scenario-${seed}/${w}/${h}`;
 }
 
 export const SCENARIO_CATEGORIES: ScenarioCategory[] = [
@@ -66,7 +75,7 @@ export const APPAREL_SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     title: "模特换衣主图",
     subtitle: "上传平铺图 + 模特图，自动换衣输出主图",
     prompt:
-      "上传服装平铺图与模特图，保持模特姿态不变，将服装自然穿戴到模特身上，保留真实褶皱与面料质感，输出电商主图风格。",
+      "时尚模特穿搭摄影，模特身着服装，自然姿态，专业摄影光感，高质感电商主图风格，背景简洁高级，突出服装版型与面料质感。",
     tools: ["Agent 串联", "局部重绘", "细节增强"],
     coverUrl: cover("apparel-tryon", 520, 700),
     aspectRatio: "3:4",
@@ -79,7 +88,7 @@ export const APPAREL_SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     title: "白底标准图",
     subtitle: "上传服装图，自动抠图并输出平台合规白底",
     prompt:
-      "将服装主体抠出并置于纯白背景，边缘干净，颜色还原准确，符合平台主图规范。",
+      "服装产品白底摄影图，纯白背景，服装主体居中，边缘干净清晰，颜色还原准确，符合电商平台主图规范，专业商业摄影质感。",
     tools: ["抠图", "擦除", "超分"],
     coverUrl: cover("apparel-white", 520, 520),
     aspectRatio: "1:1",
@@ -92,7 +101,7 @@ export const APPAREL_SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     title: "场景种草图",
     subtitle: "都市通勤 / 街拍场景，突出上身效果",
     prompt:
-      "将服装生成都市通勤场景穿搭图，自然光，人物姿态轻松，突出版型与上身效果。",
+      "都市街拍时尚穿搭图，模特在城市街道场景中，自然光，轻松姿态，突出版型与上身效果，适合种草营销的高质感街拍风格。",
     tools: ["套图生成", "扩图", "场景重跑"],
     coverUrl: cover("apparel-street", 520, 700),
     aspectRatio: "3:4",
@@ -105,7 +114,7 @@ export const APPAREL_SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     title: "卖点信息图",
     subtitle: "面料 / 版型 / 工艺三段式卖点海报",
     prompt:
-      "生成服装卖点海报，突出面料、版型、透气性，留出文字区，信息层级清晰。",
+      "服装卖点营销海报，时尚摄影风格，突出面料质感、版型设计、工艺细节，留出文字信息区，信息层级清晰，适合电商详情页展示。",
     tools: ["套图生成", "文本工具", "卖点重跑"],
     coverUrl: cover("apparel-selling", 520, 700),
     aspectRatio: "3:4",
@@ -118,7 +127,7 @@ export const APPAREL_SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     title: "多色多款展示图",
     subtitle: "一键生成 SKU 多色 / 多花型展示",
     prompt:
-      "同一服装生成 3-5 个颜色或花型版本，保持款式结构一致，适合 SKU 展示。",
+      "服装多色展示图，同一款式展示 3-5 个不同颜色版本，保持款式结构完全一致，专业产品摄影风格，适合 SKU 多色展示与选款。",
     tools: ["Agent 串联", "局部重绘", "拼图融合"],
     coverUrl: cover("apparel-colorways", 520, 520),
     aspectRatio: "1:1",
@@ -131,7 +140,7 @@ export const APPAREL_SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     title: "细节特写图",
     subtitle: "领口 / 走线 / 面料纹理商业摄影感",
     prompt:
-      "输出服装细节特写，突出领口、袖口、走线与面料纹理，商业摄影光感。",
+      "服装细节特写摄影，突出领口、袖口、走线与面料纹理，专业商业摄影光感，高清晰度展示工艺细节，适合详情页卖点展示。",
     tools: ["扩图", "细节增强", "超分"],
     coverUrl: cover("apparel-detail", 520, 700),
     aspectRatio: "3:4",
@@ -144,7 +153,7 @@ export const APPAREL_SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     title: "短视频封面套图",
     subtitle: "为短视频准备统一风格的主图 / 封面",
     prompt:
-      "基于服装主图与场景图生成短视频封面级套图，风格统一，适合投放和详情页。",
+      "时尚短视频封面风格套图，模特身着服装，动态姿态，视觉冲击力强，风格统一，适合短视频投放与详情页主图展示。",
     tools: ["套图生成", "主图重跑", "宣传短视频"],
     coverUrl: cover("apparel-video", 520, 700),
     aspectRatio: "3:4",
