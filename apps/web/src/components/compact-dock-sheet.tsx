@@ -13,6 +13,8 @@ interface CompactDockSheetProps {
   trigger: ReactNode;
   children: ReactNode;
   desktopWidthClass?: string;
+  placement?: "above" | "below";
+  maxHeight?: string;
 }
 
 export function CompactDockSheet({
@@ -22,10 +24,12 @@ export function CompactDockSheet({
   trigger,
   children,
   desktopWidthClass = "w-56",
+  placement = "above",
+  maxHeight = "min(320px,50vh)",
 }: CompactDockSheetProps) {
   const mobile = useIsMobile(MOBILE_BREAKPOINT);
   const anchorRef = useRef<HTMLDivElement>(null);
-  const [desktopPos, setDesktopPos] = useState<{ left: number; bottom: number } | null>(null);
+  const [desktopPos, setDesktopPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -53,11 +57,18 @@ export function CompactDockSheet({
       return;
     }
     const rect = anchorRef.current.getBoundingClientRect();
-    setDesktopPos({
-      left: rect.left,
-      bottom: window.innerHeight - rect.top + 8,
-    });
-  }, [open, mobile]);
+    if (placement === "below") {
+      setDesktopPos({
+        left: rect.left,
+        top: rect.bottom + 8,
+      });
+    } else {
+      setDesktopPos({
+        left: rect.left,
+        bottom: window.innerHeight - rect.top + 8,
+      });
+    }
+  }, [open, mobile, placement]);
 
   const panel = open ? (
     mobile ? (
@@ -79,6 +90,7 @@ export function CompactDockSheet({
               type="button"
               onClick={onClose}
               className="rounded-lg p-1.5 text-zinc-500 hover:bg-white/10"
+              aria-label="关闭"
             >
               <X className="size-4" />
             </button>
@@ -88,8 +100,14 @@ export function CompactDockSheet({
       </div>
     ) : desktopPos ? (
       <div
-        style={{ position: "fixed", left: desktopPos.left, bottom: desktopPos.bottom, zIndex: 120 }}
-        className={`${desktopWidthClass} max-h-[min(320px,50vh)] overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1a1a] p-3 shadow-xl`}
+        style={{
+          position: "fixed",
+          left: desktopPos.left,
+          ...(placement === "below" ? { top: desktopPos.top } : { bottom: desktopPos.bottom }),
+          maxHeight: maxHeight,
+          zIndex: 120,
+        }}
+        className={`${desktopWidthClass} overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1a1a] p-3 shadow-xl`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-zinc-500">

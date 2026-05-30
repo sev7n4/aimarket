@@ -499,7 +499,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
           mobile ? "flex-col" : "flex-row"
         }`}
       >
-        {!mobile ? (
+        {!mobile && internalLayoutMode === "free" ? (
           <CanvasToolbar
             active={tool}
             gridOn={gridOn}

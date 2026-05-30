@@ -265,6 +265,9 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
 
                   {onAiToolAction && batchItems.length > 0 && (
                     <div className="mt-3 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+                      <span className="flex shrink-0 items-center pl-1 pr-1 text-base leading-none" aria-label="工具">
+                        🎩
+                      </span>
                       {aiTools.map((aiTool) => {
                         const needsRefine = [
                           "expand",
@@ -294,14 +297,14 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                                 }
                               }
                             }}
-                            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition ${
+                            className={`group flex shrink-0 items-center justify-center rounded-full border px-2.5 py-1.5 transition ${
                               needsRefine
-                                ? "bg-orange-500/10 text-orange-300 hover:bg-orange-500/20 hover:text-orange-100"
-                                : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+                                ? "border-orange-400/20 bg-orange-500/10 text-orange-300 hover:border-orange-300/50 hover:bg-orange-500/20"
+                                : "border-white/10 bg-white/[0.04] text-zinc-300 hover:border-orange-400/40 hover:bg-orange-500/15 hover:text-orange-100"
                             }`}
+                            title={aiTool.label}
                           >
                             {aiTool.icon}
-                            <span>{aiTool.label}</span>
                           </button>
                         );
                       })}

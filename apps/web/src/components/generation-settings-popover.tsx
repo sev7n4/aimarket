@@ -74,6 +74,8 @@ export function GenerationSettingsPopover({
       onClose={() => setOpen(false)}
       title="图片质量"
       desktopWidthClass="w-[min(100vw-2rem,22rem)]"
+      placement="below"
+      maxHeight="min(320px,45vh)"
       trigger={
         <button
           type="button"

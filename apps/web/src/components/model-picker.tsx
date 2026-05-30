@@ -63,6 +63,8 @@ export function ModelPicker({ models, value, onChange }: ModelPickerProps) {
       onClose={() => setOpen(false)}
       title="模型"
       desktopWidthClass="w-64"
+      placement="below"
+      maxHeight="min(280px,40vh)"
       trigger={
         <button
           type="button"

@@ -1179,6 +1179,16 @@ export function StudioWorkspace({
           )}
         </aside>
 
+        {!workspaceCollapsed && (
+          <div
+            onMouseDown={handleWorkspaceDragStart}
+            className={`hidden lg:flex w-1 cursor-col-resize items-center justify-center transition-colors hover:bg-orange-500/30 ${
+              isDraggingWorkspace ? "bg-orange-500/50" : "bg-transparent"
+            }`}
+            title="拖拽调整工作区宽度"
+          />
+        )}
+
         <div className="relative flex min-h-0 min-w-0 flex-1 gap-2 p-2 lg:gap-3">
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-1 md:gap-1.5">
             {readOnly ? (
@@ -1186,6 +1196,10 @@ export function StudioWorkspace({
                 只读：他人会话，仅创建者或管理员可编辑与生成
               </p>
             ) : null}
+            <div className="mb-1 flex items-center gap-2">
+              <p className="text-sm font-medium text-zinc-100">画布</p>
+              <p className="text-[10px] text-zinc-600">生成结果与历史批次</p>
+            </div>
             <DesignCanvas
               ref={canvasRef}
               items={canvasItems}
@@ -1277,16 +1291,6 @@ export function StudioWorkspace({
               statusChip={<ProviderStatusChip />}
             />
           </div>
-
-          {!workspaceCollapsed && (
-            <div
-              onMouseDown={handleWorkspaceDragStart}
-              className={`hidden lg:flex w-1 cursor-col-resize items-center justify-center transition-colors hover:bg-orange-500/30 ${
-                isDraggingWorkspace ? "bg-orange-500/50" : "bg-transparent"
-              }`}
-              title="拖拽调整工作区宽度"
-            />
-          )}
 
           {!workstationCollapsed && (
             <div

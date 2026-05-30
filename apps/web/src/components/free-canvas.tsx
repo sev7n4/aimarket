@@ -451,6 +451,27 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
     }
 
     function endPointer() {
+      if (dragRef.current) {
+        const item = items.find((i) => i.id === dragRef.current?.id);
+        if (item && containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect();
+          const itemLeft = item.x * zoom + pan.x;
+          const itemRight = (item.x + item.width) * zoom + pan.x;
+          const itemTop = item.y * zoom + pan.y;
+          const itemBottom = (item.y + item.height) * zoom + pan.y;
+          
+          const margin = 50;
+          const isOutside = 
+            itemRight < margin ||
+            itemLeft > rect.width - margin ||
+            itemBottom < margin ||
+            itemTop > rect.height - margin;
+          
+          if (isOutside) {
+            fitToItem(item.id);
+          }
+        }
+      }
       panStart.current = null;
       dragRef.current = null;
       if (longPressRef.current) {
@@ -899,24 +920,6 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                           : "border border-white/10 hover:border-white/25"
                     } ${pulseId === item.id ? "animate-pulse ring-4 ring-orange-400/50" : ""}`}
                   >
-                    {isRefineMode && selectedId === item.id && (
-                      <div className="absolute inset-x-0 bottom-0 z-30 flex items-center justify-center gap-2 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-2 py-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {aiTools.map((aiTool) => (
-                          <button
-                            key={aiTool.id}
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onAiToolAction?.(item, aiTool.action);
-                            }}
-                            className="flex items-center justify-center rounded-full bg-orange-500/20 p-2 text-orange-300 transition hover:bg-orange-500/30 hover:text-orange-100"
-                            title={aiTool.label}
-                          >
-                            {aiTool.icon}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                     {item.label ? (
                       <span className="block bg-black/60 px-2 py-0.5 text-[10px] text-zinc-400">
                         {item.label}
@@ -944,7 +947,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                     {isRefineMode && selectedId === item.id && (
                       <>
                         <div
-                          className="absolute top-0 left-0 z-20 h-3 w-3 cursor-se-resize rounded-full bg-orange-500/80 shadow-lg transition-transform hover:scale-125"
+                          className="absolute top-0 left-0 z-20 h-2 w-2 cursor-se-resize border border-white/50 bg-white/30 transition-transform hover:scale-150"
                           onPointerDown={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
@@ -982,7 +985,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                           title="左上角调整大小"
                         />
                         <div
-                          className="absolute top-0 right-0 z-20 h-3 w-3 cursor-sw-resize rounded-full bg-orange-500/80 shadow-lg transition-transform hover:scale-125"
+                          className="absolute top-0 right-0 z-20 h-2 w-2 cursor-sw-resize border border-white/50 bg-white/30 transition-transform hover:scale-150"
                           onPointerDown={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
@@ -1018,7 +1021,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                           title="右上角调整大小"
                         />
                         <div
-                          className="absolute bottom-0 left-0 z-20 h-3 w-3 cursor-ne-resize rounded-full bg-orange-500/80 shadow-lg transition-transform hover:scale-125"
+                          className="absolute bottom-0 left-0 z-20 h-2 w-2 cursor-ne-resize border border-white/50 bg-white/30 transition-transform hover:scale-150"
                           onPointerDown={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
@@ -1054,7 +1057,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                           title="左下角调整大小"
                         />
                         <div
-                          className="absolute bottom-0 right-0 z-20 h-3 w-3 cursor-nwse-resize rounded-full bg-orange-500/80 shadow-lg transition-transform hover:scale-125"
+                          className="absolute bottom-0 right-0 z-20 h-2 w-2 cursor-nwse-resize border border-white/50 bg-white/30 transition-transform hover:scale-150"
                           onPointerDown={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
