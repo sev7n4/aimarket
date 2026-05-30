@@ -36,13 +36,13 @@ export interface ScenarioTemplate {
 
 function cover(seed: string, w = 480, h = 640) {
   const covers: Record<string, string> = {
-    "apparel-tryon": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=520&h=700&fit=crop",
-    "apparel-white": "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=520&h=520&fit=crop",
-    "apparel-street": "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=520&h=700&fit=crop",
-    "apparel-selling": "https://images.unsplash.com/photo-1445205170230-053b83016050?w=520&h=700&fit=crop",
-    "apparel-colorways": "https://images.unsplash.com/photo-1489987707025-5b9d4a9bbd2b?w=520&h=520&fit=crop",
-    "apparel-detail": "https://images.unsplash.com/photo-1558171813-4c088753af8f?w=520&h=700&fit=crop",
-    "apparel-video": "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=520&h=700&fit=crop",
+    "apparel-tryon": "https://images.unsplash.com/photo-1496737619791-405af7d1a28f?w=520&h=700&fit=crop&q=90",
+    "apparel-white": "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=520&h=520&fit=crop&q=90",
+    "apparel-street": "https://images.unsplash.com/photo-1539109136881-3be0616acf37?w=520&h=700&fit=crop&q=90",
+    "apparel-selling": "https://images.unsplash.com/photo-1558618666-fcd2548563b7?w=520&h=700&fit=crop&q=90",
+    "apparel-colorways": "https://images.unsplash.com/photo-1558171813-4c088753af8f?w=520&h=520&fit=crop&q=90",
+    "apparel-detail": "https://images.unsplash.com/photo-1620799140188-3b2a02c9e4f8?w=520&h=700&fit=crop&q=90",
+    "apparel-video": "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=520&h=700&fit=crop&q=90",
   };
   return covers[seed] ?? `https://picsum.photos/seed/aimarket-scenario-${seed}/${w}/${h}`;
 }
