@@ -18,7 +18,7 @@ export function StartCreateDialog({ open, onClose }: StartCreateDialogProps) {
   }
 
   function handleFromInspiration() {
-    router.push("/inspiration");
+    router.push("/#inspiration");
     onClose();
   }
 

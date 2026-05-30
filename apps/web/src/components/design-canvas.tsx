@@ -552,6 +552,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             </div>
           ) : null}
 
+          {selectionToolbar}
+
           {internalLayoutMode === "scroll" ? (
             <ScrollCanvas
               ref={scrollCanvasRef}
@@ -575,7 +577,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               focusClickActive={focusClickActive}
               focusItem={focusItem ?? null}
               onFocusImageClick={onFocusImageClick}
-              selectionToolbar={selectionToolbar}
             />
           ) : (
             <FreeCanvas
