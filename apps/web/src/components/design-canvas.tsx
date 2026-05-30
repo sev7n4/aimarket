@@ -224,6 +224,21 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       (itemId: string) => {
         const item = items.find((i) => i.id === itemId);
         if (!item) return;
+        
+        if (item.x === 0 && item.y === 0) {
+          const canvasWidth = 800;
+          const canvasHeight = 600;
+          const newItem = {
+            ...item,
+            x: canvasWidth / 2 - item.width / 2,
+            y: canvasHeight / 2 - item.height / 2,
+          };
+          const newItems = items.map((i) =>
+            i.id === itemId ? newItem : i,
+          );
+          onItemsChange(newItems);
+        }
+        
         setRefineItemId(itemId);
         setInternalLayoutMode("free");
         onLayoutModeChange?.("free");
@@ -232,7 +247,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
           freeCanvasRef.current?.fitToItem(itemId);
         }, 100);
       },
-      [items, onLayoutModeChange, onSelect],
+      [items, onItemsChange, onLayoutModeChange, onSelect],
     );
 
     const exitRefineMode = useCallback(() => {
