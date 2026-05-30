@@ -25,10 +25,7 @@ export function ImageActionBar({
     >
       <button
         type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onPreview();
-        }}
+        onClick={(e) => { e.stopPropagation(); onPreview(); }}
         className="flex size-7 items-center justify-center rounded-md bg-white/10 text-zinc-300 transition hover:bg-white/20 hover:text-white"
         title="预览"
       >
@@ -36,10 +33,7 @@ export function ImageActionBar({
       </button>
       <button
         type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRefine();
-        }}
+        onClick={(e) => { e.stopPropagation(); onRefine(); }}
         className="flex size-7 items-center justify-center rounded-md bg-orange-500/20 text-orange-300 transition hover:bg-orange-500/30 hover:text-orange-100"
         title="精修"
       >
@@ -47,10 +41,7 @@ export function ImageActionBar({
       </button>
       <button
         type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRerun();
-        }}
+        onClick={(e) => { e.stopPropagation(); onRerun(); }}
         className="flex size-7 items-center justify-center rounded-md bg-blue-500/20 text-blue-300 transition hover:bg-blue-500/30 hover:text-blue-100"
         title="重跑"
       >
@@ -58,10 +49,7 @@ export function ImageActionBar({
       </button>
       <button
         type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
+        onClick={(e) => { e.stopPropagation(); onDelete(); }}
         className="flex size-7 items-center justify-center rounded-md bg-red-500/20 text-red-300 transition hover:bg-red-500/30 hover:text-red-100"
         title="删除"
       >
