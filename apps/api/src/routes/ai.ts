@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 import type { AuthVariables } from "../middleware/auth.js";
 import { ALL_MODELS, getModel } from "../lib/models.js";
 import { getProviderStatus } from "../providers/registry.js";
@@ -18,6 +19,7 @@ import {
 import { toPublicAssetUrl } from "../lib/public-url.js";
 import { db } from "../db/index.js";
 import { AppError } from "../lib/errors.js";
+import { assertSessionWrite } from "../lib/session-access.js";
 import { assertPromptAllowed } from "../lib/content-moderation.js";
 import { rateLimit } from "../lib/rate-limit.js";
 import { toolContextSchema } from "../lib/tools.js";
