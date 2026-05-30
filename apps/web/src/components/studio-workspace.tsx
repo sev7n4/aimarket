@@ -327,7 +327,7 @@ export function StudioWorkspace({
         sessionId,
         pendingInspiration.referenceUrls,
       );
-      setCanvasItems((prev) => (prev.length > 0 ? prev : refItems));
+      setCanvasItems((prev) => [...prev, ...refItems]);
       if (refItems[0]) setSelectedCanvasId(refItems[0].id);
     }
     const [list, toolList] = await Promise.all([
@@ -730,6 +730,15 @@ export function StudioWorkspace({
     }
   }
 
+  function handleUploadToCanvas(assetId: string, url: string) {
+    if (readOnly) return;
+    setCanvasItems((prev) => [
+      ...prev,
+      createUploadCanvasItem(url, prev, { assetId, role: "product" }),
+    ]);
+    hapticLight();
+  }
+
   function handleDeleteCanvasItem() {
     if (readOnly || !selectedCanvasId) return;
     setCanvasItems((prev) => prev.filter((i) => i.id !== selectedCanvasId));
@@ -938,6 +947,7 @@ export function StudioWorkspace({
         readOnly={readOnly}
         canvasItems={canvasItems}
         mentionItemRequest={mentionItemRequest}
+        onUploadToCanvas={handleUploadToCanvas}
         focusEdit={
           focusEditSession
             ? {

@@ -169,6 +169,8 @@ interface CreationPanelProps {
     points: FocusPointChip[];
     item: CanvasItem;
   }) => Promise<string>;
+  /** 上传完成后把图片添加到画布素材区 */
+  onUploadToCanvas?: (assetId: string, url: string) => void;
 }
 
 export function CreationPanel({
@@ -201,6 +203,7 @@ export function CreationPanel({
   mentionItemRequest = null,
   focusEdit = null,
   onFocusEditSubmit,
+  onUploadToCanvas,
 }: CreationPanelProps) {
   const shouldNavigateOnSubmit =
     navigateOnSubmit ?? (!sessionId && !homeDirectSubmit);
@@ -421,6 +424,9 @@ export function CreationPanel({
         setUploadPreviews((prev) =>
           [...prev, { id: asset.id, url }].slice(0, 4),
         );
+        if (onUploadToCanvas) {
+          onUploadToCanvas(asset.id, url);
+        }
       }
     } finally {
       setUploading(false);
