@@ -835,30 +835,6 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
           />
         ) : null}
 
-        {focusClickActive && focusClickRequest ? (
-          <div
-            data-testid="focus-edit-canvas-banner"
-            className="absolute left-2 right-2 top-2 z-30 rounded-2xl border border-purple-400/30 bg-black/80 p-2 text-xs text-zinc-200 shadow-xl backdrop-blur"
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-purple-200">
-                {focusClickRequest.toolName}：点击图片添加焦点
-              </span>
-              <button
-                type="button"
-                onClick={onFocusClickCancel}
-                className="ml-auto rounded-full bg-white/10 px-2.5 py-1 text-zinc-300"
-              >
-                完成点选
-              </button>
-            </div>
-            <p className="mt-1 text-[10px] text-zinc-500">
-              在工作站输入短 prompt
-              后提交；最多 10 个焦点，连续点击间隔约 1.5 秒。
-            </p>
-          </div>
-        ) : null}
-
         {brushActive && brushRequest ? (
           <div className="absolute left-2 right-2 top-2 z-30 rounded-2xl border border-purple-400/30 bg-black/80 p-2 text-xs text-zinc-200 shadow-xl backdrop-blur">
             <div className="flex flex-wrap items-center gap-2">
