@@ -19,6 +19,7 @@ export function CountPicker({ value, onChange, max = 4 }: CountPickerProps) {
       onClose={() => setOpen(false)}
       title="输出张数"
       desktopWidthClass="w-40"
+      matchTriggerWidth
       placement="below"
       maxHeight="min(200px,30vh)"
       trigger={

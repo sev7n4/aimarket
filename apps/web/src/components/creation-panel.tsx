@@ -419,13 +419,19 @@ export function CreationPanel({
       const batch = Array.from(files).slice(0, remaining);
       for (const file of batch) {
         const asset = await uploadAsset(file, sessionId);
-        const url = URL.createObjectURL(file);
         setAssetIds((prev) => [...prev, asset.id].slice(0, 4));
         setUploadPreviews((prev) =>
-          [...prev, { id: asset.id, url }].slice(0, 4),
+          [...prev, { id: asset.id, url: asset.url }].slice(0, 4),
         );
         if (onUploadToCanvas) {
-          onUploadToCanvas(asset.id, url);
+          onUploadToCanvas(asset.id, asset.url);
+        }
+      }
+      const extraFiles = Array.from(files).slice(remaining);
+      for (const file of extraFiles) {
+        const asset = await uploadAsset(file, sessionId);
+        if (onUploadToCanvas) {
+          onUploadToCanvas(asset.id, asset.url);
         }
       }
     } finally {
