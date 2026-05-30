@@ -779,7 +779,7 @@ export function StudioWorkspace({
         jobId = id;
         void trackEvent("generation_rerun", {
           job_id: jobId,
-          model_id: params.modelId,
+          model_id: params.modelId ?? "unknown",
         });
       }
       

@@ -98,6 +98,7 @@ interface CreationPanelProps {
   compact?: boolean;
   variant?: "default" | "dock";
   mode?: CreationMode;
+  onModeChange?: (mode: CreationMode) => void;
   showModeTabs?: boolean;
   sessionId?: string;
   onAuthRequired?: () => void;
