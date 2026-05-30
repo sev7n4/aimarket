@@ -1,21 +1,21 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import { BRAND_SLOGAN } from "@/lib/brand";
-import { buildStudioUrl } from "@/lib/studio-navigation";
+import { StartCreateDialog } from "@/components/start-create-dialog";
 import { useAuth } from "@/lib/auth-context";
 
 export function HeroSection() {
-  const router = useRouter();
   const { user } = useAuth();
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   function handleStartCreate() {
     if (!user) {
       document.dispatchEvent(new Event("aimarket:open-login"));
       return;
     }
-    router.push(buildStudioUrl("canvas"));
+    setDialogOpen(true);
   }
 
   return (
@@ -39,6 +39,7 @@ export function HeroSection() {
           </button>
         </div>
       </div>
+      <StartCreateDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
     </section>
   );
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SessionTitleActions } from "@/components/session-title-actions";
-import { ChevronLeft, ChevronRight, FolderKanban, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { LoginDialog } from "@/components/login-dialog";
 import {
   DesignCanvas,
@@ -16,7 +16,7 @@ import { StudioToolGrid } from "@/components/studio-tool-grid";
 import { StudioHeader } from "@/components/studio-header";
 import { ProviderStatusChip } from "@/components/provider-status-banner";
 import { ContentReportDialog } from "@/components/content-report-dialog";
-import { WorkspaceSwitcher } from "@/components/workspace-switcher";
+import { SimpleWorkspaceSelector } from "@/components/simple-workspace-selector";
 import { StudioMobileCoach } from "@/components/studio-mobile-coach";
 import { getActiveWorkspaceId } from "@/lib/active-workspace";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
@@ -61,7 +61,7 @@ import { consumePendingInspiration } from "@/lib/pending-inspiration";
 import { resolveToolResolution } from "@/lib/tool-resolution";
 import { hapticLight } from "@/lib/haptics";
 import { canvasEmptyHintMobile } from "@/lib/mobile-labels";
-import { SESSION_KIND_LABEL, type SessionKind } from "@/lib/session-kind";
+import { type SessionKind } from "@/lib/session-kind";
 import { buildStudioUrl, studioUrlForSession } from "@/lib/studio-navigation";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 
@@ -1108,10 +1108,7 @@ export function StudioWorkspace({
           ) : (
             <>
               <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-zinc-100">工作区</p>
-                  <p className="text-[10px] text-zinc-600">最近创作与空间</p>
-                </div>
+                <p className="text-sm font-medium text-zinc-100">工作区</p>
                 <Link
                   href={buildStudioUrl("canvas")}
                   onClick={() => setSidebarOpen(false)}
@@ -1123,24 +1120,8 @@ export function StudioWorkspace({
               </div>
 
               {user ? (
-                <WorkspaceSwitcher onWorkspaceChange={handleWorkspaceChange} />
+                <SimpleWorkspaceSelector onWorkspaceChange={handleWorkspaceChange} />
               ) : null}
-
-              <Link
-                href={user ? "/projects" : "/studio"}
-                onClick={(e) => {
-                  if (!user) {
-                    e.preventDefault();
-                    setLoginOpen(true);
-                    return;
-                  }
-                  setSidebarOpen(false);
-                }}
-                className="mt-3 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-zinc-300 transition hover:bg-white/5 hover:text-white"
-              >
-                <FolderKanban className="size-4 text-zinc-500" />
-                项目库
-              </Link>
 
               <p className="mb-2 mt-4 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
                 最近创作
@@ -1176,10 +1157,7 @@ export function StudioWorkspace({
                         onDeleted={() => handleSessionDeleted(s.id)}
                       />
                       <div className="text-[10px] text-zinc-600">
-                        {SESSION_KIND_LABEL[
-                          s.kind === "project" ? "project" : "canvas"
-                        ]}{" "}
-                        · {s.mode}
+                        画布 · {s.mode}
                       </div>
                     </Link>
                   </li>
