@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { LoginDialog } from "@/components/login-dialog";
 import { fetchInspirationDetail, fetchInspirationPage, trackEvent } from "@/lib/api-client";
@@ -64,20 +64,59 @@ const DESKTOP_FAN: FanGeometry = {
   maxY: 56,
 };
 
-/** 移动端 / PAD：7 张重叠扇形（几何同 PC，响应式缩放） */
+/** 移动端 / PAD：7 张重叠扇形 */
 const MOBILE_FAN = {
   minCardW: 104,
   maxCardW: 176,
+  touchMinCardW: 112,
+  touchMaxCardW: 184,
   cardWRatio: 0.36,
+  touchCardWRatio: 0.44,
   edgePad: 10,
-  /** spread / cardW，与 PC(112/200≈0.56) 同量级，保证重叠感 */
   spreadMinRatio: 0.44,
   spreadMaxRatio: 0.58,
+  touchSpreadMaxRatio: 0.52,
 };
 
-const MOBILE_SWIPE_THRESHOLD_PX = 36;
+const MOBILE_DRAG_SNAP = 0.22;
+const MOBILE_FLING_VELOCITY = 0.35;
 const MOBILE_FIT_SAFETY_PX = 8;
 const MOBILE_MIN_LAYOUT_SCALE = 0.72;
+
+function hapticSelectionTick() {
+  try {
+    navigator.vibrate?.(8);
+  } catch {
+    /* noop */
+  }
+}
+
+function mobileCardVisual(
+  index: number,
+  visualFocus: number,
+  touchFocus: boolean,
+  activeIndex: number,
+) {
+  const dist = Math.abs(index - visualFocus);
+  const isCenter = dist < 0.42;
+
+  if (touchFocus) {
+    return {
+      isCenter,
+      scale: isCenter ? 1.12 : Math.max(0.78, 0.9 - dist * 0.055),
+      opacity: isCenter ? 1 : Math.max(0.48, 0.9 - dist * 0.15),
+      zIndex: isCenter ? 42 : Math.round(24 - dist * 5),
+    };
+  }
+
+  const isActive = activeIndex === index;
+  return {
+    isCenter: isActive,
+    scale: isActive ? 1.08 : 0.94,
+    opacity: 1,
+    zIndex: isActive ? 35 : 28 - Math.abs(index - FAN_CENTER_INDEX),
+  };
+}
 
 type MobileLayout = {
   spread: number;
@@ -102,17 +141,31 @@ function outerCardHalf(cardW: number, cardH: number, deg: number, cardScale = 0.
 }
 
 /** 7 张固定扇形：先算 stage 再 scale 纳入视口 */
-function fitMobileLayout(viewportW: number): MobileLayout {
-  const { edgePad, minCardW, maxCardW, cardWRatio, spreadMinRatio, spreadMaxRatio } =
-    MOBILE_FAN;
+function fitMobileLayout(viewportW: number, touchFocus: boolean): MobileLayout {
+  const {
+    edgePad,
+    minCardW,
+    maxCardW,
+    touchMinCardW,
+    touchMaxCardW,
+    cardWRatio,
+    touchCardWRatio,
+    spreadMinRatio,
+    spreadMaxRatio,
+    touchSpreadMaxRatio,
+  } = MOBILE_FAN;
   const usable = viewportW - edgePad * 2;
   const safety = MOBILE_FIT_SAFETY_PX;
   const maxRel = FAN_CENTER_INDEX;
   const maxAngle = Math.max(...DESKTOP_FAN.offsets.map((d) => Math.abs(d)));
+  const ratioCap = touchFocus ? touchSpreadMaxRatio : spreadMaxRatio;
+  const wMin = touchFocus ? touchMinCardW : minCardW;
+  const wMax = touchFocus ? touchMaxCardW : maxCardW;
+  const wRatio = touchFocus ? touchCardWRatio : cardWRatio;
 
   for (
-    let cardW = Math.round(Math.min(maxCardW, Math.max(minCardW, viewportW * cardWRatio)));
-    cardW >= minCardW;
+    let cardW = Math.round(Math.min(wMax, Math.max(wMin, viewportW * wRatio)));
+    cardW >= wMin;
     cardW -= 2
   ) {
     const cardH = Math.round(cardW * 1.5);
@@ -124,14 +177,14 @@ function fitMobileLayout(viewportW: number): MobileLayout {
     const maxSpread = (usable / 2 - outerHalf - safety) / maxRel;
     const spread = Math.max(
       Math.floor(cardW * spreadMinRatio),
-      Math.min(Math.floor(maxSpread), Math.floor(cardW * spreadMaxRatio)),
+      Math.min(Math.floor(maxSpread), Math.floor(cardW * ratioCap)),
     );
     const stageW = fanMobileStageWidth(spread, cardW, bleed);
     const stageH = cardH + maxYOffset;
     const rotatedSpan = 2 * maxRel * spread + 2 * outerHalf;
     const layoutW = Math.max(stageW, rotatedSpan);
     const scale = Math.min(1, usable / layoutW);
-    if (scale >= MOBILE_MIN_LAYOUT_SCALE || cardW <= minCardW + 2) {
+    if (scale >= MOBILE_MIN_LAYOUT_SCALE || cardW <= wMin + 2) {
       return {
         spread,
         scale,
@@ -147,7 +200,7 @@ function fitMobileLayout(viewportW: number): MobileLayout {
     }
   }
 
-  const cardW = minCardW;
+  const cardW = wMin;
   const cardH = Math.round(cardW * 1.5);
   const ratio = cardW / FAN_CARD_W;
   const bleed = Math.round(DESKTOP_FAN.bleed * ratio);
@@ -157,7 +210,7 @@ function fitMobileLayout(viewportW: number): MobileLayout {
   const maxSpread = (usable / 2 - outerHalf - safety) / maxRel;
   const spread = Math.max(
     Math.floor(cardW * spreadMinRatio),
-    Math.min(Math.floor(maxSpread), Math.floor(cardW * spreadMaxRatio)),
+    Math.min(Math.floor(maxSpread), Math.floor(cardW * ratioCap)),
   );
   const stageW = fanMobileStageWidth(spread, cardW, bleed);
   const stageH = cardH + maxYOffset;
@@ -240,26 +293,45 @@ export function HomeScenarioFan({
     yOffsets: DESKTOP_FAN.yOffsets,
   });
   const [isFanDragging, setIsFanDragging] = useState(false);
+  const [dragProgress, setDragProgress] = useState(0);
   const [activeCategory, setActiveCategory] =
     useState<ApparelFanCategoryId>("apparel");
   const [activeIndex, setActiveIndex] = useState<number>(FAN_CENTER_INDEX);
   const mobileFanViewportRef = useRef<HTMLDivElement>(null);
   const fanDragStartXRef = useRef(0);
+  const fanDragBaseRef = useRef(0);
+  const fanDragLastXRef = useRef(0);
+  const fanDragLastTimeRef = useRef(0);
+  const dragProgressRef = useRef(0);
   const didFanDragRef = useRef(false);
   const isFanDraggingRef = useRef(false);
   const activeIndexRef = useRef(FAN_CENTER_INDEX);
+  const mobileLayoutRef = useRef(mobileLayout);
   const [preferHover, setPreferHover] = useState(false);
+  const [preferTouch, setPreferTouch] = useState(true);
+
+  useEffect(() => {
+    mobileLayoutRef.current = mobileLayout;
+  }, [mobileLayout]);
 
   useEffect(() => {
     activeIndexRef.current = activeIndex;
   }, [activeIndex]);
 
   useEffect(() => {
-    const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
-    const apply = () => setPreferHover(mq.matches);
+    const hoverMq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const touchMq = window.matchMedia("(pointer: coarse)");
+    const apply = () => {
+      setPreferHover(hoverMq.matches);
+      setPreferTouch(touchMq.matches);
+    };
     apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
+    hoverMq.addEventListener("change", apply);
+    touchMq.addEventListener("change", apply);
+    return () => {
+      hoverMq.removeEventListener("change", apply);
+      touchMq.removeEventListener("change", apply);
+    };
   }, []);
 
   const expanded = controlledExpanded ?? internalExpanded;
@@ -306,7 +378,11 @@ export function HomeScenarioFan({
     const next = Math.min(FAN_CENTER_INDEX, Math.max(0, templates.length - 1));
     activeIndexRef.current = next;
     setActiveIndex(next);
+    dragProgressRef.current = 0;
+    setDragProgress(0);
   }, [activeCategory, templates.length]);
+
+  const touchFocusLayout = preferTouch && !preferHover;
 
   useLayoutEffect(() => {
     if (!expanded) return;
@@ -314,22 +390,45 @@ export function HomeScenarioFan({
     if (!el) return;
     const updateLayout = () => {
       const w = el.clientWidth;
-      if (w > 0) setMobileLayout(fitMobileLayout(w));
+      if (w > 0) setMobileLayout(fitMobileLayout(w, touchFocusLayout));
     };
     updateLayout();
     const ro = new ResizeObserver(updateLayout);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [expanded]);
+  }, [expanded, touchFocusLayout]);
 
   const goToMobileIndex = useCallback(
     (index: number) => {
       const clamped = Math.max(0, Math.min(templates.length - 1, index));
-      if (clamped === activeIndexRef.current) return;
+      if (clamped === activeIndexRef.current && dragProgressRef.current === 0) return;
+      if (clamped !== activeIndexRef.current) hapticSelectionTick();
       activeIndexRef.current = clamped;
       setActiveIndex(clamped);
+      dragProgressRef.current = 0;
+      setDragProgress(0);
     },
     [templates.length],
+  );
+
+  const commitFanDrag = useCallback(
+    (progress: number, velocityX: number) => {
+      const el = mobileFanViewportRef.current;
+      const max = templates.length - 1;
+      let next = activeIndexRef.current;
+
+      if (Math.abs(velocityX) >= MOBILE_FLING_VELOCITY) {
+        next += velocityX < 0 ? 1 : -1;
+      } else if (Math.abs(progress) >= MOBILE_DRAG_SNAP) {
+        next += progress < 0 ? 1 : -1;
+      } else if (Math.abs(progress) > 0.08) {
+        next = Math.round(activeIndexRef.current + progress);
+      }
+
+      const clamped = Math.max(0, Math.min(max, next));
+      goToMobileIndex(clamped);
+    },
+    [goToMobileIndex, templates.length],
   );
 
   const focusFromPointer = useCallback(
@@ -348,16 +447,33 @@ export function HomeScenarioFan({
       if (e.button !== 0) return;
       didFanDragRef.current = false;
       fanDragStartXRef.current = e.clientX;
+      fanDragBaseRef.current = dragProgressRef.current;
+      fanDragLastXRef.current = e.clientX;
+      fanDragLastTimeRef.current = e.timeStamp;
       isFanDraggingRef.current = true;
       setIsFanDragging(true);
       e.currentTarget.setPointerCapture(e.pointerId);
       const target = e.currentTarget;
+      const layout = mobileLayoutRef.current;
 
       const handleMove = (ev: PointerEvent) => {
         if (!isFanDraggingRef.current) return;
-        if (Math.abs(ev.clientX - fanDragStartXRef.current) > 6) {
-          didFanDragRef.current = true;
-        }
+        const delta = ev.clientX - fanDragStartXRef.current;
+        if (Math.abs(delta) > 6) didFanDragRef.current = true;
+
+        const el = mobileFanViewportRef.current;
+        const viewportW = el?.clientWidth ?? 390;
+        const step = Math.max(layout.spread * 1.15, viewportW / 6.5);
+        let next = fanDragBaseRef.current + delta / step;
+        const idx = activeIndexRef.current;
+        const max = templates.length - 1;
+        if (idx <= 0 && next > 0) next *= 0.22;
+        if (idx >= max && next < 0) next *= 0.22;
+        const clamped = Math.max(-1.15, Math.min(1.15, next));
+        dragProgressRef.current = clamped;
+        setDragProgress(clamped);
+        fanDragLastXRef.current = ev.clientX;
+        fanDragLastTimeRef.current = ev.timeStamp;
       };
 
       const handleUp = (ev: PointerEvent) => {
@@ -366,14 +482,9 @@ export function HomeScenarioFan({
         target.removeEventListener("pointermove", handleMove);
         target.removeEventListener("pointerup", handleUp);
         target.removeEventListener("pointercancel", handleUp);
-        const delta = ev.clientX - fanDragStartXRef.current;
-        if (Math.abs(delta) >= MOBILE_SWIPE_THRESHOLD_PX) {
-          if (delta < 0) {
-            goToMobileIndex(activeIndexRef.current + 1);
-          } else {
-            goToMobileIndex(activeIndexRef.current - 1);
-          }
-        }
+        const dt = Math.max(1, ev.timeStamp - fanDragLastTimeRef.current);
+        const velocityX = (ev.clientX - fanDragLastXRef.current) / dt;
+        commitFanDrag(dragProgressRef.current, velocityX);
         isFanDraggingRef.current = false;
         setIsFanDragging(false);
       };
@@ -382,8 +493,12 @@ export function HomeScenarioFan({
       target.addEventListener("pointerup", handleUp);
       target.addEventListener("pointercancel", handleUp);
     },
-    [goToMobileIndex],
+    [commitFanDrag, templates.length],
   );
+
+  const stopSwipeBubble = useCallback((e: React.PointerEvent) => {
+    e.stopPropagation();
+  }, []);
 
   const handleViewportPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -444,15 +559,24 @@ export function HomeScenarioFan({
 
   const mobileFanStageHeight = Math.ceil(mobileLayout.stageH * mobileLayout.scale);
 
+  /** 跟手高亮：左滑 progress<0 → 焦点移向下一张 */
+  const visualFocus =
+    activeIndex - (isFanDragging || dragProgress !== 0 ? dragProgress : 0);
+
   const mobileFanCards = useMemo(
     () =>
       templates.map((template, index) => {
         const { spread, cardW, cardH, offsets, yOffsets } = mobileLayout;
         const rotate = offsets[index] ?? 0;
         const translateY = yOffsets[index] ?? 0;
-        const isActive = activeIndex === index;
-        const zIndex = isActive ? 35 : 28 - Math.abs(index - FAN_CENTER_INDEX);
+        const visual = mobileCardVisual(
+          index,
+          visualFocus,
+          touchFocusLayout,
+          activeIndex,
+        );
         const isPicking = pickingId === template.id;
+        const touchPickOnly = touchFocusLayout && !visual.isCenter;
 
         return (
           <button
@@ -465,22 +589,26 @@ export function HomeScenarioFan({
             onFocus={() => goToMobileIndex(index)}
             onClick={() => {
               if (didFanDragRef.current) return;
+              if (touchPickOnly) return;
               void handlePick(template);
             }}
-            className={`group absolute bottom-0 left-1/2 origin-bottom overflow-hidden rounded-2xl border bg-[#111] transition-[transform,box-shadow,border-color] duration-300 ease-out disabled:opacity-60 ${
-              isActive
+            className={`group absolute bottom-0 left-1/2 origin-bottom overflow-hidden rounded-2xl border bg-[#111] disabled:opacity-60 ${
+              visual.isCenter
                 ? "border-orange-400/60 shadow-[0_12px_32px_rgba(0,0,0,0.45)]"
                 : "border-white/10 shadow-[0_8px_22px_rgba(0,0,0,0.35)]"
-            }`}
+            } ${isFanDragging ? "" : "transition-[transform,opacity,box-shadow,border-color] duration-300 ease-out"}`}
             style={{
               marginLeft: -cardW / 2,
               width: cardW,
               height: cardH,
-              transform: `translate(${(index - FAN_CENTER_INDEX) * spread}px, ${translateY}px) rotate(${rotate}deg) scale(${isActive ? 1.08 : 0.94})`,
-              zIndex,
+              transform: `translate(${(index - FAN_CENTER_INDEX) * spread}px, ${translateY}px) rotate(${rotate}deg) scale(${visual.scale})`,
+              zIndex: visual.zIndex,
+              opacity: visual.opacity,
+              pointerEvents: touchPickOnly ? "none" : "auto",
             }}
             aria-label={`选择场景：${template.title}`}
-            aria-current={isActive ? "true" : undefined}
+            aria-current={visual.isCenter ? "true" : undefined}
+            tabIndex={touchPickOnly ? -1 : 0}
           >
             <Image
               src={template.coverUrl}
@@ -506,14 +634,14 @@ export function HomeScenarioFan({
               </p>
               <p
                 className={`mt-0.5 line-clamp-2 text-[8px] text-zinc-300/90 sm:text-[9px] ${
-                  isActive ? "opacity-100" : "opacity-0"
+                  visual.isCenter ? "opacity-100" : "opacity-0"
                 } transition-opacity duration-200`}
               >
                 {template.subtitle}
               </p>
               <div
                 className={`mt-1 inline-flex items-center gap-1 text-[8px] font-medium text-orange-300 sm:text-[9px] ${
-                  isActive ? "opacity-100" : "opacity-0"
+                  visual.isCenter ? "opacity-100" : "opacity-0"
                 } transition-opacity duration-200`}
               >
                 做同款 <ArrowRight className="size-2.5" />
@@ -524,12 +652,16 @@ export function HomeScenarioFan({
       }),
     [
       activeIndex,
+      dragProgress,
       goToMobileIndex,
       handlePick,
+      isFanDragging,
       mobileLayout,
       pickingId,
       preferHover,
       templates,
+      touchFocusLayout,
+      visualFocus,
     ],
   );
 
@@ -719,21 +851,57 @@ export function HomeScenarioFan({
                 </div>
               </div>
 
-              <div className="mt-1 flex items-center justify-center gap-1.5 lg:hidden">
-                {templates.map((template, index) => (
-                  <button
-                    key={template.id}
-                    type="button"
-                    aria-label={`跳到第 ${index + 1} 张：${template.title}`}
-                    onClick={() => goToMobileIndex(index)}
-                    className={`h-1.5 rounded-full transition-all ${
-                      activeIndex === index
-                        ? "w-4 bg-orange-400"
-                        : "w-1.5 bg-zinc-600"
-                    }`}
-                  />
-                ))}
+              <div
+                className="mt-2 flex items-center gap-2 px-1 lg:hidden"
+                onPointerDown={handleFanPointerDown}
+                aria-label="切换灵感套图"
+              >
+                <button
+                  type="button"
+                  aria-label="上一张"
+                  disabled={activeIndex <= 0}
+                  onPointerDown={stopSwipeBubble}
+                  onClick={() => goToMobileIndex(activeIndex - 1)}
+                  className="flex size-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 text-zinc-200 transition enabled:active:scale-95 disabled:opacity-35"
+                >
+                  <ChevronLeft className="size-5" />
+                </button>
+
+                <div className="flex min-h-11 flex-1 items-center justify-center gap-2 px-1">
+                  {templates.map((template, index) => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      aria-label={`第 ${index + 1} 张：${template.title}`}
+                      aria-current={activeIndex === index ? "true" : undefined}
+                      onPointerDown={stopSwipeBubble}
+                      onClick={() => goToMobileIndex(index)}
+                      className={`rounded-full transition-all ${
+                        activeIndex === index
+                          ? "h-2.5 w-6 bg-orange-400"
+                          : "size-2.5 bg-zinc-600"
+                      }`}
+                    />
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  aria-label="下一张"
+                  disabled={activeIndex >= templates.length - 1}
+                  onPointerDown={stopSwipeBubble}
+                  onClick={() => goToMobileIndex(activeIndex + 1)}
+                  className="flex size-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 text-zinc-200 transition enabled:active:scale-95 disabled:opacity-35"
+                >
+                  <ChevronRight className="size-5" />
+                </button>
               </div>
+
+              {touchFocusLayout && templates[activeIndex] ? (
+                <p className="mt-1.5 truncate text-center text-[11px] font-medium text-zinc-200 lg:hidden">
+                  {templates[activeIndex].title}
+                </p>
+              ) : null}
 
               <div className="hidden lg:block lg:-mx-10 lg:overflow-visible lg:px-10 lg:pb-4">
                 <div className="relative mx-auto h-[380px] w-full">
@@ -749,7 +917,7 @@ export function HomeScenarioFan({
               <p className="mt-1.5 text-center text-[10px] text-zinc-500 lg:hidden">
                 {preferHover
                   ? "鼠标划过切换高亮 · 点击做同款"
-                  : "左右拨动切换高亮 · 轻触做同款"}
+                  : "左右滑动切换 · 点中心图做同款"}
               </p>
             </>
           )}
