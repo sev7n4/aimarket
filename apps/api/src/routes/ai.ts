@@ -143,10 +143,13 @@ ai.post("/generate", async (c) => {
     }
   }
 
-  let prompt = enrichPromptWithReferences(body.prompt, [
-    ...refUrls,
-    ...assetUrls,
-  ]);
+  const allReferenceUrls = [...refUrls, ...assetUrls];
+  let prompt = body.prompt;
+  
+  if (allReferenceUrls.length > 0) {
+    prompt = `${body.prompt}\n（参考了 ${allReferenceUrls.length} 张图片）`;
+  }
+  
   if (body.toolContext?.masks.length) {
     const maskHints = body.toolContext.masks
       .map((m, i) => {
@@ -182,6 +185,7 @@ ai.post("/generate", async (c) => {
     toolContext: body.toolContext,
     parentJobId: lineage.parentJobId,
     sourceOutputId: lineage.sourceOutputId,
+    referenceUrls: allReferenceUrls.length > 0 ? allReferenceUrls : undefined,
   });
 
   return c.json({

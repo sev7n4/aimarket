@@ -36,6 +36,7 @@ export interface CreateJobInput {
   slideLabels?: string[];
   parentJobId?: string | null;
   sourceOutputId?: string | null;
+  referenceUrls?: string[];
 }
 
 export function createGenerationJob(input: CreateJobInput) {
@@ -65,6 +66,14 @@ export function createGenerationJob(input: CreateJobInput) {
   const jobId = randomUUID();
   const userMessageId = randomUUID();
 
+  let effectiveToolContext: (Partial<ToolContext> & { referenceUrls?: string[] }) | undefined;
+  if (input.toolContext || input.referenceUrls?.length) {
+    effectiveToolContext = {
+      ...input.toolContext,
+      referenceUrls: input.referenceUrls,
+    };
+  }
+
   db.transaction(() => {
     db.prepare(
       "UPDATE users SET credits = credits - ? WHERE id = ? AND credits >= ?",
@@ -86,7 +95,7 @@ export function createGenerationJob(input: CreateJobInput) {
       input.aspectRatio ?? "1:1",
       pointsCost,
       input.toolType ?? null,
-      input.toolContext ? JSON.stringify(input.toolContext) : null,
+      effectiveToolContext ? JSON.stringify(effectiveToolContext) : null,
       input.parentJobId ?? null,
       input.sourceOutputId ?? null,
     );
@@ -188,9 +197,12 @@ export async function processGenerationJob({
 
     let urls: string[] = [];
     let toolContext: ToolContext | undefined;
+    let referenceUrls: string[] | undefined;
     if (job.tool_context) {
       try {
-        toolContext = JSON.parse(job.tool_context) as ToolContext;
+        const parsed = JSON.parse(job.tool_context) as ToolContext & { referenceUrls?: string[] };
+        toolContext = parsed;
+        referenceUrls = parsed.referenceUrls;
       } catch {
         toolContext = undefined;
       }
@@ -224,6 +236,7 @@ export async function processGenerationJob({
           count: 1,
           resolution: job.resolution,
           aspectRatio: job.aspect_ratio ?? "1:1",
+          referenceUrls,
         });
         const url = part.urls[0];
         imageProvider = part.provider;
@@ -260,6 +273,7 @@ export async function processGenerationJob({
         count: job.count,
         resolution: job.resolution,
         aspectRatio: job.aspect_ratio ?? "1:1",
+        referenceUrls,
       });
       urls = result.urls;
       imageProvider = result.provider;
