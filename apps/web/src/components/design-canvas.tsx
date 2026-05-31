@@ -16,7 +16,14 @@ import type {
   CanvasToolId,
   CanvasLayoutMode,
 } from "@/lib/canvas-tools";
-import { pickLatestBatchId } from "@/lib/canvas-tools";
+import {
+  canShowRefineCompare,
+  collectRefineChainItems,
+  isSingleOutputRefineResult,
+  pickLatestBatchId,
+  REFINE_SINGLE_OUTPUT_TOOL_IDS,
+} from "@/lib/canvas-tools";
+import { TOOL_DISPLAY_NAMES } from "@/lib/studio-tool-meta";
 import { CanvasToolbar } from "@/components/canvas-toolbar";
 import { CanvasContextMenu } from "@/components/canvas-context-menu";
 import { CanvasLightbox } from "@/components/canvas-lightbox";
@@ -27,7 +34,8 @@ import type { FreeCanvasHandle } from "@/components/free-canvas";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { hapticLight } from "@/lib/haptics";
 import { useIsMobile } from "@/hooks/use-is-mobile";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Columns2 } from "lucide-react";
+import type { StudioTool } from "@/lib/types";
 
 export interface DesignCanvasHandle {
   fitToItem: (itemId: string) => void;
@@ -40,6 +48,10 @@ export interface DesignCanvasHandle {
   canRedo: boolean;
   enterRefineMode: (itemId: string) => void;
   exitRefineMode: () => void;
+  isInRefineMode: () => boolean;
+  beginRefineJob: () => void;
+  completeRefineJob: (meta?: { toolName?: string }) => void;
+  cancelRefineJob: () => void;
 }
 
 interface DesignCanvasProps {
@@ -93,6 +105,12 @@ interface DesignCanvasProps {
   queueAhead?: number | null;
   /** 滚动画布内容区底部留白（Dock 浮层不占用画布背景高度） */
   scrollBottomInset?: string;
+  batchTools?: {
+    tools: StudioTool[];
+    pendingToolId?: string | null;
+    onRunTool: (tool: StudioTool, item: CanvasItem) => void;
+    onMentionItem?: (item: CanvasItem) => void;
+  };
 }
 
 export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
@@ -131,6 +149,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       jobElapsedMs,
       queueAhead,
       scrollBottomInset = "",
+      batchTools,
     },
     ref,
   ) {
@@ -151,6 +170,17 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     const [internalLayoutMode, setInternalLayoutMode] =
       useState<CanvasLayoutMode>(layoutMode);
     const [refineItemId, setRefineItemId] = useState<string | null>(null);
+    const [refineRootItemId, setRefineRootItemId] = useState<string | null>(
+      null,
+    );
+    const [refineJobPending, setRefineJobPending] = useState(false);
+    const [refineCompleteNotice, setRefineCompleteNotice] = useState<{
+      count: number;
+      toolName?: string;
+    } | null>(null);
+    const [compareMode, setCompareMode] = useState(false);
+    const refineChainBeforeRef = useRef<Set<string>>(new Set());
+    const refineJobMetaRef = useRef<{ toolName?: string } | null>(null);
     const mobile = useIsMobile(MOBILE_BREAKPOINT);
 
     const refineItem = refineItemId
@@ -233,7 +263,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       (itemId: string) => {
         const item = items.find((i) => i.id === itemId);
         if (!item) return;
-        
+
         if (item.x === 0 && item.y === 0) {
           const canvasWidth = 800;
           const canvasHeight = 600;
@@ -247,8 +277,11 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
           );
           onItemsChange(newItems);
         }
-        
+
+        setRefineRootItemId(itemId);
         setRefineItemId(itemId);
+        setRefineCompleteNotice(null);
+        setCompareMode(false);
         setInternalLayoutMode("free");
         onLayoutModeChange?.("free");
         onSelect(itemId);
@@ -260,22 +293,120 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     );
 
     const exitRefineMode = useCallback(() => {
-      const batchId = refineItem?.batchId;
+      const chain = refineRootItemId
+        ? collectRefineChainItems(items, refineRootItemId)
+        : [];
+      const latestDerivative = chain.filter((i) => i.id !== refineRootItemId).at(-1);
+      const scrollBatchId =
+        latestDerivative?.batchId ?? refineItem?.batchId ?? null;
+
       setRefineItemId(null);
+      setRefineRootItemId(null);
+      setRefineCompleteNotice(null);
+      setCompareMode(false);
+      setRefineJobPending(false);
+      refineJobMetaRef.current = null;
       setInternalLayoutMode("scroll");
       onLayoutModeChange?.("scroll");
-      if (batchId) {
+      if (scrollBatchId) {
         setTimeout(() => {
-          scrollCanvasRef.current?.scrollToBatch(batchId);
+          scrollCanvasRef.current?.scrollToBatch(scrollBatchId);
         }, 100);
       }
-    }, [refineItem, onLayoutModeChange]);
+    }, [items, refineRootItemId, refineItem, onLayoutModeChange]);
+
+    const selectRefineTarget = useCallback(
+      (itemId: string) => {
+        setRefineItemId(itemId);
+        onSelect(itemId);
+        setCompareMode(false);
+        hapticLight();
+        setTimeout(() => {
+          freeCanvasRef.current?.fitToItem(itemId);
+        }, 50);
+      },
+      [onSelect],
+    );
+
+    const beginRefineJob = useCallback(() => {
+      if (!refineRootItemId) return;
+      refineChainBeforeRef.current = new Set(
+        collectRefineChainItems(items, refineRootItemId).map((i) => i.id),
+      );
+    }, [items, refineRootItemId]);
+
+    const completeRefineJob = useCallback(
+      (meta?: { toolName?: string }) => {
+        refineJobMetaRef.current = meta ?? {};
+        setRefineJobPending(true);
+      },
+      [],
+    );
+
+    const cancelRefineJob = useCallback(() => {
+      setRefineJobPending(false);
+      refineJobMetaRef.current = null;
+    }, []);
+
+    useEffect(() => {
+      if (!refineJobPending || !refineRootItemId) return;
+
+      const chain = collectRefineChainItems(items, refineRootItemId);
+      const newItems = chain.filter(
+        (i) => !refineChainBeforeRef.current.has(i.id),
+      );
+      if (!newItems.length) return;
+
+      setRefineJobPending(false);
+
+      const sorted = [...newItems].sort((a, b) => {
+        const bi = a.batchIndex ?? 0;
+        const bj = b.batchIndex ?? 0;
+        if (bi !== bj) return bj - bi;
+        return (b.y ?? 0) - (a.y ?? 0);
+      });
+      const primary = sorted[0]!;
+
+      setRefineItemId(primary.id);
+      onSelect(primary.id);
+      pulseItem(primary.id);
+
+      const meta = refineJobMetaRef.current;
+      refineJobMetaRef.current = null;
+      const toolName = meta?.toolName;
+
+      setRefineCompleteNotice({
+        count: newItems.length,
+        toolName,
+      });
+
+      const singleOutput =
+        newItems.length === 1 &&
+        isSingleOutputRefineResult(items, primary) &&
+        (!toolName || REFINE_SINGLE_OUTPUT_TOOL_IDS.has(toolName));
+
+      if (
+        singleOutput &&
+        canShowRefineCompare(items, refineRootItemId, primary.id)
+      ) {
+        setCompareMode(true);
+      } else {
+        setCompareMode(false);
+      }
+
+      setTimeout(() => {
+        freeCanvasRef.current?.fitToItem(primary.id);
+      }, 100);
+    }, [items, refineJobPending, refineRootItemId, onSelect, pulseItem]);
 
     useEffect(() => {
       if (!refineItemId) return;
       const item = items.find((i) => i.id === refineItemId);
       if (!item) {
         setRefineItemId(null);
+        setRefineRootItemId(null);
+        setRefineCompleteNotice(null);
+        setCompareMode(false);
         setInternalLayoutMode("scroll");
         onLayoutModeChange?.("scroll");
       }
@@ -296,12 +427,31 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         canRedo,
         enterRefineMode,
         exitRefineMode,
+        isInRefineMode: () =>
+          Boolean(refineItemId && internalLayoutMode === "free"),
+        beginRefineJob,
+        completeRefineJob,
+        cancelRefineJob,
       }),
-      [pulseItem, undo, redo, canUndo, canRedo, enterRefineMode, exitRefineMode],
+      [
+        pulseItem,
+        undo,
+        redo,
+        canUndo,
+        canRedo,
+        enterRefineMode,
+        exitRefineMode,
+        refineItemId,
+        internalLayoutMode,
+        beginRefineJob,
+        completeRefineJob,
+        cancelRefineJob,
+      ],
     );
 
     useEffect(() => {
       if (!brushRequest) return;
+      setRefineRootItemId((root) => root ?? brushRequest.itemId);
       setRefineItemId(brushRequest.itemId);
       onSelect(brushRequest.itemId);
       if (internalLayoutMode !== "free") {
@@ -312,6 +462,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
 
     useEffect(() => {
       if (!focusClickRequest) return;
+      setRefineRootItemId((root) => root ?? focusClickRequest.itemId);
       setRefineItemId(focusClickRequest.itemId);
       onSelect(focusClickRequest.itemId);
       if (internalLayoutMode !== "free") {
@@ -486,6 +637,18 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
 
     const showFreeCanvas = isRefineMode;
 
+    const refineChain = useMemo(() => {
+      if (!refineRootItemId) return [];
+      return collectRefineChainItems(items, refineRootItemId);
+    }, [items, refineRootItemId]);
+
+    const comparePair = useMemo(() => {
+      if (!refineRootItemId || !refineItemId) return null;
+      return canShowRefineCompare(items, refineRootItemId, refineItemId);
+    }, [items, refineRootItemId, refineItemId]);
+
+    const compareAvailable = Boolean(comparePair);
+
     return (
       <div
         className={`flex min-h-0 min-w-0 flex-1 overflow-hidden bg-[#0d0d0d] ${
@@ -510,7 +673,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             </div>
           ) : null}
 
-          <div className="absolute left-2 top-2 z-20 flex items-center gap-1">
+          <div className="absolute left-2 top-2 z-20 flex flex-wrap items-center gap-2">
             {isRefineMode ? (
               <button
                 type="button"
@@ -519,6 +682,35 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               >
                 <ArrowLeft className="size-3.5" />
                 <span>返回纵向模式</span>
+              </button>
+            ) : null}
+            {isRefineMode && refineCompleteNotice ? (
+              <div
+                data-testid="refine-complete-notice"
+                className="max-w-md rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-100/90"
+              >
+                精修完成
+                {refineCompleteNotice.toolName
+                  ? ` · ${TOOL_DISPLAY_NAMES[refineCompleteNotice.toolName] ?? refineCompleteNotice.toolName}`
+                  : ""}
+                {refineCompleteNotice.count > 1
+                  ? ` · 共 ${refineCompleteNotice.count} 张，可在下方胶片切换`
+                  : " · 已切换到最新结果"}
+              </div>
+            ) : null}
+            {isRefineMode && compareAvailable ? (
+              <button
+                type="button"
+                data-testid="refine-compare-toggle"
+                onClick={() => setCompareMode((v) => !v)}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition ${
+                  compareMode
+                    ? "bg-orange-500/25 text-orange-200"
+                    : "bg-white/10 text-zinc-300 hover:bg-white/15"
+                }`}
+              >
+                <Columns2 className="size-3.5" />
+                <span>{compareMode ? "退出对比" : "Before/After"}</span>
               </button>
             ) : null}
           </div>
@@ -560,6 +752,12 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               pulseId={pulseId}
               isRefineMode
               refineItemId={refineItemId}
+              refineRootItemId={refineRootItemId}
+              refineChain={refineChain}
+              onRefineTargetSelect={selectRefineTarget}
+              compareMode={compareMode}
+              comparePair={comparePair}
+              onCompareModeChange={setCompareMode}
               onExitRefineMode={exitRefineMode}
               onSetLightbox={setLightbox}
               onSetContextMenu={setContextMenu}
@@ -597,7 +795,10 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               readOnly={readOnly}
               emptyHint={emptyHint}
               pulseId={pulseId}
+              onEnterRefineMode={enterRefineMode}
               onSetLightbox={setLightbox}
+              onDeleteSelected={onDeleteSelected}
+              onRerun={(item) => onRerun?.(item)}
               onJumpToParentBatch={onJumpToParentBatch}
               jobStreamStatus={jobStreamStatus}
               jobFailed={jobFailed}
@@ -611,14 +812,10 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               focusItem={focusItem ?? null}
               onFocusImageClick={onFocusImageClick}
               scrollBottomInset={scrollBottomInset}
+              batchTools={batchTools}
             />
           )}
 
-          {internalLayoutMode === "scroll" && selectionToolbar ? (
-            <div className="pointer-events-none absolute inset-0 z-20">
-              {selectionToolbar}
-            </div>
-          ) : null}
         </div>
 
         {contextMenu ? (

@@ -535,3 +535,103 @@ export function createReferenceCanvasItem(
   });
   return item;
 }
+
+/** 精修链：解析 sourceItemId（可能是 canvas id 或 output id） */
+export function resolveSourceCanvasItem(
+  items: CanvasItem[],
+  sourceItemId: string | undefined,
+): CanvasItem | undefined {
+  if (!sourceItemId) return undefined;
+  return items.find(
+    (i) => i.id === sourceItemId || i.outputId === sourceItemId,
+  );
+}
+
+/** 收集从精修根图衍生的全部画布项（含根图） */
+export function collectRefineChainItems(
+  items: CanvasItem[],
+  rootItemId: string,
+): CanvasItem[] {
+  const root = items.find((i) => i.id === rootItemId);
+  if (!root) return [];
+
+  const chainIds = new Set<string>([rootItemId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const item of items) {
+      if (chainIds.has(item.id)) continue;
+      const src = resolveSourceCanvasItem(items, item.sourceItemId);
+      if (src && chainIds.has(src.id)) {
+        chainIds.add(item.id);
+        changed = true;
+      }
+    }
+  }
+
+  return [...chainIds]
+    .map((id) => items.find((i) => i.id === id))
+    .filter((i): i is CanvasItem => Boolean(i))
+    .sort((a, b) => {
+      const bi = a.batchIndex ?? 0;
+      const bj = b.batchIndex ?? 0;
+      if (bi !== bj) return bi - bj;
+      return (a.label ?? a.id).localeCompare(b.label ?? b.id);
+    });
+}
+
+/** 精修链上最新衍生图（不含根图） */
+export function pickLatestChainDerivative(
+  items: CanvasItem[],
+  rootItemId: string,
+): CanvasItem | null {
+  const chain = collectRefineChainItems(items, rootItemId);
+  const derivatives = chain.filter((i) => i.id !== rootItemId);
+  if (!derivatives.length) return null;
+  return derivatives.reduce((best, item) => {
+    const idx = item.batchIndex ?? -1;
+    const bestIdx = best.batchIndex ?? -1;
+    if (idx > bestIdx) return item;
+    if (idx === bestIdx && (item.y ?? 0) > (best.y ?? 0)) return item;
+    return best;
+  });
+}
+
+/** 单输出精修工具（适合 Before/After 对比） */
+export const REFINE_SINGLE_OUTPUT_TOOL_IDS = new Set([
+  "inpaint",
+  "enhance",
+  "upscale",
+  "cutout",
+  "erase",
+  "expand",
+  "text",
+  "crop",
+  "focus-edit",
+]);
+
+export function isSingleOutputRefineResult(
+  items: CanvasItem[],
+  item: CanvasItem,
+): boolean {
+  const siblings = items.filter(
+    (i) =>
+      i.id !== item.id &&
+      i.batchId === item.batchId &&
+      i.sourceItemId === item.sourceItemId,
+  );
+  return siblings.length === 0;
+}
+
+export function canShowRefineCompare(
+  items: CanvasItem[],
+  rootItemId: string,
+  currentItemId: string,
+): { before: CanvasItem; after: CanvasItem } | null {
+  if (currentItemId === rootItemId) return null;
+  const after = items.find((i) => i.id === currentItemId);
+  if (!after || !isSingleOutputRefineResult(items, after)) return null;
+  const before = resolveSourceCanvasItem(items, after.sourceItemId);
+  if (!before) return null;
+  return { before, after };
+}
