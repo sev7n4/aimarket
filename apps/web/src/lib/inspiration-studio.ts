@@ -6,6 +6,13 @@ import {
   createReferenceCanvasItem,
   type CanvasItem,
 } from "@/lib/canvas-tools";
+import { storePendingInspiration } from "@/lib/pending-inspiration";
+import { storePendingAssets } from "@/lib/pending-assets";
+import { randomUUID } from "@/lib/uuid";
+
+type StudioRouter = {
+  push: (href: string) => void;
+};
 
 export interface InspirationVariable {
   key: string;
@@ -50,7 +57,7 @@ export function coerceInspirationAspect(value: string): AspectRatio {
 
 /** 灵感做同款统一进入电商套图 Project 工作流 */
 export function buildInspirationStudioUrl(
-  detail: InspirationDetail,
+  detail: Pick<InspirationDetail, "id" | "title" | "prompt">,
   sessionId: string,
 ): string {
   return buildStudioUrl("project", {
@@ -60,6 +67,53 @@ export function buildInspirationStudioUrl(
     prompt: detail.prompt,
     inspirationId: detail.id,
   });
+}
+
+export function buildPendingInspirationPayload(
+  detail: InspirationDetail,
+  variableValues: Record<string, string> = {},
+): Omit<StudioInspirationApply, "applyKey"> {
+  const referenceUrls = detail.referenceAssets.map((a) => a.url);
+  return {
+    id: detail.id,
+    title: detail.title,
+    prompt: detail.prompt,
+    promptTemplate: detail.promptTemplate,
+    variables: detail.variables?.map((v) => ({
+      ...v,
+      default: variableValues[v.key] ?? v.default,
+    })),
+    modelId: detail.modelId,
+    aspectRatio: coerceInspirationAspect(detail.aspectRatio),
+    resolution: detail.resolution,
+    referenceUrls,
+    variableValues,
+  };
+}
+
+/** 写入 sessionStorage 并跳转 Studio（扇形 / 画廊做同款共用） */
+export function applyInspirationToStudio(
+  detail: InspirationDetail,
+  router: StudioRouter,
+  opts?: { sessionId?: string; variableValues?: Record<string, string> },
+) {
+  const sessionId = opts?.sessionId ?? randomUUID();
+  const payload = buildPendingInspirationPayload(
+    detail,
+    opts?.variableValues,
+  );
+  storePendingInspiration(sessionId, payload);
+  if (payload.referenceUrls.length > 0) {
+    storePendingAssets(
+      sessionId,
+      payload.referenceUrls.map((url, i) => ({
+        id: `insp-ref-${i}`,
+        url,
+      })),
+    );
+  }
+  router.push(buildInspirationStudioUrl(detail, sessionId));
+  return sessionId;
 }
 
 /** 灵感参考图入库并生成画布 item（role=reference） */

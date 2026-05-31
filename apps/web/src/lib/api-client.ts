@@ -873,11 +873,15 @@ export async function fetchInspirationPage(opts?: {
   pageNum?: number;
   pageSize?: number;
   category?: string;
+  /** 首页扇形套图专用 */
+  fanSet?: "apparel";
 }) {
   const params = new URLSearchParams();
   if (opts?.pageNum) params.set("pageNum", String(opts.pageNum));
   if (opts?.pageSize) params.set("pageSize", String(opts.pageSize));
-  if (opts?.category && opts.category !== "全部") {
+  if (opts?.fanSet) {
+    params.set("fanSet", opts.fanSet);
+  } else if (opts?.category && opts.category !== "全部") {
     params.set("category", opts.category);
   }
   const q = params.toString();

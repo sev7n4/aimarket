@@ -176,11 +176,15 @@ export function listPublishedInspirations(opts: {
   pageNum: number;
   pageSize: number;
   category?: string;
+  /** 首页扇形套图：仅返回 id 以 apparel- 开头的服饰高频场景 */
+  fanSet?: "apparel";
 }) {
   const offset = (opts.pageNum - 1) * opts.pageSize;
   const params: (string | number)[] = [];
   let where = "WHERE status = 'published'";
-  if (opts.category && opts.category !== "全部") {
+  if (opts.fanSet === "apparel") {
+    where += " AND id LIKE 'apparel-%'";
+  } else if (opts.category && opts.category !== "全部") {
     where += " AND category = ?";
     params.push(opts.category);
   }
