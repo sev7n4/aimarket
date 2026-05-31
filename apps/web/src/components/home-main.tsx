@@ -27,12 +27,7 @@ export function HomeMain() {
         inspirationCoverUrl={lastPick?.coverUrl}
         inspirationOpen={fanExpanded}
       />
-      <div
-        className="shrink-0 lg:hidden"
-        style={{ height: "min(48vh, 340px)" }}
-        aria-hidden
-      />
-      <div id="inspiration">
+      <div id="inspiration" className="max-lg:mt-2 lg:mt-0">
         <InspirationGallery />
       </div>
     </>

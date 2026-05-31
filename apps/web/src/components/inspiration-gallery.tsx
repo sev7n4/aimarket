@@ -121,7 +121,7 @@ export function InspirationGallery() {
 
   return (
     <>
-      <section className="mx-auto max-w-6xl px-4 pb-20 pt-8">
+      <section className="mx-auto max-w-6xl px-4 pb-20 pt-6 max-lg:pt-4 lg:pt-8">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-semibold">
             灵感发现 <span aria-hidden>🔥</span>

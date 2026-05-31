@@ -9,7 +9,7 @@ import { HomePageTracker } from "@/components/home-page-tracker";
 
 export default function HomePage() {
   return (
-    <div className="min-h-dvh">
+    <div className="min-h-dvh max-lg:pb-[var(--home-mobile-dock-h)]">
       <HomePageTracker />
       <Suspense fallback={null}>
         <InviteCapture />
