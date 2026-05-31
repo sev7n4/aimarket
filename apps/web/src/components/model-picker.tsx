@@ -1,16 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ChevronDown, KeyRound, Sparkles } from "lucide-react";
-import Link from "next/link";
+import { useState } from "react";
+import { ChevronDown, Sparkles } from "lucide-react";
 import type { ImageModel } from "@/lib/types";
 import { CompactDockSheet } from "@/components/compact-dock-sheet";
-import {
-  hasByokConfigured,
-  loadByokKeys,
-  saveByokKeys,
-  type ByokKeys,
-} from "@/lib/byok-keys";
 
 export const AUTO_MODEL_ID = "auto";
 
@@ -22,20 +15,10 @@ interface ModelPickerProps {
 
 export function ModelPicker({ models, value, onChange }: ModelPickerProps) {
   const [open, setOpen] = useState(false);
-  const [byok, setByok] = useState<ByokKeys>({});
-  const [byokDraft, setByokDraft] = useState("");
-  const [useByok, setUseByok] = useState(false);
 
   const list = models.length
     ? models
     : [{ id: "omni-v2", name: "全能图片 V2", type: "image" } as ImageModel];
-
-  useEffect(() => {
-    const keys = loadByokKeys();
-    setByok(keys);
-    setByokDraft(keys.openai ?? "");
-    setUseByok(hasByokConfigured(keys));
-  }, [open]);
 
   const label =
     value === AUTO_MODEL_ID
@@ -45,13 +28,6 @@ export function ModelPicker({ models, value, onChange }: ModelPickerProps) {
   function pick(id: string) {
     onChange(id);
     setOpen(false);
-  }
-
-  function saveByok() {
-    const next = { ...byok, openai: byokDraft.trim() || undefined };
-    saveByokKeys(next);
-    setByok(next);
-    setUseByok(hasByokConfigured(next));
   }
 
   const imageModels = list.filter((m) => m.type === "image");
@@ -65,7 +41,7 @@ export function ModelPicker({ models, value, onChange }: ModelPickerProps) {
       desktopWidthClass="w-64"
       matchTriggerWidth
       placement="below"
-      maxHeight="min(280px,40vh)"
+      maxHeight="min(240px,36vh)"
       trigger={
         <button
           type="button"
@@ -92,7 +68,7 @@ export function ModelPicker({ models, value, onChange }: ModelPickerProps) {
       >
         <span className="font-medium">Auto</span>
         <span className="text-[10px] text-zinc-500">
-          根据提示词与任务自动选模型（对标 Cursor Agent）
+          根据提示词与任务自动选模型
         </span>
       </button>
 
@@ -150,48 +126,6 @@ export function ModelPicker({ models, value, onChange }: ModelPickerProps) {
           </ul>
         </>
       ) : null}
-
-      <div className="mt-3 border-t border-white/10 pt-3">
-        <div className="mb-2 flex items-center gap-1.5 text-xs text-zinc-400">
-          <KeyRound className="size-3.5" />
-          BYOK（自带 API Key）
-        </div>
-        <label className="flex items-center gap-2 text-[11px] text-zinc-500">
-          <input
-            type="checkbox"
-            checked={useByok}
-            onChange={(e) => setUseByok(e.target.checked)}
-            className="rounded border-white/20"
-          />
-          优先使用我配置的 Key（本地保存）
-        </label>
-        <input
-          type="password"
-          value={byokDraft}
-          onChange={(e) => setByokDraft(e.target.value)}
-          placeholder="OpenAI API Key（sk-…）"
-          className="mt-2 w-full rounded-lg border border-white/10 bg-black/40 px-2.5 py-1.5 text-xs outline-none focus:border-orange-500/40"
-        />
-        <div className="mt-2 flex gap-2">
-          <button
-            type="button"
-            onClick={saveByok}
-            className="rounded-lg bg-white/10 px-2.5 py-1 text-[11px] text-zinc-200 hover:bg-white/15"
-          >
-            保存 Key
-          </button>
-          <Link
-            href="/settings"
-            className="text-[11px] text-orange-400/90 hover:underline"
-            onClick={() => setOpen(false)}
-          >
-            账户设置
-          </Link>
-        </div>
-        <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-600">
-          服务端 BYOK 路由即将接入；当前 Key 仅保存在本机浏览器。
-        </p>
-      </div>
     </CompactDockSheet>
   );
 }

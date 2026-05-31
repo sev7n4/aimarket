@@ -17,6 +17,7 @@ import { streamSSE } from "hono/streaming";
 import { estimatePoints } from "../lib/pricing.js";
 import { createGenerationJob, getJob } from "../lib/jobs.js";
 import { suggestModel } from "../lib/router.js";
+import { userHasByokOpenAi } from "../lib/user-provider-config.js";
 import {
   enrichPromptWithReferences,
   resolveReferenceUrls,
@@ -55,10 +56,12 @@ ai.post("/suggestModel", async (c) => {
     })
     .parse(await c.req.json());
 
+  const userId = c.get("userId");
   const suggestion = suggestModel(
     body.mode,
     body.prompt,
     body.hasReferenceImages,
+    userId,
   );
   return c.json({ data: suggestion });
 });
@@ -151,6 +154,7 @@ ai.post("/generate", async (c) => {
     body.mode,
     body.prompt,
     Boolean(body.assetIds?.length || body.referenceOutputIds?.length),
+    userId,
   );
   const modelId =
     body.autoRoute || !body.modelId ? route.modelId : body.modelId;
@@ -213,6 +217,8 @@ ai.post("/generate", async (c) => {
     referenceUrls: allReferenceUrls.length > 0 ? allReferenceUrls : undefined,
   });
 
+  const byokActive = userHasByokOpenAi(userId);
+
   return c.json({
     data: {
       jobId,
@@ -220,7 +226,11 @@ ai.post("/generate", async (c) => {
       status: "queued",
       modelId,
       aspectRatio: body.aspectRatio,
-      routeReason: body.autoRoute ? route.reason : undefined,
+      routeReason:
+        body.autoRoute ? route.reason
+        : byokActive ? "已启用 BYOK，将优先使用您的 OpenAI Key"
+        : undefined,
+      byokActive,
     },
   });
 });

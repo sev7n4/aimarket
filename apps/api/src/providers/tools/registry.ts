@@ -34,7 +34,10 @@ export function effectiveToolId(toolId: string): string {
   return toolId === "focus-edit" ? "inpaint" : toolId;
 }
 
-export function resolveToolProvider(toolId: string): ImageToolProvider {
+export function resolveToolProvider(
+  toolId: string,
+  userId?: string,
+): ImageToolProvider {
   const mode = process.env.TOOL_IMAGE_PROVIDER ?? "auto";
   const resolved = effectiveToolId(toolId);
 
@@ -47,7 +50,7 @@ export function resolveToolProvider(toolId: string): ImageToolProvider {
   }
 
   for (const p of providers) {
-    if (p.supports(resolved)) return p;
+    if (p.supports(resolved, userId)) return p;
   }
 
   return mockToolProvider;
@@ -64,7 +67,7 @@ export async function runToolImages(
     : extractReferenceUrlsFromPrompt(params.prompt);
   const referenceUrls = toPublicAssetUrls(rawRefs);
 
-  const provider = resolveToolProvider(params.toolId);
+  const provider = resolveToolProvider(params.toolId, params.userId);
   const resolvedToolId = effectiveToolId(params.toolId);
   const result = await provider.run({
     ...params,

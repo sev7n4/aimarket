@@ -28,6 +28,7 @@ export async function generateImages(
 ): Promise<GenerateResult & { modelName?: string }> {
   const provider = resolveProvider(params.modelId, "generate", {
     hasReferenceImages: Boolean(params.referenceUrls?.length),
+    userId: params.userId,
   });
   const result = await provider.generate(params);
   const urls = await persistOutputUrls(result.urls);
@@ -38,7 +39,9 @@ export async function generateImages(
 export async function editImage(
   params: EditParams,
 ): Promise<GenerateResult & { modelName?: string }> {
-  const provider = resolveProvider(params.modelId, "edit");
+  const provider = resolveProvider(params.modelId, "edit", {
+    userId: params.userId,
+  });
   if (!provider.edit) {
     throw new AppError(
       400,
@@ -55,7 +58,9 @@ export async function editImage(
 export async function variationImage(
   params: VariationParams,
 ): Promise<GenerateResult & { modelName?: string }> {
-  const provider = resolveProvider(params.modelId, "variation");
+  const provider = resolveProvider(params.modelId, "variation", {
+    userId: params.userId,
+  });
   if (!provider.variation) {
     throw new AppError(
       400,

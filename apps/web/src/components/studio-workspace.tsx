@@ -22,6 +22,7 @@ import {
   type ToolConfirmRequest,
 } from "@/components/tool-confirm-dialog";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
+import { StudioWorkspaceFooter } from "@/components/studio-workspace-footer";
 import { WorkspaceProvider } from "@/lib/workspace-context";
 import { StudioMobileCoach } from "@/components/studio-mobile-coach";
 import { getActiveWorkspaceId } from "@/lib/active-workspace";
@@ -1179,11 +1180,17 @@ export function StudioWorkspace({
           </button>
 
           {workspaceCollapsed ? (
-            <div className="hidden flex-1 items-center justify-center [writing-mode:vertical-rl] lg:flex">
-              <span className="text-[11px] font-medium tracking-[0.3em] text-zinc-500">
-                工作区
-              </span>
-            </div>
+            <>
+              <div className="hidden flex-1 items-center justify-center [writing-mode:vertical-rl] lg:flex">
+                <span className="text-[11px] font-medium tracking-[0.3em] text-zinc-500">
+                  工作区
+                </span>
+              </div>
+              <StudioWorkspaceFooter
+                collapsed
+                onLogin={() => setLoginOpen(true)}
+              />
+            </>
           ) : (
             <>
               <div className="mb-3 flex items-center justify-between">
@@ -1213,7 +1220,7 @@ export function StudioWorkspace({
                   查看全部
                 </Link>
               </div>
-              <ul className="mt-2 flex min-h-0 flex-col gap-0.5 overflow-y-auto">
+              <ul className="mt-2 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
                 {sessions.slice(0, 3).map((s) => (
                   <li key={s.id} className="group">
                     <Link
@@ -1250,6 +1257,7 @@ export function StudioWorkspace({
                   </li>
                 ))}
               </ul>
+              <StudioWorkspaceFooter onLogin={() => setLoginOpen(true)} />
             </>
           )}
         </aside>

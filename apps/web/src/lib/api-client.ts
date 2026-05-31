@@ -158,6 +158,37 @@ export async function fetchPoints() {
   return res.data.credits;
 }
 
+export interface UserProviderConfig {
+  useByok: boolean;
+  openai: {
+    configured: boolean;
+    keyHint: string | null;
+    baseUrl: string | null;
+  };
+  server?: {
+    openaiConfigured: boolean;
+    imageProviderMode: string;
+  };
+}
+
+export async function fetchUserProviderConfig() {
+  const res = await request<{ data: UserProviderConfig }>(
+    "/api/v1/user/providerConfig",
+  );
+  return res.data;
+}
+
+export async function saveUserProviderConfig(body: {
+  useByok?: boolean;
+  openai?: { apiKey?: string | null; baseUrl?: string | null };
+}) {
+  const res = await request<{ data: UserProviderConfig }>(
+    "/api/v1/user/providerConfig",
+    { method: "PUT", body: JSON.stringify(body) },
+  );
+  return res.data;
+}
+
 export interface EnsureSessionSourceInspiration {
   id: string;
   title: string;
@@ -368,6 +399,7 @@ export async function submitGeneration(body: {
       status: string;
       modelId?: string;
       routeReason?: string;
+      byokActive?: boolean;
     };
   }>("/api/v1/ai/generate", {
     method: "POST",
@@ -473,21 +505,7 @@ export async function exportSession(sessionId: string) {
 
 export async function fetchProviderStatus() {
   const res = await request<{
-    data: {
-      mode: string;
-      openaiConfigured: boolean;
-      aliyunWanConfigured: boolean;
-      seedreamConfigured: boolean;
-      activeProvider: string;
-      usingMock?: boolean;
-      hint?: string;
-      openaiBaseUrl?: string;
-      openaiImageModel?: string;
-      aliyunWanBaseUrl?: string;
-      aliyunWanModel?: string;
-      seedreamBaseUrl?: string;
-      seedreamModel?: string;
-    };
+    data: import("./provider-status-types").ProviderStatusPayload;
   }>("/api/v1/ai/providerStatus");
   return res.data;
 }

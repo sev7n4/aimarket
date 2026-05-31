@@ -744,6 +744,7 @@ export function CreationPanel({
         });
         jobId = res.jobId;
         if (res.routeReason) setRouteHint(res.routeReason);
+        else if (res.byokActive) setRouteHint("BYOK 已启用 · 将使用您的 OpenAI Key");
         if (res.modelId && useAuto) setModelId(res.modelId);
       }
       setPrompt("");

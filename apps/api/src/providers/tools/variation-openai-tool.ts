@@ -3,6 +3,7 @@
  * auto / openai 模式下，有 OPENAI_API_KEY 时优先于 Seedream 模拟变体。
  */
 import { variationImage } from "../registry.js";
+import { userHasByokOpenAi } from "../../lib/user-provider-config.js";
 import type { ImageToolProvider, ToolRunParams, ToolRunResult } from "./types.js";
 
 function resolveMode(): "openai" | "mock" | "auto" | "http" | "seedream" {
@@ -29,16 +30,23 @@ async function resolveImagePayload(url: string): Promise<string> {
   return `data:${mime};base64,${buf.toString("base64")}`;
 }
 
+function openAiAvailable(userId?: string): boolean {
+  return (
+    Boolean(process.env.OPENAI_API_KEY?.trim()) ||
+    Boolean(userId && userHasByokOpenAi(userId))
+  );
+}
+
 export const variationOpenaiToolProvider: ImageToolProvider = {
   name: "tool-openai-variation",
-  supports(toolId: string) {
+  supports(toolId: string, userId?: string) {
     if (toolId !== "variation") return false;
     const mode = resolveMode();
     if (mode === "mock" || mode === "http" || mode === "seedream") return false;
     if (mode === "openai") {
-      return Boolean(process.env.OPENAI_API_KEY?.trim());
+      return openAiAvailable(userId);
     }
-    return Boolean(process.env.OPENAI_API_KEY?.trim());
+    return openAiAvailable(userId);
   },
   async run(params: ToolRunParams): Promise<ToolRunResult> {
     const source = params.referenceUrls[0];
@@ -52,6 +60,7 @@ export const variationOpenaiToolProvider: ImageToolProvider = {
       count: params.count ?? 1,
       resolution: params.resolution,
       aspectRatio: params.aspectRatio ?? "1:1",
+      userId: params.userId,
     });
     return {
       urls: result.urls,

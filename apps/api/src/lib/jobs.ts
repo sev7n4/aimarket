@@ -75,9 +75,12 @@ export function createGenerationJob(input: CreateJobInput) {
   assertSessionWrite(input.userId, input.sessionId);
 
   const modelMeta = getModel(input.modelId);
-  if (!input.toolType && modelMeta?.type !== "video") {
+  if (input.toolType) {
+    resolveToolProvider(input.toolType, input.userId);
+  } else if (modelMeta?.type !== "video") {
     resolveProvider(input.modelId, "generate", {
       hasReferenceImages: Boolean(input.referenceUrls?.length),
+      userId: input.userId,
     });
   }
 
@@ -213,9 +216,12 @@ export async function processGenerationJob({
     model?.type === "video"
       ? resolveVideoProvider(job.model_id).name === "mock"
       : isToolJob
-        ? resolveToolProvider(job.tool_type!).name.endsWith("-mock")
+        ? resolveToolProvider(job.tool_type!, job.user_id).name.endsWith(
+            "-mock",
+          )
         : resolveProvider(job.model_id, "generate", {
             hasReferenceImages: Boolean(referenceUrls?.length),
+            userId: job.user_id,
           }).name === "mock";
   if (useMockDelay) {
     await new Promise((r) => setTimeout(r, delayMs));
@@ -260,6 +266,7 @@ export async function processGenerationJob({
           resolution: job.resolution,
           aspectRatio: job.aspect_ratio ?? "1:1",
           referenceUrls,
+          userId: job.user_id,
         });
         const url = part.urls[0];
         imageProvider = part.provider;
@@ -286,6 +293,7 @@ export async function processGenerationJob({
         resolution: job.resolution,
         aspectRatio: job.aspect_ratio ?? "1:1",
         toolContext,
+        userId: job.user_id,
       });
       urls = result.urls;
       imageProvider = result.provider;
@@ -297,6 +305,7 @@ export async function processGenerationJob({
         resolution: job.resolution,
         aspectRatio: job.aspect_ratio ?? "1:1",
         referenceUrls,
+        userId: job.user_id,
       });
       urls = result.urls;
       imageProvider = result.provider;

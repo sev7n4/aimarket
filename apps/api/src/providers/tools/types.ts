@@ -5,6 +5,8 @@ export interface ToolRunParams {
   resolution: string;
   aspectRatio?: string;
   referenceUrls: string[];
+  /** 任务所属用户，用于 BYOK OpenAI 变体等 */
+  userId?: string;
   count?: number;
   toolContext?: {
     toolId: string;
@@ -33,6 +35,6 @@ export interface ToolRunResult {
 
 export interface ImageToolProvider {
   name: string;
-  supports(toolId: string): boolean;
+  supports(toolId: string, userId?: string): boolean;
   run(params: ToolRunParams): Promise<ToolRunResult>;
 }

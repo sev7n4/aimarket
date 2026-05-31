@@ -56,6 +56,47 @@ async function main() {
   });
   ok("POST /auth/login", login.res.ok);
 
+  const providerCfgGet = await req("/api/v1/user/providerConfig", { headers: authH });
+  ok("GET /user/providerConfig", providerCfgGet.res.ok);
+
+  const providerCfgPut = await req("/api/v1/user/providerConfig", {
+    method: "PUT",
+    headers: authH,
+    body: JSON.stringify({
+      useByok: true,
+      openai: { apiKey: "sk-smoke-test-byok-key-abcdef12" },
+    }),
+  });
+  ok(
+    "PUT /user/providerConfig",
+    providerCfgPut.res.ok && providerCfgPut.json?.data?.openai?.configured === true,
+    providerCfgPut.json?.data?.openai?.keyHint ?? "",
+  );
+
+  const providerCfgGet2 = await req("/api/v1/user/providerConfig", { headers: authH });
+  ok(
+    "GET /user/providerConfig (masked)",
+    providerCfgGet2.res.ok &&
+      typeof providerCfgGet2.json?.data?.openai?.keyHint === "string" &&
+      !providerCfgGet2.json?.data?.openai?.keyHint?.includes("sk-smoke"),
+    providerCfgGet2.json?.data?.openai?.keyHint ?? "",
+  );
+
+  const suggestByok = await req("/api/v1/ai/suggestModel", {
+    method: "POST",
+    headers: authH,
+    body: JSON.stringify({
+      mode: "chat",
+      prompt: "冒烟 BYOK 路由",
+      hasReferenceImages: false,
+    }),
+  });
+  ok(
+    "POST /ai/suggestModel (BYOK)",
+    suggestByok.res.ok && suggestByok.json?.data?.modelId === "dall-e-3",
+    suggestByok.json?.data?.reason ?? "",
+  );
+
   const sessionId = crypto.randomUUID();
   const ensureCanvas = await req("/api/v1/imageSession/ensure", {
     method: "POST",
@@ -159,6 +200,39 @@ async function main() {
   });
   const jobId = gen.json?.data?.jobId;
   ok("POST /ai/generate", gen.res.ok && !!jobId);
+
+  const genByok = await req("/api/v1/ai/generate", {
+    method: "POST",
+    headers: authH,
+    body: JSON.stringify({
+      sessionId,
+      prompt: "BYOK 全链路测试",
+      modelId: "dall-e-2",
+      mode: "chat",
+      count: 1,
+      resolution: "1k",
+    }),
+  });
+  const byokJobId = genByok.json?.data?.jobId;
+  ok(
+    "POST /ai/generate BYOK dall-e-2",
+    genByok.res.ok &&
+      !!byokJobId &&
+      genByok.json?.data?.byokActive === true,
+    `byokActive=${genByok.json?.data?.byokActive}`,
+  );
+  if (byokJobId) {
+    const byokJobDone = await waitJob(byokJobId, authH, 20);
+    const err = String(byokJobDone?.error ?? "");
+    const routedOpenai =
+      byokJobDone?.image_provider === "openai" ||
+      (byokJobDone?.status === "failed" && /openai/i.test(err));
+    ok(
+      "BYOK job routed to OpenAI",
+      routedOpenai,
+      `${byokJobDone?.status} provider=${byokJobDone?.image_provider ?? "-"} ${err.slice(0, 60)}`,
+    );
+  }
 
   if (jobId) {
     const taskStatus = await req(
