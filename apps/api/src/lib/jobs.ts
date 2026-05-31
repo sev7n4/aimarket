@@ -427,7 +427,23 @@ export type JobDetail = Record<string, unknown> & {
   error: string | null;
   outputs: { url: string; sort_order: number }[];
   outputType: "image" | "video";
+  queue_ahead?: number | null;
 };
+
+function countQueuedJobsAhead(
+  jobId: string,
+  status: string,
+  createdAt: string | null | undefined,
+): number | null {
+  if (status !== "queued" || !createdAt) return null;
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) as c FROM generation_jobs
+       WHERE status IN ('queued', 'running') AND created_at < ? AND id != ?`,
+    )
+    .get(createdAt, jobId) as { c: number } | undefined;
+  return row?.c ?? 0;
+}
 
 export function getJob(jobId: string, userId?: string): JobDetail {
   const job = db
@@ -459,6 +475,11 @@ export function getJob(jobId: string, userId?: string): JobDetail {
     error: job.error != null ? String(job.error) : null,
     outputs,
     outputType: (model?.type ?? "image") as "image" | "video",
+    queue_ahead: countQueuedJobsAhead(
+      jobId,
+      String(job.status),
+      job.created_at as string | undefined,
+    ),
   };
   return detail;
 }

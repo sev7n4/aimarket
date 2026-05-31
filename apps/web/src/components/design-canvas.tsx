@@ -88,6 +88,9 @@ interface DesignCanvasProps {
   onRerun?: (item: CanvasItem) => void;
   layoutMode?: CanvasLayoutMode;
   onLayoutModeChange?: (mode: CanvasLayoutMode) => void;
+  onCancelJob?: () => void;
+  jobElapsedMs?: number;
+  queueAhead?: number | null;
   /** 滚动画布内容区底部留白（Dock 浮层不占用画布背景高度） */
   scrollBottomInset?: string;
 }
@@ -124,6 +127,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onRerun,
       layoutMode = "scroll",
       onLayoutModeChange,
+      onCancelJob,
+      jobElapsedMs,
+      queueAhead,
       scrollBottomInset = "",
     },
     ref,
@@ -131,7 +137,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     const scrollCanvasRef = useRef<ScrollCanvasHandle>(null);
     const freeCanvasRef = useRef<FreeCanvasHandle>(null);
     const [tool, setTool] = useState<CanvasToolId>("select");
-    const [gridOn, setGridOn] = useState(true);
+    const [gridOn, setGridOn] = useState(false);
     const [pulseId, setPulseId] = useState<string | null>(null);
     const [contextMenu, setContextMenu] = useState<{
       item: CanvasItem;
@@ -296,19 +302,23 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
 
     useEffect(() => {
       if (!brushRequest) return;
+      setRefineItemId(brushRequest.itemId);
+      onSelect(brushRequest.itemId);
       if (internalLayoutMode !== "free") {
         setInternalLayoutMode("free");
         onLayoutModeChange?.("free");
       }
-    }, [brushRequest, internalLayoutMode, onLayoutModeChange]);
+    }, [brushRequest, internalLayoutMode, onLayoutModeChange, onSelect]);
 
     useEffect(() => {
       if (!focusClickRequest) return;
+      setRefineItemId(focusClickRequest.itemId);
+      onSelect(focusClickRequest.itemId);
       if (internalLayoutMode !== "free") {
         setInternalLayoutMode("free");
         onLayoutModeChange?.("free");
       }
-    }, [focusClickRequest, internalLayoutMode, onLayoutModeChange]);
+    }, [focusClickRequest, internalLayoutMode, onLayoutModeChange, onSelect]);
 
     const handleTool = useCallback(
       (id: CanvasToolId) => {
@@ -350,26 +360,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         }
         if (id === "redo") {
           redo();
-          return;
-        }
-        if (id === "layout-scroll") {
-          setInternalLayoutMode("scroll");
-          onLayoutModeChange?.("scroll");
-          return;
-        }
-        if (id === "layout-free") {
-          const targetId = selectedId ?? items[0]?.id;
-          if (targetId) {
-            setRefineItemId(targetId);
-            onSelect(targetId);
-          }
-          setInternalLayoutMode("free");
-          onLayoutModeChange?.("free");
-          if (targetId) {
-            setTimeout(() => {
-              freeCanvasRef.current?.fitToItem(targetId);
-            }, 100);
-          }
           return;
         }
         if (id === "preview") {
@@ -494,18 +484,20 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         .sort((a, b) => a.index - b.index || a.y - b.y);
     }, [items]);
 
+    const showFreeCanvas = isRefineMode;
+
     return (
       <div
         className={`flex min-h-0 min-w-0 flex-1 overflow-hidden bg-[#0d0d0d] ${
           mobile ? "flex-col" : "flex-row"
         }`}
       >
-        {!mobile && internalLayoutMode === "free" ? (
+        {!mobile && showFreeCanvas ? (
           <CanvasToolbar
             active={tool}
             gridOn={gridOn}
             onTool={handleTool}
-            layoutMode={internalLayoutMode}
+            layoutMode="free"
             canUndo={canUndo}
             canRedo={canRedo}
           />
@@ -555,32 +547,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             </div>
           ) : null}
 
-          {internalLayoutMode === "scroll" ? (
-            <ScrollCanvas
-              ref={scrollCanvasRef}
-              items={items}
-              batchSections={batchSections}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              readOnly={readOnly}
-              emptyHint={emptyHint}
-              pulseId={pulseId}
-              onEnterRefineMode={enterRefineMode}
-              onSetLightbox={setLightbox}
-              onDeleteSelected={onDeleteSelected}
-              onRerun={(item) => onRerun?.(item)}
-              onJumpToParentBatch={onJumpToParentBatch}
-              jobStreamStatus={jobStreamStatus}
-              jobFailed={jobFailed}
-              jobProgressCompleted={jobProgressCompleted}
-              jobProgressTotal={jobProgressTotal}
-              onOpenChatPanel={onOpenChatPanel}
-              focusClickActive={focusClickActive}
-              focusItem={focusItem ?? null}
-              onFocusImageClick={onFocusImageClick}
-              scrollBottomInset={scrollBottomInset}
-            />
-          ) : (
+          {showFreeCanvas ? (
             <FreeCanvas
               ref={freeCanvasRef}
               items={items}
@@ -591,9 +558,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               readOnly={readOnly}
               emptyHint={emptyHint}
               pulseId={pulseId}
-              isRefineMode={isRefineMode}
+              isRefineMode
               refineItemId={refineItemId}
-              onEnterRefineMode={enterRefineMode}
               onExitRefineMode={exitRefineMode}
               onSetLightbox={setLightbox}
               onSetContextMenu={setContextMenu}
@@ -616,7 +582,35 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               jobProgressCompleted={jobProgressCompleted}
               jobProgressTotal={jobProgressTotal}
               onOpenChatPanel={onOpenChatPanel}
+              onCancelJob={onCancelJob}
+              jobElapsedMs={jobElapsedMs}
+              queueAhead={queueAhead}
               mobile={mobile}
+            />
+          ) : (
+            <ScrollCanvas
+              ref={scrollCanvasRef}
+              items={items}
+              batchSections={batchSections}
+              selectedId={selectedId}
+              onSelect={onSelect}
+              readOnly={readOnly}
+              emptyHint={emptyHint}
+              pulseId={pulseId}
+              onSetLightbox={setLightbox}
+              onJumpToParentBatch={onJumpToParentBatch}
+              jobStreamStatus={jobStreamStatus}
+              jobFailed={jobFailed}
+              jobProgressCompleted={jobProgressCompleted}
+              jobProgressTotal={jobProgressTotal}
+              onOpenChatPanel={onOpenChatPanel}
+              onCancelJob={onCancelJob}
+              jobElapsedMs={jobElapsedMs}
+              queueAhead={queueAhead}
+              focusClickActive={focusClickActive}
+              focusItem={focusItem ?? null}
+              onFocusImageClick={onFocusImageClick}
+              scrollBottomInset={scrollBottomInset}
             />
           )}
 

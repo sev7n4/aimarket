@@ -16,7 +16,6 @@ import type {
   CanvasToolId,
   BatchSection,
 } from "@/lib/canvas-tools";
-import { batchDisplayIndex } from "@/lib/canvas-tools";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
 import { hapticLight } from "@/lib/haptics";
 import { canvasSelectionHint } from "@/lib/mobile-labels";
@@ -50,7 +49,6 @@ interface FreeCanvasProps {
   pulseId: string | null;
   isRefineMode: boolean;
   refineItemId: string | null;
-  onEnterRefineMode: (itemId: string) => void;
   onExitRefineMode: () => void;
   onSetLightbox: (lb: { items: CanvasItem[]; index: number } | null) => void;
   onSetContextMenu: (cm: {
@@ -93,6 +91,9 @@ interface FreeCanvasProps {
   jobProgressCompleted?: number;
   jobProgressTotal?: number;
   onOpenChatPanel?: () => void;
+  onCancelJob?: () => void;
+  jobElapsedMs?: number;
+  queueAhead?: number | null;
   mobile: boolean;
 }
 
@@ -113,7 +114,6 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       pulseId,
       isRefineMode,
       refineItemId,
-      onEnterRefineMode,
       onExitRefineMode,
       onSetLightbox,
       onSetContextMenu,
@@ -136,6 +136,9 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       jobProgressCompleted = 0,
       jobProgressTotal = 0,
       onOpenChatPanel,
+      onCancelJob,
+      jobElapsedMs,
+      queueAhead,
       mobile,
     },
     ref,
@@ -798,9 +801,8 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
     }
 
     const minimapScale = 0.06;
-    const visibleItems = isRefineMode
-      ? items.filter((i) => i.id === refineItemId)
-      : items;
+    const visibleItems =
+      refineItemId ? items.filter((i) => i.id === refineItemId) : [];
     const minimapBounds = visibleItems.length > 0
       ? {
           minX: Math.min(...visibleItems.map((i) => i.x)),
@@ -830,8 +832,11 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
             status={jobStreamStatus ?? null}
             failed={jobFailed}
             onOpenChat={onOpenChatPanel}
+            onCancel={onCancelJob}
             completed={jobProgressCompleted}
             total={jobProgressTotal}
+            elapsedMs={jobElapsedMs}
+            queueAhead={queueAhead}
           />
         ) : null}
 
@@ -896,10 +901,13 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
 
         {gridOn ? (
           <div
-            className="pointer-events-none absolute inset-0 opacity-40"
+            className="pointer-events-none absolute inset-0"
             style={{
-              backgroundImage:
-                "radial-gradient(circle, rgba(255,255,255,0.12) 1px, transparent 1px)",
+              backgroundColor: "#0d0d0d",
+              backgroundImage: `
+                linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px)
+              `,
               backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
               backgroundPosition: `${pan.x}px ${pan.y}px`,
             }}
@@ -921,78 +929,8 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
             />
           ) : (
             <>
-              {!isRefineMode &&
-                batchSections.map((section) => {
-                  const parentNum = section.parentBatchId
-                    ? batchDisplayIndex(items, section.parentBatchId)
-                    : null;
-                  return (
-                    <div
-                      key={section.id}
-                      role="button"
-                      tabIndex={0}
-                      data-testid={`canvas-batch-section-${section.id}`}
-                      className="absolute cursor-pointer rounded-3xl border border-white/10 bg-black/15 text-left transition hover:border-white/20"
-                      style={{
-                        left: section.x,
-                        top: section.y,
-                        width: section.width,
-                        height: section.height,
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        fitToBatch(section.id);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          fitToBatch(section.id);
-                        }
-                      }}
-                    >
-                      <div className="pointer-events-none flex items-center justify-between gap-4 px-4 py-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-zinc-200">
-                            {section.index >= 0
-                              ? `批次 ${section.index + 1} · ${section.title}`
-                              : section.title}
-                          </p>
-                          {section.subtitle ? (
-                            <p className="mt-0.5 truncate text-[11px] text-zinc-500">
-                              {section.subtitle}
-                            </p>
-                          ) : null}
-                          {section.parentBatchId && parentNum ? (
-                            <button
-                              type="button"
-                              data-testid={`canvas-batch-parent-${section.id}`}
-                              className="pointer-events-auto mt-1 truncate text-[11px] text-orange-400/90 underline-offset-2 hover:underline"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onJumpToParentBatch?.(
-                                  section.parentBatchId!,
-                                  section.sourceItemId,
-                                );
-                              }}
-                            >
-                              源自批次 {parentNum}
-                            </button>
-                          ) : null}
-                        </div>
-                        <span className="shrink-0 rounded-full border border-white/10 px-2 py-1 text-[10px] text-zinc-500">
-                          {section.count} 张
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              {items.map((item) => {
-                if (isRefineMode && item.id !== refineItemId) {
-                  return null;
-                }
-                const batchItems = items.filter(
-                  (i) => i.batchId === item.batchId,
-                );
+              {visibleItems.map((item) => {
+                const batchItems = visibleItems;
                 const isLocked = item.locked !== false;
                 return (
                   <div

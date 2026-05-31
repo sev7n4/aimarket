@@ -81,6 +81,7 @@ export interface GenerationJob {
   count?: number;
   tool_type?: string | null;
   image_provider?: string | null;
+  queue_ahead?: number | null;
   outputs: { url: string; sort_order: number }[];
 }
 

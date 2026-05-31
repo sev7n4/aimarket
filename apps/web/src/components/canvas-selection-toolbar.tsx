@@ -7,14 +7,12 @@ import {
   Copy,
   Crop,
   Crosshair,
-  Download,
   Eraser,
   Layers,
   Loader2,
   Maximize2,
   Scissors,
   Sparkles,
-  Trash2,
   Type,
   type LucideIcon,
 } from "lucide-react";
@@ -57,8 +55,6 @@ interface CanvasSelectionToolbarProps {
   layout: "vertical" | "horizontal";
   onRunTool: (tool: StudioTool, item: CanvasItem) => void;
   onMentionItem?: (item: CanvasItem) => void;
-  onDownload?: () => void;
-  onDelete?: () => void;
 }
 
 export function CanvasSelectionToolbar({
@@ -69,8 +65,6 @@ export function CanvasSelectionToolbar({
   layout,
   onRunTool,
   onMentionItem,
-  onDownload,
-  onDelete,
 }: CanvasSelectionToolbarProps) {
   if (!selectedItem || readOnly) return null;
   const hasSource = Boolean(selectedItem.outputId || selectedItem.assetId);
@@ -127,32 +121,6 @@ export function CanvasSelectionToolbar({
             </button>
           );
         })}
-        {onDownload ? (
-          <button
-            type="button"
-            title="下载"
-            onClick={onDownload}
-            className="group relative flex size-8 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-white/10 hover:text-zinc-300"
-          >
-            <Download className="size-4" strokeWidth={1.5} />
-            <span className="pointer-events-none absolute -left-1 top-full z-50 mt-1 whitespace-nowrap rounded-md bg-zinc-800 px-2 py-1 text-[10px] text-zinc-200 opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-              下载
-            </span>
-          </button>
-        ) : null}
-        {onDelete ? (
-          <button
-            type="button"
-            title="删除"
-            onClick={onDelete}
-            className="group relative flex size-8 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-red-500/15 hover:text-red-300"
-          >
-            <Trash2 className="size-4" strokeWidth={1.5} />
-            <span className="pointer-events-none absolute -left-1 top-full z-50 mt-1 whitespace-nowrap rounded-md bg-zinc-800 px-2 py-1 text-[10px] text-zinc-200 opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-              删除
-            </span>
-          </button>
-        ) : null}
       </div>
     );
   }
@@ -197,28 +165,6 @@ export function CanvasSelectionToolbar({
             </button>
           );
         })}
-        {onDownload ? (
-          <button
-            type="button"
-            title="下载"
-            onClick={onDownload}
-            className="group flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[11px] text-zinc-200 transition hover:border-white/20 hover:bg-white/10"
-          >
-            <Download className="size-3.5" strokeWidth={1.6} />
-            <span className="whitespace-nowrap">下载</span>
-          </button>
-        ) : null}
-        {onDelete ? (
-          <button
-            type="button"
-            title="删除"
-            onClick={onDelete}
-            className="group flex shrink-0 items-center gap-1.5 rounded-full border border-red-400/20 bg-red-500/10 px-2.5 py-1.5 text-[11px] text-red-200 transition hover:border-red-300/40 hover:bg-red-500/20"
-          >
-            <Trash2 className="size-3.5" strokeWidth={1.6} />
-            <span className="whitespace-nowrap">删除</span>
-          </button>
-        ) : null}
       </div>
     </div>
   );
