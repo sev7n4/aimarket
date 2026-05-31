@@ -126,7 +126,11 @@ ai.post("/generate", async (c) => {
     }
   }
 
-  const route = suggestModel(body.mode, body.prompt);
+  const route = suggestModel(
+    body.mode,
+    body.prompt,
+    Boolean(body.assetIds?.length || body.referenceOutputIds?.length),
+  );
   const modelId =
     body.autoRoute || !body.modelId ? route.modelId : body.modelId;
 
