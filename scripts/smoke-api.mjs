@@ -770,13 +770,25 @@ async function main() {
     adminAnalytics.res.ok && typeof adminAnalytics.json?.data?.total === "number",
   );
 
-  // BYOK 放在末尾，避免影响 Mock 生成与工具链用例
-  const providerCfgGet = await req("/api/v1/user/providerConfig", { headers: authH });
+  // BYOK 放在末尾，使用独立账号避免主流程耗尽积分
+  const byokEmail = `byok_${Date.now()}@test.local`;
+  const byokReg = await req("/api/v1/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ email: byokEmail, password }),
+    headers: { auth: false },
+  });
+  const byokToken = byokReg.json?.data?.token;
+  ok("POST /auth/register (BYOK user)", byokReg.res.status === 201 && !!byokToken);
+  const byokAuthH = { Authorization: `Bearer ${byokToken}` };
+
+  const providerCfgGet = await req("/api/v1/user/providerConfig", {
+    headers: byokAuthH,
+  });
   ok("GET /user/providerConfig", providerCfgGet.res.ok);
 
   const providerCfgPut = await req("/api/v1/user/providerConfig", {
     method: "PUT",
-    headers: authH,
+    headers: byokAuthH,
     body: JSON.stringify({
       useByok: true,
       openai: { apiKey: "sk-smoke-test-byok-key-abcdef12" },
@@ -788,7 +800,9 @@ async function main() {
     providerCfgPut.json?.data?.openai?.keyHint ?? "",
   );
 
-  const providerCfgGet2 = await req("/api/v1/user/providerConfig", { headers: authH });
+  const providerCfgGet2 = await req("/api/v1/user/providerConfig", {
+    headers: byokAuthH,
+  });
   ok(
     "GET /user/providerConfig (masked)",
     providerCfgGet2.res.ok &&
@@ -799,7 +813,7 @@ async function main() {
 
   const suggestByok = await req("/api/v1/ai/suggestModel", {
     method: "POST",
-    headers: authH,
+    headers: byokAuthH,
     body: JSON.stringify({
       mode: "chat",
       prompt: "冒烟 BYOK 路由",
@@ -815,7 +829,7 @@ async function main() {
   const byokSessionId = crypto.randomUUID();
   await req("/api/v1/imageSession/ensure", {
     method: "POST",
-    headers: authH,
+    headers: byokAuthH,
     body: JSON.stringify({
       sessionId: byokSessionId,
       mode: "chat",
@@ -826,7 +840,7 @@ async function main() {
 
   const genByok = await req("/api/v1/ai/generate", {
     method: "POST",
-    headers: authH,
+    headers: byokAuthH,
     body: JSON.stringify({
       sessionId: byokSessionId,
       prompt: "BYOK 全链路测试",
@@ -845,7 +859,7 @@ async function main() {
     `byokActive=${genByok.json?.data?.byokActive}`,
   );
   if (byokJobId) {
-    const byokJobDone = await waitJob(byokJobId, authH, 20);
+    const byokJobDone = await waitJob(byokJobId, byokAuthH, 20);
     const err = String(byokJobDone?.error ?? "");
     const routedOpenai =
       byokJobDone?.image_provider === "openai" ||
