@@ -1,11 +1,11 @@
 import { getModel } from "../lib/models.js";
 import { persistOutputUrls } from "../lib/persist-output.js";
 import { AppError } from "../lib/errors.js";
-import { aliyunWanProvider } from "./aliyun-wan.js";
-import { mockProvider } from "./mock.js";
-import { openaiProvider } from "./openai.js";
-import { seedreamImageProvider } from "./seedream-image.js";
-import { seededitProvider } from "./seededit-provider.js";
+import {
+  aliyunWanI2iConfigured,
+  resolveImageProvider,
+  type ImageRouteContext,
+} from "../lib/image-routing.js";
 import type {
   GenerateParams,
   GenerateResult,
@@ -15,68 +15,20 @@ import type {
   ImageOperation,
 } from "./types.js";
 
-const providers = [
-  seededitProvider,
-  seedreamImageProvider,
-  aliyunWanProvider,
-  openaiProvider,
-  mockProvider,
-];
-
 export function resolveProvider(
   modelId: string,
   operation: ImageOperation = "generate",
+  context: ImageRouteContext = {},
 ): ImageProvider {
-  const mode = process.env.IMAGE_PROVIDER ?? "auto";
-
-  if (mode === "mock") return mockProvider;
-
-  if (mode === "openai") {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new AppError(
-        503,
-        "PROVIDER_UNAVAILABLE",
-        "请配置 OPENAI_API_KEY 后使用 openai 模式",
-      );
-    }
-    if (!openaiProvider.supports(modelId, operation)) {
-      throw new AppError(
-        400,
-        "MODEL_UNSUPPORTED",
-        `当前模型 ${modelId} 不支持 OpenAI ${operation} 操作`,
-      );
-    }
-    return openaiProvider;
-  }
-
-  if (mode === "aliyun_wan") {
-    if (!process.env.DASHSCOPE_API_KEY) {
-      throw new AppError(
-        503,
-        "PROVIDER_UNAVAILABLE",
-        "请配置 DASHSCOPE_API_KEY 后使用 aliyun_wan 模式",
-      );
-    }
-    if (!aliyunWanProvider.supports(modelId, operation)) {
-      throw new AppError(
-        400,
-        "MODEL_UNSUPPORTED",
-        `当前模型 ${modelId} 不支持 阿里百炼 wan ${operation} 操作`,
-      );
-    }
-    return aliyunWanProvider;
-  }
-
-  for (const p of providers) {
-    if (p.supports(modelId, operation)) return p;
-  }
-  return mockProvider;
+  return resolveImageProvider(modelId, operation, context);
 }
 
 export async function generateImages(
   params: GenerateParams,
 ): Promise<GenerateResult & { modelName?: string }> {
-  const provider = resolveProvider(params.modelId, "generate");
+  const provider = resolveProvider(params.modelId, "generate", {
+    hasReferenceImages: Boolean(params.referenceUrls?.length),
+  });
   const result = await provider.generate(params);
   const urls = await persistOutputUrls(result.urls);
   const meta = getModel(params.modelId);
@@ -139,7 +91,9 @@ export function getProviderStatus() {
   } else if (activeProvider === "seedream-image") {
     hint = `真实出图：火山方舟 Seedream ${process.env.SEEDREAM_MODEL ?? "doubao-seedream-5-0-260128"}（支持图生图）`;
   } else if (activeProvider === "aliyun-wan") {
-    hint = `真实出图：阿里百炼 ${process.env.ALIYUN_WAN_MODEL ?? "wan2.6-t2i"}（支持图生图）`;
+    hint = aliyunWanI2iConfigured()
+      ? `真实出图：阿里百炼 ${process.env.ALIYUN_WAN_MODEL ?? "wan2.6-t2i"}（文生图）+ ${process.env.ALIYUN_WAN_I2I_MODEL}（图生图）`
+      : `真实出图：阿里百炼 ${process.env.ALIYUN_WAN_MODEL ?? "wan2.6-t2i"}（文生图；图生图请配置 ALIYUN_WAN_I2I_MODEL 或 ARK_API_KEY）`;
   } else {
     hint = "真实出图：OpenAI Images API（不支持图生图）";
   }
