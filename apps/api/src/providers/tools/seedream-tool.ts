@@ -98,7 +98,7 @@ function buildPrompt(params: ToolRunParams): string {
     case "focus-edit":
       return userPrompt || "按上下文进行自然局部重绘";
     case "variation":
-      return `在保持原图主体、构图与整体风格高度一致的前提下，生成自然细微差异的变体版本。${userPrompt}`;
+      return `在保持原图主体与构图一致的前提下，生成自然变体：可在细节、光影、色调与小元素上产生清晰可见但不过度偏离的差异，勿改成完全不同场景。${userPrompt}`;
     default:
       return userPrompt;
   }
@@ -123,15 +123,20 @@ export const seedreamToolProvider: ImageToolProvider = {
     ).replace(/\/$/, "");
     const model = process.env.SEEDREAM_MODEL ?? "doubao-seedream-5-0-260128";
 
+    const count = Math.min(params.count ?? 1, 4);
     const body: Record<string, unknown> = {
       model,
       prompt: buildPrompt(params),
       size: resolveSize(params),
-      n: Math.min(params.count ?? 1, 4),
+      n: count,
       response_format: "url",
     };
     if (params.referenceUrls.length > 0) {
       body.image = params.referenceUrls[0];
+    }
+    if (params.toolId === "variation" && count > 1) {
+      body.sequential_image_generation = "auto";
+      body.sequential_image_generation_options = { max_images: count };
     }
     if (params.toolContext?.masks.length) {
       // 兼容自建/未来官方局部编辑网关：同时传 mask 图和归一化 bbox。

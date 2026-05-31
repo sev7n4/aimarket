@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { randomUUID } from "@/lib/uuid";
+import { TOOL_DISPLAY_NAMES, formatToolProviderLabel } from "@/lib/studio-tool-meta";
 import {
   Download,
   Grid3x3,
@@ -178,11 +179,9 @@ export function applyPendingBatchLineage(
     let batchTitle = item.batchTitle;
     if (
       lin.toolName &&
-      (!batchTitle || !batchTitle.startsWith(`【${lin.toolName}】`))
+      (!batchTitle || !batchTitle.startsWith("精修 ·"))
     ) {
-      const base =
-        batchTitle && !/^批次 \d+$/.test(batchTitle) ? batchTitle : "编辑结果";
-      batchTitle = `【${lin.toolName}】${base}`;
+      batchTitle = `精修 · ${lin.toolName}`;
     }
     return {
       ...item,
@@ -316,7 +315,30 @@ function truncateBatchTitle(value: string | undefined, fallback: string) {
   return text.length > 30 ? `${text.slice(0, 30)}...` : text;
 }
 
-function formatBatchSubtitle(createdAt?: string, count?: number) {
+function resolveBatchTitle(
+  msg: {
+    generation_params?: CanvasItem["generationParams"];
+  },
+  lastUserPrompt: string,
+  batchIndex: number,
+): string {
+  const toolType = msg.generation_params?.toolType;
+  if (toolType) {
+    const name = TOOL_DISPLAY_NAMES[toolType] ?? toolType;
+    return `精修 · ${name}`;
+  }
+  const prompt = lastUserPrompt.trim();
+  if (prompt) {
+    return `生成 · ${truncateBatchTitle(prompt, `批次 ${batchIndex + 1}`)}`;
+  }
+  return truncateBatchTitle("", `批次 ${batchIndex + 1}`);
+}
+
+function formatBatchSubtitle(
+  createdAt?: string,
+  count?: number,
+  imageProvider?: string,
+) {
   const pieces: string[] = [];
   if (createdAt) {
     const date = new Date(createdAt);
@@ -332,6 +354,8 @@ function formatBatchSubtitle(createdAt?: string, count?: number) {
     }
   }
   if (count) pieces.push(`${count} 张结果`);
+  const providerLabel = formatToolProviderLabel(imageProvider);
+  if (providerLabel) pieces.push(providerLabel);
   return pieces.join(" · ");
 }
 
@@ -369,6 +393,7 @@ export function buildCanvasItemsFromMessages(
       aspectRatio?: string;
       toolType?: string;
       count?: number;
+      imageProvider?: string;
     };
   }[],
 ): CanvasItem[] {
@@ -383,8 +408,12 @@ export function buildCanvasItemsFromMessages(
     }
     if (!msg.outputs?.length) continue;
     const batchId = msg.job_id ?? msg.id;
-    const batchTitle = truncateBatchTitle(lastUserPrompt, `批次 ${batchIndex + 1}`);
-    const batchSubtitle = formatBatchSubtitle(msg.created_at, msg.outputs.length);
+    const batchTitle = resolveBatchTitle(msg, lastUserPrompt, batchIndex);
+    const batchSubtitle = formatBatchSubtitle(
+      msg.created_at,
+      msg.outputs.length,
+      msg.generation_params?.imageProvider,
+    );
     const rows = Math.ceil(msg.outputs.length / BATCH_COLS);
 
     msg.outputs.forEach((out, i) => {

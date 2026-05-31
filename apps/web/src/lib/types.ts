@@ -79,6 +79,8 @@ export interface GenerationJob {
   points_cost: number;
   error: string | null;
   count?: number;
+  tool_type?: string | null;
+  image_provider?: string | null;
   outputs: { url: string; sort_order: number }[];
 }
 

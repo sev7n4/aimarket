@@ -7,7 +7,6 @@ import {
   parseToolRunBody,
 } from "../lib/tools.js";
 import { buildFocusEditPrompt } from "../lib/focus.js";
-import { suggestModel } from "../lib/router.js";
 import {
   enrichPromptWithReferences,
   resolveReferenceUrls,
@@ -127,8 +126,7 @@ tools.post("/:toolId/run", async (c) => {
   }
   prompt = enrichPromptWithReferences(prompt, [...refUrls, ...assetUrls]);
 
-  const route = suggestModel("chat", prompt);
-  const modelId = body.modelId ?? route.modelId;
+  const modelId = body.modelId ?? "omni-v2";
   const lineage = resolveJobLineage({
     referenceOutputIds: body.referenceOutputIds,
   });
@@ -159,7 +157,6 @@ tools.post("/:toolId/run", async (c) => {
       estimatedPoints: pointsCost,
       tool: tool.name,
       toolId: tool.id,
-      routeReason: route.reason,
     },
   });
 });

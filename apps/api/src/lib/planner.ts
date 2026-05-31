@@ -107,7 +107,7 @@ export function buildAgentPlan(input: {
   let estimatedPoints = 0;
   for (const step of steps) {
     if (step.type === "tool" && step.toolId) {
-      estimatedPoints += estimateToolPoints(modelId, step.toolId, resolution);
+      estimatedPoints += estimateToolPoints(step.toolId, resolution, 1);
     } else {
       estimatedPoints += estimatePoints(modelId, 1, resolution);
     }
