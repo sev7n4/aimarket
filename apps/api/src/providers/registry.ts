@@ -122,7 +122,11 @@ export function getProviderStatus() {
   const openaiConfigured = Boolean(process.env.OPENAI_API_KEY?.trim());
   const aliyunWanConfigured = Boolean(process.env.DASHSCOPE_API_KEY?.trim());
   const seedreamConfigured = Boolean(process.env.ARK_API_KEY?.trim());
+<<<<<<< HEAD
   const activeProvider = resolveProvider("omni-v2", "generate").name;
+=======
+  const activeProvider = resolveProvider("omni-v2").name;
+>>>>>>> origin/main
   const usingMock = activeProvider === "mock";
 
   let hint: string;
