@@ -27,7 +27,8 @@ export const mockToolProvider: ImageToolProvider = {
       toolId !== "upscale" &&
       toolId !== "enhance" &&
       toolId !== "expand" &&
-      toolId !== "inpaint"
+      toolId !== "inpaint" &&
+      toolId !== "variation"
     );
   },
   async run(params: ToolRunParams): Promise<ToolRunResult> {

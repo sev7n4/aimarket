@@ -78,6 +78,16 @@ export const STUDIO_TOOLS: StudioToolDefinition[] = [
     legacyAliases: ["cutout"],
   },
   {
+    id: "variation",
+    name: "生成变体",
+    description: "基于当前图片生成构图相近的风格变体",
+    category: "edit",
+    defaultPrompt: "保持主体与构图，生成自然变体",
+    pricingFactor: 1,
+    requiresSource: true,
+    legacyAliases: ["imageVariation"],
+  },
+  {
     id: "inpaint",
     name: "局部修改",
     description: "对指定区域进行局部重绘",

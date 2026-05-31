@@ -4,6 +4,7 @@ import {
   ArrowUpToLine,
   AtSign,
   Brush,
+  Copy,
   Crop,
   Crosshair,
   Eraser,
@@ -19,6 +20,7 @@ import {
 import type { StudioTool } from "@/lib/types";
 
 const TOOL_ICONS: Record<string, LucideIcon> = {
+  variation: Copy,
   expand: Maximize2,
   erase: Eraser,
   cutout: Scissors,
