@@ -130,12 +130,12 @@ ai.post("/generate", async (c) => {
     throw new AppError(400, "USE_VIDEO_ENDPOINT", "视频生成请使用 /ai/generate/video");
   }
 
-  if (body.operation === "edit" && !body.image) {
-    throw new AppError(400, "MISSING_IMAGE", "图片编辑操作需要提供 image 参数");
-  }
-
-  if (body.operation === "variation" && !body.image) {
-    throw new AppError(400, "MISSING_IMAGE", "图片变体操作需要提供 image 参数");
+  if (body.operation === "edit" || body.operation === "variation") {
+    throw new AppError(
+      410,
+      "USE_TOOL_ENDPOINT",
+      `图片${body.operation === "variation" ? "变体" : "编辑"}请使用 POST /api/v1/tools/${body.operation === "variation" ? "variation" : "inpaint"}/run（工具链）`,
+    );
   }
 
   if (body.assetIds?.length) {

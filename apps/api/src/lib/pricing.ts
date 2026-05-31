@@ -20,13 +20,15 @@ export function estimatePoints(
   return Math.ceil(BASE_POINTS * factor * resFactor * count);
 }
 
+/** 工具链积分：按 toolId × 分辨率 × 张数，不绑定 CreationPanel 模型 */
 export function estimateToolPoints(
-  modelId: string,
   toolId: string,
   resolution = "1k",
+  count = 1,
 ): number {
   const tool = getTool(toolId);
-  const base = estimatePoints(modelId, 1, resolution);
+  const resFactor = RESOLUTION_FACTOR[resolution.toLowerCase()] ?? 1;
   const toolFactor = tool?.pricingFactor ?? 1;
-  return Math.max(1, Math.ceil(base * toolFactor));
+  const safeCount = Math.max(1, Math.min(4, count));
+  return Math.max(1, Math.ceil(BASE_POINTS * resFactor * toolFactor * safeCount));
 }

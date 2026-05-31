@@ -17,6 +17,10 @@ import { StudioToolGrid } from "@/components/studio-tool-grid";
 import { StudioHeader } from "@/components/studio-header";
 import { ProviderStatusChip } from "@/components/provider-status-banner";
 import { ContentReportDialog } from "@/components/content-report-dialog";
+import {
+  ToolConfirmDialog,
+  type ToolConfirmRequest,
+} from "@/components/tool-confirm-dialog";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { WorkspaceProvider } from "@/lib/workspace-context";
 import { StudioMobileCoach } from "@/components/studio-mobile-coach";
@@ -33,6 +37,7 @@ import {
   cancelJob,
   ensureSession,
   exportSession,
+  fetchJob,
   fetchTools,
   listSessions,
   recognizeFocusPoint,
@@ -61,6 +66,7 @@ import { watchJob } from "@/lib/job-stream";
 import { consumePendingAssets, type PendingAsset } from "@/lib/pending-assets";
 import { consumePendingInspiration } from "@/lib/pending-inspiration";
 import { resolveToolResolution } from "@/lib/tool-resolution";
+import { formatToolProviderLabel } from "@/lib/studio-tool-meta";
 import { hapticLight } from "@/lib/haptics";
 import { canvasEmptyHintMobile } from "@/lib/mobile-labels";
 import { type SessionKind } from "@/lib/session-kind";
@@ -205,6 +211,10 @@ export function StudioWorkspace({
   const lastFocusClickAtRef = useRef(0);
   /** 受控的内容举报对话框（StudioHeader 右上 ⚠ 触发） */
   const [reportOpen, setReportOpen] = useState(false);
+  const [toolConfirm, setToolConfirm] = useState<
+    (ToolConfirmRequest & { item: CanvasItem }) | null
+  >(null);
+  const [toolConfirmPending, setToolConfirmPending] = useState(false);
 
   const handleWorkspaceChange = useCallback((id: string) => {
     setActiveWorkspaceId(id);
@@ -422,13 +432,26 @@ export function StudioWorkspace({
     [],
   );
 
-  const handleJobComplete = useCallback(async () => {
+  const handleJobComplete = useCallback(async (completedJobId?: string) => {
     setJobFailed(false);
     setPollingJobId(null);
     setJobStreamStatus(null);
     setJobProgressCompleted(0);
     setJobProgressTotal(0);
     lastOutputCountRef.current = 0;
+    if (completedJobId) {
+      try {
+        const job = await fetchJob(completedJobId);
+        if (job.tool_type && job.status === "succeeded") {
+          const provider = formatToolProviderLabel(job.image_provider);
+          if (provider) {
+            setSelectSourceBanner(`精修完成 · ${provider}`);
+          }
+        }
+      } catch {
+        /* 忽略 provider 展示失败 */
+      }
+    }
     await loadCanvas();
     await refreshUser();
     setSessions(
@@ -464,7 +487,7 @@ export function StudioWorkspace({
         if (ev.status === "failed") setJobFailed(true);
       },
       () => {
-        void handleJobComplete();
+        void handleJobComplete(jobId);
       },
       () => {
         void trackEvent("generation_fail", {
@@ -599,6 +622,55 @@ export function StudioWorkspace({
     [user, readOnly, focusEditSession, sessionId],
   );
 
+  async function executeDirectTool(
+    tool: StudioTool,
+    item: CanvasItem,
+    count: number,
+  ) {
+    const referenceOutputIds = item.outputId ? [item.outputId] : undefined;
+    const assetIds =
+      !referenceOutputIds && item.assetId ? [item.assetId] : undefined;
+    setPendingToolId(tool.id);
+    try {
+      const { jobId } = await runTool(tool.id, {
+        sessionId,
+        prompt: tool.defaultPrompt,
+        referenceOutputIds,
+        assetIds,
+        resolution: resolveToolResolution(tool.id),
+        count: tool.id === "variation" ? count : 1,
+        ...(tool.id === "upscale" ? { scale: "2x" as const } : {}),
+      });
+      void trackEvent("tool_run", {
+        tool_id: tool.id,
+        job_id: jobId,
+        has_reference: true,
+        count: tool.id === "variation" ? count : 1,
+      });
+      registerToolBatchLineage(jobId, item, tool.name);
+      setPollingJobId(jobId);
+      setSelectSourceBanner(null);
+    } catch (err) {
+      setSelectSourceBanner(
+        err instanceof Error ? err.message : "工具执行失败",
+      );
+    } finally {
+      setPendingToolId(null);
+    }
+  }
+
+  async function handleToolConfirm(opts: { count: number }) {
+    if (!toolConfirm) return;
+    const { tool, item } = toolConfirm;
+    setToolConfirmPending(true);
+    try {
+      await executeDirectTool(tool, item, opts.count);
+      setToolConfirm(null);
+    } finally {
+      setToolConfirmPending(false);
+    }
+  }
+
   async function handleRunSelectionTool(
     tool: StudioTool,
     item: CanvasItem,
@@ -648,44 +720,18 @@ export function StudioWorkspace({
         item,
         promptSuffix: buildToolPromptSuffix(tool),
       }));
+      const recommendNote =
+        tool.id === "expand" || tool.id === "cutout"
+          ? "（推荐工具链路径）"
+          : "";
       setSelectSourceBanner(
-        `${tool.name} 需要结合提示词，已把当前图 @ 到工作台；补充要求后提交。`,
+        `${tool.name} 需要结合提示词，已把当前图 @ 到工作台；补充要求后提交。${recommendNote}`,
       );
       hapticLight();
       return;
     }
 
-    const confirmed = window.confirm(
-      `${tool.name} 会立即基于当前图片生成新图，确认执行？`,
-    );
-    if (!confirmed) return;
-
-    setPendingToolId(tool.id);
-    try {
-      const { jobId } = await runTool(tool.id, {
-        sessionId,
-        prompt: tool.defaultPrompt,
-        referenceOutputIds,
-        assetIds,
-        resolution: resolveToolResolution(tool.id),
-        count: tool.id === "variation" ? 2 : 1,
-        ...(tool.id === "upscale" ? { scale: "2x" as const } : {}),
-      });
-      void trackEvent("tool_run", {
-        tool_id: tool.id,
-        job_id: jobId,
-        has_reference: true,
-      });
-      registerToolBatchLineage(jobId, item, tool.name);
-      setPollingJobId(jobId);
-      setSelectSourceBanner(null);
-    } catch (err) {
-      setSelectSourceBanner(
-        err instanceof Error ? err.message : "工具执行失败",
-      );
-    } finally {
-      setPendingToolId(null);
-    }
+    setToolConfirm({ tool, item });
   }
 
   async function handleCanvasDownload() {
@@ -944,6 +990,16 @@ export function StudioWorkspace({
           onJobStarted={handleJobStarted}
         />
       ) : null}
+      <div>
+        <div className="mb-1 flex items-center gap-1 px-0.5 text-[10px] font-medium text-zinc-500">
+          <span className="text-sm leading-none" aria-hidden>
+            🎨
+          </span>
+          <span className="uppercase tracking-wider">生成</span>
+        </div>
+        <p className="mb-2 px-0.5 text-[10px] leading-relaxed text-zinc-600">
+          描述需求并提交；模型、张数与分辨率由本区控制。
+        </p>
       <CreationPanel
         variant="dock"
         showModeTabs={false}
@@ -1034,11 +1090,17 @@ export function StudioWorkspace({
           return jobId;
         }}
       />
+      </div>
       {mode !== "ecommerce" && tools.length > 0 && user ? (
         <StudioToolGrid
           tools={tools}
-          activeToolId={focusEditSession ? "focus-edit" : null}
-          disabled={readOnly || Boolean(pollingJobId)}
+          activeToolId={pendingToolId ?? (focusEditSession ? "focus-edit" : null)}
+          disabled={readOnly || Boolean(pollingJobId) || toolConfirmPending}
+          refineHint={
+            selectedCanvasItem?.outputId || selectedCanvasItem?.assetId
+              ? `已选 ${selectedCanvasItem.label ?? "画布图片"}`
+              : "请先在画布选图"
+          }
           onSelect={handleStudioToolGridSelect}
         />
       ) : null}
@@ -1397,6 +1459,15 @@ export function StudioWorkspace({
           onClose={() => setReportOpen(false)}
         />
       ) : null}
+      <ToolConfirmDialog
+        key={toolConfirm?.tool.id ?? "closed"}
+        request={toolConfirm}
+        pending={toolConfirmPending}
+        onClose={() => {
+          if (!toolConfirmPending) setToolConfirm(null);
+        }}
+        onConfirm={(opts) => void handleToolConfirm(opts)}
+      />
       <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
     </WorkspaceProvider>
   );

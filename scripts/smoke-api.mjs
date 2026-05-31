@@ -192,6 +192,23 @@ async function main() {
     `count=${toolRows.length}`,
   );
 
+  const deprecatedVariation = await req("/api/v1/ai/generate", {
+    method: "POST",
+    headers: authH,
+    body: JSON.stringify({
+      sessionId,
+      prompt: "变体测试",
+      operation: "variation",
+      image: "https://example.com/a.png",
+    }),
+  });
+  ok(
+    "POST /ai/generate variation deprecated 410",
+    deprecatedVariation.res.status === 410 &&
+      deprecatedVariation.json?.error?.code === "USE_TOOL_ENDPOINT",
+    `status=${deprecatedVariation.res.status}`,
+  );
+
   const TINY_PNG_B64 =
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
   const focusPoint = await req("/api/v1/focus/point", {
@@ -374,31 +391,6 @@ async function main() {
         );
       }
 
-      const variationRun = await req("/api/v1/tools/variation/run", {
-        method: "POST",
-        headers: authH,
-        body: JSON.stringify({
-          sessionId,
-          referenceOutputIds: [outputId],
-          count: 1,
-        }),
-      });
-      const variationJobId = variationRun.json?.data?.jobId;
-      ok(
-        "POST tools/variation with ref",
-        variationRun.res.ok && !!variationJobId,
-        `job=${variationJobId}`,
-      );
-      if (variationJobId) {
-        const variationJob = await waitJob(variationJobId, authH);
-        ok(
-          "variation job succeeded",
-          variationJob?.status === "succeeded" &&
-            !!variationJob?.outputs?.[0]?.url,
-          variationJob?.outputs?.[0]?.url ?? variationJob?.status ?? "no url",
-        );
-      }
-
       const upscaleRun = await req("/api/v1/tools/upscale/run", {
         method: "POST",
         headers: authH,
@@ -421,6 +413,43 @@ async function main() {
           "upscale job 2x succeeded",
           upscaleJob?.status === "succeeded" && !!upscaleJob?.outputs?.[0]?.url,
           upscaleJob?.outputs?.[0]?.url ?? upscaleJob?.status ?? "no url",
+        );
+      }
+
+      const variationRun = await req("/api/v1/tools/variation/run", {
+        method: "POST",
+        headers: authH,
+        body: JSON.stringify({
+          sessionId,
+          referenceOutputIds: [outputId],
+          count: 1,
+          resolution: "1k",
+        }),
+      });
+      const variationJobId = variationRun.json?.data?.jobId;
+      const variationPoints = variationRun.json?.data?.estimatedPoints;
+      ok(
+        "POST tools/variation with ref",
+        variationRun.res.ok && !!variationJobId,
+        `job=${variationJobId} points=${variationPoints}`,
+      );
+      ok(
+        "tool points include count factor",
+        typeof variationPoints === "number" && variationPoints === 10,
+        `count1=${variationPoints} expected=10 (1k×1)`,
+      );
+      if (variationJobId) {
+        const variationJob = await waitJob(variationJobId, authH);
+        ok(
+          "variation job succeeded",
+          variationJob?.status === "succeeded" &&
+            !!variationJob?.outputs?.[0]?.url,
+          variationJob?.outputs?.[0]?.url ?? variationJob?.status ?? "no url",
+        );
+        ok(
+          "variation job has image_provider",
+          Boolean(variationJob?.image_provider),
+          variationJob?.image_provider ?? "missing",
         );
       }
     } else {

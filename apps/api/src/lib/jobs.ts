@@ -27,6 +27,17 @@ import type { JobQueuePayload } from "./queue/types.js";
 
 const delayMs = Number(process.env.MOCK_GENERATION_DELAY_MS ?? 2500);
 
+function formatToolProviderLabel(provider: string | undefined): string {
+  if (!provider) return "";
+  const labels: Record<string, string> = {
+    "tool-seedream": "Seedream 工具链",
+    "tool-openai-variation": "OpenAI 变体",
+    "tool-variation-mock": "Mock",
+    "tool-openai-edit": "OpenAI 编辑",
+  };
+  return labels[provider] ?? provider;
+}
+
 export interface CreateJobInput {
   sessionId: string;
   userId: string;
@@ -47,7 +58,7 @@ export interface CreateJobInput {
 export function createGenerationJob(input: CreateJobInput) {
   const pointsCost =
     input.toolType ?
-      estimateToolPoints(input.modelId, input.toolType, input.resolution)
+      estimateToolPoints(input.toolType, input.resolution, input.count)
     : estimatePoints(input.modelId, input.count, input.resolution);
 
   const user = db
@@ -64,7 +75,7 @@ export function createGenerationJob(input: CreateJobInput) {
   assertSessionWrite(input.userId, input.sessionId);
 
   const modelMeta = getModel(input.modelId);
-  if (modelMeta?.type !== "video") {
+  if (!input.toolType && modelMeta?.type !== "video") {
     resolveProvider(input.modelId, "generate", {
       hasReferenceImages: Boolean(input.referenceUrls?.length),
     });
@@ -306,14 +317,15 @@ export async function processGenerationJob({
       job.tool_type && job.tool_type !== "video" ?
         getTool(job.tool_type)
       : undefined;
+    const providerLabel = formatToolProviderLabel(imageProvider ?? undefined);
     const summary =
       job.mode === "ecommerce"
         ? `电商套图方案已生成，共 ${outputs.length} 张：${labels?.join("、") ?? ""}`
         : studioTool
-          ? `「${studioTool.name}」处理完成，共 ${outputs.length} 张。`
+          ? `精修 · ${studioTool.name} · 共 ${outputs.length} 张${providerLabel ? `（${providerLabel}）` : ""}。`
           : isVideo
-            ? `已生成 ${outputs.length} 段视频（${model?.name ?? job.model_id}）。`
-            : `已根据你的描述生成 ${outputs.length} 张图片。`;
+            ? `生成 · 视频 · 共 ${outputs.length} 段（${model?.name ?? job.model_id}）。`
+            : `生成 · 共 ${outputs.length} 张图片。`;
 
     if (isMultiSlide) {
       db.transaction(() => {
@@ -412,7 +424,7 @@ export function getJob(jobId: string, userId?: string): JobDetail {
   const job = db
     .prepare(
       `SELECT id, session_id, user_id, model_id, prompt, mode, count, resolution,
-              status, points_cost, error, tool_type, created_at, completed_at
+              status, points_cost, error, tool_type, image_provider, created_at, completed_at
        FROM generation_jobs WHERE id = ?`,
     )
     .get(jobId) as Record<string, unknown> | undefined;
