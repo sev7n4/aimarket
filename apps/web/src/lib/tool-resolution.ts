@@ -4,6 +4,7 @@ export function resolveToolResolution(
 ): "1k" | "2k" | "4k" {
   switch (toolId) {
     case "cutout":
+    case "variation":
     case "expand":
     case "inpaint":
     case "focus-edit":

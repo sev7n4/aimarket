@@ -186,6 +186,7 @@ async function main() {
     "GET tools/list",
     toolsList.res.ok &&
       toolRows.some((t) => t.id === "cutout") &&
+      toolRows.some((t) => t.id === "variation") &&
       toolRows.some((t) => t.id === "focus-edit") &&
       toolRows.find((t) => t.id === "crop")?.clientOnly === true,
     `count=${toolRows.length}`,
@@ -370,6 +371,31 @@ async function main() {
             !!cutoutUrl &&
             /\.png($|\?)/i.test(cutoutUrl),
           cutoutUrl ?? cutoutJob?.status ?? "no url",
+        );
+      }
+
+      const variationRun = await req("/api/v1/tools/variation/run", {
+        method: "POST",
+        headers: authH,
+        body: JSON.stringify({
+          sessionId,
+          referenceOutputIds: [outputId],
+          count: 1,
+        }),
+      });
+      const variationJobId = variationRun.json?.data?.jobId;
+      ok(
+        "POST tools/variation with ref",
+        variationRun.res.ok && !!variationJobId,
+        `job=${variationJobId}`,
+      );
+      if (variationJobId) {
+        const variationJob = await waitJob(variationJobId, authH);
+        ok(
+          "variation job succeeded",
+          variationJob?.status === "succeeded" &&
+            !!variationJob?.outputs?.[0]?.url,
+          variationJob?.outputs?.[0]?.url ?? variationJob?.status ?? "no url",
         );
       }
 

@@ -25,6 +25,7 @@ const SUPPORTED_TOOL_IDS = new Set([
   "expand",
   "inpaint",
   "focus-edit",
+  "variation",
 ]);
 
 function isSeedreamConfigured(): boolean {
@@ -36,6 +37,7 @@ function resolveMode(toolId: string): "seedream" | "mock" | "auto" | "http" {
   if (toolId === "cutout") envKey = "TOOL_CUTOUT_PROVIDER";
   else if (toolId === "upscale" || toolId === "enhance")
     envKey = "TOOL_UPSCALE_PROVIDER";
+  else if (toolId === "variation") envKey = "TOOL_VARIATION_PROVIDER";
   else envKey = "TOOL_EDIT_PROVIDER";
   const raw = (process.env[envKey] ?? "auto").toLowerCase();
   if (raw === "seedream" || raw === "mock" || raw === "http") return raw;
@@ -95,6 +97,8 @@ function buildPrompt(params: ToolRunParams): string {
     case "inpaint":
     case "focus-edit":
       return userPrompt || "按上下文进行自然局部重绘";
+    case "variation":
+      return `在保持原图主体、构图与整体风格高度一致的前提下，生成自然细微差异的变体版本。${userPrompt}`;
     default:
       return userPrompt;
   }
@@ -173,7 +177,8 @@ export const seedreamToolProvider: ImageToolProvider = {
       variant:
         params.toolId === "expand" ||
         params.toolId === "inpaint" ||
-        params.toolId === "focus-edit"
+        params.toolId === "focus-edit" ||
+        params.toolId === "variation"
           ? params.toolId === "focus-edit" ? "inpaint" : params.toolId
           : undefined,
       scale:

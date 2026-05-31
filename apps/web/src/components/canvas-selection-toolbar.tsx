@@ -4,6 +4,7 @@ import {
   ArrowUpToLine,
   AtSign,
   Brush,
+  Copy,
   Crop,
   Crosshair,
   Eraser,
@@ -19,6 +20,7 @@ import type { CanvasItem } from "@/lib/canvas-tools";
 import type { StudioTool } from "@/lib/types";
 
 const TOOL_ICONS: Record<string, LucideIcon> = {
+  variation: Copy,
   expand: Maximize2,
   erase: Eraser,
   cutout: Scissors,
@@ -32,6 +34,7 @@ const TOOL_ICONS: Record<string, LucideIcon> = {
 };
 
 const TOOL_SHORT: Record<string, string> = {
+  variation: "变体",
   expand: "扩图",
   erase: "消除",
   cutout: "抠图",

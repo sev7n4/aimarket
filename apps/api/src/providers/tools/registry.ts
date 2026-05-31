@@ -7,14 +7,17 @@ import { cutoutHttpProvider } from "./cutout-http.js";
 import { cutoutMockProvider } from "./cutout-mock.js";
 import { editHttpProvider } from "./edit-http.js";
 import { editMockProvider } from "./edit-mock.js";
+import { variationMockProvider } from "./variation-mock.js";
+import { variationOpenaiToolProvider } from "./variation-openai-tool.js";
 import { mockToolProvider } from "./mock.js";
 import { seedreamToolProvider } from "./seedream-tool.js";
 import { upscaleHttpProvider } from "./upscale-http.js";
 import { upscaleMockProvider } from "./upscale-mock.js";
 import type { ImageToolProvider, ToolRunParams, ToolRunResult } from "./types.js";
 
-/** auto 优先级：vendor (seedream) → http → mock */
+/** auto 优先级：OpenAI 变体 → Seedream → http → mock */
 const providers: ImageToolProvider[] = [
+  variationOpenaiToolProvider,
   seedreamToolProvider,
   cutoutHttpProvider,
   cutoutMockProvider,
@@ -22,6 +25,7 @@ const providers: ImageToolProvider[] = [
   upscaleMockProvider,
   editHttpProvider,
   editMockProvider,
+  variationMockProvider,
   mockToolProvider,
 ];
 
@@ -95,6 +99,7 @@ export function getToolProviderStatus() {
   const expandProvider = resolveToolProvider("expand").name;
   const inpaintProvider = resolveToolProvider("inpaint").name;
   const focusEditProvider = resolveToolProvider("focus-edit").name;
+  const variationProvider = resolveToolProvider("variation").name;
   const genericToolProvider = resolveToolProvider("blend").name;
 
   const allMock =
@@ -116,6 +121,7 @@ export function getToolProviderStatus() {
     expandProvider,
     inpaintProvider,
     focusEditProvider,
+    variationProvider,
     editMode,
     editHttpConfigured,
     seedreamConfigured,

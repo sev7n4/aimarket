@@ -73,6 +73,7 @@ const TOOL_INTERACTIONS: Record<string, SelectionToolInteraction> = {
   cutout: "direct",
   upscale: "direct",
   enhance: "direct",
+  variation: "direct",
   erase: "brush",
   inpaint: "brush",
   "focus-edit": "click",
@@ -667,6 +668,7 @@ export function StudioWorkspace({
         referenceOutputIds,
         assetIds,
         resolution: resolveToolResolution(tool.id),
+        count: tool.id === "variation" ? 2 : 1,
         ...(tool.id === "upscale" ? { scale: "2x" as const } : {}),
       });
       void trackEvent("tool_run", {
