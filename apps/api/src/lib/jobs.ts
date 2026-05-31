@@ -232,7 +232,7 @@ export async function processGenerationJob({
   try {
     const labels =
       slideLabels ??
-      (job.mode === "ecommerce"
+      (job.mode === "ecommerce" && !job.tool_type
         ? ECOMMERCE_SLIDES.map((s) => s.label)
         : undefined);
 
@@ -328,7 +328,7 @@ export async function processGenerationJob({
       : undefined;
     const providerLabel = formatToolProviderLabel(imageProvider ?? undefined);
     const summary =
-      job.mode === "ecommerce"
+      job.mode === "ecommerce" && !job.tool_type
         ? `电商套图方案已生成，共 ${outputs.length} 张：${labels?.join("、") ?? ""}`
         : studioTool
           ? `精修 · ${studioTool.name} · 共 ${outputs.length} 张${providerLabel ? `（${providerLabel}）` : ""}。`

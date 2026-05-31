@@ -41,7 +41,11 @@ test.describe("focus edit", () => {
     await expect(canvasImage).toBeVisible({ timeout: 20_000 });
     await canvasImage.click();
 
-    await page.getByTestId("canvas-tool-focus-edit").click();
+    const focusTool = page
+      .getByTestId("canvas-batch-tool-focus-edit")
+      .or(page.getByTestId("canvas-tool-focus-edit"));
+    await focusTool.first().scrollIntoViewIfNeeded();
+    await focusTool.first().click();
     const confirmDialog = page.getByTestId("tool-confirm-dialog");
     await expect(confirmDialog).toBeVisible({ timeout: 10_000 });
     await confirmDialog.getByRole("button", { name: "开始点选" }).click();
@@ -49,7 +53,14 @@ test.describe("focus edit", () => {
       timeout: 10_000,
     });
 
-    await canvasImage.click({ position: { x: 20, y: 20 }, force: true });
+    const focusTarget = page.locator('[data-testid^="canvas-item-"]').first();
+    await expect(focusTarget).toBeVisible({ timeout: 10_000 });
+    const box = await focusTarget.boundingBox();
+    if (!box) throw new Error("canvas item has no bounding box");
+    await focusTarget.click({
+      position: { x: box.width / 2, y: box.height / 2 },
+      force: true,
+    });
     await expect(station.getByTestId("focus-edit-panel")).toBeVisible({
       timeout: 15_000,
     });

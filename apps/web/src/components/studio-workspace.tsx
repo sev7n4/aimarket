@@ -408,6 +408,9 @@ export function StudioWorkspace({
   const handleJobStarted = useCallback(
     (jobId: string, lineage?: PendingBatchLineage) => {
       if (lineage) registerBatchLineage(jobId, lineage);
+      if (canvasRef.current?.isInRefineMode()) {
+        canvasRef.current.beginRefineJob();
+      }
       setPollingJobId(jobId);
     },
     [registerBatchLineage],
@@ -445,10 +448,18 @@ export function StudioWorkspace({
     setJobStartedAt(null);
     setQueueAhead(null);
     lastOutputCountRef.current = 0;
+    let jobStatus: string | undefined;
+    let toolType: string | undefined;
     if (completedJobId) {
       try {
         const job = await fetchJob(completedJobId);
-        if (job.tool_type && job.status === "succeeded") {
+        jobStatus = job.status;
+        toolType = job.tool_type ?? undefined;
+        if (
+          job.tool_type &&
+          job.status === "succeeded" &&
+          !canvasRef.current?.isInRefineMode()
+        ) {
           const provider = formatToolProviderLabel(job.image_provider);
           if (provider) {
             setSelectSourceBanner(`精修完成 · ${provider}`);
@@ -463,7 +474,15 @@ export function StudioWorkspace({
     setSessions(
       await listSessions(20, undefined, activeWorkspaceId ?? undefined),
     );
-    window.requestAnimationFrame(() => focusLatestCanvasItem());
+    if (canvasRef.current?.isInRefineMode()) {
+      if (jobStatus === "succeeded") {
+        canvasRef.current.completeRefineJob({ toolName: toolType });
+      } else {
+        canvasRef.current.cancelRefineJob();
+      }
+    } else {
+      window.requestAnimationFrame(() => focusLatestCanvasItem());
+    }
   }, [loadCanvas, refreshUser, activeWorkspaceId, focusLatestCanvasItem]);
 
   useEffect(() => {
@@ -666,6 +685,9 @@ export function StudioWorkspace({
         count: tool.id === "variation" ? opts.count : 1,
       });
       registerToolBatchLineage(jobId, item, tool.name);
+      if (canvasRef.current?.isInRefineMode()) {
+        canvasRef.current.beginRefineJob();
+      }
       setPollingJobId(jobId);
       setSelectSourceBanner(null);
     } catch (err) {
@@ -860,7 +882,7 @@ export function StudioWorkspace({
           count: params.count ?? 1,
           resolution: params.resolution ?? "standard",
           aspectRatio: params.aspectRatio,
-          mode,
+          mode: params.toolType ? "chat" : mode,
         });
         jobId = id;
         void trackEvent("generation_rerun", {
@@ -1081,6 +1103,9 @@ export function StudioWorkspace({
           });
           registerToolBatchLineage(jobId, item, "焦点编辑");
           exitFocusEditMode();
+          if (canvasRef.current?.isInRefineMode()) {
+            canvasRef.current.beginRefineJob();
+          }
           setPollingJobId(jobId);
           return jobId;
         }}
@@ -1389,6 +1414,19 @@ export function StudioWorkspace({
                   "已完成圈选：区域 mask 已加入工作台，请补充提示词后提交。",
                 );
                 hapticLight();
+              }}
+              batchTools={{
+                tools,
+                pendingToolId,
+                onRunTool: (tool, item) =>
+                  void handleRunSelectionTool(tool, item),
+                onMentionItem: (item) => {
+                  setMentionItemRequest((prev) => ({
+                    key: (prev?.key ?? 0) + 1,
+                    item,
+                  }));
+                  hapticLight();
+                },
               }}
               selectionToolbar={
                 <CanvasSelectionToolbar

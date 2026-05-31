@@ -17,6 +17,8 @@ import type {
   BatchSection,
 } from "@/lib/canvas-tools";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
+import { RefineCompareView } from "@/components/refine-compare-view";
+import { RefineFilmstrip } from "@/components/refine-filmstrip";
 import { hapticLight } from "@/lib/haptics";
 import { canvasSelectionHint } from "@/lib/mobile-labels";
 import { Minus, Plus, Lock, Unlock } from "lucide-react";
@@ -49,6 +51,12 @@ interface FreeCanvasProps {
   pulseId: string | null;
   isRefineMode: boolean;
   refineItemId: string | null;
+  refineRootItemId?: string | null;
+  refineChain?: CanvasItem[];
+  onRefineTargetSelect?: (itemId: string) => void;
+  compareMode?: boolean;
+  comparePair?: { before: CanvasItem; after: CanvasItem } | null;
+  onCompareModeChange?: (on: boolean) => void;
   onExitRefineMode: () => void;
   onSetLightbox: (lb: { items: CanvasItem[]; index: number } | null) => void;
   onSetContextMenu: (cm: {
@@ -114,6 +122,12 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       pulseId,
       isRefineMode,
       refineItemId,
+      refineRootItemId = null,
+      refineChain = [],
+      onRefineTargetSelect,
+      compareMode = false,
+      comparePair = null,
+      onCompareModeChange,
       onExitRefineMode,
       onSetLightbox,
       onSetContextMenu,
@@ -601,15 +615,6 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       }
 
       if (focusClickActive && focusItem && item.id === focusItem.id) {
-        e.stopPropagation();
-        e.preventDefault();
-        const pt = itemPointFromEvent(e, item);
-        if (!pt || readOnly) return;
-        onFocusImageClick?.(item, {
-          x: pt.x / item.width,
-          y: pt.y / item.height,
-        });
-        hapticLight();
         return;
       }
       if (brushActive) return;
@@ -937,6 +942,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                     key={item.id}
                     role="button"
                     tabIndex={0}
+                    data-testid={`canvas-item-${item.id}`}
                     style={{
                       position: "absolute",
                       left: item.x,
@@ -944,7 +950,22 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                       width: item.width,
                     }}
                     onPointerDown={(e) => onItemPointerDown(e, item)}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (
+                        focusClickActive &&
+                        focusItem?.id === item.id
+                      ) {
+                        const rect =
+                          e.currentTarget.getBoundingClientRect();
+                        const x =
+                          (e.clientX - rect.left) / rect.width;
+                        const y =
+                          (e.clientY - rect.top) / rect.height;
+                        onFocusImageClick?.(item, { x, y });
+                        hapticLight();
+                      }
+                    }}
                     onDoubleClick={(e) => {
                       e.stopPropagation();
                       onSetLightbox({
@@ -1362,6 +1383,23 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
         </div>
 
         {selectionToolbar}
+
+        {isRefineMode && refineRootItemId && refineChain.length > 0 ? (
+          <RefineFilmstrip
+            chain={refineChain}
+            rootItemId={refineRootItemId}
+            activeItemId={refineItemId ?? refineRootItemId}
+            onSelect={(id) => onRefineTargetSelect?.(id)}
+          />
+        ) : null}
+
+        {compareMode && comparePair ? (
+          <RefineCompareView
+            before={comparePair.before}
+            after={comparePair.after}
+            onClose={() => onCompareModeChange?.(false)}
+          />
+        ) : null}
       </div>
     );
   },
