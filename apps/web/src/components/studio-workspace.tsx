@@ -26,6 +26,7 @@ import { ProviderStatusChip } from "@/components/provider-status-banner";
 import { ContentReportDialog } from "@/components/content-report-dialog";
 import {
   ToolConfirmDialog,
+  type ToolConfirmOptions,
   type ToolConfirmRequest,
 } from "@/components/tool-confirm-dialog";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
@@ -230,6 +231,7 @@ export function StudioWorkspace({
     itemId: string;
     toolId: string;
     toolName: string;
+    promptExtra?: string;
   } | null>(null);
   const [focusEditSession, setFocusEditSession] =
     useState<FocusEditSession | null>(null);
@@ -244,9 +246,9 @@ export function StudioWorkspace({
   const lastFocusClickAtRef = useRef(0);
   /** 受控的内容举报对话框（StudioHeader 右上 ⚠ 触发） */
   const [reportOpen, setReportOpen] = useState(false);
-  const [toolConfirm, setToolConfirm] = useState<
-    (ToolConfirmRequest & { item: CanvasItem }) | null
-  >(null);
+  const [toolConfirm, setToolConfirm] = useState<ToolConfirmRequest | null>(
+    null,
+  );
   const [toolConfirmPending, setToolConfirmPending] = useState(false);
 
   const handleWorkspaceChange = useCallback((id: string) => {
@@ -520,28 +522,13 @@ export function StudioWorkspace({
     return () => window.clearTimeout(t);
   }, [canvasItems.length, focusLatestCanvasItem]);
 
-  async function handleQuickToolFromCanvas(
+  function handleQuickToolFromCanvas(
     item: CanvasItem,
     toolId: "cutout" | "expand",
   ) {
     const tool = tools.find((t) => t.id === toolId);
-    if (!tool || !user || readOnly || !item.outputId) return;
-    setSelectedCanvasId(item.id);
-    try {
-      const { jobId } = await runTool(tool.id, {
-        sessionId,
-        prompt: tool.defaultPrompt,
-        referenceOutputIds: [item.outputId],
-        resolution: resolveToolResolution(tool.id),
-      });
-      registerToolBatchLineage(jobId, item, tool.name);
-      setPollingJobId(jobId);
-      setSelectSourceBanner(null);
-    } catch (err) {
-      setSelectSourceBanner(
-        err instanceof Error ? err.message : "工具执行失败",
-      );
-    }
+    if (!tool) return;
+    void handleRunSelectionTool(tool, item);
   }
 
   /**
@@ -555,16 +542,26 @@ export function StudioWorkspace({
     setFocusClickKey((k) => k + 1);
   }
 
-  function startFocusEditMode(item: CanvasItem) {
+  function startFocusEditMode(
+    item: CanvasItem,
+    opts?: { intent?: "edit" | "replace"; promptHint?: string },
+  ) {
     setBrushRequest(null);
     setFocusEditSession({
       itemId: item.id,
       points: [],
-      intent: "edit",
+      intent: opts?.intent ?? "edit",
       cropSize: DEFAULT_CROP_SIZE,
     });
     setFocusClickKey((k) => k + 1);
     setSelectedCanvasId(item.id);
+    if (opts?.promptHint) {
+      setMentionItemRequest((prev) => ({
+        key: (prev?.key ?? 0) + 1,
+        item,
+        promptSuffix: opts.promptHint,
+      }));
+    }
     setSelectSourceBanner(
       "焦点编辑：在图片上点击要修改的位置，在工作站输入短 prompt 后提交。",
     );
@@ -624,27 +621,34 @@ export function StudioWorkspace({
   async function executeDirectTool(
     tool: StudioTool,
     item: CanvasItem,
-    count: number,
+    opts: ToolConfirmOptions,
   ) {
     const referenceOutputIds = item.outputId ? [item.outputId] : undefined;
     const assetIds =
       !referenceOutputIds && item.assetId ? [item.assetId] : undefined;
     setPendingToolId(tool.id);
     try {
+      const userPrompt = opts.prompt?.trim();
+      const prompt =
+        tool.id === "text" && userPrompt
+          ? `${tool.defaultPrompt}，新文字：${userPrompt}`
+          : userPrompt || tool.defaultPrompt;
       const { jobId } = await runTool(tool.id, {
         sessionId,
-        prompt: tool.defaultPrompt,
+        prompt,
         referenceOutputIds,
         assetIds,
         resolution: resolveToolResolution(tool.id),
-        count: tool.id === "variation" ? count : 1,
-        ...(tool.id === "upscale" ? { scale: "2x" as const } : {}),
+        count: tool.id === "variation" ? opts.count : 1,
+        ...(tool.id === "upscale"
+          ? { scale: opts.scale ?? ("2x" as const) }
+          : {}),
       });
       void trackEvent("tool_run", {
         tool_id: tool.id,
         job_id: jobId,
         has_reference: true,
-        count: tool.id === "variation" ? count : 1,
+        count: tool.id === "variation" ? opts.count : 1,
       });
       registerToolBatchLineage(jobId, item, tool.name);
       setPollingJobId(jobId);
@@ -658,12 +662,61 @@ export function StudioWorkspace({
     }
   }
 
-  async function handleToolConfirm(opts: { count: number }) {
+  async function handleToolConfirm(opts: ToolConfirmOptions) {
     if (!toolConfirm) return;
     const { tool, item } = toolConfirm;
+    const interaction = getToolInteraction(tool.id);
+
+    if (interaction === "brush") {
+      setToolConfirm(null);
+      setBrushRequest({
+        key: Date.now(),
+        itemId: item.id,
+        toolId: tool.id,
+        toolName: tool.name,
+        promptExtra: opts.prompt?.trim() || undefined,
+      });
+      setSelectSourceBanner(
+        `${tool.name}：请在图片上圈选区域${opts.prompt?.trim() ? "，提示词已预填到工作台" : "，完成后再到工作台补充提示词"}。`,
+      );
+      hapticLight();
+      return;
+    }
+
+    if (interaction === "click") {
+      setToolConfirm(null);
+      const suffix = opts.prompt?.trim()
+        ? `${buildToolPromptSuffix(tool)}${opts.prompt.trim()}`
+        : buildToolPromptSuffix(tool);
+      startFocusEditMode(item, {
+        intent: opts.intent,
+        promptHint: suffix,
+      });
+      return;
+    }
+
+    if (interaction === "prompt") {
+      if (tool.id === "blend") {
+        setToolConfirm(null);
+        const suffix = opts.prompt?.trim()
+          ? `${buildToolPromptSuffix(tool)}${opts.prompt.trim()}`
+          : buildToolPromptSuffix(tool);
+        setMentionItemRequest((prev) => ({
+          key: (prev?.key ?? 0) + 1,
+          item,
+          promptSuffix: suffix,
+        }));
+        setSelectSourceBanner(
+          `${tool.name}：已把当前图 @ 到工作台，请再 @ 另一张素材并提交。`,
+        );
+        hapticLight();
+        return;
+      }
+    }
+
     setToolConfirmPending(true);
     try {
-      await executeDirectTool(tool, item, opts.count);
+      await executeDirectTool(tool, item, opts);
       setToolConfirm(null);
     } finally {
       setToolConfirmPending(false);
@@ -688,49 +741,8 @@ export function StudioWorkspace({
       return;
     }
 
-    const interaction = getToolInteraction(tool.id);
-    if (interaction === "click") {
-      startFocusEditMode(item);
-      setMentionItemRequest((prev) => ({
-        key: (prev?.key ?? 0) + 1,
-        item,
-        promptSuffix: buildToolPromptSuffix(tool),
-      }));
-      return;
-    }
-
-    if (interaction === "brush") {
-      setBrushRequest((prev) => ({
-        key: (prev?.key ?? 0) + 1,
-        itemId: item.id,
-        toolId: tool.id,
-        toolName: tool.name,
-      }));
-      setSelectSourceBanner(
-        `${tool.name}：请在图片上用手指/鼠标圈选区域，完成后再到工作台补充提示词。`,
-      );
-      hapticLight();
-      return;
-    }
-
-    if (interaction === "prompt") {
-      setMentionItemRequest((prev) => ({
-        key: (prev?.key ?? 0) + 1,
-        item,
-        promptSuffix: buildToolPromptSuffix(tool),
-      }));
-      const recommendNote =
-        tool.id === "expand" || tool.id === "cutout"
-          ? "（推荐工具链路径）"
-          : "";
-      setSelectSourceBanner(
-        `${tool.name} 需要结合提示词，已把当前图 @ 到工作台；补充要求后提交。${recommendNote}`,
-      );
-      hapticLight();
-      return;
-    }
-
     setToolConfirm({ tool, item });
+    hapticLight();
   }
 
   async function handleCanvasDownload() {
@@ -1335,18 +1347,20 @@ export function StudioWorkspace({
                 const item = canvasItems.find((i) => i.id === selection.itemId);
                 if (!item) return;
                 const tool = tools.find((t) => t.id === selection.toolId);
+                const promptExtra = brushRequest?.promptExtra ?? "";
                 setBrushRequest(null);
                 setMentionItemRequest((prev) => ({
                   key: (prev?.key ?? 0) + 1,
                   item,
-                  promptSuffix: buildToolPromptSuffix(
-                    tool ?? {
-                      id: selection.toolId,
-                      name: "局部编辑",
-                      description: "",
-                      defaultPrompt: "请根据圈选区域进行局部编辑",
-                    },
-                  ),
+                  promptSuffix:
+                    buildToolPromptSuffix(
+                      tool ?? {
+                        id: selection.toolId,
+                        name: "局部编辑",
+                        description: "",
+                        defaultPrompt: "请根据圈选区域进行局部编辑",
+                      },
+                    ) + promptExtra,
                   maskSelection: selection,
                 }));
                 setSelectSourceBanner(
@@ -1394,7 +1408,11 @@ export function StudioWorkspace({
         />
       ) : null}
       <ToolConfirmDialog
-        key={toolConfirm?.tool.id ?? "closed"}
+        key={
+          toolConfirm
+            ? `${toolConfirm.tool.id}-${toolConfirm.item.id}`
+            : "closed"
+        }
         request={toolConfirm}
         pending={toolConfirmPending}
         onClose={() => {
