@@ -64,7 +64,55 @@ export function toolRefineSpecLine(
   resolution: string,
   count = 1,
 ): string {
-  const points = estimateToolPointsClient(tool, resolution, count);
   const countPart = tool.id === "variation" ? `${count} 张 · ` : "";
-  return `${resolution.toUpperCase()} · ${countPart}约 ${points} 积分`;
+  return `${resolution.toUpperCase()} · ${countPart}`;
+}
+
+/** 工具确认卡片：下一步操作说明 */
+export const TOOL_CONFIRM_STEPS: Record<string, string> = {
+  cutout: "一键生成透明底 PNG，主体边缘自动优化",
+  upscale: "在保持风格的前提下提升分辨率与细节",
+  enhance: "轻量锐化与对比增强，适合预览稿变清晰",
+  variation: "同构图微差：细节、光影会有可见变化",
+  expand: "补充画面边缘，主体位置与风格尽量保持一致",
+  erase: "确认后请在图上圈选要消除的区域",
+  inpaint: "确认后请在图上圈选要重绘的区域",
+  "focus-edit": "确认后在图上点击目标，再在工作台输入短 prompt",
+  text: "描述要替换成的文字内容，保持原图质感",
+  blend: "确认后 @ 第二张图到工作台，补充融合要求后提交",
+};
+
+export const TOOL_PROMPT_PLACEHOLDERS: Record<string, string> = {
+  expand: "例如：向下延伸背景，保留主体居中…",
+  erase: "可选：说明要去除的对象，如「路人」「水印」",
+  inpaint: "例如：改成红色丝绒材质、换成蓝天白云…",
+  "focus-edit": "例如：改成「SALE」、换成金属质感…",
+  text: "例如：SUMMER SALE · 限时五折",
+  blend: "例如：把两张图的产品自然合成在同一场景…",
+};
+
+export function toolConfirmPrimaryLabel(toolId: string): string {
+  switch (toolId) {
+    case "variation":
+      return "生成变体";
+    case "cutout":
+      return "开始抠图";
+    case "upscale":
+      return "开始放大";
+    case "enhance":
+      return "开始增强";
+    case "expand":
+      return "开始扩图";
+    case "erase":
+    case "inpaint":
+      return "开始圈选";
+    case "focus-edit":
+      return "开始点选";
+    case "text":
+      return "确认改字";
+    case "blend":
+      return "继续到工作台";
+    default:
+      return "确认执行";
+  }
 }
