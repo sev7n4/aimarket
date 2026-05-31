@@ -552,8 +552,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             </div>
           ) : null}
 
-          {selectionToolbar}
-
           {internalLayoutMode === "scroll" ? (
             <ScrollCanvas
               ref={scrollCanvasRef}
