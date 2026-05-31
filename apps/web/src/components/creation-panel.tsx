@@ -24,6 +24,7 @@ import {
   getToken,
   fetchModels,
   fetchReferences,
+  fetchProviderStatus,
   submitEcommerceGenerate,
   submitGeneration,
   submitVideoGeneration,
