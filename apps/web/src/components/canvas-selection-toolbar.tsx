@@ -104,6 +104,7 @@ export function CanvasSelectionToolbar({
             <button
               key={tool.id}
               type="button"
+              data-testid={`canvas-tool-${tool.id}`}
               title={tool.description || tool.name}
               disabled={isPending || requireMissing}
               onClick={() => onRunTool(tool, selectedItem)}
@@ -149,6 +150,7 @@ export function CanvasSelectionToolbar({
             <button
               key={tool.id}
               type="button"
+              data-testid={`canvas-tool-${tool.id}`}
               title={tool.description || tool.name}
               disabled={isPending}
               onClick={() => onRunTool(tool, selectedItem)}

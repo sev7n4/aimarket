@@ -140,6 +140,8 @@ interface CreationPanelProps {
    * 隐藏模型/数量/分辨率/Agent 计划预览等高级控件，把 dock 高度收缩到 ~56px。
    */
   collapsed?: boolean;
+  /** Studio Dock 内嵌：去掉 CreationPanel 自身外框，由 Dock 容器提供 */
+  embeddedInDock?: boolean;
   /**
    * 画布上的图片（用于 @ 上下文引用候选项）。
    * 仿 Cursor 的 @ 体验，工作台输入框 @ 后弹 popover 列出画布所有图片，
@@ -204,6 +206,7 @@ export function CreationPanel({
   inspirationCoverUrl,
   inspirationActive = false,
   collapsed = false,
+  embeddedInDock = false,
   canvasItems = [],
   mentionItemRequest = null,
   focusEdit = null,
@@ -886,7 +889,9 @@ export function CreationPanel({
         <div
           className={
             isDock
-              ? "rounded-2xl border border-white/10 bg-[#141414] px-3 pb-3 pt-3 sm:px-4 sm:pt-4"
+              ? embeddedInDock
+                ? "px-3 pb-3 pt-2 sm:px-4"
+                : "rounded-2xl border border-white/10 bg-[#141414] px-3 pb-3 pt-3 sm:px-4 sm:pt-4"
               : ""
           }
         >
@@ -1067,7 +1072,35 @@ export function CreationPanel({
         ) : null}
 
           {collapsed ? (
-            <div className="mt-2 flex items-center justify-end gap-2">
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-1.5">
+                {!showStackUpload ? (
+                  <button
+                    type="button"
+                    onClick={() => openUpload("general")}
+                    className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
+                    aria-label="上传图片"
+                    title="上传图片"
+                  >
+                    {uploading ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <ImagePlus className="size-3.5" />
+                    )}
+                  </button>
+                ) : null}
+                {sessionId ? (
+                  <button
+                    type="button"
+                    onClick={() => setMentionOpen((o) => !o)}
+                    className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
+                    aria-label="引用画布图片"
+                    title="@ 引用画布图片"
+                  >
+                    <AtSign className="size-3.5" />
+                  </button>
+                ) : null}
+              </div>
               <Button
                 variant="primary"
                 className="size-9 shrink-0 rounded-full p-0"
