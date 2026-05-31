@@ -49,9 +49,13 @@ export const INTERNAL_ROUTING_IDS = new Set(["omni-v2", "latest-v2-pro"]);
 export const ALL_MODELS = [...IMAGE_MODELS, ...VIDEO_MODELS];
 
 export function getModel(id: string): ModelMeta | undefined {
-  // Also resolve internal aliases so job records still get a name
-  if (id === "omni-v2" || id === "latest-v2-pro") {
-    return IMAGE_MODELS.find((m) => m.id === "seedream-5");
+  const seedream5 = IMAGE_MODELS.find((m) => m.id === "seedream-5");
+  // Internal aliases: preserve legacy pricing for tool defaults & old jobs
+  if (id === "omni-v2" && seedream5) {
+    return { ...seedream5, id: "omni-v2", pointsFactor: 1 };
+  }
+  if (id === "latest-v2-pro" && seedream5) {
+    return { ...seedream5, id: "latest-v2-pro", pointsFactor: 2 };
   }
   return ALL_MODELS.find((m) => m.id === id);
 }

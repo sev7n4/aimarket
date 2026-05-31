@@ -47,10 +47,10 @@ test.describe("mobile collab", () => {
 
     await dock.getByRole("button", { name: "专注画布" }).click();
     await expect(
-      page.getByRole("button", { name: "展开创作输入栏" }),
+      page.getByRole("button", { name: "展开创作台" }),
     ).toBeVisible({ timeout: 15_000 });
 
-    await page.getByRole("button", { name: "展开创作输入栏" }).click();
+    await page.getByRole("button", { name: "展开创作台" }).click();
     await page.getByRole("button", { name: "打开侧栏" }).click();
     await expect(page.getByRole("button", { name: "重命名" }).first()).toBeVisible({
       timeout: 15_000,
