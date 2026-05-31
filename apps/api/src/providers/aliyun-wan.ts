@@ -63,6 +63,16 @@ export const aliyunWanProvider: ImageProvider = {
     const model = process.env.ALIYUN_WAN_MODEL ?? "wan2.6-t2i";
     const size = resolveWanSize(params.resolution, params.aspectRatio ?? "1:1");
 
+    const content: DashScopeContentItem[] = [];
+    
+    if (params.referenceUrls?.length) {
+      for (const refUrl of params.referenceUrls) {
+        content.push({ image: refUrl });
+      }
+    }
+    
+    content.push({ text: params.prompt.slice(0, 2000) });
+
     const res = await fetch(
       `${base}/api/v1/services/aigc/multimodal-generation/generation`,
       {
@@ -77,7 +87,7 @@ export const aliyunWanProvider: ImageProvider = {
             messages: [
               {
                 role: "user",
-                content: [{ text: params.prompt.slice(0, 2000) }],
+                content,
               },
             ],
           },
