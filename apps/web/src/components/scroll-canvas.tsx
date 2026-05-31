@@ -5,6 +5,10 @@ import { assetUrl } from "@/lib/api-client";
 import type { CanvasItem, BatchSection } from "@/lib/canvas-tools";
 import { batchDisplayIndex } from "@/lib/canvas-tools";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
+import { ImageActionBar } from "@/components/image-action-bar";
+import { BatchToolStrip } from "@/components/batch-tool-strip";
+import { RefineSelectedCta } from "@/components/refine-selected-cta";
+import type { StudioTool } from "@/lib/types";
 import { hapticLight } from "@/lib/haptics";
 
 export interface ScrollCanvasHandle {
@@ -19,7 +23,10 @@ interface ScrollCanvasProps {
   readOnly: boolean;
   emptyHint: string;
   pulseId: string | null;
+  onEnterRefineMode: (itemId: string) => void;
   onSetLightbox: (lb: { items: CanvasItem[]; index: number } | null) => void;
+  onDeleteSelected: () => void;
+  onRerun: (item: CanvasItem) => void;
   onJumpToParentBatch?: (
     parentBatchId: string,
     sourceItemId?: string,
@@ -39,6 +46,12 @@ interface ScrollCanvasProps {
     point: { x: number; y: number },
   ) => void;
   scrollBottomInset?: string;
+  batchTools?: {
+    tools: StudioTool[];
+    pendingToolId?: string | null;
+    onRunTool: (tool: StudioTool, item: CanvasItem) => void;
+    onMentionItem?: (item: CanvasItem) => void;
+  };
 }
 
 export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
@@ -51,7 +64,10 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       readOnly,
       emptyHint,
       pulseId,
+      onEnterRefineMode,
       onSetLightbox,
+      onDeleteSelected,
+      onRerun,
       onJumpToParentBatch,
       jobStreamStatus,
       jobFailed,
@@ -65,6 +81,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       focusItem,
       onFocusImageClick,
       scrollBottomInset = "",
+      batchTools,
     },
     ref,
   ) {
@@ -207,6 +224,38 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                           }
                         }}
                       >
+                        {!readOnly ? (
+                          <ImageActionBar
+                            item={item}
+                            selected={selectedId === item.id}
+                            onPreview={() => {
+                              onSetLightbox({
+                                items: batchItems,
+                                index: batchItems.findIndex(
+                                  (i) => i.id === item.id,
+                                ),
+                              });
+                            }}
+                            onRefine={() => {
+                              onEnterRefineMode(item.id);
+                            }}
+                            onRerun={() => {
+                              onRerun(item);
+                            }}
+                            onDelete={() => {
+                              onSelect(item.id);
+                              onDeleteSelected();
+                            }}
+                          />
+                        ) : null}
+                        {!readOnly &&
+                        selectedId === item.id &&
+                        (item.outputId || item.assetId) &&
+                        !(focusClickActive && focusItem?.id === item.id) ? (
+                          <RefineSelectedCta
+                            onRefine={() => onEnterRefineMode(item.id)}
+                          />
+                        ) : null}
                         {item.label ? (
                           <span className="block bg-black/60 px-2 py-0.5 text-[10px] text-zinc-400">
                             {item.label}
@@ -234,6 +283,19 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                       </div>
                     ))}
                   </div>
+
+                  {batchTools ? (
+                    <BatchToolStrip
+                      tools={batchTools.tools}
+                      batchItems={batchItems}
+                      selectedId={selectedId}
+                      readOnly={readOnly}
+                      pendingToolId={batchTools.pendingToolId}
+                      onRunTool={batchTools.onRunTool}
+                      onMentionItem={batchTools.onMentionItem}
+                      onEnterRefineMode={onEnterRefineMode}
+                    />
+                  ) : null}
                 </div>
               );
             })}

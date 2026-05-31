@@ -743,14 +743,15 @@ export function CreationPanel({
         const mergedAssetIds = Array.from(
           new Set([...assetIds, ...mentionedAssetIds]),
         );
+        const toolEdit = mentionedMasks.length > 0;
         const res = await submitGeneration({
           sessionId,
           prompt: prompt.trim(),
           modelId: useAuto ? undefined : modelId,
-          count,
+          count: toolEdit ? 1 : count,
           resolution,
           aspectRatio,
-          mode,
+          mode: toolEdit ? "chat" : effectiveMode,
           assetIds: mergedAssetIds.length ? mergedAssetIds : undefined,
           referenceOutputIds: selectedRefs.map((r) => r.id),
           autoRoute: useAuto,
