@@ -55,7 +55,12 @@ test.describe("focus edit", () => {
 
     const focusTarget = page.locator('[data-testid^="canvas-item-"]').first();
     await expect(focusTarget).toBeVisible({ timeout: 10_000 });
-    await focusTarget.click({ position: { x: 30, y: 30 }, force: true });
+    const box = await focusTarget.boundingBox();
+    if (!box) throw new Error("canvas item has no bounding box");
+    await focusTarget.click({
+      position: { x: box.width / 2, y: box.height / 2 },
+      force: true,
+    });
     await expect(station.getByTestId("focus-edit-panel")).toBeVisible({
       timeout: 15_000,
     });

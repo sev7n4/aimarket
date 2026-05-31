@@ -36,8 +36,6 @@ export function FocusEditChips({
   const [editValue, setEditValue] = useState("");
   const [showSettings, setShowSettings] = useState(false);
 
-  if (points.length === 0 && !recognizing) return null;
-
   function startEdit(pointId: string, currentName: string) {
     setEditingId(pointId);
     setEditValue(currentName);

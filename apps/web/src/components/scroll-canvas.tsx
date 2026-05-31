@@ -250,7 +250,8 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                         ) : null}
                         {!readOnly &&
                         selectedId === item.id &&
-                        (item.outputId || item.assetId) ? (
+                        (item.outputId || item.assetId) &&
+                        !(focusClickActive && focusItem?.id === item.id) ? (
                           <RefineSelectedCta
                             onRefine={() => onEnterRefineMode(item.id)}
                           />
