@@ -11,7 +11,6 @@ import {
   type DesignCanvasHandle,
 } from "@/components/design-canvas";
 import { CreationPanel } from "@/components/creation-panel";
-import { InspirationSetGenerateBar } from "@/components/inspiration-set-generate-bar";
 import { CanvasSelectionToolbar } from "@/components/canvas-selection-toolbar";
 import { StudioToolGrid } from "@/components/studio-tool-grid";
 import { StudioHeader } from "@/components/studio-header";
@@ -316,10 +315,8 @@ export function StudioWorkspace({
     });
     setCanEdit(ensured.can_edit ?? true);
     /**
-     * 刷新恢复同款生成栏：
-     * - 如果本次进入没有 pendingInspiration（用户刷新或跨设备打开），
-     *   且后端 ensure 返回带有 sourceInspiration（取自 session.source_inspiration_id），
-     *   就用它重建 inspirationApply，避免「同款套图栏」消失导致用户找不到入口。
+     * 刷新恢复灵感注入：无 pendingInspiration 时，用 ensure 返回的 sourceInspiration
+     * 重建 inspirationApply，以便 CreationPanel 继续预填 prompt / 参考图。
      */
     if (!pendingInspiration && ensured.sourceInspiration) {
       const src = ensured.sourceInspiration;
@@ -980,16 +977,6 @@ export function StudioWorkspace({
         <p className="mb-2 text-center text-xs text-amber-400/90">
           只读会话：无法在此生成或编辑
         </p>
-      ) : null}
-      {inspirationApply && mode === "ecommerce" ? (
-        <InspirationSetGenerateBar
-          sessionId={sessionId}
-          canvasItems={canvasItems}
-          prompt={studioPrompt}
-          inspirationApply={inspirationApply}
-          readOnly={readOnly}
-          onJobStarted={handleJobStarted}
-        />
       ) : null}
       <div>
         <div className="mb-1 flex items-center gap-1 px-0.5 text-[10px] font-medium text-zinc-500">

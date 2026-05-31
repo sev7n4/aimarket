@@ -1,18 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Loader2, Sparkles } from "lucide-react";
 import type { InspirationDetail } from "@/lib/types";
 import { renderInspiration, trackEvent } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
-import { randomUUID } from "@/lib/uuid";
-import {
-  buildInspirationStudioUrl,
-  coerceInspirationAspect,
-} from "@/lib/inspiration-studio";
-import { storePendingInspiration } from "@/lib/pending-inspiration";
-import { storePendingAssets } from "@/lib/pending-assets";
+import { applyInspirationToStudio } from "@/lib/inspiration-studio";
 import { useRouter } from "next/navigation";
 
 interface InspirationSlotSheetProps {
@@ -64,28 +58,6 @@ export function InspirationSlotSheet({
     renderDebounced(detail.id, values);
   }, [detail, open, values, renderDebounced]);
 
-  const buildPendingPayload = useCallback(
-    (source: InspirationDetail) => {
-      const referenceUrls = source.referenceAssets.map((a) => a.url);
-      return {
-        id: source.id,
-        title: source.title,
-        prompt: source.prompt,
-        promptTemplate: source.promptTemplate,
-        variables: source.variables?.map((v) => ({
-          ...v,
-          default: values[v.key] ?? v.default,
-        })),
-        modelId: source.modelId,
-        aspectRatio: coerceInspirationAspect(source.aspectRatio),
-        resolution: source.resolution,
-        referenceUrls,
-        variableValues: values,
-      };
-    },
-    [values],
-  );
-
   async function handleApplySameStyle() {
     if (!rendered) return;
     if (!user) {
@@ -94,24 +66,14 @@ export function InspirationSlotSheet({
     }
     setSubmitting(true);
     try {
-      const sessionId = randomUUID();
-      const payload = buildPendingPayload(rendered);
-      storePendingInspiration(sessionId, payload);
-      if (payload.referenceUrls.length > 0) {
-        storePendingAssets(
-          sessionId,
-          payload.referenceUrls.map((url, i) => ({
-            id: `insp-ref-${i}`,
-            url,
-          })),
-        );
-      }
+      const sessionId = applyInspirationToStudio(rendered, router, {
+        variableValues: values,
+      });
       void trackEvent("inspiration_apply", {
         inspirationId: rendered.id,
         sessionId,
       });
       onClose();
-      router.push(buildInspirationStudioUrl(rendered, sessionId));
     } finally {
       setSubmitting(false);
     }

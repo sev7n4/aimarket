@@ -1,3 +1,5 @@
+import { APPAREL_FAN_ITEMS } from "./inspiration-apparel-fan";
+
 export type InspirationCategory =
   | "全部"
   | "电商"
@@ -249,4 +251,17 @@ export const inspirationItems: InspirationItem[] = [
     prompt: "修复老照片划痕并自然上色",
     coverUrl: cover("restore", 640, 420),
   },
+  ...APPAREL_FAN_ITEMS.map((item) => ({
+    id: item.id,
+    title: item.title,
+    category: item.category,
+    aspect:
+      item.aspectRatio === "1:1"
+        ? ("square" as const)
+        : item.aspectRatio === "16:9"
+          ? ("landscape" as const)
+          : ("portrait" as const),
+    prompt: item.prompt,
+    coverUrl: item.coverUrl,
+  })),
 ];

@@ -131,9 +131,9 @@ interface CreationPanelProps {
   inspirationCoverUrl?: string;
   /** 灵感面板当前是否展开（控制按钮高亮态） */
   inspirationActive?: boolean;
-  /** 受控 prompt（用于与 InspirationSetGenerateBar 同步） */
+  /** 受控 prompt（Studio 工作台与 CreationPanel 同步） */
   prompt?: string;
-  /** prompt 变化回调（用于与 InspirationSetGenerateBar 同步） */
+  /** prompt 变化回调 */
   onPromptChange?: (prompt: string) => void;
   /**
    * 折叠态（用于 Studio 「最大化画布」）：仅保留 textarea + 灵感/上传 + 发送按钮，
@@ -235,7 +235,7 @@ export function CreationPanel({
     setInternalPrompt(next);
     onPromptChange?.(next);
   };
-  // 电商套图表单 UI 已下线（由灵感扇形 + 画布上方 InspirationSetGenerateBar 承接），
+  // 电商套图批量入口已下线，CreationPanel 仅保留单张生成能力。
   // 这些字段仅在历史兼容路径（非 dock variant）保留默认值
   const brand = "";
   const platform = "淘宝";
@@ -283,7 +283,6 @@ export function CreationPanel({
   /**
    * dock 模式（首页 + Studio 工作台）下统一走简洁对话流程，
    * 不再渲染电商 Agent 表单 / 走电商套图提交分支。
-   * 电商套图入口由画布上方的 InspirationSetGenerateBar 提供。
    */
   const effectiveMode: CreationMode = isDock && mode === "ecommerce" ? "chat" : mode;
   const selectedModel =

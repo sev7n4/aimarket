@@ -19,6 +19,7 @@ const pageQuery = z.object({
   pageNum: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(30),
   category: z.string().optional(),
+  fanSet: z.enum(["apparel"]).optional(),
 });
 
 inspiration.get("/page", (c) => {
@@ -26,6 +27,7 @@ inspiration.get("/page", (c) => {
     pageNum: c.req.query("pageNum"),
     pageSize: c.req.query("pageSize"),
     category: c.req.query("category"),
+    fanSet: c.req.query("fanSet"),
   });
   const { total, rows } = listPublishedInspirations(q);
   return c.json({
