@@ -17,7 +17,7 @@ interface StudioDockProps {
 
 /**
  * Studio 底部创作 Dock：compact / expanded / focus 三态。
- * 单层容器，避免与 CreationPanel 形成「卡片套卡片」。
+ * 单一卡片容器；CreationPanel（embeddedInDock）不再叠加第二层外框。
  */
 export function StudioDock({ mode, onModeChange, children }: StudioDockProps) {
   if (mode === "focus") {
@@ -49,16 +49,16 @@ export function StudioDock({ mode, onModeChange, children }: StudioDockProps) {
       data-dock-mode={mode}
     >
       <div
-        className={`relative w-full max-w-3xl ${
+        className={`flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b0b]/92 shadow-2xl shadow-black/40 backdrop-blur-md ${
           expanded ? "max-h-[min(34vh,300px)]" : ""
         }`}
       >
-        <div className="absolute -top-8 right-0 z-10 flex items-center gap-0.5 rounded-full border border-white/10 bg-[#0a0a0a]/90 p-0.5 shadow-lg backdrop-blur-md">
+        <div className="flex shrink-0 items-center justify-end gap-0.5 border-b border-white/5 px-2 py-1">
           {!expanded ? (
             <button
               type="button"
               onClick={() => onModeChange("expanded")}
-              className="flex size-7 items-center justify-center rounded-full text-zinc-500 transition hover:bg-white/5 hover:text-white"
+              className="flex size-7 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-white/5 hover:text-white"
               aria-label="展开更多选项"
               title="展开模型与参数（⌘J）"
             >
@@ -68,7 +68,7 @@ export function StudioDock({ mode, onModeChange, children }: StudioDockProps) {
             <button
               type="button"
               onClick={() => onModeChange("compact")}
-              className="flex size-7 items-center justify-center rounded-full text-zinc-500 transition hover:bg-white/5 hover:text-white"
+              className="flex size-7 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-white/5 hover:text-white"
               aria-label="收起为紧凑模式"
               title="收起（⌘J）"
             >
@@ -78,7 +78,7 @@ export function StudioDock({ mode, onModeChange, children }: StudioDockProps) {
           <button
             type="button"
             onClick={() => onModeChange("focus")}
-            className="flex size-7 items-center justify-center rounded-full text-zinc-500 transition hover:bg-white/5 hover:text-white"
+            className="flex size-7 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-white/5 hover:text-white"
             aria-label="专注画布"
             title="专注画布（隐藏输入栏）"
           >
@@ -87,9 +87,7 @@ export function StudioDock({ mode, onModeChange, children }: StudioDockProps) {
         </div>
 
         <div
-          className={`rounded-2xl border border-white/10 bg-[#0b0b0b]/92 shadow-2xl shadow-black/40 backdrop-blur-md ${
-            expanded ? "overflow-y-auto overscroll-contain" : ""
-          }`}
+          className={`min-h-0 ${expanded ? "overflow-y-auto overscroll-contain" : ""}`}
         >
           {children}
         </div>

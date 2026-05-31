@@ -292,7 +292,8 @@ export function CreationPanel({
     modelId === AUTO_MODEL_ID ? undefined : models.find((m) => m.id === modelId);
   const isVideoModel = selectedModel?.type === "video";
   const showStackUpload =
-    (leadingUpload || isDock) && effectiveMode !== "ecommerce";
+    (leadingUpload || (isDock && !embeddedInDock)) &&
+    effectiveMode !== "ecommerce";
 
   useEffect(() => {
     fetchModels()
@@ -890,7 +891,7 @@ export function CreationPanel({
           className={
             isDock
               ? embeddedInDock
-                ? "px-3 pb-3 pt-2 sm:px-4"
+                ? "px-3 pb-2 pt-1 sm:px-3"
                 : "rounded-2xl border border-white/10 bg-[#141414] px-3 pb-3 pt-3 sm:px-4 sm:pt-4"
               : ""
           }
