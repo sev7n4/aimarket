@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, X } from "lucide-react";
 import type { InspirationDetail } from "@/lib/types";
 import { renderInspiration, trackEvent } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
@@ -14,6 +14,14 @@ interface InspirationSlotSheetProps {
   open: boolean;
   onClose: () => void;
   onAuthRequired?: () => void;
+}
+
+function coverAspectRatio(ratio: string | undefined) {
+  const parts = ratio?.split(":").map((n) => Number.parseFloat(n.trim()));
+  if (parts?.length === 2 && parts[0]! > 0 && parts[1]! > 0) {
+    return `${parts[0]} / ${parts[1]}`;
+  }
+  return "4 / 5";
 }
 
 export function InspirationSlotSheet({
@@ -58,6 +66,15 @@ export function InspirationSlotSheet({
     renderDebounced(detail.id, values);
   }, [detail, open, values, renderDebounced]);
 
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   async function handleApplySameStyle() {
     if (!rendered) return;
     if (!user) {
@@ -81,15 +98,66 @@ export function InspirationSlotSheet({
 
   if (!open || !detail) return null;
 
+  const aspect = coverAspectRatio(detail.aspectRatio);
+  const meta = rendered ?? detail;
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex flex-col justify-end sm:items-center sm:justify-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="inspiration-slot-title"
     >
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-white/10 bg-[#111] shadow-2xl sm:rounded-2xl">
-        <div className="relative aspect-[16/9] w-full bg-zinc-900">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/60"
+        aria-label="关闭"
+        onClick={onClose}
+      />
+
+      <div
+        className="relative flex max-h-[min(92dvh,820px)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#111] shadow-2xl sm:max-h-[90vh] sm:rounded-2xl"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <h2 id="inspiration-slot-title" className="sr-only">
+          {detail.title}
+        </h2>
+
+        {/* 移动端：与画廊同比例 + contain，完整展示封面 */}
+        <div
+          className="relative w-full shrink-0 bg-zinc-950 sm:hidden"
+          style={{
+            aspectRatio: aspect,
+            maxHeight: "min(52dvh, 480px)",
+          }}
+        >
+          <Image
+            src={detail.coverUrl}
+            alt={detail.title}
+            fill
+            sizes="100vw"
+            className="object-contain"
+            unoptimized
+          />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#111]/85 via-transparent to-black/15" />
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-3 top-3 rounded-full bg-black/50 p-1.5 text-zinc-300 hover:bg-black/70"
+            aria-label="关闭"
+          >
+            <X className="size-4" />
+          </button>
+          <div className="absolute bottom-0 left-0 right-0 p-3">
+            <span className="text-[10px] uppercase tracking-wider text-orange-300/90">
+              {detail.category}
+            </span>
+            <p className="mt-0.5 text-sm font-medium text-white">{detail.title}</p>
+          </div>
+        </div>
+
+        {/* 桌面端：横幅封面 */}
+        <div className="relative hidden aspect-[16/9] w-full shrink-0 bg-zinc-950 sm:block">
           <Image
             src={detail.coverUrl}
             alt={detail.title}
@@ -97,7 +165,7 @@ export function InspirationSlotSheet({
             className="object-cover"
             unoptimized
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#111] via-transparent to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#111] via-transparent to-transparent" />
           <button
             type="button"
             onClick={onClose}
@@ -107,56 +175,70 @@ export function InspirationSlotSheet({
           </button>
         </div>
 
-        <div className="space-y-4 p-4 sm:p-5">
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-orange-400">
-              做同款
-            </p>
-            <h2 id="inspiration-slot-title" className="text-lg font-semibold">
-              {detail.title}
-            </h2>
-            <p className="mt-1 text-xs text-zinc-500">
+        {/* 可滚动详情区 */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="space-y-4 p-4 sm:p-5">
+            <div className="hidden sm:block">
+              <p className="text-[10px] uppercase tracking-wider text-orange-400">
+                做同款
+              </p>
+              <p className="text-lg font-semibold text-zinc-100">{detail.title}</p>
+              <p className="mt-1 text-xs text-zinc-500">
+                填写槽位后预览 Prompt，确认后在 Studio 画布编辑并生成
+              </p>
+            </div>
+
+            <p className="text-xs text-zinc-500 sm:hidden">
               填写槽位后预览 Prompt，确认后在 Studio 画布编辑并生成
             </p>
-          </div>
 
-          {(detail.variables ?? []).length > 0 ? (
-            <div className="space-y-3">
-              <p className="text-xs font-medium text-zinc-400">模板变量</p>
-              {detail.variables!.map((v) => (
-                <label key={v.key} className="block space-y-1">
-                  <span className="text-xs text-zinc-500">{v.label}</span>
-                  <input
-                    type="text"
-                    value={values[v.key] ?? v.default}
-                    onChange={(e) =>
-                      setValues((prev) => ({
-                        ...prev,
-                        [v.key]: e.target.value,
-                      }))
-                    }
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-orange-500/50"
-                  />
-                </label>
-              ))}
+            <div className="flex flex-wrap gap-1.5">
+              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-zinc-400">
+                {meta.modelId}
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-zinc-400">
+                {meta.aspectRatio}
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-zinc-400">
+                {meta.resolution.toUpperCase()}
+              </span>
             </div>
-          ) : null}
 
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-            <p className="mb-1 text-[10px] uppercase tracking-wider text-zinc-500">
-              预览 Prompt
-            </p>
-            <p className="text-xs leading-relaxed text-zinc-300">
-              {rendered?.prompt ?? detail.prompt}
-            </p>
-            {rendered ? (
-              <p className="mt-2 text-[10px] text-zinc-600">
-                {rendered.modelId} · {rendered.aspectRatio} ·{" "}
-                {rendered.resolution.toUpperCase()}
-              </p>
+            {(detail.variables ?? []).length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-xs font-medium text-zinc-400">模板变量</p>
+                {detail.variables!.map((v) => (
+                  <label key={v.key} className="block space-y-1">
+                    <span className="text-xs text-zinc-500">{v.label}</span>
+                    <input
+                      type="text"
+                      value={values[v.key] ?? v.default}
+                      onChange={(e) =>
+                        setValues((prev) => ({
+                          ...prev,
+                          [v.key]: e.target.value,
+                        }))
+                      }
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-orange-500/50"
+                    />
+                  </label>
+                ))}
+              </div>
             ) : null}
-          </div>
 
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+              <p className="mb-1 text-[10px] uppercase tracking-wider text-zinc-500">
+                预览 Prompt
+              </p>
+              <p className="max-h-32 overflow-y-auto text-xs leading-relaxed text-zinc-300 sm:max-h-none">
+                {rendered?.prompt ?? detail.prompt}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* 固定底部 CTA，避免被挤出视口 */}
+        <div className="shrink-0 border-t border-white/10 bg-[#111] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
             disabled={submitting}
