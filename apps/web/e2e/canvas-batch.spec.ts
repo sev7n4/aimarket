@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { registerViaEmail } from "./helpers/auth";
-import { studioWorkstation } from "./helpers/studio";
+import { studioWorkstation, skipStudioCoach } from "./helpers/studio";
 
 async function startGenerationFromHome(
   page: import("@playwright/test").Page,
@@ -60,6 +60,7 @@ test.describe("canvas batch stream", () => {
 
   test("连续两次生成后出现批次 1 与批次 2", async ({ page }) => {
     test.setTimeout(240_000);
+    await skipStudioCoach(page);
     await registerViaEmail(page, { emailPrefix: "e2e_batch_dual" });
     await startGenerationFromHome(page, "E2E 双批次第一次：白色耳机");
     await waitForFirstBatch(page);

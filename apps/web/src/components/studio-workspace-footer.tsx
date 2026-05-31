@@ -9,6 +9,8 @@ import { CreditsDialog } from "@/components/credits-dialog";
 
 interface StudioWorkspaceFooterProps {
   collapsed?: boolean;
+  /** 工作区完全隐藏时：画布左下角悬浮设置入口 */
+  floating?: boolean;
   onLogin: () => void;
 }
 
@@ -17,6 +19,7 @@ interface StudioWorkspaceFooterProps {
  */
 export function StudioWorkspaceFooter({
   collapsed = false,
+  floating = false,
   onLogin,
 }: StudioWorkspaceFooterProps) {
   const { user, loading } = useAuth();
@@ -25,6 +28,34 @@ export function StudioWorkspaceFooter({
   const [creditsOpen, setCreditsOpen] = useState(false);
 
   const initial = user?.email[0]?.toUpperCase() ?? "?";
+
+  if (floating) {
+    return (
+      <>
+        <div className="pointer-events-none absolute bottom-3 left-3 z-30 hidden lg:block">
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="pointer-events-auto flex size-9 items-center justify-center rounded-full border border-white/10 bg-[#0a0a0a]/90 text-zinc-500 shadow-lg backdrop-blur-sm transition hover:bg-white/5 hover:text-white"
+            title="模型接入设置"
+            aria-label="模型接入设置"
+          >
+            <Settings className="size-4" />
+          </button>
+        </div>
+        <FooterDialogs
+          userOpen={userOpen}
+          settingsOpen={settingsOpen}
+          creditsOpen={creditsOpen}
+          onUserClose={() => setUserOpen(false)}
+          onSettingsClose={() => setSettingsOpen(false)}
+          onCreditsClose={() => setCreditsOpen(false)}
+          onLogin={onLogin}
+          onOpenCredits={() => setCreditsOpen(true)}
+        />
+      </>
+    );
+  }
 
   if (collapsed) {
     return (

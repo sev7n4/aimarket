@@ -21,6 +21,10 @@ interface StudioHeaderProps {
   sessionReadOnly?: boolean;
   /** 点击举报小图标时回调（在 dock 内打开举报对话框） */
   onReportClick?: () => void;
+  /** 侧栏已展示账户入口时，隐藏 Header 重复登录/头像 */
+  showAccountActions?: boolean;
+  /** 沉浸布局：去掉 Logo 与大卡片，仅保留必要操作 */
+  variant?: "default" | "minimal";
 }
 
 export function StudioHeader({
@@ -32,11 +36,14 @@ export function StudioHeader({
   onSessionDeleted,
   sessionReadOnly = false,
   onReportClick,
+  showAccountActions = true,
+  variant = "default",
 }: StudioHeaderProps) {
   const { user, logout, loading, refreshUser } = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [signedToday, setSignedToday] = useState(true);
+  const minimal = variant === "minimal";
 
   useEffect(() => {
     const openLogin = () => setLoginOpen(true);
@@ -54,7 +61,11 @@ export function StudioHeader({
 
   return (
     <>
-      <header className="flex h-12 shrink-0 items-center justify-between border-b border-white/5 bg-[#030303] px-3 md:px-4">
+      <header
+        className={`flex shrink-0 items-center justify-between border-b border-white/5 bg-[#030303] px-3 md:px-4 ${
+          minimal ? "h-10 lg:h-9 lg:border-white/[0.03] lg:bg-[#030303]/80" : "h-12"
+        }`}
+      >
         <div className="flex min-w-0 items-center gap-2">
           <button
             type="button"
@@ -66,52 +77,102 @@ export function StudioHeader({
           </button>
           <Link
             href="/"
-            className="flex shrink-0 items-center justify-center rounded-lg p-2 text-zinc-400 hover:bg-white/5 hover:text-white sm:hidden"
+            className={`flex shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/5 hover:text-white ${
+              minimal ? "p-1 lg:inline-flex" : "p-2 sm:hidden"
+            }`}
             aria-label="返回首页"
             title="返回首页"
           >
-            <Home className="size-5" />
+            {minimal ? (
+              <BrandLogo variant="mark" markSize="sm" />
+            ) : (
+              <Home className="size-5" />
+            )}
           </Link>
-          <BrandLogo
-            href="/"
-            variant="mark"
-            markSize="sm"
-            className="hidden sm:inline-flex"
-          />
-          <div className="group flex min-w-0 max-w-[min(100%,300px)] items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5 sm:max-w-xs">
-            <FolderOpen className="size-4 shrink-0 text-zinc-500" />
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-1.5">
-                <div className="min-w-0 flex-1">
-                  {sessionId && user ? (
-                    <SessionTitleActions
-                      sessionId={sessionId}
-                      title={sessionTitle}
-                      variant="header"
-                      disabled={sessionReadOnly}
-                      onTitleSaved={onTitleSaved}
-                      onDeleted={onSessionDeleted}
-                    />
-                  ) : (
-                    <p className="truncate text-sm font-medium text-zinc-100">
-                      {sessionTitle}
-                    </p>
-                  )}
+          {!minimal ? (
+            <BrandLogo
+              href="/"
+              variant="mark"
+              markSize="sm"
+              className="hidden sm:inline-flex"
+            />
+          ) : null}
+          {!minimal ? (
+            <div className="group flex min-w-0 max-w-[min(100%,300px)] items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5 sm:max-w-xs">
+              <FolderOpen className="size-4 shrink-0 text-zinc-500" />
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <div className="min-w-0 flex-1">
+                    {sessionId && user ? (
+                      <SessionTitleActions
+                        sessionId={sessionId}
+                        title={sessionTitle}
+                        variant="header"
+                        disabled={sessionReadOnly}
+                        onTitleSaved={onTitleSaved}
+                        onDeleted={onSessionDeleted}
+                      />
+                    ) : (
+                      <p className="truncate text-sm font-medium text-zinc-100">
+                        {sessionTitle}
+                      </p>
+                    )}
+                  </div>
+                  {sessionKind === "project" ? (
+                    <span
+                      title="交付项目 · 出图与套图均归档于画布"
+                      className="shrink-0 rounded bg-purple-500/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-purple-300"
+                    >
+                      项目
+                    </span>
+                  ) : null}
                 </div>
-                {sessionKind === "project" ? (
-                  <span
-                    title="交付项目 · 出图与套图均归档于画布"
-                    className="shrink-0 rounded bg-purple-500/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-purple-300"
-                  >
-                    项目
-                  </span>
-                ) : null}
+                <p className="truncate text-[10px] text-zinc-600">
+                  内容由 AI 生成
+                </p>
               </div>
-              <p className="truncate text-[10px] text-zinc-600">
-                内容由 AI 生成
-              </p>
             </div>
-          </div>
+          ) : (
+            <div className="hidden min-w-0 items-center gap-2 lg:flex">
+              {sessionId && user ? (
+                <SessionTitleActions
+                  sessionId={sessionId}
+                  title={sessionTitle}
+                  variant="header"
+                  disabled={sessionReadOnly}
+                  onTitleSaved={onTitleSaved}
+                  onDeleted={onSessionDeleted}
+                />
+              ) : (
+                <p className="truncate text-sm font-medium text-zinc-300">
+                  {sessionTitle}
+                </p>
+              )}
+              {sessionKind === "project" ? (
+                <span className="shrink-0 rounded bg-purple-500/15 px-1.5 py-0.5 text-[9px] font-medium text-purple-300">
+                  项目
+                </span>
+              ) : null}
+            </div>
+          )}
+          {minimal ? (
+            <div className="flex min-w-0 items-center gap-1.5 lg:hidden">
+              {sessionId && user ? (
+                <SessionTitleActions
+                  sessionId={sessionId}
+                  title={sessionTitle}
+                  variant="header"
+                  disabled={sessionReadOnly}
+                  onTitleSaved={onTitleSaved}
+                  onDeleted={onSessionDeleted}
+                />
+              ) : (
+                <p className="truncate text-sm font-medium text-zinc-100">
+                  {sessionTitle}
+                </p>
+              )}
+            </div>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2">
@@ -126,7 +187,7 @@ export function StudioHeader({
               <Flag className="size-4" />
             </button>
           ) : null}
-          {!loading && user && getToken() ? (
+          {showAccountActions && !loading && user && getToken() ? (
             <>
               <button
                 type="button"
@@ -152,7 +213,7 @@ export function StudioHeader({
                 {user.email[0]?.toUpperCase() ?? "U"}
               </button>
             </>
-          ) : (
+          ) : showAccountActions && !loading ? (
             <button
               type="button"
               onClick={() => setLoginOpen(true)}
@@ -160,7 +221,7 @@ export function StudioHeader({
             >
               登录
             </button>
-          )}
+          ) : null}
         </div>
       </header>
       <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />

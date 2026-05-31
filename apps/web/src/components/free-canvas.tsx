@@ -20,7 +20,7 @@ import { batchDisplayIndex } from "@/lib/canvas-tools";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
 import { hapticLight } from "@/lib/haptics";
 import { canvasSelectionHint } from "@/lib/mobile-labels";
-import { Minus, Plus, ImagePlus, Lock, Unlock } from "lucide-react";
+import { Minus, Plus, Lock, Unlock } from "lucide-react";
 
 const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 6;
@@ -915,17 +915,10 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
           }}
         >
           {items.length === 0 ? (
-            <div className="flex h-[min(60vh,480px)] w-[min(90vw,720px)] flex-col items-center justify-center gap-4 p-8">
-              <div className="flex size-16 items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/5">
-                <ImagePlus className="size-7 text-zinc-600" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-zinc-400">{emptyHint}</p>
-                <p className="mt-1 text-xs text-zinc-600">
-                  在下方输入提示词，或拖拽图片到画布
-                </p>
-              </div>
-            </div>
+            <div
+              className="h-[min(60vh,480px)] w-[min(90vw,720px)]"
+              aria-label="画布"
+            />
           ) : (
             <>
               {!isRefineMode &&

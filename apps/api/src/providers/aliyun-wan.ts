@@ -43,6 +43,7 @@ interface DashScopeResponse {
 const SUPPORTED_MODELS = new Set([
   "omni-v2",
   "latest-v2-pro",
+  "wanxiang-2.6",
   "wan2.6-t2i",
   "wan2.5-t2i",
 ]);

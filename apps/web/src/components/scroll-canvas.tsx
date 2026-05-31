@@ -7,7 +7,6 @@ import { batchDisplayIndex } from "@/lib/canvas-tools";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
 import { ImageActionBar } from "@/components/image-action-bar";
 import { hapticLight } from "@/lib/haptics";
-import { ImagePlus } from "lucide-react";
 
 export interface ScrollCanvasHandle {
   scrollToBatch: (batchId: string) => void;
@@ -40,6 +39,7 @@ interface ScrollCanvasProps {
     item: CanvasItem,
     point: { x: number; y: number },
   ) => void;
+  scrollBottomInset?: string;
 }
 
 export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
@@ -65,6 +65,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       focusClickActive,
       focusItem,
       onFocusImageClick,
+      scrollBottomInset = "",
     },
     ref,
   ) {
@@ -105,19 +106,12 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
         ) : null}
 
         {items.length === 0 ? (
-          <div className="flex h-[min(60vh,480px)] w-full flex-col items-center justify-center gap-4 p-8">
-            <div className="flex size-16 items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/5">
-              <ImagePlus className="size-7 text-zinc-600" />
-            </div>
-            <div className="text-center">
-              <p className="text-sm text-zinc-400">{emptyHint}</p>
-              <p className="mt-1 text-xs text-zinc-600">
-                在下方输入提示词，或拖拽图片到画布
-              </p>
-            </div>
-          </div>
+          <div
+            className={`min-h-full w-full ${scrollBottomInset}`.trim()}
+            aria-label="画布"
+          />
         ) : (
-          <div className="flex flex-col gap-6 p-4">
+          <div className={`flex flex-col gap-6 p-4 ${scrollBottomInset}`.trim()}>
             {batchSections.map((section) => {
               const batchItems = items.filter(
                 (i) => i.batchId === section.id,

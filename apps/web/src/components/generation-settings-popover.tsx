@@ -73,58 +73,61 @@ export function GenerationSettingsPopover({
       open={open}
       onClose={() => setOpen(false)}
       title="图片质量"
-      desktopWidthClass="w-[min(100vw-2rem,22rem)]"
-      matchTriggerWidth
-      placement="below"
-      maxHeight="min(320px,45vh)"
+      dense
+      desktopWidthClass="w-[min(100vw-1.5rem,17.5rem)]"
+      placement="above"
+      maxHeight="min(240px,42vh)"
       trigger={
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="inline-flex max-w-[9rem] shrink-0 items-center gap-1 truncate rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/10 sm:max-w-none"
+          className="inline-flex max-w-[9rem] shrink-0 items-center gap-0.5 truncate rounded-md px-1.5 py-1 text-xs text-zinc-400 transition hover:bg-white/5 hover:text-zinc-200 sm:max-w-none"
           aria-label="图片尺寸与分辨率"
         >
-          <Sparkles className="size-3 shrink-0 text-orange-400" />
+          <Sparkles className="size-3 shrink-0 text-orange-400/90" />
           <span className="truncate">
             {aspectTriggerLabel(aspectRatio, resolution)}
           </span>
           <ChevronDown
-            className={`size-3 shrink-0 opacity-60 transition ${open ? "rotate-180" : ""}`}
+            className={`size-3 shrink-0 opacity-50 transition ${open ? "rotate-180" : ""}`}
           />
         </button>
       }
     >
-      <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+      <p className="mb-1 text-[9px] font-medium uppercase tracking-wide text-zinc-600">
         比例
       </p>
-      <div className="grid grid-cols-4 gap-2">
-        {aspects.map((a) => {
-          const selected = aspectRatio === a.id;
-          return (
-            <button
-              key={a.id}
-              type="button"
-              onClick={() => onAspectRatioChange(a.id)}
-              className={`flex flex-col items-center gap-1 rounded-xl border px-1 py-2 text-[10px] transition ${
-                selected
-                  ? "border-orange-500/60 bg-orange-500/15 text-orange-100"
-                  : "border-white/10 bg-white/5 text-zinc-400 hover:border-white/20 hover:bg-white/10"
-              }`}
-            >
-              <AspectRatioPreview
-                ratio={a.id}
-                selected={selected}
-                smart={a.smart}
-              />
-              <span>{a.label}</span>
-            </button>
-          );
-        })}
+      <div className="rounded-lg bg-white/[0.04] p-1">
+        <div className="grid grid-cols-6 gap-0.5">
+          {aspects.map((a) => {
+            const selected = aspectRatio === a.id;
+            return (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => onAspectRatioChange(a.id)}
+                className={`flex flex-col items-center gap-0.5 rounded-md px-0.5 py-1 text-[9px] leading-none transition ${
+                  selected
+                    ? "text-orange-100"
+                    : "text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                <AspectRatioPreview
+                  ratio={a.id}
+                  selected={selected}
+                  smart={a.smart}
+                  compact
+                />
+                <span className="truncate max-w-full">{a.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
-      <p className="mb-1.5 mt-3 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+      <p className="mb-1 mt-2 text-[9px] font-medium uppercase tracking-wide text-zinc-600">
         分辨率
       </p>
-      <div className="flex gap-1.5">
+      <div className="flex gap-1">
         {resOptions.map((r) => (
           <button
             key={r.id}
@@ -133,7 +136,7 @@ export function GenerationSettingsPopover({
               onResolutionChange(r.id);
               setOpen(false);
             }}
-            className={`flex-1 rounded-lg py-2 text-xs transition ${
+            className={`flex-1 rounded-md py-1.5 text-[11px] font-medium transition ${
               resolution === r.id
                 ? "bg-orange-500 text-white"
                 : "bg-white/5 text-zinc-400 hover:bg-white/10"
@@ -144,7 +147,7 @@ export function GenerationSettingsPopover({
         ))}
       </div>
       {mode === "quick" ? (
-        <p className="mt-2 text-[10px] text-zinc-500">
+        <p className="mt-1.5 text-[9px] leading-snug text-zinc-600">
           智能比例将根据描述自动选择最佳画幅
         </p>
       ) : null}

@@ -7,6 +7,7 @@ async function registerAndOpenStudioMobile(
   page: import("@playwright/test").Page,
 ) {
   await page.addInitScript(() => {
+    localStorage.setItem("aimarket_studio_coach_v2", "1");
     localStorage.setItem("aimarket_studio_mobile_coach_v1", "1");
   });
   await registerViaEmail(page, { emailPrefix: "e2e_batch_m" });
@@ -43,13 +44,14 @@ test.describe("canvas batch stream mobile", () => {
     await expect(batchSection).toContainText(/批次/);
   });
 
-  test("移动端可打开工作站", async ({ page }) => {
+  test("移动端 Dock 默认展示模型与发送", async ({ page }) => {
     test.setTimeout(60_000);
     await registerAndOpenStudioMobile(page);
 
-    await page.getByRole("button", { name: "打开工作站" }).click();
-    await expect(
-      page.getByRole("button", { name: "收起工作站" }),
-    ).toBeVisible({ timeout: 15_000 });
+    const dock = page.locator('[aria-label="创作 Dock"]');
+    await expect(dock).toBeVisible({ timeout: 15_000 });
+    await expect(dock.getByRole("button", { name: "开始生成" })).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });

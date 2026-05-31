@@ -4,7 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SessionTitleActions } from "@/components/session-title-actions";
-import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Flag,
+  Plus,
+  X,
+} from "lucide-react";
 import { LoginDialog } from "@/components/login-dialog";
 import {
   DesignCanvas,
@@ -12,8 +18,10 @@ import {
 } from "@/components/design-canvas";
 import { CreationPanel } from "@/components/creation-panel";
 import { CanvasSelectionToolbar } from "@/components/canvas-selection-toolbar";
-import { StudioToolGrid } from "@/components/studio-tool-grid";
+import { StudioDock, studioDockScrollInset } from "@/components/studio-dock";
+import { StudioCoach } from "@/components/studio-coach";
 import { StudioHeader } from "@/components/studio-header";
+import { BrandLogo } from "@/components/brand-logo";
 import { ProviderStatusChip } from "@/components/provider-status-banner";
 import { ContentReportDialog } from "@/components/content-report-dialog";
 import {
@@ -23,7 +31,12 @@ import {
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { StudioWorkspaceFooter } from "@/components/studio-workspace-footer";
 import { WorkspaceProvider } from "@/lib/workspace-context";
-import { StudioMobileCoach } from "@/components/studio-mobile-coach";
+import {
+  defaultStudioDockMode,
+  persistStudioDockMode,
+  readStudioDockMode,
+  type StudioDockMode,
+} from "@/lib/studio-dock-state";
 import { getActiveWorkspaceId } from "@/lib/active-workspace";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { resolveApiBase } from "@/lib/api-base";
@@ -68,7 +81,6 @@ import { consumePendingInspiration } from "@/lib/pending-inspiration";
 import { resolveToolResolution } from "@/lib/tool-resolution";
 import { formatToolProviderLabel } from "@/lib/studio-tool-meta";
 import { hapticLight } from "@/lib/haptics";
-import { canvasEmptyHintMobile } from "@/lib/mobile-labels";
 import { type SessionKind } from "@/lib/session-kind";
 import { buildStudioUrl, studioUrlForSession } from "@/lib/studio-navigation";
 import { useIsMobile } from "@/hooks/use-is-mobile";
@@ -142,11 +154,9 @@ export function StudioWorkspace({
   const [loginOpen, setLoginOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
-  const [workstationCollapsed, setWorkstationCollapsed] = useState(false);
+  const [dockMode, setDockMode] = useState<StudioDockMode>("expanded");
   const [workspaceWidth, setWorkspaceWidth] = useState(264);
-  const [workstationWidth, setWorkstationWidth] = useState(360);
   const [isDraggingWorkspace, setIsDraggingWorkspace] = useState(false);
-  const [isDraggingWorkstation, setIsDraggingWorkstation] = useState(false);
   const [restoredAssets, setRestoredAssets] = useState<PendingAsset[]>([]);
   const [inspirationApply, setInspirationApply] =
     useState<StudioInspirationApply | null>(null);
@@ -163,8 +173,25 @@ export function StudioWorkspace({
   }, [initialMode]);
 
   useEffect(() => {
-    setWorkstationCollapsed(compactLayout);
+    const saved = readStudioDockMode();
+    setDockMode(saved ?? defaultStudioDockMode(compactLayout));
   }, [compactLayout]);
+
+  useEffect(() => {
+    persistStudioDockMode(dockMode);
+  }, [dockMode]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "j") return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      e.preventDefault();
+      setDockMode((prev) => (prev === "focus" ? "expanded" : "focus"));
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -207,6 +234,12 @@ export function StudioWorkspace({
   const [focusEditSession, setFocusEditSession] =
     useState<FocusEditSession | null>(null);
   const [focusRecognizing, setFocusRecognizing] = useState(false);
+
+  useEffect(() => {
+    if (!focusEditSession) return;
+    setDockMode((prev) => (prev === "focus" ? "expanded" : prev));
+  }, [focusEditSession]);
+
   const [focusClickKey, setFocusClickKey] = useState(0);
   const lastFocusClickAtRef = useRef(0);
   /** 受控的内容举报对话框（StudioHeader 右上 ⚠ 触发） */
@@ -239,27 +272,6 @@ export function StudioWorkspace({
     setIsDraggingWorkspace(false);
   }, []);
 
-  const handleWorkstationDragStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsDraggingWorkstation(true);
-  }, []);
-
-  const handleWorkstationDrag = useCallback(
-    (e: MouseEvent) => {
-      if (!isDraggingWorkstation) return;
-      const newWidth = Math.max(
-        280,
-        Math.min(500, window.innerWidth - e.clientX),
-      );
-      setWorkstationWidth(newWidth);
-    },
-    [isDraggingWorkstation],
-  );
-
-  const handleWorkstationDragEnd = useCallback(() => {
-    setIsDraggingWorkstation(false);
-  }, []);
-
   useEffect(() => {
     if (isDraggingWorkspace) {
       window.addEventListener("mousemove", handleWorkspaceDrag);
@@ -270,17 +282,6 @@ export function StudioWorkspace({
       };
     }
   }, [isDraggingWorkspace, handleWorkspaceDrag, handleWorkspaceDragEnd]);
-
-  useEffect(() => {
-    if (isDraggingWorkstation) {
-      window.addEventListener("mousemove", handleWorkstationDrag);
-      window.addEventListener("mouseup", handleWorkstationDragEnd);
-      return () => {
-        window.removeEventListener("mousemove", handleWorkstationDrag);
-        window.removeEventListener("mouseup", handleWorkstationDragEnd);
-      };
-    }
-  }, [isDraggingWorkstation, handleWorkstationDrag, handleWorkstationDragEnd]);
 
   const currentSession = sessions.find((s) => s.id === sessionId);
   const canEditSession = currentSession?.can_edit ?? canvasCanEdit;
@@ -888,7 +889,6 @@ export function StudioWorkspace({
     [sessionId, mode, router, activeWorkspaceId],
   );
 
-  const isEcommerce = mode === "ecommerce";
   const selectedCanvasItem =
     selectedCanvasId ?
       (canvasItems.find((i) => i.id === selectedCanvasId) ?? null)
@@ -943,26 +943,10 @@ export function StudioWorkspace({
     focusEditSession?.itemId,
   ]);
 
-  function handleStudioToolGridSelect(tool: StudioTool) {
-    const item =
-      selectedCanvasItem ??
-      (() => {
-        const t = pickLatestBatchFocusTarget(canvasItems);
-        return t ? canvasItems.find((i) => i.id === t.itemId) : null;
-      })();
-    if (!item) {
-      setSelectSourceBanner("请先在画布点选或生成一张图片");
-      return;
-    }
-    void handleRunSelectionTool(tool, item);
-  }
-  const canvasEmptyHint =
-    mobile
-      ? canvasEmptyHintMobile()
-      : isEcommerce
-        ? "上传商品图，生成结果将出现在画布"
-        : "生成结果将显示在画布上";
-  const stationContent = (
+  /** 桌面端侧栏展开时隐藏顶栏，把画布纵向空间还给创作区 */
+  const showTopBar = mobile || workspaceCollapsed;
+
+  const dockPanel = (
     <>
       {!user || !ready ? (
         <button
@@ -978,18 +962,10 @@ export function StudioWorkspace({
           只读会话：无法在此生成或编辑
         </p>
       ) : null}
-      <div>
-        <div className="mb-1 flex items-center gap-1 px-0.5 text-[10px] font-medium text-zinc-500">
-          <span className="text-sm leading-none" aria-hidden>
-            🎨
-          </span>
-          <span className="uppercase tracking-wider">生成</span>
-        </div>
-        <p className="mb-2 px-0.5 text-[10px] leading-relaxed text-zinc-600">
-          描述需求并提交；模型、张数与分辨率由本区控制。
-        </p>
       <CreationPanel
         variant="dock"
+        embeddedInDock
+        onDockModeChange={setDockMode}
         showModeTabs={false}
         rotatingPlaceholder
         enablePolish
@@ -1078,35 +1054,25 @@ export function StudioWorkspace({
           return jobId;
         }}
       />
-      </div>
-      {mode !== "ecommerce" && tools.length > 0 && user ? (
-        <StudioToolGrid
-          tools={tools}
-          activeToolId={pendingToolId ?? (focusEditSession ? "focus-edit" : null)}
-          disabled={readOnly || Boolean(pollingJobId) || toolConfirmPending}
-          refineHint={
-            selectedCanvasItem?.outputId || selectedCanvasItem?.assetId
-              ? `已选 ${selectedCanvasItem.label ?? "画布图片"}`
-              : "请先在画布选图"
-          }
-          onSelect={handleStudioToolGridSelect}
-        />
-      ) : null}
     </>
   );
 
   return (
     <WorkspaceProvider onWorkspaceChange={handleWorkspaceChange}>
-      <StudioHeader
-        sessionId={user ? sessionId : undefined}
-        sessionTitle={sessionTitle}
-        sessionKind={sessionKind}
-        sessionReadOnly={readOnly}
-        onMenuClick={() => setSidebarOpen(true)}
-        onTitleSaved={handleTitleSaved}
-        onSessionDeleted={() => handleSessionDeleted()}
-        onReportClick={user ? () => setReportOpen(true) : undefined}
-      />
+      {showTopBar ? (
+        <StudioHeader
+          sessionId={user ? sessionId : undefined}
+          sessionTitle={sessionTitle}
+          sessionKind={sessionKind}
+          sessionReadOnly={readOnly}
+          onMenuClick={() => setSidebarOpen(true)}
+          onTitleSaved={handleTitleSaved}
+          onSessionDeleted={() => handleSessionDeleted()}
+          onReportClick={user ? () => setReportOpen(true) : undefined}
+          variant="minimal"
+          showAccountActions={mobile || workspaceCollapsed}
+        />
+      ) : null}
 
       <input
         ref={uploadRef}
@@ -1118,7 +1084,7 @@ export function StudioWorkspace({
         aria-label="上传图片"
       />
 
-      <StudioMobileCoach />
+      <StudioCoach />
 
       <div className="relative flex min-h-0 flex-1">
         {sidebarOpen ? (
@@ -1131,13 +1097,17 @@ export function StudioWorkspace({
         ) : null}
 
         <aside
-          style={{ width: workspaceCollapsed ? 48 : workspaceWidth }}
-          className={`fixed inset-y-12 left-0 z-50 flex flex-col border-r border-white/5 bg-[#080808] p-3 transition-all lg:static lg:z-0 lg:m-2 lg:mr-0 lg:rounded-2xl lg:border lg:bg-[#090909]/95 ${
+          style={
+            workspaceCollapsed ? undefined : { width: workspaceWidth }
+          }
+          className={`fixed bottom-0 left-0 z-50 flex w-[min(85vw,280px)] flex-col border-r border-white/5 bg-[#080808] p-3 transition-all ${
+            showTopBar ? "top-12" : "top-0"
+          } ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           } ${
             workspaceCollapsed
-              ? "lg:translate-x-0 lg:items-center lg:p-2"
-              : "lg:translate-x-0"
+              ? "lg:hidden"
+              : "lg:static lg:top-auto lg:z-0 lg:m-2 lg:mr-0 lg:w-auto lg:translate-x-0 lg:rounded-2xl lg:border lg:bg-[#090909]/95"
           }`}
         >
           <div className="mb-2 flex items-center justify-between lg:hidden">
@@ -1152,101 +1122,138 @@ export function StudioWorkspace({
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setWorkspaceCollapsed((v) => !v)}
-            className="mb-2 hidden size-8 items-center justify-center rounded-full border border-white/10 text-zinc-500 transition hover:bg-white/5 hover:text-white lg:flex"
-            aria-label={workspaceCollapsed ? "展开工作区" : "收起工作区"}
-            title={workspaceCollapsed ? "展开工作区" : "收起工作区"}
+          <Link
+            href="/"
+            onClick={() => setSidebarOpen(false)}
+            className="mb-3 hidden items-center rounded-lg px-1 py-0.5 transition hover:bg-white/5 lg:flex"
+            title="返回首页"
+            aria-label="返回首页"
           >
-            {workspaceCollapsed ? (
-              <ChevronRight className="size-4" />
-            ) : (
-              <ChevronLeft className="size-4" />
-            )}
-          </button>
+            <BrandLogo variant="mark" markSize="sm" />
+          </Link>
 
-          {workspaceCollapsed ? (
-            <>
-              <div className="hidden flex-1 items-center justify-center [writing-mode:vertical-rl] lg:flex">
-                <span className="text-[11px] font-medium tracking-[0.3em] text-zinc-500">
-                  工作区
-                </span>
+          {!workspaceCollapsed ? (
+            <button
+              type="button"
+              onClick={() => setWorkspaceCollapsed(true)}
+              className="mb-2 hidden size-7 items-center justify-center rounded-md text-zinc-500 transition hover:bg-white/5 hover:text-zinc-300 lg:flex"
+              aria-label="收起工作区"
+              title="收起工作区"
+            >
+              <ChevronLeft className="size-3.5" strokeWidth={1.75} />
+            </button>
+          ) : null}
+
+          {!workspaceCollapsed && user && sessionId ? (
+            <div className="mb-3 hidden border-b border-white/5 pb-3 lg:block">
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <SessionTitleActions
+                    sessionId={sessionId}
+                    title={sessionTitle}
+                    variant="header"
+                    disabled={readOnly}
+                    onTitleSaved={handleTitleSaved}
+                    onDeleted={() => handleSessionDeleted()}
+                  />
+                  <div className="mt-1 flex items-center gap-2">
+                    {sessionKind === "project" ? (
+                      <span className="rounded bg-purple-500/15 px-1.5 py-0.5 text-[9px] font-medium text-purple-300">
+                        项目
+                      </span>
+                    ) : null}
+                    <span className="text-[10px] text-zinc-600">
+                      内容由 AI 生成
+                    </span>
+                  </div>
+                </div>
+                {!readOnly ? (
+                  <button
+                    type="button"
+                    onClick={() => setReportOpen(true)}
+                    className="shrink-0 rounded-lg p-1.5 text-zinc-500 hover:bg-white/5 hover:text-amber-300"
+                    aria-label="举报违规内容"
+                    title="举报违规内容"
+                  >
+                    <Flag className="size-3.5" />
+                  </button>
+                ) : null}
               </div>
-              <StudioWorkspaceFooter
-                collapsed
-                onLogin={() => setLoginOpen(true)}
-              />
-            </>
-          ) : (
-            <>
-              <div className="mb-3 flex items-center justify-between">
+            </div>
+          ) : null}
+
+          <div className="mb-3 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => {
+                setSidebarOpen(false);
+                router.push(buildStudioUrl("canvas"));
+              }}
+              className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-black transition hover:bg-zinc-200"
+            >
+              <Plus className="size-3.5" />
+              新建
+            </button>
+          </div>
+
+          {user ? (
+            <WorkspaceSwitcher onWorkspaceChange={handleWorkspaceChange} />
+          ) : null}
+
+          <div className="mt-4 flex items-center justify-between">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+              最近创作
+            </p>
+            <Link
+              href={
+                sessionId
+                  ? `/projects?from=studio&sessionId=${encodeURIComponent(sessionId)}&mode=${mode}&kind=${sessionKind}`
+                  : "/projects?from=studio"
+              }
+              onClick={() => setSidebarOpen(false)}
+              className="text-[10px] text-zinc-500 hover:text-orange-400"
+            >
+              查看全部
+            </Link>
+          </div>
+          <ul className="mt-2 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
+            {sessions.slice(0, 3).map((s) => (
+              <li key={s.id} className="group">
                 <Link
-                  href={buildStudioUrl("canvas")}
+                  href={studioUrlForSession({
+                    id: s.id,
+                    mode: s.mode,
+                    kind: s.kind,
+                  })}
                   onClick={() => setSidebarOpen(false)}
-                  className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-black transition hover:bg-zinc-200"
+                  className={`block rounded-lg px-3 py-2 text-sm transition ${
+                    s.id === sessionId
+                      ? "bg-white/10 text-white"
+                      : "text-zinc-500 hover:bg-white/5"
+                  }`}
                 >
-                  <Plus className="size-3.5" />
-                  新建
+                  <SessionTitleActions
+                    sessionId={s.id}
+                    title={s.title}
+                    variant="row"
+                    disabled={!user || s.can_edit === false}
+                    onTitleSaved={(title) => {
+                      setSessions((prev) =>
+                        prev.map((x) =>
+                          x.id === s.id ? { ...x, title } : x,
+                        ),
+                      );
+                    }}
+                    onDeleted={() => handleSessionDeleted(s.id)}
+                  />
+                  <div className="text-[10px] text-zinc-600">
+                    画布 · {s.mode}
+                  </div>
                 </Link>
-              </div>
-
-              {user ? (
-                <WorkspaceSwitcher onWorkspaceChange={handleWorkspaceChange} />
-              ) : null}
-
-              <div className="mt-4 flex items-center justify-between">
-                <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">
-                  最近创作
-                </p>
-                <Link
-                  href="/projects"
-                  onClick={() => setSidebarOpen(false)}
-                  className="text-[10px] text-zinc-500 hover:text-orange-400"
-                >
-                  查看全部
-                </Link>
-              </div>
-              <ul className="mt-2 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
-                {sessions.slice(0, 3).map((s) => (
-                  <li key={s.id} className="group">
-                    <Link
-                      href={studioUrlForSession({
-                        id: s.id,
-                        mode: s.mode,
-                        kind: s.kind,
-                      })}
-                      onClick={() => setSidebarOpen(false)}
-                      className={`block rounded-lg px-3 py-2 text-sm transition ${
-                        s.id === sessionId
-                          ? "bg-white/10 text-white"
-                          : "text-zinc-500 hover:bg-white/5"
-                      }`}
-                    >
-                      <SessionTitleActions
-                        sessionId={s.id}
-                        title={s.title}
-                        variant="row"
-                        disabled={!user || s.can_edit === false}
-                        onTitleSaved={(title) => {
-                          setSessions((prev) =>
-                            prev.map((x) =>
-                              x.id === s.id ? { ...x, title } : x,
-                            ),
-                          );
-                        }}
-                        onDeleted={() => handleSessionDeleted(s.id)}
-                      />
-                      <div className="text-[10px] text-zinc-600">
-                        画布 · {s.mode}
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-              <StudioWorkspaceFooter onLogin={() => setLoginOpen(true)} />
-            </>
-          )}
+              </li>
+            ))}
+          </ul>
+          <StudioWorkspaceFooter onLogin={() => setLoginOpen(true)} />
         </aside>
 
         {!workspaceCollapsed && (
@@ -1260,6 +1267,23 @@ export function StudioWorkspace({
         )}
 
         <div className="relative flex min-h-0 min-w-0 flex-1 gap-0 p-0 lg:gap-0">
+          {workspaceCollapsed ? (
+            <button
+              type="button"
+              onClick={() => setWorkspaceCollapsed(false)}
+              className="pointer-events-auto absolute left-3 top-3 z-30 hidden size-7 items-center justify-center rounded-md text-zinc-500 transition hover:bg-white/5 hover:text-zinc-300 lg:flex"
+              aria-label="展开工作区"
+              title="展开工作区"
+            >
+              <ChevronRight className="size-3.5" strokeWidth={1.75} />
+            </button>
+          ) : null}
+          {workspaceCollapsed ? (
+            <StudioWorkspaceFooter
+              floating
+              onLogin={() => setLoginOpen(true)}
+            />
+          ) : null}
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
             {readOnly ? (
               <p className="shrink-0 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200/90">
@@ -1283,7 +1307,8 @@ export function StudioWorkspace({
               onDownload={() => void handleCanvasDownload()}
               onDeleteSelected={handleDeleteCanvasItem}
               onRerun={(item) => void handleRerun(item)}
-              emptyHint={canvasEmptyHint}
+              emptyHint=""
+              scrollBottomInset={studioDockScrollInset(dockMode)}
               readOnly={readOnly}
               jobStreamStatus={jobStreamStatus}
               jobFailed={jobFailed}
@@ -1346,103 +1371,17 @@ export function StudioWorkspace({
                     }));
                     hapticLight();
                   }}
+                  onDownload={() => void handleCanvasDownload()}
+                  onDelete={handleDeleteCanvasItem}
                 />
               }
               statusChip={<ProviderStatusChip />}
             />
+
+            <StudioDock mode={dockMode} onModeChange={setDockMode}>
+              {dockPanel}
+            </StudioDock>
           </div>
-
-          {!workstationCollapsed && (
-            <div
-              onMouseDown={handleWorkstationDragStart}
-              className={`hidden lg:flex w-1 cursor-col-resize items-center justify-center transition-colors hover:bg-orange-500/30 ${
-                isDraggingWorkstation ? "bg-orange-500/50" : "bg-transparent"
-              }`}
-              title="拖拽调整创作台宽度"
-            />
-          )}
-
-          <section
-            style={{ width: workstationCollapsed ? 56 : workstationWidth }}
-            className={`hidden min-h-0 shrink-0 flex-col rounded-2xl border border-white/10 bg-[#0b0b0b]/95 transition-all lg:flex ${
-              workstationCollapsed
-                ? "items-center justify-center p-2"
-                : "p-3"
-            }`}
-            aria-label="工作站"
-          >
-            {workstationCollapsed ? (
-              <button
-                type="button"
-                onClick={() => setWorkstationCollapsed(false)}
-                className="flex h-full w-full items-center justify-center rounded-xl text-xs font-medium uppercase tracking-[0.28em] text-zinc-400 transition hover:bg-white/5 hover:text-white [writing-mode:vertical-rl]"
-                aria-label="展开工作站"
-                title="展开工作站"
-              >
-                studio
-              </button>
-            ) : (
-              <>
-                <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-zinc-100">工作站</p>
-                    <p className="text-[10px] text-zinc-600">
-                      输入、工具与生成状态
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setWorkstationCollapsed(true)}
-                    className="flex size-8 items-center justify-center rounded-full border border-white/10 text-zinc-500 transition hover:bg-white/5 hover:text-white"
-                    aria-label="收起工作站"
-                    title="收起工作站"
-                  >
-                    <ChevronRight className="size-4" />
-                  </button>
-                </div>
-                <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [overflow-anchor:none]">
-                  {stationContent}
-                </div>
-              </>
-            )}
-          </section>
-
-          {workstationCollapsed ? (
-            <button
-              type="button"
-              onClick={() => setWorkstationCollapsed(false)}
-              className="fixed bottom-16 right-4 z-40 flex size-12 items-center justify-center rounded-full border border-white/10 bg-white text-base font-semibold text-black shadow-2xl shadow-black/50 transition hover:scale-105 active:scale-95 lg:hidden"
-              aria-label="打开工作站"
-              title="打开工作站"
-            >
-              S
-            </button>
-          ) : (
-            <section
-              className="fixed inset-x-2 bottom-2 z-40 max-h-[70dvh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0b0b0b] p-3 shadow-2xl shadow-black/60 lg:hidden"
-              aria-label="工作站"
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-zinc-100">
-                    studio 工作站
-                  </p>
-                  <p className="text-[10px] text-zinc-600">
-                    输入、工具与生成状态
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setWorkstationCollapsed(true)}
-                  className="flex size-8 items-center justify-center rounded-full border border-white/10 text-zinc-500"
-                  aria-label="收起工作站"
-                >
-                  <X className="size-4" />
-                </button>
-              </div>
-              {stationContent}
-            </section>
-          )}
         </div>
       </div>
 

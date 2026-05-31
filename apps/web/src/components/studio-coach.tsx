@@ -2,31 +2,29 @@
 
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { isMobileViewport } from "@/lib/breakpoints";
 
-const STORAGE_KEY = "aimarket_studio_mobile_coach_v1";
+const STORAGE_KEY = "aimarket_studio_coach_v2";
 
 const STEPS = [
   {
     title: "这是画布",
-    body: "生成的图片会出现在这里，双指缩放、单指拖拽移动视图。",
+    body: "生成的图片会出现在这里。滚轮缩放、拖拽移动视图，点击图片可选中。",
   },
   {
-    title: "对话区",
-    body: "输入商品出图需求，或基于画布图片生成宣传短视频。",
+    title: "底部创作栏",
+    body: "输入描述、选择模型与张数后提交生成。按 ⌘J 可收起输入栏专注画布。",
   },
   {
-    title: "先选图再修图",
-    body: "抠图、扩图等需先在画布点选一张图片，再打开对话区运行工具。",
+    title: "先选图再精修",
+    body: "抠图、扩图、焦点编辑等：先在画布点选图片，右侧会出现工具条。",
   },
 ];
 
-export function StudioMobileCoach({ onDone }: { onDone?: () => void }) {
+export function StudioCoach({ onDone }: { onDone?: () => void }) {
   const [step, setStep] = useState(0);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!isMobileViewport()) return;
     if (localStorage.getItem(STORAGE_KEY)) return;
     setVisible(true);
   }, []);
@@ -43,7 +41,7 @@ export function StudioMobileCoach({ onDone }: { onDone?: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:hidden">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 pb-[max(5rem,env(safe-area-inset-bottom))] sm:items-center sm:pb-4">
       <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#121212] p-4 shadow-2xl">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-[10px] uppercase tracking-wider text-zinc-500">

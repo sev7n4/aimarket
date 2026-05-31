@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { registerViaEmail } from "./helpers/auth";
-import { studioWorkstation } from "./helpers/studio";
+import { studioWorkstation, skipStudioCoach } from "./helpers/studio";
 
 const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
@@ -17,6 +17,7 @@ test.describe("focus edit", () => {
   test("上传图片后点选焦点并提交工具任务", async ({ page }) => {
     test.setTimeout(180_000);
     await registerViaEmail(page, { emailPrefix: "e2e_focus" });
+    await skipStudioCoach(page);
 
     const sessionId = randomUUID();
     await page.goto(`/studio?sessionId=${sessionId}&mode=chat`);
@@ -40,7 +41,7 @@ test.describe("focus edit", () => {
     await expect(canvasImage).toBeVisible({ timeout: 20_000 });
     await canvasImage.click();
 
-    await station.getByTestId("studio-tool-focus-edit").click();
+    await page.getByTestId("canvas-tool-focus-edit").click();
     await expect(page.getByTestId("focus-edit-canvas-banner")).toBeVisible({
       timeout: 10_000,
     });

@@ -13,12 +13,22 @@ interface ModelPickerProps {
   onChange: (id: string) => void;
 }
 
+function modelOptionClass(selected: boolean) {
+  return `block max-w-full truncate whitespace-nowrap rounded-md px-2 py-1.5 text-left text-[11px] font-medium transition ${
+    selected
+      ? "bg-orange-500 text-white"
+      : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+  }`;
+}
+
+function sectionLabelClass() {
+  return "mb-1 mt-2 text-[9px] font-medium uppercase tracking-wide text-zinc-600";
+}
+
 export function ModelPicker({ models, value, onChange }: ModelPickerProps) {
   const [open, setOpen] = useState(false);
 
-  const list = models.length
-    ? models
-    : [{ id: "omni-v2", name: "全能图片 V2", type: "image" } as ImageModel];
+  const list = models;
 
   const label =
     value === AUTO_MODEL_ID
@@ -32,69 +42,58 @@ export function ModelPicker({ models, value, onChange }: ModelPickerProps) {
 
   const imageModels = list.filter((m) => m.type === "image");
   const videoModels = list.filter((m) => m.type === "video");
+  const showSections = imageModels.length > 0 && videoModels.length > 0;
 
   return (
     <CompactDockSheet
       open={open}
       onClose={() => setOpen(false)}
       title="模型"
-      desktopWidthClass="w-64"
-      matchTriggerWidth
-      placement="below"
-      maxHeight="min(240px,36vh)"
+      dense
+      fitContent
+      placement="above"
+      maxHeight="min(240px,42vh)"
       trigger={
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="inline-flex max-w-[7.5rem] shrink-0 items-center gap-1 truncate rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/10 sm:max-w-[9rem]"
+          className="inline-flex max-w-[7.5rem] shrink-0 items-center gap-0.5 truncate rounded-md px-1.5 py-1 text-xs text-zinc-400 transition hover:bg-white/5 hover:text-zinc-200 sm:max-w-[9rem]"
           aria-label="选择模型"
         >
-          <Sparkles className="size-3 shrink-0 text-orange-400" />
+          <Sparkles className="size-3 shrink-0 text-orange-400/90" />
           <span className="truncate">{label}</span>
           <ChevronDown
-            className={`size-3 shrink-0 opacity-60 ${open ? "rotate-180" : ""}`}
+            className={`size-3 shrink-0 opacity-50 transition ${open ? "rotate-180" : ""}`}
           />
         </button>
       }
     >
-      <button
-        type="button"
-        onClick={() => pick(AUTO_MODEL_ID)}
-        className={`mb-2 flex w-full items-start gap-2 rounded-xl border px-3 py-2.5 text-left text-xs transition ${
-          value === AUTO_MODEL_ID
-            ? "border-orange-500/50 bg-orange-500/10 text-white"
-            : "border-white/10 bg-white/[0.03] text-zinc-300 hover:border-white/20"
-        }`}
-      >
-        <span className="font-medium">Auto</span>
-        <span className="text-[10px] text-zinc-500">
-          根据提示词与任务自动选模型
-        </span>
-      </button>
+      <ul className="flex flex-col gap-0.5">
+        <li>
+          <button
+            type="button"
+            onClick={() => pick(AUTO_MODEL_ID)}
+            className={modelOptionClass(value === AUTO_MODEL_ID)}
+          >
+            Auto
+          </button>
+        </li>
+      </ul>
 
       {imageModels.length > 0 ? (
         <>
-          <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
-            图片模型
-          </p>
-          <ul className="space-y-1">
+          {showSections ? (
+            <p className={sectionLabelClass()}>图片模型</p>
+          ) : null}
+          <ul className="flex flex-col gap-0.5">
             {imageModels.map((m) => (
               <li key={m.id}>
                 <button
                   type="button"
                   onClick={() => pick(m.id)}
-                  className={`w-full rounded-lg px-2.5 py-2 text-left text-xs transition ${
-                    value === m.id
-                      ? "bg-white text-black"
-                      : "text-zinc-400 hover:bg-white/10"
-                  }`}
+                  className={modelOptionClass(value === m.id)}
                 >
-                  <span className="font-medium">{m.name}</span>
-                  {m.description ? (
-                    <span className="mt-0.5 block text-[10px] opacity-70">
-                      {m.description}
-                    </span>
-                  ) : null}
+                  {m.name}
                 </button>
               </li>
             ))}
@@ -104,22 +103,18 @@ export function ModelPicker({ models, value, onChange }: ModelPickerProps) {
 
       {videoModels.length > 0 ? (
         <>
-          <p className="mb-1.5 mt-3 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
-            视频模型
-          </p>
-          <ul className="space-y-1">
+          {showSections ? (
+            <p className={sectionLabelClass()}>视频模型</p>
+          ) : null}
+          <ul className="flex flex-col gap-0.5">
             {videoModels.map((m) => (
               <li key={m.id}>
                 <button
                   type="button"
                   onClick={() => pick(m.id)}
-                  className={`w-full rounded-lg px-2.5 py-2 text-left text-xs transition ${
-                    value === m.id
-                      ? "bg-white text-black"
-                      : "text-zinc-400 hover:bg-white/10"
-                  }`}
+                  className={modelOptionClass(value === m.id)}
                 >
-                  <span className="font-medium">{m.name}</span>
+                  {m.name}
                 </button>
               </li>
             ))}

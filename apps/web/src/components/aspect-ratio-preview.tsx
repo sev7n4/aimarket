@@ -7,41 +7,45 @@ export function AspectRatioPreview({
   ratio,
   selected,
   smart,
+  compact = false,
 }: {
   ratio: AspectRatio;
   selected?: boolean;
   smart?: boolean;
+  compact?: boolean;
 }) {
+  const slotClass = compact ? "h-6 w-7" : "h-7 w-9";
+  const maxDim = compact ? 22 : 28;
+  const selectedBorder = selected
+    ? "border-orange-500/70 bg-orange-500/15"
+    : "border-white/25 bg-white/5";
+  const ratioBorder = selected
+    ? "border-orange-500/70 bg-orange-500/15"
+    : "border-white/30 bg-white/[0.03]";
+
   if (smart || ratio === "auto") {
     return (
       <span
-        className={`flex h-7 w-9 items-center justify-center rounded border ${
-          selected
-            ? "border-current bg-black/10"
-            : "border-white/25 bg-white/5"
-        }`}
+        className={`flex items-center justify-center rounded border ${slotClass} ${selectedBorder}`}
         aria-hidden
       >
-        <SparkleIcon className="size-3 opacity-80" />
+        <SparkleIcon className={compact ? "size-2.5 opacity-80" : "size-3 opacity-80"} />
       </span>
     );
   }
 
   const [w, h] = ratio.split(":").map(Number);
-  const max = 28;
-  const scale = max / Math.max(w, h);
-  const boxW = Math.max(10, Math.round(w * scale));
-  const boxH = Math.max(10, Math.round(h * scale));
+  const scale = maxDim / Math.max(w, h);
+  const boxW = Math.max(8, Math.round(w * scale));
+  const boxH = Math.max(8, Math.round(h * scale));
 
   return (
     <span
-      className="flex h-7 w-9 items-center justify-center"
+      className={`flex items-center justify-center ${slotClass}`}
       aria-hidden
     >
       <span
-        className={`rounded-[3px] border ${
-          selected ? "border-current bg-black/10" : "border-white/30"
-        }`}
+        className={`rounded-[2px] border ${ratioBorder}`}
         style={{ width: boxW, height: boxH }}
       />
     </span>

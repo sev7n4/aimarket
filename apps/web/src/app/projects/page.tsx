@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Plus, Rows3, Search, Trash2, ArrowUpDown, Check } from "lucide-react";
+import { Plus, Rows3, Search, Trash2, ArrowUpDown, Check, ArrowLeft } from "lucide-react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { SessionTitleActions } from "@/components/session-title-actions";
 import { listSessions, deleteSession } from "@/lib/api-client";
 import { getActiveWorkspaceId } from "@/lib/active-workspace";
-import { studioUrlForSession } from "@/lib/studio-navigation";
+import { studioUrlForSession, buildStudioUrl } from "@/lib/studio-navigation";
 import { useAuth } from "@/lib/auth-context";
 import type { ImageSession } from "@/lib/types";
 
@@ -31,6 +31,18 @@ function ProjectsContent() {
   const [deleting, setDeleting] = useState(false);
 
   const workspaceId = searchParams.get("workspaceId") ?? getActiveWorkspaceId() ?? undefined;
+  const fromStudio = searchParams.get("from") === "studio";
+  const returnSessionId = searchParams.get("sessionId");
+  const returnMode = searchParams.get("mode") ?? "chat";
+  const returnKind = searchParams.get("kind") === "project" ? "project" : "canvas";
+  const studioBackHref =
+    returnSessionId
+      ? studioUrlForSession({
+          id: returnSessionId,
+          mode: returnMode,
+          kind: returnKind,
+        })
+      : buildStudioUrl("canvas");
 
   const loadSessions = useCallback(async () => {
     if (!user) return;
@@ -91,6 +103,15 @@ function ProjectsContent() {
     <div className="min-h-dvh">
       <SiteHeader />
       <main className="mx-auto max-w-4xl px-4 py-10">
+        {fromStudio ? (
+          <Link
+            href={studioBackHref}
+            className="mb-4 inline-flex items-center gap-1.5 text-sm text-zinc-500 transition hover:text-white"
+          >
+            <ArrowLeft className="size-4" />
+            返回创作台
+          </Link>
+        ) : null}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-bold text-white">项目库</h1>
           <Link

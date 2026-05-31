@@ -40,6 +40,7 @@ export default async function StudioPage({ searchParams }: PageProps) {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-[#030303]">
       <StudioWorkspace
+        key={sessionId}
         sessionId={sessionId}
         initialMode={mode}
         initialPrompt={initialPrompt}

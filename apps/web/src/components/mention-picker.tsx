@@ -134,9 +134,9 @@ export function buildUploadMentionItems(
 }
 
 const PICKER_SHELL_ABOVE =
-  "absolute bottom-full left-0 z-50 mb-2 w-full max-w-md";
+  "absolute bottom-full left-0 z-[60] mb-2 w-full max-w-md";
 const PICKER_SHELL_BELOW =
-  "absolute top-full left-0 z-50 mt-2 w-full max-w-md";
+  "absolute top-full left-0 z-[60] mt-2 w-full max-w-md";
 
 export function MentionPicker({
   open,
@@ -233,8 +233,8 @@ export function MentionPicker({
     placement === "below" ? PICKER_SHELL_BELOW : PICKER_SHELL_ABOVE;
   const emptyShellClass =
     placement === "below"
-      ? "absolute top-full left-0 z-50 mt-2 w-full max-w-sm"
-      : "absolute bottom-full left-0 z-50 mb-2 w-full max-w-sm";
+      ? "absolute top-full left-0 z-[60] mt-2 w-full max-w-sm"
+      : "absolute bottom-full left-0 z-[60] mb-2 w-full max-w-sm";
 
   if (flat.length === 0) {
     return (

@@ -25,11 +25,14 @@ export const MODEL_GENERATE_BINDINGS: ReadonlyArray<{
   t2i: boolean;
   i2i: boolean;
 }> = [
+  // Internal routing aliases kept for Auto mode and legacy job records
   { modelId: "omni-v2", providerName: "aliyun-wan", t2i: true, i2i: false },
   { modelId: "omni-v2", providerName: "seedream-image", t2i: true, i2i: true },
   { modelId: "latest-v2-pro", providerName: "aliyun-wan", t2i: true, i2i: false },
   { modelId: "latest-v2-pro", providerName: "seedream-image", t2i: true, i2i: true },
+  // User-facing real models
   { modelId: "seedream-5", providerName: "seedream-image", t2i: true, i2i: true },
+  { modelId: "wanxiang-2.6", providerName: "aliyun-wan", t2i: true, i2i: false },
   { modelId: "seedream-4", providerName: "seedream-image", t2i: true, i2i: true },
   { modelId: "dall-e-2", providerName: "openai", t2i: true, i2i: false },
   { modelId: "dall-e-3", providerName: "openai", t2i: true, i2i: false },
