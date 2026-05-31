@@ -472,11 +472,17 @@ export async function fetchProviderStatus() {
     data: {
       mode: string;
       openaiConfigured: boolean;
+      aliyunWanConfigured: boolean;
+      seedreamConfigured: boolean;
       activeProvider: string;
       usingMock?: boolean;
       hint?: string;
       openaiBaseUrl?: string;
       openaiImageModel?: string;
+      aliyunWanBaseUrl?: string;
+      aliyunWanModel?: string;
+      seedreamBaseUrl?: string;
+      seedreamModel?: string;
     };
   }>("/api/v1/ai/providerStatus");
   return res.data;

@@ -5,12 +5,28 @@ import { aliyunWanProvider } from "./aliyun-wan.js";
 import { mockProvider } from "./mock.js";
 import { openaiProvider } from "./openai.js";
 import { seedreamImageProvider } from "./seedream-image.js";
-import type { GenerateParams, GenerateResult, ImageProvider } from "./types.js";
+import { seededitProvider } from "./seededit-provider.js";
+import type {
+  GenerateParams,
+  GenerateResult,
+  ImageProvider,
+  EditParams,
+  VariationParams,
+  ImageOperation,
+} from "./types.js";
 
-/** auto 模式下优先级：seedream（图生图优先）→ aliyun_wan（国内）→ openai → mock */
-const providers = [seedreamImageProvider, aliyunWanProvider, openaiProvider, mockProvider];
+const providers = [
+  seededitProvider,
+  seedreamImageProvider,
+  aliyunWanProvider,
+  openaiProvider,
+  mockProvider,
+];
 
-export function resolveProvider(modelId: string): ImageProvider {
+export function resolveProvider(
+  modelId: string,
+  operation: ImageOperation = "generate",
+): ImageProvider {
   const mode = process.env.IMAGE_PROVIDER ?? "auto";
 
   if (mode === "mock") return mockProvider;
@@ -23,11 +39,11 @@ export function resolveProvider(modelId: string): ImageProvider {
         "请配置 OPENAI_API_KEY 后使用 openai 模式",
       );
     }
-    if (!openaiProvider.supports(modelId)) {
+    if (!openaiProvider.supports(modelId, operation)) {
       throw new AppError(
         400,
         "MODEL_UNSUPPORTED",
-        `当前模型 ${modelId} 不支持 OpenAI 出图`,
+        `当前模型 ${modelId} 不支持 OpenAI ${operation} 操作`,
       );
     }
     return openaiProvider;
@@ -41,18 +57,18 @@ export function resolveProvider(modelId: string): ImageProvider {
         "请配置 DASHSCOPE_API_KEY 后使用 aliyun_wan 模式",
       );
     }
-    if (!aliyunWanProvider.supports(modelId)) {
+    if (!aliyunWanProvider.supports(modelId, operation)) {
       throw new AppError(
         400,
         "MODEL_UNSUPPORTED",
-        `当前模型 ${modelId} 不支持 阿里百炼 wan 出图`,
+        `当前模型 ${modelId} 不支持 阿里百炼 wan ${operation} 操作`,
       );
     }
     return aliyunWanProvider;
   }
 
   for (const p of providers) {
-    if (p.supports(modelId)) return p;
+    if (p.supports(modelId, operation)) return p;
   }
   return mockProvider;
 }
@@ -60,8 +76,42 @@ export function resolveProvider(modelId: string): ImageProvider {
 export async function generateImages(
   params: GenerateParams,
 ): Promise<GenerateResult & { modelName?: string }> {
-  const provider = resolveProvider(params.modelId);
+  const provider = resolveProvider(params.modelId, "generate");
   const result = await provider.generate(params);
+  const urls = await persistOutputUrls(result.urls);
+  const meta = getModel(params.modelId);
+  return { ...result, urls, modelName: meta?.name };
+}
+
+export async function editImage(
+  params: EditParams,
+): Promise<GenerateResult & { modelName?: string }> {
+  const provider = resolveProvider(params.modelId, "edit");
+  if (!provider.edit) {
+    throw new AppError(
+      400,
+      "OPERATION_UNSUPPORTED",
+      `当前 provider ${provider.name} 不支持图片编辑操作`,
+    );
+  }
+  const result = await provider.edit(params);
+  const urls = await persistOutputUrls(result.urls);
+  const meta = getModel(params.modelId);
+  return { ...result, urls, modelName: meta?.name };
+}
+
+export async function variationImage(
+  params: VariationParams,
+): Promise<GenerateResult & { modelName?: string }> {
+  const provider = resolveProvider(params.modelId, "variation");
+  if (!provider.variation) {
+    throw new AppError(
+      400,
+      "OPERATION_UNSUPPORTED",
+      `当前 provider ${provider.name} 不支持图片变体操作`,
+    );
+  }
+  const result = await provider.variation(params);
   const urls = await persistOutputUrls(result.urls);
   const meta = getModel(params.modelId);
   return { ...result, urls, modelName: meta?.name };
@@ -72,7 +122,7 @@ export function getProviderStatus() {
   const openaiConfigured = Boolean(process.env.OPENAI_API_KEY?.trim());
   const aliyunWanConfigured = Boolean(process.env.DASHSCOPE_API_KEY?.trim());
   const seedreamConfigured = Boolean(process.env.ARK_API_KEY?.trim());
-  const activeProvider = resolveProvider("omni-v2").name;
+  const activeProvider = resolveProvider("omni-v2", "generate").name;
   const usingMock = activeProvider === "mock";
 
   let hint: string;
