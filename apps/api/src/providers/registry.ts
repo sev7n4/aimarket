@@ -4,10 +4,11 @@ import { AppError } from "../lib/errors.js";
 import { aliyunWanProvider } from "./aliyun-wan.js";
 import { mockProvider } from "./mock.js";
 import { openaiProvider } from "./openai.js";
+import { seedreamImageProvider } from "./seedream-image.js";
 import type { GenerateParams, GenerateResult, ImageProvider } from "./types.js";
 
-/** auto 模式下优先级：aliyun_wan（国内）→ openai → mock */
-const providers = [aliyunWanProvider, openaiProvider, mockProvider];
+/** auto 模式下优先级：seedream（图生图优先）→ aliyun_wan（国内）→ openai → mock */
+const providers = [seedreamImageProvider, aliyunWanProvider, openaiProvider, mockProvider];
 
 export function resolveProvider(modelId: string): ImageProvider {
   const mode = process.env.IMAGE_PROVIDER ?? "auto";
@@ -70,6 +71,7 @@ export function getProviderStatus() {
   const mode = process.env.IMAGE_PROVIDER ?? "auto";
   const openaiConfigured = Boolean(process.env.OPENAI_API_KEY?.trim());
   const aliyunWanConfigured = Boolean(process.env.DASHSCOPE_API_KEY?.trim());
+  const seedreamConfigured = Boolean(process.env.ARK_API_KEY?.trim());
   const activeProvider = resolveProvider("omni-v2").name;
   const usingMock = activeProvider === "mock";
 
@@ -78,16 +80,18 @@ export function getProviderStatus() {
     hint = "已强制 openai 模式但未配置 OPENAI_API_KEY，生成将失败";
   } else if (mode === "aliyun_wan" && !aliyunWanConfigured) {
     hint = "已强制 aliyun_wan 模式但未配置 DASHSCOPE_API_KEY，生成将失败";
-  } else if (usingMock && (openaiConfigured || aliyunWanConfigured)) {
+  } else if (usingMock && (openaiConfigured || aliyunWanConfigured || seedreamConfigured)) {
     hint =
-      "已配置 Key，但当前模型回落 Mock；可设置 IMAGE_PROVIDER=openai/aliyun_wan";
+      "已配置 Key，但当前模型回落 Mock；可设置 IMAGE_PROVIDER=openai/aliyun_wan/seedream";
   } else if (usingMock) {
     hint =
-      "演示模式：使用 Mock 占位图，配置 DASHSCOPE_API_KEY 或 OPENAI_API_KEY 可启用真实出图";
+      "演示模式：使用 Mock 占位图，配置 ARK_API_KEY、DASHSCOPE_API_KEY 或 OPENAI_API_KEY 可启用真实出图";
+  } else if (activeProvider === "seedream-image") {
+    hint = `真实出图：火山方舟 Seedream ${process.env.SEEDREAM_MODEL ?? "doubao-seedream-5-0-260128"}（支持图生图）`;
   } else if (activeProvider === "aliyun-wan") {
-    hint = `真实出图：阿里百炼 ${process.env.ALIYUN_WAN_MODEL ?? "wan2.6-t2i"}`;
+    hint = `真实出图：阿里百炼 ${process.env.ALIYUN_WAN_MODEL ?? "wan2.6-t2i"}（支持图生图）`;
   } else {
-    hint = "真实出图：OpenAI Images API";
+    hint = "真实出图：OpenAI Images API（不支持图生图）";
   }
 
   return {
@@ -99,6 +103,10 @@ export function getProviderStatus() {
     aliyunWanBaseUrl:
       process.env.DASHSCOPE_BASE_URL ?? "https://dashscope.aliyuncs.com",
     aliyunWanModel: process.env.ALIYUN_WAN_MODEL ?? "wan2.6-t2i",
+    seedreamConfigured,
+    seedreamBaseUrl:
+      process.env.ARK_BASE_URL ?? "https://ark.cn-beijing.volces.com/api/v3",
+    seedreamModel: process.env.SEEDREAM_MODEL ?? "doubao-seedream-5-0-260128",
     activeProvider,
     usingMock,
     hint,
