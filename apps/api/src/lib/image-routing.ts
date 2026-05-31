@@ -4,16 +4,19 @@
  * 扩展新接入：在 MODEL_GENERATE_BINDINGS 增加一行，并实现对应 ImageProvider。
  */
 import { AppError } from "./errors.js";
+import { userHasByokOpenAi } from "./user-provider-config.js";
 import { aliyunWanProvider } from "../providers/aliyun-wan.js";
 import { mockProvider } from "../providers/mock.js";
 import { openaiProvider } from "../providers/openai.js";
 import { seedreamImageProvider } from "../providers/seedream-image.js";
 import { seededitProvider } from "../providers/seededit-provider.js";
-import type { ImageOperation, ImageProvider } from "../providers/types.js";
+import type {
+  ImageOperation,
+  ImageProvider,
+  ImageRouteContext,
+} from "../providers/types.js";
 
-export interface ImageRouteContext {
-  hasReferenceImages?: boolean;
-}
+export type { ImageRouteContext };
 
 /** 模型在 generate 操作下可用的 Provider 绑定（可扩展） */
 export const MODEL_GENERATE_BINDINGS: ReadonlyArray<{
@@ -50,8 +53,12 @@ export function aliyunWanI2iConfigured(): boolean {
   return Boolean(process.env.ALIYUN_WAN_I2I_MODEL?.trim());
 }
 
-function providerCanI2i(provider: ImageProvider, modelId: string): boolean {
-  if (!provider.supports(modelId, "generate")) return false;
+function providerCanI2i(
+  provider: ImageProvider,
+  modelId: string,
+  context: ImageRouteContext = {},
+): boolean {
+  if (!provider.supports(modelId, "generate", context)) return false;
   if (provider.name === "seedream-image") {
     return Boolean(process.env.ARK_API_KEY?.trim());
   }
@@ -74,6 +81,7 @@ function bindingsFor(
 function orderedGenerateCandidates(
   modelId: string,
   hasRefs: boolean,
+  context: ImageRouteContext = {},
 ): ImageProvider[] {
   const mode = hasRefs ? "i2i" : "t2i";
   const seen = new Set<string>();
@@ -81,8 +89,8 @@ function orderedGenerateCandidates(
 
   const push = (provider: ImageProvider | undefined) => {
     if (!provider || seen.has(provider.name)) return;
-    if (!provider.supports(modelId, "generate")) return;
-    if (hasRefs && !providerCanI2i(provider, modelId)) return;
+    if (!provider.supports(modelId, "generate", context)) return;
+    if (hasRefs && !providerCanI2i(provider, modelId, context)) return;
     seen.add(provider.name);
     out.push(provider);
   };
@@ -109,14 +117,20 @@ function pickWithEnvMode(
   modelId: string,
   operation: ImageOperation,
   hasRefs: boolean,
+  context: ImageRouteContext = {},
 ): ImageProvider | undefined {
   const mode = process.env.IMAGE_PROVIDER ?? "auto";
+
+  if (context.userId && userHasByokOpenAi(context.userId)) {
+    const openai = candidates.find((p) => p.name === "openai");
+    if (openai?.supports(modelId, operation, context)) return openai;
+  }
 
   if (mode === "mock") return mockProvider;
 
   if (mode === "openai") {
     const openai = candidates.find((p) => p.name === "openai");
-    return openai?.supports(modelId, operation) ? openai : undefined;
+    return openai?.supports(modelId, operation, context) ? openai : undefined;
   }
 
   if (mode === "aliyun_wan") {
@@ -129,7 +143,7 @@ function pickWithEnvMode(
     }
     if (hasRefs && operation === "generate") {
       return (
-        candidates.find((p) => providerCanI2i(p, modelId)) ??
+        candidates.find((p) => providerCanI2i(p, modelId, context)) ??
         candidates.find((p) => p.name !== "mock")
       );
     }
@@ -150,8 +164,14 @@ export function resolveImageProvider(
   const hasRefs = context.hasReferenceImages ?? false;
 
   if (operation === "generate") {
-    const candidates = orderedGenerateCandidates(modelId, hasRefs);
-    const picked = pickWithEnvMode(candidates, modelId, operation, hasRefs);
+    const candidates = orderedGenerateCandidates(modelId, hasRefs, context);
+    const picked = pickWithEnvMode(
+      candidates,
+      modelId,
+      operation,
+      hasRefs,
+      context,
+    );
     if (picked) return picked;
 
     const detail =
@@ -161,8 +181,16 @@ export function resolveImageProvider(
     throw new AppError(400, "MODEL_UNSUPPORTED", `模型 ${modelId}：${detail}`);
   }
 
-  const candidates = ALL_PROVIDERS.filter((p) => p.supports(modelId, operation));
-  const picked = pickWithEnvMode(candidates, modelId, operation, hasRefs);
+  const candidates = ALL_PROVIDERS.filter((p) =>
+    p.supports(modelId, operation, context),
+  );
+  const picked = pickWithEnvMode(
+    candidates,
+    modelId,
+    operation,
+    hasRefs,
+    context,
+  );
   if (picked) return picked;
 
   throw new AppError(

@@ -1,4 +1,5 @@
 import { resolveImageDimensions } from "../lib/image-size.js";
+import { resolveOpenAiCredentials } from "../lib/user-provider-config.js";
 import { saveGeneratedImage } from "../lib/storage.js";
 import type {
   GenerateParams,
@@ -6,7 +7,7 @@ import type {
   ImageProvider,
   EditParams,
   VariationParams,
-  ImageOperation,
+  ImageRouteContext,
 } from "./types.js";
 
 function resolveOpenAiSize(resolution: string, aspectRatio: string): string {
@@ -25,11 +26,14 @@ function usesDalle2(model: string) {
   return model === "dall-e-2" || model.includes("dall-e-2");
 }
 
+function openAiAvailable(context?: ImageRouteContext): boolean {
+  return resolveOpenAiCredentials(context?.userId) !== null;
+}
+
 export const openaiProvider: ImageProvider = {
   name: "openai",
-  supports: (modelId, operation) => {
-    const key = process.env.OPENAI_API_KEY;
-    if (!key) return false;
+  supports: (modelId, operation, context) => {
+    if (!openAiAvailable(context)) return false;
 
     if (operation === "edit" || operation === "variation") {
       return usesDalle2(modelId);
@@ -40,11 +44,8 @@ export const openaiProvider: ImageProvider = {
     );
   },
   async generate(params: GenerateParams): Promise<GenerateResult> {
-    const apiKey = process.env.OPENAI_API_KEY;
-    const base =
-      process.env.OPENAI_BASE_URL?.replace(/\/$/, "") ??
-      "https://api.openai.com/v1";
-    if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
+    const creds = resolveOpenAiCredentials(params.userId);
+    if (!creds) throw new Error("OPENAI_API_KEY not configured");
 
     const model =
       process.env.OPENAI_IMAGE_MODEL ??
@@ -57,10 +58,10 @@ export const openaiProvider: ImageProvider = {
     const useB64 = usesDalle3(model);
 
     for (let i = 0; i < params.count; i++) {
-      const res = await fetch(`${base}/images/generations`, {
+      const res = await fetch(`${creds.baseUrl}/images/generations`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${creds.apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -95,20 +96,17 @@ export const openaiProvider: ImageProvider = {
     return { urls, provider: "openai" };
   },
   async edit(params: EditParams): Promise<GenerateResult> {
-    const apiKey = process.env.OPENAI_API_KEY;
-    const base =
-      process.env.OPENAI_BASE_URL?.replace(/\/$/, "") ??
-      "https://api.openai.com/v1";
-    if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
+    const creds = resolveOpenAiCredentials(params.userId);
+    if (!creds) throw new Error("OPENAI_API_KEY not configured");
 
     const model = "dall-e-2";
     const urls: string[] = [];
 
     for (let i = 0; i < params.count; i++) {
-      const res = await fetch(`${base}/images/edits`, {
+      const res = await fetch(`${creds.baseUrl}/images/edits`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${creds.apiKey}`,
         },
         body: JSON.stringify({
           model,
@@ -138,20 +136,17 @@ export const openaiProvider: ImageProvider = {
     return { urls, provider: "openai" };
   },
   async variation(params: VariationParams): Promise<GenerateResult> {
-    const apiKey = process.env.OPENAI_API_KEY;
-    const base =
-      process.env.OPENAI_BASE_URL?.replace(/\/$/, "") ??
-      "https://api.openai.com/v1";
-    if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
+    const creds = resolveOpenAiCredentials(params.userId);
+    if (!creds) throw new Error("OPENAI_API_KEY not configured");
 
     const model = "dall-e-2";
     const urls: string[] = [];
 
     for (let i = 0; i < params.count; i++) {
-      const res = await fetch(`${base}/images/variations`, {
+      const res = await fetch(`${creds.baseUrl}/images/variations`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${creds.apiKey}`,
         },
         body: JSON.stringify({
           model,
@@ -165,7 +160,9 @@ export const openaiProvider: ImageProvider = {
 
       if (!res.ok) {
         const err = await res.text();
-        throw new Error(`OpenAI Variation API error: ${res.status} ${err.slice(0, 500)}`);
+        throw new Error(
+          `OpenAI Variation API error: ${res.status} ${err.slice(0, 500)}`,
+        );
       }
 
       const json = (await res.json()) as {

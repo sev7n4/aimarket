@@ -1,3 +1,4 @@
+/** @deprecated 已迁移至服务端 /api/v1/user/providerConfig，仅用于一次性本地迁移 */
 const STORAGE_KEY = "aimarket_byok_keys";
 
 export type ByokProvider = "openai";
@@ -16,9 +17,9 @@ export function loadByokKeys(): ByokKeys {
   }
 }
 
-export function saveByokKeys(keys: ByokKeys) {
+export function clearByokKeys() {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(keys));
+  localStorage.removeItem(STORAGE_KEY);
 }
 
 export function hasByokConfigured(keys: ByokKeys): boolean {

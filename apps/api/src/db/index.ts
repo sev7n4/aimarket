@@ -339,6 +339,14 @@ database.exec(`
     font_hint TEXT,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS user_provider_config (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    use_byok INTEGER NOT NULL DEFAULT 0,
+    openai_key_enc TEXT,
+    openai_base_url TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 const orderMigrations = [

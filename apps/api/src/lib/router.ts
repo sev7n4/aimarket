@@ -1,3 +1,5 @@
+import { userHasByokOpenAi } from "./user-provider-config.js";
+
 export interface RouteSuggestion {
   modelId: string;
   reason: string;
@@ -15,7 +17,15 @@ export function suggestModel(
   mode: string,
   prompt: string,
   hasReferenceImages?: boolean,
+  userId?: string,
 ): RouteSuggestion {
+  if (userId && userHasByokOpenAi(userId) && !hasReferenceImages) {
+    return {
+      modelId: "dall-e-3",
+      reason: "已启用 BYOK，将使用您的 OpenAI Key 出图",
+    };
+  }
+
   if (hasReferenceImages) {
     const hasSeedream = Boolean(process.env.ARK_API_KEY?.trim());
     const hasWan = Boolean(process.env.DASHSCOPE_API_KEY?.trim());

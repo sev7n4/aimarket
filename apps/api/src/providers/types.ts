@@ -7,6 +7,11 @@
  * - Variations: POST /images/variations
  */
 
+export interface ImageRouteContext {
+  hasReferenceImages?: boolean;
+  userId?: string;
+}
+
 export interface GenerateParams {
   prompt: string;
   modelId: string;
@@ -14,6 +19,8 @@ export interface GenerateParams {
   resolution: string;
   aspectRatio?: string;
   referenceUrls?: string[];
+  /** 启用 BYOK 时使用该用户的加密 Key */
+  userId?: string;
 }
 
 export interface EditParams {
@@ -24,6 +31,7 @@ export interface EditParams {
   count: number;
   resolution: string;
   aspectRatio?: string;
+  userId?: string;
 }
 
 export interface VariationParams {
@@ -32,6 +40,7 @@ export interface VariationParams {
   count: number;
   resolution: string;
   aspectRatio?: string;
+  userId?: string;
 }
 
 export interface GenerateResult {
@@ -43,7 +52,11 @@ export type ImageOperation = 'generate' | 'edit' | 'variation';
 
 export interface ImageProvider {
   name: string;
-  supports(modelId: string, operation?: ImageOperation): boolean;
+  supports(
+    modelId: string,
+    operation?: ImageOperation,
+    context?: ImageRouteContext,
+  ): boolean;
   generate(params: GenerateParams): Promise<GenerateResult>;
   edit?(params: EditParams): Promise<GenerateResult>;
   variation?(params: VariationParams): Promise<GenerateResult>;
