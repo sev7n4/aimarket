@@ -307,12 +307,16 @@ export async function estimatePoints(
   return res.data.totalPoints;
 }
 
-export async function suggestModel(mode: string, prompt: string) {
+export async function suggestModel(
+  mode: string,
+  prompt: string,
+  hasReferenceImages?: boolean,
+) {
   const res = await request<{ data: RouteSuggestion }>(
     "/api/v1/ai/suggestModel",
     {
       method: "POST",
-      body: JSON.stringify({ mode, prompt }),
+      body: JSON.stringify({ mode, prompt, hasReferenceImages }),
     },
   );
   return res.data;

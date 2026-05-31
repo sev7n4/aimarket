@@ -61,7 +61,17 @@ export const aliyunWanProvider: ImageProvider = {
     const base = (
       process.env.DASHSCOPE_BASE_URL ?? "https://dashscope.aliyuncs.com"
     ).replace(/\/$/, "");
-    const model = process.env.ALIYUN_WAN_MODEL ?? "wan2.6-t2i";
+    const hasRefs = Boolean(params.referenceUrls?.length);
+    const i2iModel = process.env.ALIYUN_WAN_I2I_MODEL?.trim();
+    const t2iModel = process.env.ALIYUN_WAN_MODEL ?? "wan2.6-t2i";
+    if (hasRefs) {
+      if (!i2iModel) {
+        throw new Error(
+          "ALIYUN_WAN_I2I_MODEL 未配置：万相 t2i 模型不支持参考图，请配置图生图模型或改用 Seedream",
+        );
+      }
+    }
+    const model = hasRefs ? i2iModel! : t2iModel;
     const size = resolveWanSize(params.resolution, params.aspectRatio ?? "1:1");
 
     const content: DashScopeContentItem[] = [];

@@ -51,10 +51,15 @@ ai.post("/suggestModel", async (c) => {
     .object({
       mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
       prompt: z.string().default(""),
+      hasReferenceImages: z.boolean().optional(),
     })
     .parse(await c.req.json());
 
-  const suggestion = suggestModel(body.mode, body.prompt);
+  const suggestion = suggestModel(
+    body.mode,
+    body.prompt,
+    body.hasReferenceImages,
+  );
   return c.json({ data: suggestion });
 });
 

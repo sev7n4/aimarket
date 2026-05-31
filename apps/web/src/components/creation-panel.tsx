@@ -395,8 +395,12 @@ export function CreationPanel({
 
   useEffect(() => {
     if (!user || effectiveMode === "ecommerce") return;
+    const hasReferenceImages =
+      assetIds.length > 0 ||
+      mentionedAssetIds.length > 0 ||
+      selectedRefs.length > 0;
     const t = setTimeout(() => {
-      suggestModel(mode, prompt)
+      suggestModel(mode, prompt, hasReferenceImages)
         .then((s) => {
           if (modelId === AUTO_MODEL_ID) {
             setRouteHint(s.reason ? `Auto → ${s.reason}` : "Auto 路由");
@@ -407,7 +411,16 @@ export function CreationPanel({
         .catch(() => setRouteHint(null));
     }, 400);
     return () => clearTimeout(t);
-  }, [user, mode, prompt, modelId]);
+  }, [
+    user,
+    mode,
+    prompt,
+    modelId,
+    assetIds.length,
+    mentionedAssetIds.length,
+    selectedRefs.length,
+    effectiveMode,
+  ]);
 
   async function handleUpload(files: FileList | null) {
     if (!files?.length || !sessionId) return;
@@ -714,7 +727,7 @@ export function CreationPanel({
           mode,
           assetIds: mergedAssetIds.length ? mergedAssetIds : undefined,
           referenceOutputIds: selectedRefs.map((r) => r.id),
-          autoRoute: useAuto || mode === "quick",
+          autoRoute: useAuto,
           toolContext: mentionedMasks.length
             ? {
                 toolId: mentionedMasks[mentionedMasks.length - 1].toolId,

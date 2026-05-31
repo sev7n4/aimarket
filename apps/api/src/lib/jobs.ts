@@ -65,7 +65,9 @@ export function createGenerationJob(input: CreateJobInput) {
 
   const modelMeta = getModel(input.modelId);
   if (modelMeta?.type !== "video") {
-    resolveProvider(input.modelId);
+    resolveProvider(input.modelId, "generate", {
+      hasReferenceImages: Boolean(input.referenceUrls?.length),
+    });
   }
 
   const jobId = randomUUID();
@@ -181,12 +183,29 @@ export async function processGenerationJob({
 
   const model = getModel(job.model_id);
   const isToolJob = Boolean(job.tool_type);
+
+  let toolContext: ToolContext | undefined;
+  let referenceUrls: string[] | undefined;
+  if (job.tool_context) {
+    try {
+      const parsed = JSON.parse(job.tool_context) as ToolContext & {
+        referenceUrls?: string[];
+      };
+      toolContext = parsed;
+      referenceUrls = parsed.referenceUrls;
+    } catch {
+      toolContext = undefined;
+    }
+  }
+
   const useMockDelay =
     model?.type === "video"
       ? resolveVideoProvider(job.model_id).name === "mock"
       : isToolJob
         ? resolveToolProvider(job.tool_type!).name.endsWith("-mock")
-        : resolveProvider(job.model_id).name === "mock";
+        : resolveProvider(job.model_id, "generate", {
+            hasReferenceImages: Boolean(referenceUrls?.length),
+          }).name === "mock";
   if (useMockDelay) {
     await new Promise((r) => setTimeout(r, delayMs));
   }
@@ -201,18 +220,6 @@ export async function processGenerationJob({
         : undefined);
 
     let urls: string[] = [];
-    let toolContext: ToolContext | undefined;
-    let referenceUrls: string[] | undefined;
-    if (job.tool_context) {
-      try {
-        const parsed = JSON.parse(job.tool_context) as ToolContext & { referenceUrls?: string[] };
-        toolContext = parsed;
-        referenceUrls = parsed.referenceUrls;
-      } catch {
-        toolContext = undefined;
-      }
-    }
-
     if (model?.type === "video") {
       const video = await generateVideos({
         prompt: job.prompt,
