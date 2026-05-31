@@ -68,14 +68,22 @@ const DESKTOP_FAN: FanGeometry = {
 const MOBILE_FAN = {
   minCardW: 104,
   maxCardW: 176,
-  touchMinCardW: 112,
-  touchMaxCardW: 184,
+  touchMinCardW: 140,
+  touchMaxCardW: 220,
   cardWRatio: 0.36,
-  touchCardWRatio: 0.44,
+  touchCardWRatio: 0.5,
+  /** touch 侧卡间距 / 中心卡宽，更紧以允许中心卡更大 */
+  touchSpreadRatio: 0.34,
   edgePad: 10,
+  touchEdgePad: 4,
   spreadMinRatio: 0.44,
   spreadMaxRatio: 0.58,
   touchSpreadMaxRatio: 0.52,
+  /** 与灵感发现 masonry 列宽一致：(viewport - px-4*2 - gap-3) / 2 */
+  gallerySectionPadPx: 32,
+  galleryColumnGapPx: 12,
+  /** 4:5，同 inspiration-gallery aspect-[4/5] */
+  touchCardAspect: 1.25,
 };
 
 const MOBILE_DRAG_SNAP = 0.22;
@@ -103,8 +111,8 @@ function mobileCardVisual(
   if (touchFocus) {
     return {
       isCenter,
-      scale: isCenter ? 1.12 : Math.max(0.78, 0.9 - dist * 0.055),
-      opacity: isCenter ? 1 : Math.max(0.48, 0.9 - dist * 0.15),
+      scale: isCenter ? 1.06 : Math.max(0.78, 0.88 - dist * 0.05),
+      opacity: isCenter ? 1 : Math.max(0.48, 0.88 - dist * 0.14),
       zIndex: isCenter ? 42 : Math.round(24 - dist * 5),
     };
   }
@@ -140,8 +148,50 @@ function outerCardHalf(cardW: number, cardH: number, deg: number, cardScale = 0.
   return cardScale * ((cardW / 2) * Math.cos(rad) + cardH * Math.sin(rad));
 }
 
-/** 7 张固定扇形：先算 stage 再 scale 纳入视口 */
+/** 与灵感发现 masonry 单列同宽 */
+function galleryColumnWidth(viewportW: number) {
+  const { gallerySectionPadPx, galleryColumnGapPx } = MOBILE_FAN;
+  return Math.round((viewportW - gallerySectionPadPx - galleryColumnGapPx) / 2);
+}
+
+/**
+ * Touch 聚焦布局：中心卡对齐画廊列宽，不再为塞下 7 张而整体 scale 缩小。
+ * 侧卡可溢出视口（容器 overflow-visible）。
+ */
+function fitTouchFocusedLayout(viewportW: number): MobileLayout {
+  const { touchEdgePad, touchCardAspect, touchSpreadRatio } = MOBILE_FAN;
+  const usable = viewportW - touchEdgePad * 2;
+  const galleryW = galleryColumnWidth(viewportW);
+  const cardW = Math.round(
+    Math.min(usable * 0.54, Math.max(galleryW, viewportW * MOBILE_FAN.touchCardWRatio)),
+  );
+  const cardH = Math.round(cardW * touchCardAspect);
+  const ratio = cardW / FAN_CARD_W;
+  const bleed = Math.round(DESKTOP_FAN.bleed * ratio);
+  const yOffsets = DESKTOP_FAN.yOffsets.map((y) => Math.round(y * ratio * 0.82));
+  const maxYOffset = Math.max(...yOffsets);
+  const spread = Math.max(44, Math.floor(cardW * touchSpreadRatio));
+  const stageW = fanMobileStageWidth(spread, cardW, bleed);
+  const stageH = cardH + maxYOffset;
+
+  return {
+    spread,
+    scale: 1,
+    cardW,
+    cardH,
+    stageW,
+    stageH,
+    bleed,
+    maxYOffset,
+    offsets: DESKTOP_FAN.offsets,
+    yOffsets,
+  };
+}
+
+/** 7 张固定扇形：PAD/鼠标模式仍整体纳入视口；touch 走 fitTouchFocusedLayout */
 function fitMobileLayout(viewportW: number, touchFocus: boolean): MobileLayout {
+  if (touchFocus) return fitTouchFocusedLayout(viewportW);
+
   const {
     edgePad,
     minCardW,
