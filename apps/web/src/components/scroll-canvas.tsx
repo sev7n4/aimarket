@@ -5,7 +5,6 @@ import { assetUrl } from "@/lib/api-client";
 import type { CanvasItem, BatchSection } from "@/lib/canvas-tools";
 import { batchDisplayIndex } from "@/lib/canvas-tools";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
-import { ImageActionBar } from "@/components/image-action-bar";
 import { hapticLight } from "@/lib/haptics";
 
 export interface ScrollCanvasHandle {
@@ -20,10 +19,7 @@ interface ScrollCanvasProps {
   readOnly: boolean;
   emptyHint: string;
   pulseId: string | null;
-  onEnterRefineMode: (itemId: string) => void;
   onSetLightbox: (lb: { items: CanvasItem[]; index: number } | null) => void;
-  onDeleteSelected: () => void;
-  onRerun: (item: CanvasItem) => void;
   onJumpToParentBatch?: (
     parentBatchId: string,
     sourceItemId?: string,
@@ -33,6 +29,9 @@ interface ScrollCanvasProps {
   jobProgressCompleted?: number;
   jobProgressTotal?: number;
   onOpenChatPanel?: () => void;
+  onCancelJob?: () => void;
+  jobElapsedMs?: number;
+  queueAhead?: number | null;
   focusClickActive: boolean;
   focusItem: CanvasItem | null;
   onFocusImageClick?: (
@@ -52,16 +51,16 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       readOnly,
       emptyHint,
       pulseId,
-      onEnterRefineMode,
       onSetLightbox,
-      onDeleteSelected,
-      onRerun,
       onJumpToParentBatch,
       jobStreamStatus,
       jobFailed,
       jobProgressCompleted,
       jobProgressTotal,
       onOpenChatPanel,
+      onCancelJob,
+      jobElapsedMs,
+      queueAhead,
       focusClickActive,
       focusItem,
       onFocusImageClick,
@@ -100,8 +99,11 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
             status={jobStreamStatus ?? null}
             failed={jobFailed}
             onOpenChat={onOpenChatPanel}
+            onCancel={onCancelJob}
             completed={jobProgressCompleted}
             total={jobProgressTotal}
+            elapsedMs={jobElapsedMs}
+            queueAhead={queueAhead}
           />
         ) : null}
 
@@ -205,28 +207,6 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                           }
                         }}
                       >
-                        <ImageActionBar
-                          item={item}
-                          selected={selectedId === item.id}
-                          onPreview={() => {
-                            onSetLightbox({
-                              items: batchItems,
-                              index: batchItems.findIndex(
-                                (i) => i.id === item.id,
-                              ),
-                            });
-                          }}
-                          onRefine={() => {
-                            onEnterRefineMode(item.id);
-                          }}
-                          onRerun={() => {
-                            onRerun(item);
-                          }}
-                          onDelete={() => {
-                            onSelect(item.id);
-                            onDeleteSelected();
-                          }}
-                        />
                         {item.label ? (
                           <span className="block bg-black/60 px-2 py-0.5 text-[10px] text-zinc-400">
                             {item.label}

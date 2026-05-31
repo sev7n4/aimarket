@@ -26,9 +26,18 @@ export function CanvasToolbar({
 }: CanvasToolbarProps) {
   const canvasOnlyTools = ["pan", "zoom-in", "zoom-out", "grid", "fit"];
   const hiddenInScroll = ["pan", "zoom-in", "zoom-out", "grid", "fit", "layout-scroll", "layout-free"];
+  /** 单图精修自由画布：隐藏下载/删除/模式切换 */
+  const hiddenInRefine = [
+    "download",
+    "delete",
+    "layout-scroll",
+    "layout-free",
+    "upload",
+  ];
 
   const filteredTools = canvasTools.filter((tool) => {
     if (layoutMode === "scroll" && hiddenInScroll.includes(tool.id)) return false;
+    if (layoutMode === "free" && hiddenInRefine.includes(tool.id)) return false;
     if (tool.id === "undo" && !canUndo) return false;
     if (tool.id === "redo" && !canRedo) return false;
     if (tool.id === "layout-scroll" && layoutMode === "scroll") return false;

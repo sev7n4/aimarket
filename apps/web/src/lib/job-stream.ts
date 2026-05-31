@@ -10,6 +10,7 @@ export interface JobStreamEvent {
   outputType?: string;
   count?: number;
   completed?: number;
+  queueAhead?: number | null;
 }
 
 const TERMINAL = new Set(["succeeded", "failed"]);
@@ -109,6 +110,7 @@ function pollJob(
             outputs: job.outputs,
             count: job.count,
             completed: outputCount,
+            queueAhead: job.queue_ahead ?? null,
           });
         }
         if (TERMINAL.has(job.status)) {

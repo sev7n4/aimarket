@@ -214,6 +214,9 @@ export function StudioWorkspace({
   const [jobStreamStatus, setJobStreamStatus] = useState<string | null>(null);
   const [jobProgressCompleted, setJobProgressCompleted] = useState(0);
   const [jobProgressTotal, setJobProgressTotal] = useState(0);
+  const [jobStartedAt, setJobStartedAt] = useState<number | null>(null);
+  const [queueAhead, setQueueAhead] = useState<number | null>(null);
+  const [, setJobTick] = useState(0);
   const [studioPrompt, setStudioPrompt] = useState(initialPrompt);
   const lastOutputCountRef = useRef(0);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(
@@ -439,6 +442,8 @@ export function StudioWorkspace({
     setJobStreamStatus(null);
     setJobProgressCompleted(0);
     setJobProgressTotal(0);
+    setJobStartedAt(null);
+    setQueueAhead(null);
     lastOutputCountRef.current = 0;
     if (completedJobId) {
       try {
@@ -469,12 +474,16 @@ export function StudioWorkspace({
     setJobStreamStatus("queued");
     setJobProgressCompleted(0);
     setJobProgressTotal(0);
+    setJobStartedAt(Date.now());
+    setQueueAhead(null);
     lastOutputCountRef.current = 0;
+    const tickTimer = window.setInterval(() => setJobTick((n) => n + 1), 1000);
     const stop = watchJob(
       jobId,
       (ev) => {
         setJobStreamStatus(ev.status);
         if (ev.count) setJobProgressTotal(ev.count);
+        if (ev.queueAhead !== undefined) setQueueAhead(ev.queueAhead);
         if (typeof ev.completed === "number") {
           setJobProgressCompleted(ev.completed);
           if (
@@ -501,8 +510,14 @@ export function StudioWorkspace({
         setJobStreamStatus("failed");
       },
     );
-    return stop;
+    return () => {
+      window.clearInterval(tickTimer);
+      stop();
+    };
   }, [pollingJobId, user, handleJobComplete]);
+
+  const jobElapsedMs =
+    jobStartedAt != null ? Date.now() - jobStartedAt : undefined;
 
   useEffect(() => {
     const count = canvasItems.length;
@@ -872,6 +887,8 @@ export function StudioWorkspace({
       setJobStreamStatus(null);
       setJobProgressCompleted(0);
       setJobProgressTotal(0);
+      setJobStartedAt(null);
+      setQueueAhead(null);
       setSelectSourceBanner(`任务已取消，积分已退回（${result.refundedPoints}积分）`);
       await refreshUser();
       await loadCanvas();
@@ -993,6 +1010,8 @@ export function StudioWorkspace({
         jobStreamStatus={jobStreamStatus}
         pollingJobId={pollingJobId}
         onCancelJob={handleCancelJob}
+        jobElapsedMs={jobElapsedMs}
+        queueAhead={queueAhead}
         readOnly={readOnly}
         canvasItems={canvasItems}
         mentionItemRequest={mentionItemRequest}
@@ -1326,6 +1345,9 @@ export function StudioWorkspace({
               jobFailed={jobFailed}
               jobProgressCompleted={jobProgressCompleted}
               jobProgressTotal={jobProgressTotal}
+              onCancelJob={handleCancelJob}
+              jobElapsedMs={jobElapsedMs}
+              queueAhead={queueAhead}
               selectSourceBanner={selectSourceBanner}
               onCutoutItem={(item) => handleQuickToolFromCanvas(item, "cutout")}
               onExpandItem={(item) => handleQuickToolFromCanvas(item, "expand")}
@@ -1385,8 +1407,6 @@ export function StudioWorkspace({
                     }));
                     hapticLight();
                   }}
-                  onDownload={() => void handleCanvasDownload()}
-                  onDelete={handleDeleteCanvasItem}
                 />
               }
               statusChip={<ProviderStatusChip />}

@@ -359,6 +359,7 @@ ai.get("/jobs/:jobId/stream", (c) => {
             outputType: job.outputType,
             count: job.count,
             completed: outputCount,
+            queueAhead: job.queue_ahead ?? null,
           }),
         });
       }
