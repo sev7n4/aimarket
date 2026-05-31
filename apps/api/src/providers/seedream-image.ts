@@ -39,8 +39,12 @@ const SUPPORTED_MODELS = new Set([
 
 export const seedreamImageProvider: ImageProvider = {
   name: "seedream-image",
-  supports(modelId: string) {
+  supports(modelId, operation) {
     if (!process.env.ARK_API_KEY?.trim()) return false;
+    if (operation === "edit") {
+      return modelId.includes("seededit");
+    }
+    if (operation === "variation") return false;
     return SUPPORTED_MODELS.has(modelId);
   },
   async generate(params: GenerateParams): Promise<GenerateResult> {

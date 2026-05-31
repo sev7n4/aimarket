@@ -24,6 +24,7 @@ import {
   getToken,
   fetchModels,
   fetchReferences,
+  fetchProviderStatus,
   submitEcommerceGenerate,
   submitGeneration,
   submitVideoGeneration,
@@ -574,6 +575,26 @@ export function CreationPanel({
       if (!productAssetId) {
         alert("请先上传产品图");
         return;
+      }
+    }
+
+    const hasReferenceImages = mentionedAssetIds.length > 0 || selectedRefs.length > 0;
+    if (hasReferenceImages && modelId === AUTO_MODEL_ID) {
+      try {
+        const providerStatus = await fetchProviderStatus();
+        if (!providerStatus.seedreamConfigured && !providerStatus.aliyunWanConfigured) {
+          const proceed = confirm(
+            "您引用了参考图片，但未配置图生图 API key。\n\n" +
+            "当前将使用文生图流程，生成效果可能无法参考您引用的图片。\n\n" +
+            "建议：\n" +
+            "1. 配置 ARK_API_KEY（火山方舟 Seedream，推荐）\n" +
+            "2. 配置 DASHSCOPE_API_KEY（阿里云万相）\n\n" +
+            "是否继续提交？（继续将走文生图流程）"
+          );
+          if (!proceed) return;
+        }
+      } catch (err) {
+        console.warn("Failed to check provider status:", err);
       }
     }
 

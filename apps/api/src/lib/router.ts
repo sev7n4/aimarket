@@ -10,7 +10,32 @@ const QUICK_KEYWORDS = ["快速", "简单", "换背景"];
 export function suggestModel(
   mode: string,
   prompt: string,
+  hasReferenceImages?: boolean,
 ): RouteSuggestion {
+  if (hasReferenceImages) {
+    const hasSeedream = Boolean(process.env.ARK_API_KEY?.trim());
+    const hasWan = Boolean(process.env.DASHSCOPE_API_KEY?.trim());
+    
+    if (hasSeedream) {
+      return {
+        modelId: "seedream-5",
+        reason: "检测到参考图片，使用火山方舟 Seedream 进行图生图",
+      };
+    }
+    
+    if (hasWan) {
+      return {
+        modelId: "latest-v2-pro",
+        reason: "检测到参考图片，使用阿里云万相进行图生图",
+      };
+    }
+    
+    return {
+      modelId: "omni-v2",
+      reason: "⚠️ 您引用了图片但未配置图生图 API（ARK_API_KEY 或 DASHSCOPE_API_KEY），将走文生图流程。建议配置 API key 以获得更好的图生图效果。",
+    };
+  }
+
   if (mode === "ecommerce") {
     return {
       modelId: "latest-v2-pro",

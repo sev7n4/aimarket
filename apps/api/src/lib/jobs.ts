@@ -8,7 +8,12 @@ import { AppError } from "./errors.js";
 import { assertSessionWrite, assertSessionRead } from "./session-access.js";
 import { recordAnalyticsEvent } from "./analytics.js";
 import { assertOutputsAllowed } from "./content-moderation.js";
-import { generateImages, resolveProvider } from "../providers/registry.js";
+import {
+  generateImages,
+  editImage,
+  variationImage,
+  resolveProvider,
+} from "../providers/registry.js";
 import {
   resolveToolProvider,
   runToolImages,

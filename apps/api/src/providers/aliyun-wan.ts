@@ -49,8 +49,9 @@ const SUPPORTED_MODELS = new Set([
 
 export const aliyunWanProvider: ImageProvider = {
   name: "aliyun-wan",
-  supports(modelId: string) {
+  supports(modelId: string, operation?: string) {
     if (!process.env.DASHSCOPE_API_KEY?.trim()) return false;
+    if (operation === "edit" || operation === "variation") return false;
     return SUPPORTED_MODELS.has(modelId);
   },
   async generate(params: GenerateParams): Promise<GenerateResult> {
