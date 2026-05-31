@@ -41,7 +41,11 @@ test.describe("focus edit", () => {
     await expect(canvasImage).toBeVisible({ timeout: 20_000 });
     await canvasImage.click();
 
-    await page.getByTestId("canvas-tool-focus-edit").click();
+    const focusTool = page
+      .getByTestId("canvas-batch-tool-focus-edit")
+      .or(page.getByTestId("canvas-tool-focus-edit"));
+    await focusTool.first().scrollIntoViewIfNeeded();
+    await focusTool.first().click();
     const confirmDialog = page.getByTestId("tool-confirm-dialog");
     await expect(confirmDialog).toBeVisible({ timeout: 10_000 });
     await confirmDialog.getByRole("button", { name: "开始点选" }).click();
