@@ -3,7 +3,12 @@ import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import type { AuthVariables } from "../middleware/auth.js";
 import { ALL_MODELS, getModel } from "../lib/models.js";
-import { getProviderStatus } from "../providers/registry.js";
+import {
+  getProviderStatus,
+  generateImages,
+  editImage,
+  variationImage,
+} from "../providers/registry.js";
 import { getPromptOptimizeStatus } from "../lib/prompt-optimize.js";
 import { getToolProviderStatus } from "../providers/tools/registry.js";
 import { getFocusPointProviderStatus } from "../lib/focus-point.js";
@@ -103,6 +108,9 @@ ai.post("/generate", async (c) => {
         ])
         .default("auto"),
       mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
+      operation: z.enum(["generate", "edit", "variation"]).default("generate"),
+      image: z.string().optional(),
+      mask: z.string().optional(),
       assetIds: z.array(z.string().uuid()).optional(),
       referenceOutputIds: z.array(z.string().uuid()).optional(),
       autoRoute: z.boolean().default(false),
@@ -115,6 +123,14 @@ ai.post("/generate", async (c) => {
   const modelMeta = getModel(body.modelId ?? "");
   if (modelMeta?.type === "video") {
     throw new AppError(400, "USE_VIDEO_ENDPOINT", "视频生成请使用 /ai/generate/video");
+  }
+
+  if (body.operation === "edit" && !body.image) {
+    throw new AppError(400, "MISSING_IMAGE", "图片编辑操作需要提供 image 参数");
+  }
+
+  if (body.operation === "variation" && !body.image) {
+    throw new AppError(400, "MISSING_IMAGE", "图片变体操作需要提供 image 参数");
   }
 
   if (body.assetIds?.length) {
