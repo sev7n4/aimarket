@@ -615,15 +615,6 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       }
 
       if (focusClickActive && focusItem && item.id === focusItem.id) {
-        e.stopPropagation();
-        e.preventDefault();
-        const pt = itemPointFromEvent(e, item);
-        if (!pt || readOnly) return;
-        onFocusImageClick?.(item, {
-          x: pt.x / item.width,
-          y: pt.y / item.height,
-        });
-        hapticLight();
         return;
       }
       if (brushActive) return;
@@ -951,6 +942,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                     key={item.id}
                     role="button"
                     tabIndex={0}
+                    data-testid={`canvas-item-${item.id}`}
                     style={{
                       position: "absolute",
                       left: item.x,
@@ -958,7 +950,22 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                       width: item.width,
                     }}
                     onPointerDown={(e) => onItemPointerDown(e, item)}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (
+                        focusClickActive &&
+                        focusItem?.id === item.id
+                      ) {
+                        const rect =
+                          e.currentTarget.getBoundingClientRect();
+                        const x =
+                          (e.clientX - rect.left) / rect.width;
+                        const y =
+                          (e.clientY - rect.top) / rect.height;
+                        onFocusImageClick?.(item, { x, y });
+                        hapticLight();
+                      }
+                    }}
                     onDoubleClick={(e) => {
                       e.stopPropagation();
                       onSetLightbox({
