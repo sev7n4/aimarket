@@ -45,7 +45,6 @@ test.describe("mobile collab", () => {
     await expect(dock).toBeVisible({ timeout: 15_000 });
     await expect(dock.locator("textarea").first()).toBeVisible();
 
-    await dock.getByRole("button", { name: "展开更多选项" }).click();
     await dock.getByRole("button", { name: "专注画布" }).click();
     await expect(
       page.getByRole("button", { name: "展开创作输入栏" }),

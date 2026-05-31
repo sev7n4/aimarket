@@ -16,6 +16,30 @@ interface CompactDockSheetProps {
   matchTriggerWidth?: boolean;
   placement?: "above" | "below";
   maxHeight?: string;
+  /** 更紧凑的内边距与标题（质量/张数等小面板） */
+  dense?: boolean;
+  /** 桌面端宽度随内容收缩（不小于触发按钮宽度） */
+  fitContent?: boolean;
+}
+
+function buildDesktopPos(
+  rect: DOMRect,
+  placement: "above" | "below",
+  opts: { matchTriggerWidth: boolean; fitContent: boolean },
+): { left: number; top?: number; bottom?: number; minWidth?: number } {
+  const resolved =
+    placement === "below" && rect.bottom + 280 > window.innerHeight - 16
+      ? "above"
+      : placement === "above" && rect.top < 280
+        ? "below"
+        : placement;
+  const base =
+    resolved === "below"
+      ? { left: rect.left, top: rect.bottom + 8 }
+      : { left: rect.left, bottom: window.innerHeight - rect.top + 8 };
+  const minWidth =
+    opts.matchTriggerWidth || opts.fitContent ? rect.width : undefined;
+  return minWidth ? { ...base, minWidth } : base;
 }
 
 export function CompactDockSheet({
@@ -28,6 +52,8 @@ export function CompactDockSheet({
   matchTriggerWidth = false,
   placement = "above",
   maxHeight = "min(320px,50vh)",
+  dense = false,
+  fitContent = false,
 }: CompactDockSheetProps) {
   const mobile = useIsMobile(MOBILE_BREAKPOINT);
   const anchorRef = useRef<HTMLDivElement>(null);
@@ -60,20 +86,10 @@ export function CompactDockSheet({
       return;
     }
     const rect = anchorRef.current.getBoundingClientRect();
-    const resolved =
-      placement === "below" && rect.bottom + 280 > window.innerHeight - 16
-        ? "above"
-        : placement === "above" && rect.top < 280
-          ? "below"
-          : placement;
-    const base =
-      resolved === "below"
-        ? { left: rect.left, top: rect.bottom + 8 }
-        : { left: rect.left, bottom: window.innerHeight - rect.top + 8 };
     setDesktopPos(
-      matchTriggerWidth ? { ...base, minWidth: rect.width } : base,
+      buildDesktopPos(rect, placement, { matchTriggerWidth, fitContent }),
     );
-  }, [open, mobile, placement, matchTriggerWidth]);
+  }, [open, mobile, placement, matchTriggerWidth, fitContent]);
 
   useLayoutEffect(() => {
     if (!open || mobile || !desktopPos || !panelRef.current) return;
@@ -94,23 +110,13 @@ export function CompactDockSheet({
     function updatePos() {
       if (!anchorRef.current) return;
       const rect = anchorRef.current.getBoundingClientRect();
-      const resolved =
-        placement === "below" && rect.bottom + 280 > window.innerHeight - 16
-          ? "above"
-          : placement === "above" && rect.top < 280
-            ? "below"
-            : placement;
-      const base =
-        resolved === "below"
-          ? { left: rect.left, top: rect.bottom + 8 }
-          : { left: rect.left, bottom: window.innerHeight - rect.top + 8 };
       setDesktopPos(
-        matchTriggerWidth ? { ...base, minWidth: rect.width } : base,
+        buildDesktopPos(rect, placement, { matchTriggerWidth, fitContent }),
       );
     }
     window.addEventListener("scroll", updatePos, true);
     return () => window.removeEventListener("scroll", updatePos, true);
-  }, [open, mobile, placement, matchTriggerWidth]);
+  }, [open, mobile, placement, matchTriggerWidth, fitContent]);
 
   const panel = open ? (
     mobile ? (
@@ -122,12 +128,18 @@ export function CompactDockSheet({
           onClick={onClose}
         />
         <div
-          className="relative max-h-[min(50vh,380px)] overflow-y-auto rounded-t-2xl border border-white/10 bg-[#1a1a1a] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl"
+          className={`relative max-h-[min(50vh,380px)] overflow-y-auto rounded-t-2xl border border-white/10 bg-[#1a1a1a] shadow-2xl ${
+            dense
+              ? "px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2"
+              : "px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3"
+          }`}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/20" />
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-medium text-zinc-200">{title}</p>
+          <div className={`flex items-center justify-between ${dense ? "mb-2" : "mb-3"}`}>
+            <p className={`font-medium text-zinc-200 ${dense ? "text-xs" : "text-sm"}`}>
+              {title}
+            </p>
             <button
               type="button"
               onClick={onClose}
@@ -153,10 +165,20 @@ export function CompactDockSheet({
           maxHeight: maxHeight,
           zIndex: 200,
         }}
-        className={`${desktopWidthClass} overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1a1a] p-3 shadow-xl`}
+        className={`${
+          fitContent
+            ? "w-max max-w-[min(100vw-1.5rem,13rem)]"
+            : desktopWidthClass
+        } overflow-y-auto border border-white/10 bg-[#1a1a1a] shadow-xl ${
+          dense ? "rounded-xl p-2" : "rounded-2xl p-3"
+        }`}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+        <p
+          className={`font-medium uppercase tracking-wider text-zinc-500 ${
+            dense ? "mb-1.5 text-[9px]" : "mb-2 text-[10px]"
+          }`}
+        >
           {title}
         </p>
         {children}

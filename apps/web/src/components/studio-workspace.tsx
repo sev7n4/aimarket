@@ -6,8 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { SessionTitleActions } from "@/components/session-title-actions";
 import {
   ChevronLeft,
+  ChevronRight,
   Flag,
-  PanelLeftOpen,
   Plus,
   X,
 } from "lucide-react";
@@ -18,9 +18,10 @@ import {
 } from "@/components/design-canvas";
 import { CreationPanel } from "@/components/creation-panel";
 import { CanvasSelectionToolbar } from "@/components/canvas-selection-toolbar";
-import { StudioDock, studioDockCanvasPadding } from "@/components/studio-dock";
+import { StudioDock, studioDockScrollInset } from "@/components/studio-dock";
 import { StudioCoach } from "@/components/studio-coach";
 import { StudioHeader } from "@/components/studio-header";
+import { BrandLogo } from "@/components/brand-logo";
 import { ProviderStatusChip } from "@/components/provider-status-banner";
 import { ContentReportDialog } from "@/components/content-report-dialog";
 import {
@@ -80,7 +81,6 @@ import { consumePendingInspiration } from "@/lib/pending-inspiration";
 import { resolveToolResolution } from "@/lib/tool-resolution";
 import { formatToolProviderLabel } from "@/lib/studio-tool-meta";
 import { hapticLight } from "@/lib/haptics";
-import { canvasEmptyHintMobile } from "@/lib/mobile-labels";
 import { type SessionKind } from "@/lib/session-kind";
 import { buildStudioUrl, studioUrlForSession } from "@/lib/studio-navigation";
 import { useIsMobile } from "@/hooks/use-is-mobile";
@@ -154,7 +154,7 @@ export function StudioWorkspace({
   const [loginOpen, setLoginOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
-  const [dockMode, setDockMode] = useState<StudioDockMode>("compact");
+  const [dockMode, setDockMode] = useState<StudioDockMode>("expanded");
   const [workspaceWidth, setWorkspaceWidth] = useState(264);
   const [isDraggingWorkspace, setIsDraggingWorkspace] = useState(false);
   const [restoredAssets, setRestoredAssets] = useState<PendingAsset[]>([]);
@@ -187,10 +187,7 @@ export function StudioWorkspace({
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       e.preventDefault();
-      setDockMode((prev) => {
-        if (prev === "focus") return "compact";
-        return prev === "compact" ? "expanded" : "compact";
-      });
+      setDockMode((prev) => (prev === "focus" ? "expanded" : "focus"));
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -240,11 +237,7 @@ export function StudioWorkspace({
 
   useEffect(() => {
     if (!focusEditSession) return;
-    setDockMode((prev) => {
-      if (prev === "focus") return "expanded";
-      if (prev === "compact") return "expanded";
-      return prev;
-    });
+    setDockMode((prev) => (prev === "focus" ? "expanded" : prev));
   }, [focusEditSession]);
 
   const [focusClickKey, setFocusClickKey] = useState(0);
@@ -896,7 +889,6 @@ export function StudioWorkspace({
     [sessionId, mode, router, activeWorkspaceId],
   );
 
-  const isEcommerce = mode === "ecommerce";
   const selectedCanvasItem =
     selectedCanvasId ?
       (canvasItems.find((i) => i.id === selectedCanvasId) ?? null)
@@ -951,13 +943,6 @@ export function StudioWorkspace({
     focusEditSession?.itemId,
   ]);
 
-  const canvasEmptyHint =
-    mobile
-      ? canvasEmptyHintMobile()
-      : isEcommerce
-        ? "上传商品图，生成结果将出现在画布"
-        : "生成结果将显示在画布上";
-
   /** 桌面端侧栏展开时隐藏顶栏，把画布纵向空间还给创作区 */
   const showTopBar = mobile || workspaceCollapsed;
 
@@ -980,7 +965,7 @@ export function StudioWorkspace({
       <CreationPanel
         variant="dock"
         embeddedInDock
-        collapsed={dockMode === "compact"}
+        onDockModeChange={setDockMode}
         showModeTabs={false}
         rotatingPlaceholder
         enablePolish
@@ -1137,15 +1122,25 @@ export function StudioWorkspace({
             </button>
           </div>
 
+          <Link
+            href="/"
+            onClick={() => setSidebarOpen(false)}
+            className="mb-3 hidden items-center rounded-lg px-1 py-0.5 transition hover:bg-white/5 lg:flex"
+            title="返回首页"
+            aria-label="返回首页"
+          >
+            <BrandLogo variant="mark" markSize="sm" />
+          </Link>
+
           {!workspaceCollapsed ? (
             <button
               type="button"
               onClick={() => setWorkspaceCollapsed(true)}
-              className="mb-2 hidden size-8 items-center justify-center rounded-full border border-white/10 text-zinc-500 transition hover:bg-white/5 hover:text-white lg:flex"
+              className="mb-2 hidden size-7 items-center justify-center rounded-md text-zinc-500 transition hover:bg-white/5 hover:text-zinc-300 lg:flex"
               aria-label="收起工作区"
               title="收起工作区"
             >
-              <ChevronLeft className="size-4" />
+              <ChevronLeft className="size-3.5" strokeWidth={1.75} />
             </button>
           ) : null}
 
@@ -1188,14 +1183,17 @@ export function StudioWorkspace({
           ) : null}
 
           <div className="mb-3 flex items-center justify-between">
-            <Link
-              href={buildStudioUrl("canvas")}
-              onClick={() => setSidebarOpen(false)}
+            <button
+              type="button"
+              onClick={() => {
+                setSidebarOpen(false);
+                router.push(buildStudioUrl("canvas"));
+              }}
               className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-black transition hover:bg-zinc-200"
             >
               <Plus className="size-3.5" />
               新建
-            </Link>
+            </button>
           </div>
 
           {user ? (
@@ -1207,7 +1205,11 @@ export function StudioWorkspace({
               最近创作
             </p>
             <Link
-              href="/projects"
+              href={
+                sessionId
+                  ? `/projects?from=studio&sessionId=${encodeURIComponent(sessionId)}&mode=${mode}&kind=${sessionKind}`
+                  : "/projects?from=studio"
+              }
               onClick={() => setSidebarOpen(false)}
               className="text-[10px] text-zinc-500 hover:text-orange-400"
             >
@@ -1269,11 +1271,11 @@ export function StudioWorkspace({
             <button
               type="button"
               onClick={() => setWorkspaceCollapsed(false)}
-              className="pointer-events-auto absolute left-3 top-3 z-30 hidden size-8 items-center justify-center rounded-lg border border-white/10 bg-[#0a0a0a]/90 text-zinc-400 shadow-lg backdrop-blur-sm transition hover:bg-white/5 hover:text-white lg:flex"
+              className="pointer-events-auto absolute left-3 top-3 z-30 hidden size-7 items-center justify-center rounded-md text-zinc-500 transition hover:bg-white/5 hover:text-zinc-300 lg:flex"
               aria-label="展开工作区"
               title="展开工作区"
             >
-              <PanelLeftOpen className="size-4" />
+              <ChevronRight className="size-3.5" strokeWidth={1.75} />
             </button>
           ) : null}
           {workspaceCollapsed ? (
@@ -1282,9 +1284,7 @@ export function StudioWorkspace({
               onLogin={() => setLoginOpen(true)}
             />
           ) : null}
-          <div
-            className={`relative flex min-h-0 min-w-0 flex-1 flex-col transition-[padding] ${studioDockCanvasPadding(dockMode)}`}
-          >
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
             {readOnly ? (
               <p className="shrink-0 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200/90">
                 只读：他人会话，仅创建者或管理员可编辑与生成
@@ -1307,7 +1307,8 @@ export function StudioWorkspace({
               onDownload={() => void handleCanvasDownload()}
               onDeleteSelected={handleDeleteCanvasItem}
               onRerun={(item) => void handleRerun(item)}
-              emptyHint={canvasEmptyHint}
+              emptyHint=""
+              scrollBottomInset={studioDockScrollInset(dockMode)}
               readOnly={readOnly}
               jobStreamStatus={jobStreamStatus}
               jobFailed={jobFailed}
@@ -1370,6 +1371,8 @@ export function StudioWorkspace({
                     }));
                     hapticLight();
                   }}
+                  onDownload={() => void handleCanvasDownload()}
+                  onDelete={handleDeleteCanvasItem}
                 />
               }
               statusChip={<ProviderStatusChip />}

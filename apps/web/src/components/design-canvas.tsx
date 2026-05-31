@@ -88,6 +88,8 @@ interface DesignCanvasProps {
   onRerun?: (item: CanvasItem) => void;
   layoutMode?: CanvasLayoutMode;
   onLayoutModeChange?: (mode: CanvasLayoutMode) => void;
+  /** 滚动画布内容区底部留白（Dock 浮层不占用画布背景高度） */
+  scrollBottomInset?: string;
 }
 
 export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
@@ -122,6 +124,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onRerun,
       layoutMode = "scroll",
       onLayoutModeChange,
+      scrollBottomInset = "",
     },
     ref,
   ) {
@@ -575,6 +578,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               focusClickActive={focusClickActive}
               focusItem={focusItem ?? null}
               onFocusImageClick={onFocusImageClick}
+              scrollBottomInset={scrollBottomInset}
             />
           ) : (
             <FreeCanvas
@@ -615,18 +619,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               mobile={mobile}
             />
           )}
-
-          {mobile ? (
-            <CanvasToolbar
-              active={tool}
-              gridOn={gridOn}
-              onTool={handleTool}
-              layout="horizontal"
-              layoutMode={internalLayoutMode}
-              canUndo={canUndo}
-              canRedo={canRedo}
-            />
-          ) : null}
 
           {internalLayoutMode === "scroll" && selectionToolbar ? (
             <div className="pointer-events-none absolute inset-0 z-20">

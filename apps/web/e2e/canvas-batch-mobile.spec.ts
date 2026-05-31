@@ -44,13 +44,12 @@ test.describe("canvas batch stream mobile", () => {
     await expect(batchSection).toContainText(/批次/);
   });
 
-  test("移动端 Dock 可展开更多选项", async ({ page }) => {
+  test("移动端 Dock 默认展示模型与发送", async ({ page }) => {
     test.setTimeout(60_000);
     await registerAndOpenStudioMobile(page);
 
     const dock = page.locator('[aria-label="创作 Dock"]');
     await expect(dock).toBeVisible({ timeout: 15_000 });
-    await dock.getByRole("button", { name: "展开更多选项" }).click();
     await expect(dock.getByRole("button", { name: "开始生成" })).toBeVisible({
       timeout: 15_000,
     });

@@ -7,6 +7,8 @@ interface CanvasToolbarProps {
   gridOn: boolean;
   onTool: (id: CanvasToolId) => void;
   layout?: "vertical" | "horizontal";
+  /** horizontal 时：floating 为画布内悬浮胶囊，默认贴底条 */
+  variant?: "default" | "floating";
   layoutMode?: CanvasLayoutMode;
   canUndo?: boolean;
   canRedo?: boolean;
@@ -17,6 +19,7 @@ export function CanvasToolbar({
   gridOn,
   onTool,
   layout = "vertical",
+  variant = "default",
   layoutMode = "scroll",
   canUndo = false,
   canRedo = false,
@@ -34,9 +37,22 @@ export function CanvasToolbar({
   });
 
   if (layout === "horizontal") {
+    const floating = variant === "floating";
     return (
-      <div className="shrink-0 border-t border-white/5 bg-[#080808]">
-        <div className="flex items-center gap-0.5 overflow-x-auto px-2 py-2 scrollbar-none">
+      <div
+        className={
+          floating
+            ? ""
+            : "shrink-0 border-t border-white/5 bg-[#080808]"
+        }
+      >
+        <div
+          className={
+            floating
+              ? "flex items-center gap-0.5 overflow-x-auto rounded-2xl border border-white/10 bg-[#0a0a0a]/90 px-1 py-1 shadow-xl backdrop-blur-md scrollbar-none"
+              : "flex items-center gap-0.5 overflow-x-auto px-2 py-2 scrollbar-none"
+          }
+        >
           {filteredTools.map((tool) => {
             const Icon = tool.icon;
             const isGrid = tool.id === "grid";

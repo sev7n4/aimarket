@@ -7,6 +7,7 @@ import {
   AtSign,
   ImagePlus,
   Loader2,
+  Pencil,
   Sparkles,
   Wand2,
 } from "lucide-react";
@@ -68,6 +69,8 @@ import { ModelPicker, AUTO_MODEL_ID } from "@/components/model-picker";
 import { CountPicker } from "@/components/count-picker";
 import type { StudioInspirationApply } from "@/lib/inspiration-studio";
 import { FocusEditChips } from "@/components/focus-edit-chips";
+import { StudioDockFocusButton } from "@/components/studio-dock-controls";
+import type { StudioDockMode } from "@/lib/studio-dock-state";
 import type {
   FocusEditIntent,
   FocusPointChip,
@@ -140,8 +143,10 @@ interface CreationPanelProps {
    * 隐藏模型/数量/分辨率/Agent 计划预览等高级控件，把 dock 高度收缩到 ~56px。
    */
   collapsed?: boolean;
-  /** Studio Dock 内嵌：去掉 CreationPanel 自身外框，由 Dock 容器提供 */
+  /** Studio Dock 内嵌：单一卡片容器 + 内嵌三态控件 */
   embeddedInDock?: boolean;
+  /** Studio Dock 三态（embeddedInDock 时由父级传入，仅用于专注画布按钮） */
+  onDockModeChange?: (mode: StudioDockMode) => void;
   /**
    * 画布上的图片（用于 @ 上下文引用候选项）。
    * 仿 Cursor 的 @ 体验，工作台输入框 @ 后弹 popover 列出画布所有图片，
@@ -207,6 +212,7 @@ export function CreationPanel({
   inspirationActive = false,
   collapsed = false,
   embeddedInDock = false,
+  onDockModeChange,
   canvasItems = [],
   mentionItemRequest = null,
   focusEdit = null,
@@ -291,15 +297,28 @@ export function CreationPanel({
   const selectedModel =
     modelId === AUTO_MODEL_ID ? undefined : models.find((m) => m.id === modelId);
   const isVideoModel = selectedModel?.type === "video";
+  const effectiveCollapsed = embeddedInDock ? false : collapsed;
+  const dockIconBtn =
+    "flex shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-white/5 hover:text-zinc-200";
+  const dockIconBtnClass = isDock
+    ? `${dockIconBtn} size-8`
+    : "flex size-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10";
+  const dockIconBtnClassSm = isDock
+    ? `${dockIconBtn} size-8`
+    : "flex size-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10";
   const showStackUpload =
     (leadingUpload || (isDock && !embeddedInDock)) &&
     effectiveMode !== "ecommerce";
 
   useEffect(() => {
+    if (!user) {
+      setModels([]);
+      return;
+    }
     fetchModels()
       .then(setModels)
       .catch(() => setModels([]));
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (initialPrompt) setPrompt(initialPrompt);
@@ -823,7 +842,7 @@ export function CreationPanel({
         </div>
       ) : null}
 
-      {!collapsed && inspirationApply && (inspirationApply.variables?.length ?? 0) > 0 ? (
+      {!effectiveCollapsed && inspirationApply && (inspirationApply.variables?.length ?? 0) > 0 ? (
         <div className="mb-3 rounded-xl border border-orange-500/20 bg-orange-500/5 p-3">
           <p className="mb-2 text-xs font-medium text-orange-200/90">
             同款模板 · {inspirationApply.title}
@@ -869,7 +888,7 @@ export function CreationPanel({
 
       <div className={`relative ${isDock ? "" : "mt-3"}`}>
         <MentionPicker
-          placement={isDock ? "below" : "above"}
+          placement="above"
           canvasItems={canvasItems}
           uploadedAssets={uploadPreviews
             .filter((preview) => assetIds.includes(preview.id))
@@ -889,11 +908,11 @@ export function CreationPanel({
         />
         <div
           className={
-            isDock
-              ? embeddedInDock
-                ? "px-3 pb-2 pt-1 sm:px-3"
-                : "rounded-2xl border border-white/10 bg-[#141414] px-3 pb-3 pt-3 sm:px-4 sm:pt-4"
-              : ""
+            isDock && !embeddedInDock
+              ? "rounded-2xl border border-white/10 bg-[#141414] px-3 pb-3 pt-3 sm:px-4 sm:pt-4"
+              : isDock && embeddedInDock
+                ? "px-3.5 pb-2.5 pt-2.5 sm:px-4 sm:pt-3"
+                : ""
           }
         >
           <div className="relative flex gap-3">
@@ -937,7 +956,18 @@ export function CreationPanel({
                 }}
               />
             ) : null}
-            <div className="relative min-w-0 flex-1">
+            <div
+              className={`relative flex min-w-0 flex-1 gap-2 ${isDock && embeddedInDock ? "pr-9 sm:pr-10" : ""}`}
+            >
+              {isDock && embeddedInDock ? (
+                <div
+                  className="pointer-events-none mt-2 shrink-0 self-start text-zinc-500"
+                  aria-hidden
+                >
+                  <Pencil className="size-3.5" strokeWidth={1.75} />
+                </div>
+              ) : null}
+              <div className="relative min-w-0 flex-1">
               <textarea
                 ref={textareaRef}
                 value={prompt}
@@ -975,14 +1005,14 @@ export function CreationPanel({
                         : placeholders[mode]
                 }
                 rows={
-                  collapsed ? 1 : effectiveMode === "ecommerce" ? 3 : isDock ? 2 : 2
+                  effectiveCollapsed ? 1 : effectiveMode === "ecommerce" ? 3 : isDock ? 2 : 2
                 }
                 readOnly={readOnly}
                 className={`w-full resize-none bg-transparent text-sm outline-none placeholder:text-zinc-600 ${
                   readOnly ? "cursor-not-allowed opacity-60" : ""
                 } ${
                   isDock
-                    ? `${collapsed ? "min-h-[28px]" : "min-h-[56px]"} pr-9 text-zinc-100`
+                    ? `${effectiveCollapsed ? "min-h-[28px]" : "min-h-[56px]"} pr-9 text-zinc-100`
                     : "rounded-2xl border border-white/10 bg-black/40 px-4 py-3 focus:border-purple-500/40"
                 }`}
                 onKeyDown={(e) => {
@@ -1022,6 +1052,7 @@ export function CreationPanel({
                   <Wand2 className="size-4" />
                 </button>
               ) : null}
+              </div>
             </div>
           </div>
         {selectedRefs.length > 0 ? (
@@ -1072,14 +1103,14 @@ export function CreationPanel({
           <p className="mt-1 text-xs text-orange-400/80">路由：{routeHint}</p>
         ) : null}
 
-          {collapsed ? (
+          {effectiveCollapsed ? (
             <div className="mt-2 flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-1.5">
                 {!showStackUpload ? (
                   <button
                     type="button"
                     onClick={() => openUpload("general")}
-                    className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
+                    className={dockIconBtnClassSm}
                     aria-label="上传图片"
                     title="上传图片"
                   >
@@ -1093,8 +1124,12 @@ export function CreationPanel({
                 {sessionId ? (
                   <button
                     type="button"
-                    onClick={() => setMentionOpen((o) => !o)}
-                    className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
+                    onClick={() => {
+                      setMentionQuery("");
+                      setMentionOpen(true);
+                      textareaRef.current?.focus();
+                    }}
+                    className={dockIconBtnClassSm}
                     aria-label="引用画布图片"
                     title="@ 引用画布图片"
                   >
@@ -1102,23 +1137,29 @@ export function CreationPanel({
                   </button>
                 ) : null}
               </div>
-              <Button
-                variant="primary"
-                className="size-9 shrink-0 rounded-full p-0"
-                onClick={() => void handleSubmit()}
-                disabled={readOnly || pending || streamBusy || !canSubmit}
-                aria-label="开始生成"
-              >
-                {pending ? (
-                  <Loader2 className="size-5 animate-spin" />
-                ) : (
-                  <ArrowUp className="size-5" />
-                )}
-              </Button>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <Button
+                  variant="primary"
+                  className="size-9 shrink-0 rounded-full p-0"
+                  onClick={() => void handleSubmit()}
+                  disabled={readOnly || pending || streamBusy || !canSubmit}
+                  aria-label="开始生成"
+                >
+                  {pending ? (
+                    <Loader2 className="size-5 animate-spin" />
+                  ) : (
+                    <ArrowUp className="size-5" />
+                  )}
+                </Button>
+              </div>
             </div>
           ) : (
           <div
-            className={`flex items-center justify-between gap-2 ${isDock ? "mt-3" : "mt-3"}`}
+            className={`flex items-center justify-between gap-2 ${isDock ? "mt-3" : "mt-3"} ${
+              isDock && embeddedInDock
+                ? "-mx-1 border-t border-white/[0.06] px-1 pt-2.5 sm:-mx-1.5 sm:px-1.5"
+                : ""
+            }`}
           >
         <div
           className={
@@ -1131,7 +1172,7 @@ export function CreationPanel({
             <button
               type="button"
               onClick={() => openUpload("general")}
-              className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
+              className={dockIconBtnClass}
               aria-label="上传图片"
               title="上传图片"
             >
@@ -1145,8 +1186,12 @@ export function CreationPanel({
           {sessionId ? (
             <button
               type="button"
-              onClick={() => setMentionOpen((o) => !o)}
-              className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
+              onClick={() => {
+                setMentionQuery("");
+                setMentionOpen(true);
+                textareaRef.current?.focus();
+              }}
+              className={dockIconBtnClass}
               aria-label="引用画布图片"
               title="@ 引用画布图片"
             >
@@ -1159,7 +1204,7 @@ export function CreationPanel({
               title="根据图片反推 Prompt（图生文）"
               disabled={reversing || streamBusy}
               onClick={() => void handlePromptReverse()}
-              className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 disabled:opacity-50"
+              className={`${dockIconBtnClass} disabled:opacity-50`}
               aria-label="图生文"
             >
               {reversing ? (
@@ -1196,20 +1241,23 @@ export function CreationPanel({
             />
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className={`flex shrink-0 items-center ${isDock ? "gap-1.5" : "gap-2"}`}>
           {estimated !== null && user && getToken() ? (
             <span
               className="inline-flex items-center gap-1 text-xs text-pink-400"
-              title="预估本次消耗积分"
+              title="本次消耗积分"
             >
               <Sparkles className="size-3.5 fill-pink-400/30" />
-              <span className="hidden sm:inline">约</span>
               {estimated}
             </span>
           ) : null}
           <Button
             variant="primary"
-            className="size-9 shrink-0 rounded-full p-0 sm:size-10"
+            className={`size-9 shrink-0 rounded-full p-0 sm:size-10 ${
+              isDock && embeddedInDock
+                ? "shadow-[0_0_22px_rgba(249,115,22,0.35)] transition-shadow hover:shadow-[0_0_28px_rgba(249,115,22,0.45)]"
+                : ""
+            }`}
             onClick={() => void handleSubmit()}
             disabled={readOnly || pending || streamBusy || !canSubmit}
             aria-label="开始生成"
@@ -1229,10 +1277,32 @@ export function CreationPanel({
   );
 
   if (isDock) {
+    const panel = embeddedInDock ? (
+      <div className="relative w-full overflow-visible rounded-[1.35rem] border border-white/[0.12] bg-gradient-to-b from-white/[0.07] via-zinc-950/72 to-zinc-950/88 shadow-[0_12px_48px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)_inset,0_-24px_48px_rgba(249,115,22,0.07),0_16px_64px_rgba(139,92,246,0.06)] backdrop-blur-2xl backdrop-saturate-150 sm:rounded-[1.5rem]">
+        <div
+          className="pointer-events-none absolute -left-10 top-0 h-28 w-28 rounded-full bg-orange-500/[0.08] blur-3xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -right-8 top-2 h-24 w-24 rounded-full bg-violet-500/[0.08] blur-3xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent"
+          aria-hidden
+        />
+        {onDockModeChange ? (
+          <StudioDockFocusButton onModeChange={onDockModeChange} />
+        ) : null}
+        {body}
+      </div>
+    ) : (
+      <div className="w-full">{body}</div>
+    );
     return (
       <>
         <HomeGenerationPreview open={navigating || (pending && homeDirectSubmit)} />
-        <div className="w-full">{body}</div>
+        {panel}
       </>
     );
   }

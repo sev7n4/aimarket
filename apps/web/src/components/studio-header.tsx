@@ -77,11 +77,17 @@ export function StudioHeader({
           </button>
           <Link
             href="/"
-            className="flex shrink-0 items-center justify-center rounded-lg p-2 text-zinc-400 hover:bg-white/5 hover:text-white sm:hidden"
+            className={`flex shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/5 hover:text-white ${
+              minimal ? "p-1 lg:inline-flex" : "p-2 sm:hidden"
+            }`}
             aria-label="返回首页"
             title="返回首页"
           >
-            <Home className="size-5" />
+            {minimal ? (
+              <BrandLogo variant="mark" markSize="sm" />
+            ) : (
+              <Home className="size-5" />
+            )}
           </Link>
           {!minimal ? (
             <BrandLogo
