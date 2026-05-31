@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { SessionTitleActions } from "@/components/session-title-actions";
 import {
   ChevronLeft,
+  Flag,
   PanelLeftOpen,
   Plus,
   X,
@@ -957,6 +958,9 @@ export function StudioWorkspace({
         ? "上传商品图，生成结果将出现在画布"
         : "生成结果将显示在画布上";
 
+  /** 桌面端侧栏展开时隐藏顶栏，把画布纵向空间还给创作区 */
+  const showTopBar = mobile || workspaceCollapsed;
+
   const dockPanel = (
     <>
       {!user || !ready ? (
@@ -1070,16 +1074,20 @@ export function StudioWorkspace({
 
   return (
     <WorkspaceProvider onWorkspaceChange={handleWorkspaceChange}>
-      <StudioHeader
-        sessionId={user ? sessionId : undefined}
-        sessionTitle={sessionTitle}
-        sessionKind={sessionKind}
-        sessionReadOnly={readOnly}
-        onMenuClick={() => setSidebarOpen(true)}
-        onTitleSaved={handleTitleSaved}
-        onSessionDeleted={() => handleSessionDeleted()}
-        onReportClick={user ? () => setReportOpen(true) : undefined}
-      />
+      {showTopBar ? (
+        <StudioHeader
+          sessionId={user ? sessionId : undefined}
+          sessionTitle={sessionTitle}
+          sessionKind={sessionKind}
+          sessionReadOnly={readOnly}
+          onMenuClick={() => setSidebarOpen(true)}
+          onTitleSaved={handleTitleSaved}
+          onSessionDeleted={() => handleSessionDeleted()}
+          onReportClick={user ? () => setReportOpen(true) : undefined}
+          variant="minimal"
+          showAccountActions={mobile || workspaceCollapsed}
+        />
+      ) : null}
 
       <input
         ref={uploadRef}
@@ -1107,12 +1115,14 @@ export function StudioWorkspace({
           style={
             workspaceCollapsed ? undefined : { width: workspaceWidth }
           }
-          className={`fixed inset-y-12 left-0 z-50 flex w-[min(85vw,280px)] flex-col border-r border-white/5 bg-[#080808] p-3 transition-all ${
+          className={`fixed bottom-0 left-0 z-50 flex w-[min(85vw,280px)] flex-col border-r border-white/5 bg-[#080808] p-3 transition-all ${
+            showTopBar ? "top-12" : "top-0"
+          } ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           } ${
             workspaceCollapsed
               ? "lg:hidden"
-              : "lg:static lg:z-0 lg:m-2 lg:mr-0 lg:w-auto lg:translate-x-0 lg:rounded-2xl lg:border lg:bg-[#090909]/95"
+              : "lg:static lg:top-auto lg:z-0 lg:m-2 lg:mr-0 lg:w-auto lg:translate-x-0 lg:rounded-2xl lg:border lg:bg-[#090909]/95"
           }`}
         >
           <div className="mb-2 flex items-center justify-between lg:hidden">
@@ -1137,6 +1147,44 @@ export function StudioWorkspace({
             >
               <ChevronLeft className="size-4" />
             </button>
+          ) : null}
+
+          {!workspaceCollapsed && user && sessionId ? (
+            <div className="mb-3 hidden border-b border-white/5 pb-3 lg:block">
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <SessionTitleActions
+                    sessionId={sessionId}
+                    title={sessionTitle}
+                    variant="header"
+                    disabled={readOnly}
+                    onTitleSaved={handleTitleSaved}
+                    onDeleted={() => handleSessionDeleted()}
+                  />
+                  <div className="mt-1 flex items-center gap-2">
+                    {sessionKind === "project" ? (
+                      <span className="rounded bg-purple-500/15 px-1.5 py-0.5 text-[9px] font-medium text-purple-300">
+                        项目
+                      </span>
+                    ) : null}
+                    <span className="text-[10px] text-zinc-600">
+                      内容由 AI 生成
+                    </span>
+                  </div>
+                </div>
+                {!readOnly ? (
+                  <button
+                    type="button"
+                    onClick={() => setReportOpen(true)}
+                    className="shrink-0 rounded-lg p-1.5 text-zinc-500 hover:bg-white/5 hover:text-amber-300"
+                    aria-label="举报违规内容"
+                    title="举报违规内容"
+                  >
+                    <Flag className="size-3.5" />
+                  </button>
+                ) : null}
+              </div>
+            </div>
           ) : null}
 
           <div className="mb-3 flex items-center justify-between">

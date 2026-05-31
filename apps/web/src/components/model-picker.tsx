@@ -40,7 +40,7 @@ export function ModelPicker({ models, value, onChange }: ModelPickerProps) {
       title="模型"
       desktopWidthClass="w-64"
       matchTriggerWidth
-      placement="below"
+      placement="above"
       maxHeight="min(240px,36vh)"
       trigger={
         <button

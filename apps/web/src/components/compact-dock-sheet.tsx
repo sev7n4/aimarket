@@ -60,9 +60,16 @@ export function CompactDockSheet({
       return;
     }
     const rect = anchorRef.current.getBoundingClientRect();
-    const base = placement === "below"
-      ? { left: rect.left, top: rect.bottom + 8 }
-      : { left: rect.left, bottom: window.innerHeight - rect.top + 8 };
+    const resolved =
+      placement === "below" && rect.bottom + 280 > window.innerHeight - 16
+        ? "above"
+        : placement === "above" && rect.top < 280
+          ? "below"
+          : placement;
+    const base =
+      resolved === "below"
+        ? { left: rect.left, top: rect.bottom + 8 }
+        : { left: rect.left, bottom: window.innerHeight - rect.top + 8 };
     setDesktopPos(
       matchTriggerWidth ? { ...base, minWidth: rect.width } : base,
     );
@@ -87,9 +94,16 @@ export function CompactDockSheet({
     function updatePos() {
       if (!anchorRef.current) return;
       const rect = anchorRef.current.getBoundingClientRect();
-      const base = placement === "below"
-        ? { left: rect.left, top: rect.bottom + 8 }
-        : { left: rect.left, bottom: window.innerHeight - rect.top + 8 };
+      const resolved =
+        placement === "below" && rect.bottom + 280 > window.innerHeight - 16
+          ? "above"
+          : placement === "above" && rect.top < 280
+            ? "below"
+            : placement;
+      const base =
+        resolved === "below"
+          ? { left: rect.left, top: rect.bottom + 8 }
+          : { left: rect.left, bottom: window.innerHeight - rect.top + 8 };
       setDesktopPos(
         matchTriggerWidth ? { ...base, minWidth: rect.width } : base,
       );
@@ -133,7 +147,9 @@ export function CompactDockSheet({
           position: "fixed",
           left: desktopPos.left,
           ...(desktopPos.minWidth ? { minWidth: desktopPos.minWidth } : {}),
-          ...(placement === "below" ? { top: desktopPos.top } : { bottom: desktopPos.bottom }),
+          ...(desktopPos.top != null
+            ? { top: desktopPos.top }
+            : { bottom: desktopPos.bottom }),
           maxHeight: maxHeight,
           zIndex: 200,
         }}

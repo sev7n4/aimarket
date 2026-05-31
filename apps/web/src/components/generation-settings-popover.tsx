@@ -75,7 +75,7 @@ export function GenerationSettingsPopover({
       title="图片质量"
       desktopWidthClass="w-[min(100vw-2rem,22rem)]"
       matchTriggerWidth
-      placement="below"
+      placement="above"
       maxHeight="min(320px,45vh)"
       trigger={
         <button

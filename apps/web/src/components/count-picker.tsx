@@ -20,7 +20,7 @@ export function CountPicker({ value, onChange, max = 4 }: CountPickerProps) {
       title="输出张数"
       desktopWidthClass="w-40"
       matchTriggerWidth
-      placement="below"
+      placement="above"
       maxHeight="min(200px,30vh)"
       trigger={
         <button
