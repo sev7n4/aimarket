@@ -613,6 +613,11 @@ export function HomeScenarioFan({
   const visualFocus =
     activeIndex - (isFanDragging || dragProgress !== 0 ? dragProgress : 0);
 
+  /** Touch：平移 stage 使当前焦点卡始终居中，避免 0/1/5/6 被裁切 */
+  const mobileStagePanX = touchFocusLayout
+    ? (FAN_CENTER_INDEX - visualFocus) * mobileLayout.spread * mobileLayout.scale
+    : 0;
+
   const mobileFanCards = useMemo(
     () =>
       templates.map((template, index) => {
@@ -884,11 +889,13 @@ export function HomeScenarioFan({
                 onWheel={handleMobileWheel}
               >
                 <div
-                  className="absolute bottom-0 left-1/2"
+                  className={`absolute bottom-0 left-1/2 ${
+                    isFanDragging ? "" : "transition-transform duration-300 ease-out"
+                  }`}
                   style={{
                     width: mobileLayout.stageW,
                     height: mobileLayout.stageH,
-                    transform: `translateX(-50%) scale(${mobileLayout.scale})`,
+                    transform: `translateX(calc(-50% + ${mobileStagePanX}px)) scale(${mobileLayout.scale})`,
                     transformOrigin: "bottom center",
                   }}
                 >
