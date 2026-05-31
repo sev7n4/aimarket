@@ -185,6 +185,7 @@ export function ToolConfirmDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="tool-confirm-title"
+      data-testid="tool-confirm-dialog"
       onClick={(e) => {
         if (e.target === e.currentTarget && !pending) onClose();
       }}
