@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { registerViaEmail } from "./helpers/auth";
+import { skipStudioCoach } from "./helpers/studio";
 
 const MOBILE_VIEWPORT = { width: 390, height: 844 };
 
@@ -33,27 +34,24 @@ test.describe("mobile collab", () => {
     await expect(page.getByText("继续编辑")).toBeVisible({ timeout: 15_000 });
   });
 
-  test("创作页移动默认展示画布与可展开工作站", async ({ page }) => {
+  test("创作页移动默认展示画布与底部 Dock", async ({ page }) => {
     await registerAndLogin(page);
-    await page.addInitScript(() => {
-      localStorage.setItem("aimarket_studio_mobile_coach_v1", "1");
-    });
+    await skipStudioCoach(page);
     await page.goto("/studio");
     await expect(page.getByText(/画布\s*·/).first()).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.getByRole("button", { name: "打开工作站" })).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(page.locator("textarea").first()).not.toBeVisible();
-    await page.getByRole("button", { name: "打开工作站" }).click();
-    const mobileStation = page
-      .locator('section[aria-label="工作站"]')
-      .filter({ hasText: "studio 工作站" });
-    await expect(mobileStation.locator("textarea")).toBeVisible({
-      timeout: 15_000,
-    });
-    await mobileStation.getByRole("button", { name: "收起工作站" }).click();
+    const dock = page.locator('[aria-label="创作 Dock"]');
+    await expect(dock).toBeVisible({ timeout: 15_000 });
+    await expect(dock.locator("textarea").first()).toBeVisible();
+
+    await dock.getByRole("button", { name: "展开更多选项" }).click();
+    await dock.getByRole("button", { name: "专注画布" }).click();
+    await expect(
+      page.getByRole("button", { name: "展开创作输入栏" }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole("button", { name: "展开创作输入栏" }).click();
     await page.getByRole("button", { name: "打开侧栏" }).click();
     await expect(page.getByRole("button", { name: "重命名" }).first()).toBeVisible({
       timeout: 15_000,
@@ -76,9 +74,10 @@ test.describe("mobile collab", () => {
     ).toBeVisible({ timeout: 30_000 });
   });
 
-  test("首次进创作页展示移动引导并可跳过", async ({ page }) => {
+  test("首次进创作页展示引导并可跳过", async ({ page }) => {
     await registerAndLogin(page);
     await page.addInitScript(() => {
+      localStorage.removeItem("aimarket_studio_coach_v2");
       localStorage.removeItem("aimarket_studio_mobile_coach_v1");
     });
     await page.goto("/studio");
