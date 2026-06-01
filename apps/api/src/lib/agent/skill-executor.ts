@@ -101,7 +101,6 @@ function startStepJob(
       count: ECOMMERCE_SLIDES.length,
       resolution: "2k",
       aspectRatio: "1:1",
-      toolType: "ecommerce-set",
       slideLabels: ECOMMERCE_SLIDES.map((s) => s.label),
     });
     linkSkillRunJob(row.id, jobId, step.id);

@@ -28,6 +28,11 @@ import { notifyAgentJobCompleted } from "./agent/job-events.js";
 
 const delayMs = Number(process.env.MOCK_GENERATION_DELAY_MS ?? 2500);
 
+/** 套图批量生成标记，走 slideLabels 多图分支，不是 Studio 工具链 */
+export function isEcommerceSetToolType(toolType: string | null | undefined): boolean {
+  return toolType === "ecommerce-set";
+}
+
 function formatToolProviderLabel(provider: string | undefined): string {
   if (!provider) return "";
   const labels: Record<string, string> = {
@@ -76,7 +81,11 @@ export function createGenerationJob(input: CreateJobInput) {
   assertSessionWrite(input.userId, input.sessionId);
 
   const modelMeta = getModel(input.modelId);
-  if (input.toolType) {
+  if (
+    input.toolType &&
+    !isEcommerceSetToolType(input.toolType) &&
+    modelMeta?.type !== "video"
+  ) {
     resolveToolProvider(input.toolType, input.userId);
   } else if (modelMeta?.type !== "video") {
     resolveProvider(input.modelId, "generate", {
@@ -197,7 +206,8 @@ export async function processGenerationJob({
   );
 
   const model = getModel(job.model_id);
-  const isToolJob = Boolean(job.tool_type);
+  const isToolJob =
+    Boolean(job.tool_type) && !isEcommerceSetToolType(job.tool_type);
 
   let toolContext: ToolContext | undefined;
   let referenceUrls: string[] | undefined;
