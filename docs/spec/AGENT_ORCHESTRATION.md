@@ -365,7 +365,7 @@ aimarket/
 |------|------|------|
 | **P0** ✅ | `@aimarket/agent-core` LLM router + `resolveAgentPlan`；`/agent/plan` 使用 LLM+fallback | 无 Key 时规则计划；有 Key 时返回 `planSource: llm` |
 | **P1** ✅ | `agent_runs` 表、Session Graph、Job 完成 resume、`/agent/runs/*` | 创建 run → 执行首步 Job → 完成后 advance 或结束 |
-| **P1.5** | `AgentPlanPreview` 接 run API；run SSE | Studio 可见步骤 |
+| **P1.5** ✅ | `AgentRunPanel` 接 `/agent/runs`；步骤高亮与确认 | Studio 创作台 Dock |
 | **P2** | 自托管 Inngest + 1 个 Skill + `workflow-worker` | 一键套图+视频端到端 |
 | **P3** | VLM observe、Claude 稳定 fallback、Redis checkpointer | 自动质检重试 |
 

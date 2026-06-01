@@ -102,7 +102,7 @@ export interface RouteSuggestion {
 }
 
 export interface AgentPlanStep {
-  type: "generate" | "tool";
+  type: "generate" | "tool" | "video";
   toolId?: string;
   label: string;
   prompt?: string;
@@ -119,6 +119,44 @@ export interface AgentPlan {
   estimatedPoints: number;
   requiresConfirm: boolean;
   reason: string;
+  planSource?: "llm" | "rule";
+  skillId?: string;
+}
+
+export type AgentRunStatus =
+  | "planning"
+  | "waiting_confirm"
+  | "running"
+  | "waiting_job"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export interface AgentJobObservation {
+  jobId: string;
+  status: "succeeded" | "failed";
+  outputIds: string[];
+  urls: string[];
+  error?: string;
+  pointsCost?: number;
+  provider?: string;
+}
+
+export interface AgentRun {
+  id: string;
+  sessionId: string;
+  status: AgentRunStatus;
+  prompt: string;
+  mode: string;
+  plan: AgentPlan | null;
+  currentStepIndex: number;
+  pendingJobId: string | null;
+  planSource: string | null;
+  skillId: string | null;
+  error: string | null;
+  observations: AgentJobObservation[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ProductSetInit {

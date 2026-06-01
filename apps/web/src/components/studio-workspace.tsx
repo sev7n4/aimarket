@@ -1077,6 +1077,11 @@ export function StudioWorkspace({
               }
             : null
         }
+        agentOrchestration
+        onAgentRunComplete={() => {
+          void loadCanvas();
+          void refreshUser();
+        }}
         onFocusEditSubmit={async ({ prompt, intent, points, item }) => {
           const referenceOutputIds = item.outputId ? [item.outputId] : undefined;
           const assetIds =
