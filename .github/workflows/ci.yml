@@ -30,6 +30,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      - run: pnpm --filter @aimarket/agent-core build
       - run: pnpm --filter @aimarket/api build
       - run: pnpm --filter @aimarket/web build
         env:
