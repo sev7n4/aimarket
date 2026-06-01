@@ -33,9 +33,11 @@ const AgentStateAnnotation = Annotation.Root({
 
 type GraphState = typeof AgentStateAnnotation.State;
 
-const checkpointer = new MemorySaver();
-
-export function createSessionGraph(deps: SessionGraphDeps) {
+/** 可选注入 SqliteSaver 等（由 apps/api 传入，避免 checkpoint 包版本与 agent-core 绑定） */
+export function createSessionGraph(
+  deps: SessionGraphDeps,
+  checkpointer: unknown = new MemorySaver(),
+) {
   const graph = new StateGraph(AgentStateAnnotation)
     .addNode("plan_step", async (state: GraphState) => {
       const plan = await deps.resolvePlan({
@@ -180,9 +182,7 @@ export function createSessionGraph(deps: SessionGraphDeps) {
       return "execute_step";
     });
 
-  return graph.compile({ checkpointer });
-}
-
-export function getSessionGraphCheckpointer() {
-  return checkpointer;
+  return graph.compile({
+    checkpointer: checkpointer as MemorySaver,
+  });
 }

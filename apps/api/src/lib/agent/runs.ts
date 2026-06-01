@@ -132,6 +132,27 @@ export function findAgentRunByJobId(jobId: string): {
   return { run, stepIndex: link.step_index };
 }
 
+export function parseAgentRunStateJson(row: AgentRunRow): {
+  observations: JobObservation[];
+  stepRetries: Record<number, number>;
+} {
+  if (!row.state_json) {
+    return { observations: [], stepRetries: {} };
+  }
+  try {
+    const parsed = JSON.parse(row.state_json) as {
+      observations?: JobObservation[];
+      stepRetries?: Record<number, number>;
+    };
+    return {
+      observations: parsed.observations ?? [],
+      stepRetries: parsed.stepRetries ?? {},
+    };
+  } catch {
+    return { observations: [], stepRetries: {} };
+  }
+}
+
 export function parseAgentRunPlan(row: AgentRunRow): AgentPlan | null {
   if (!row.plan_json) return null;
   try {

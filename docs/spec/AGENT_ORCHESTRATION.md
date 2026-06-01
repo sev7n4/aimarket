@@ -465,8 +465,9 @@ aimarket/
 | **P2** ✅ | 自托管 Inngest + `ecommerce-taobao-launch-v1` + `workflow-worker` | 一键套图+视频端到端 |
 | **P2.5** ✅ | `SkillPackagePicker` + `SkillRunPanel` 接 `/agent/skills` | Studio 选套餐与步骤进度 |
 | **P2.6** ✅ | Skill Job 完成事件 `resumeSkillRunOnJobCompleted` | 非阻塞编排，适配 Inngest |
-| **P3** 🚧 | VLM observe、Claude 稳定 fallback、Redis checkpointer | 自动质检重试 |
-| **P3.1** | Redis / SQLite LangGraph checkpointer | API 重启后续跑 |
+| **P3** ✅ | VLM observe、步骤质检重试（`AGENT_VLM_ENABLED`） | 失败可重试当前步 |
+| **P3.1** 🚧 | SQLite checkpointer + DB fallback resume | API 重启后续跑 Agent Run |
+| **P3.2** | Redis checkpointer、Skill VLM 选 hero | 生产多实例 |
 
 ---
 
@@ -490,3 +491,4 @@ DEEPSEEK_API_KEY=sk-...
 | v0.2 | 2026-06-01 | §1.4 产品可读；P2 `agent-skills`、skill_runs、Inngest worker |
 | v0.2.1 | 2026-06-01 | #102 Skill Job 调度修复；P2.6 事件驱动续跑 |
 | v0.3 | 2026-06-01 | P3 VLM observe + 步骤重试（`AGENT_VLM_ENABLED`） |
+| v0.3.1 | 2026-06-01 | P3.1 Sqlite checkpointer + `resumeAgentRunFromDb` |
