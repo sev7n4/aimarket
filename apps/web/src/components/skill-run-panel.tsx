@@ -92,7 +92,16 @@ export function SkillRunPanel({
                 >
                   {isDone ? <Check className="size-3" /> : step.index + 1}
                 </span>
-                <span>{step.label}</span>
+                <span className="min-w-0 flex-1">
+                  <span>{step.label}</span>
+                  {step.type === "generate_set" &&
+                  step.outputs?.heroOutputIndex !== undefined &&
+                  isDone ? (
+                    <span className="ml-1.5 text-[10px] text-zinc-600">
+                      主图：第 {step.outputs.heroOutputIndex + 1} 张
+                    </span>
+                  ) : null}
+                </span>
               </li>
             );
           })}

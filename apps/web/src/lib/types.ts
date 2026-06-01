@@ -188,6 +188,8 @@ export interface SkillRunStepView {
     jobId: string;
     outputIds: string[];
     urls: string[];
+    /** 套图步骤 VLM 选定的主图索引（0-based） */
+    heroOutputIndex?: number;
   };
 }
 
