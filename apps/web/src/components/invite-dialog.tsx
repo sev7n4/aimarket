@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Copy, Loader2, X } from "lucide-react";
 import { GlassPanel } from "@aimarket/ui";
 import { fetchInviteInfo } from "@/lib/api-client";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import type { InviteInfo } from "@/lib/types";
 
 interface InviteDialogProps {
@@ -11,47 +12,79 @@ interface InviteDialogProps {
   onClose: () => void;
 }
 
+type CopiedTarget = "code" | "link" | null;
+
 export function InviteDialog({ open, onClose }: InviteDialogProps) {
   const [info, setInfo] = useState<InviteInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
+  const [copiedTarget, setCopiedTarget] = useState<CopiedTarget>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setLoading(true);
+    setCopiedTarget(null);
+    setCopyError(null);
     fetchInviteInfo()
       .then(setInfo)
       .catch(() => setInfo(null))
       .finally(() => setLoading(false));
   }, [open]);
 
+  const flashCopied = useCallback((target: CopiedTarget) => {
+    setCopiedTarget(target);
+    const t = window.setTimeout(() => setCopiedTarget(null), 2000);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  const copyCode = useCallback(async () => {
+    if (!info?.code) return;
+    setCopyError(null);
+    try {
+      await copyTextToClipboard(info.code);
+      flashCopied("code");
+    } catch (err) {
+      setCopyError(err instanceof Error ? err.message : "复制失败");
+    }
+  }, [info, flashCopied]);
+
+  const copyLink = useCallback(async () => {
+    if (!info?.inviteUrl) return;
+    setCopyError(null);
+    try {
+      await copyTextToClipboard(info.inviteUrl);
+      flashCopied("link");
+    } catch (err) {
+      setCopyError(err instanceof Error ? err.message : "复制失败");
+    }
+  }, [info, flashCopied]);
+
   if (!open) return null;
 
-  async function copyCode() {
-    if (!info) return;
-    await navigator.clipboard.writeText(info.code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  async function copyLink() {
-    if (!info) return;
-    await navigator.clipboard.writeText(info.inviteUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <GlassPanel className="relative w-full max-w-md p-6">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      onClick={onClose}
+      role="presentation"
+    >
+      <GlassPanel
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="invite-dialog-title"
+        className="relative w-full max-w-md p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           type="button"
           onClick={onClose}
           className="absolute right-4 top-4 text-zinc-500 hover:text-white"
+          aria-label="关闭"
         >
           <X className="size-5" />
         </button>
-        <h2 className="text-xl font-semibold">邀请有礼</h2>
+        <h2 id="invite-dialog-title" className="text-xl font-semibold">
+          邀请有礼
+        </h2>
         <p className="mt-2 text-sm text-zinc-500">
           好友通过链接注册并验证邮箱后，双方各得{" "}
           <span className="text-orange-400">
@@ -67,16 +100,19 @@ export function InviteDialog({ open, onClose }: InviteDialogProps) {
           <div className="mt-6 space-y-4">
             <div className="rounded-2xl border border-white/10 bg-black/40 p-4 text-center">
               <p className="text-xs text-zinc-500">我的邀请码</p>
-              <p className="mt-2 text-3xl font-bold tracking-widest text-orange-400">
+              <p className="mt-2 select-all text-3xl font-bold tracking-widest text-orange-400">
                 {info.code}
               </p>
               <button
                 type="button"
-                onClick={() => void copyCode()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void copyCode();
+                }}
                 className="mt-3 inline-flex items-center gap-1 text-sm text-zinc-400 hover:text-white"
               >
                 <Copy className="size-4" />
-                {copied ? "已复制" : "复制邀请码"}
+                {copiedTarget === "code" ? "已复制" : "复制邀请码"}
               </button>
             </div>
             <div className="flex justify-between text-sm text-zinc-500">
@@ -95,13 +131,24 @@ export function InviteDialog({ open, onClose }: InviteDialogProps) {
               <span>累计获得</span>
               <span className="text-orange-400">{info.totalEarned} 积分</span>
             </div>
+            {info.inviteUrl ? (
+              <p className="break-all rounded-lg border border-white/5 bg-black/30 px-2 py-1.5 text-[11px] text-zinc-500">
+                {info.inviteUrl}
+              </p>
+            ) : null}
             <button
               type="button"
-              onClick={() => void copyLink()}
+              onClick={(e) => {
+                e.stopPropagation();
+                void copyLink();
+              }}
               className="w-full rounded-full border border-white/10 py-2 text-sm hover:bg-white/5"
             >
-              复制邀请链接
+              {copiedTarget === "link" ? "已复制链接" : "复制邀请链接"}
             </button>
+            {copyError ? (
+              <p className="text-center text-sm text-red-400">{copyError}</p>
+            ) : null}
           </div>
         ) : (
           <p className="py-8 text-center text-sm text-zinc-500">请先登录</p>

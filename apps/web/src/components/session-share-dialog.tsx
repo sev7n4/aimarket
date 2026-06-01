@@ -8,6 +8,7 @@ import {
   fetchSessionShareStatus,
   revokeSessionShare,
 } from "@/lib/api-client";
+import { copyTextToClipboard } from "@/lib/clipboard";
 
 interface SessionShareDialogProps {
   open: boolean;
@@ -57,7 +58,7 @@ export function SessionShareDialog({
       setShareUrl(data.shareUrl);
       setActive(true);
       setExpiresAt(data.expiresAt);
-      await navigator.clipboard.writeText(data.shareUrl);
+      await copyTextToClipboard(data.shareUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -85,7 +86,7 @@ export function SessionShareDialog({
 
   async function copyUrl() {
     if (!shareUrl) return;
-    await navigator.clipboard.writeText(shareUrl);
+    await copyTextToClipboard(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
