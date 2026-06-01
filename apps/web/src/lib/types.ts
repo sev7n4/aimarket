@@ -159,6 +159,57 @@ export interface AgentRun {
   updatedAt: string;
 }
 
+export interface AgentSkillPublic {
+  id: string;
+  version: number;
+  name: string;
+  description?: string;
+  stepCount: number;
+  confirmIfPointsOver: number;
+}
+
+export type SkillRunStatus =
+  | "queued"
+  | "waiting_confirm"
+  | "running"
+  | "waiting_job"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export interface SkillRunStepView {
+  id: string;
+  label: string;
+  type: string;
+  index: number;
+  done: boolean;
+  current: boolean;
+  outputs?: {
+    jobId: string;
+    outputIds: string[];
+    urls: string[];
+  };
+}
+
+export interface SkillRun {
+  id: string;
+  sessionId: string;
+  skillId: string;
+  skillVersion: number;
+  skillName: string;
+  description?: string;
+  status: SkillRunStatus;
+  prompt: string;
+  steps: SkillRunStepView[];
+  currentStepIndex: number;
+  pendingJobId: string | null;
+  estimatedPoints: number;
+  confirmIfPointsOver: number;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ProductSetInit {
   platforms: string[];
   markets: string[];
