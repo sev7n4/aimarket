@@ -3,6 +3,7 @@ import {
   isAgentLlmEnabled,
   mergeLlmDraftIntoPlan,
   type AgentPlan,
+  type PlanStep,
   type PublicToolMeta,
 } from "@aimarket/agent-core";
 import { ECOMMERCE_SLIDES } from "../ecommerce.js";
@@ -77,7 +78,7 @@ export async function resolveAgentPlan(
 
     const ecommerce =
       input.mode === "ecommerce" ||
-      draft.steps.every((s) => s.type === "generate");
+      draft.steps.every((s: PlanStep) => s.type === "generate");
     const count =
       input.count ??
       (ecommerce ? ECOMMERCE_SLIDES.length : draft.steps.length || 1);

@@ -16,7 +16,7 @@ import {
 
 const graph = createSessionGraph({
   resolvePlan: resolveAgentPlan,
-  executeStep: (state, stepIndex) => {
+  executeStep: (state: AgentSessionState, stepIndex: number) => {
     if (!state.plan) throw new Error("执行时缺少 plan");
     const { jobId } = executeAgentPlanStep(state, state.plan, stepIndex);
     return Promise.resolve({ jobId });

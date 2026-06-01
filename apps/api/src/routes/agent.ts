@@ -12,7 +12,7 @@ import { getTool } from "../lib/tools.js";
 import { db } from "../db/index.js";
 import { enrichPromptWithReferences } from "../lib/references.js";
 import { confirmAgentRun } from "../lib/agent/runner.js";
-import { isAgentLlmEnabled } from "@aimarket/agent-core";
+import { isAgentLlmEnabled, type PlanStep } from "@aimarket/agent-core";
 
 const agent = new Hono<{ Variables: AuthVariables }>();
 
@@ -159,7 +159,7 @@ agent.post("/execute", async (c) => {
     }
   }
 
-  const toolSteps = plan.steps.filter((s) => s.type === "tool");
+  const toolSteps = plan.steps.filter((s: PlanStep) => s.type === "tool");
   if (toolSteps.length === 1 && plan.steps.length === 1) {
     const toolId = toolSteps[0].toolId!;
     getTool(toolId);
