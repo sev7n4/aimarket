@@ -22,6 +22,13 @@ const AgentStateAnnotation = Annotation.Root({
   observations: Annotation<JobObservation[]>,
   status: Annotation<AgentRunStatus>,
   error: Annotation<string | undefined>,
+  stepRetries: Annotation<Record<number, number>>({
+    reducer: (left, right) => ({ ...left, ...right }),
+    default: () => ({}),
+  }),
+  observeDecision: Annotation<
+    import("./types.js").ObserveStepDecision | null
+  >,
 });
 
 type GraphState = typeof AgentStateAnnotation.State;
@@ -69,6 +76,7 @@ export function createSessionGraph(deps: SessionGraphDeps) {
         return {
           pendingJobId: jobId,
           status: "waiting_job" as const,
+          observeDecision: null,
         };
       } catch (err) {
         return {
@@ -92,13 +100,50 @@ export function createSessionGraph(deps: SessionGraphDeps) {
     })
     .addNode("observe", async (state: GraphState) => {
       const last = state.observations[state.observations.length - 1];
-      if (last?.status === "failed") {
+      if (!last || last.status === "failed") {
         return {
           status: "failed" as const,
-          error: last.error ?? "Job 失败",
+          error: last?.error ?? "Job 失败",
+          observeDecision: null,
         };
       }
-      return { status: "running" as const };
+
+      if (!deps.observeStep) {
+        return { status: "running" as const, observeDecision: "advance" as const };
+      }
+
+      const result = await deps.observeStep(state as AgentSessionState, last);
+      if (result.decision === "fail") {
+        return {
+          status: "failed" as const,
+          error: result.note ?? "质检未通过",
+          observeDecision: null,
+        };
+      }
+
+      if (result.decision === "retry") {
+        const used = state.stepRetries[state.currentStepIndex] ?? 0;
+        const max = deps.maxStepRetries ?? 1;
+        if (used < max) {
+          return {
+            status: "running" as const,
+            observeDecision: "retry" as const,
+            stepRetries: {
+              [state.currentStepIndex]: used + 1,
+            },
+          };
+        }
+        return {
+          status: "failed" as const,
+          error: result.note ?? "质检未通过（已达重试上限）",
+          observeDecision: null,
+        };
+      }
+
+      return {
+        status: "running" as const,
+        observeDecision: "advance" as const,
+      };
     })
     .addNode("advance", async (state: GraphState) => {
       const nextIndex = state.currentStepIndex + 1;
@@ -127,6 +172,7 @@ export function createSessionGraph(deps: SessionGraphDeps) {
     .addEdge("wait_job", "observe")
     .addConditionalEdges("observe", (state: GraphState) => {
       if (state.status === "failed") return END;
+      if (state.observeDecision === "retry") return "execute_step";
       return "advance";
     })
     .addConditionalEdges("advance", (state: GraphState) => {

@@ -32,10 +32,20 @@ export interface AgentSessionState {
   observations: JobObservation[];
   status: AgentRunStatus;
   error?: string;
+  stepRetries?: Record<number, number>;
+  observeDecision?: ObserveStepDecision | null;
 }
 
 export interface ExecuteStepResult {
   jobId: string;
+}
+
+export type ObserveStepDecision = "advance" | "retry" | "fail";
+
+export interface ObserveStepResult {
+  decision: ObserveStepDecision;
+  heroOutputIndex?: number;
+  note?: string;
 }
 
 export interface SessionGraphDeps {
@@ -47,4 +57,10 @@ export interface SessionGraphDeps {
     state: AgentSessionState,
     stepIndex: number,
   ) => Promise<ExecuteStepResult>;
+  /** P3：Job 产出 VLM 质检，可触发同一步重试 */
+  observeStep?: (
+    state: AgentSessionState,
+    observation: JobObservation,
+  ) => Promise<ObserveStepResult>;
+  maxStepRetries?: number;
 }

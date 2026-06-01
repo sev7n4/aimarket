@@ -6,6 +6,7 @@ import {
 } from "@aimarket/agent-core";
 import { resolveAgentPlan } from "./resolve-plan.js";
 import { executeAgentPlanStep } from "./execute-step.js";
+import { observeAgentStep } from "./observe-step.js";
 import {
   getAgentRun,
   parseAgentRunPlan,
@@ -21,6 +22,8 @@ const graph = createSessionGraph({
     const { jobId } = executeAgentPlanStep(state, state.plan, stepIndex);
     return Promise.resolve({ jobId });
   },
+  observeStep: observeAgentStep,
+  maxStepRetries: Number(process.env.AGENT_VLM_MAX_STEP_RETRIES ?? "1"),
 });
 
 function rowToInitialState(row: AgentRunRow, confirmed: boolean): AgentSessionState {
@@ -37,6 +40,8 @@ function rowToInitialState(row: AgentRunRow, confirmed: boolean): AgentSessionSt
     observations: [],
     status: row.status as AgentSessionState["status"],
     error: row.error ?? undefined,
+    stepRetries: {},
+    observeDecision: null,
   };
 }
 
@@ -51,6 +56,7 @@ function persistGraphState(runId: string, state: AgentSessionState) {
     error: state.error ?? null,
     stateJson: JSON.stringify({
       observations: state.observations,
+      stepRetries: state.stepRetries ?? {},
     }),
   });
 }
