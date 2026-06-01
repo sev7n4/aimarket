@@ -31,6 +31,42 @@ async function waitJob(jobId, authH, maxAttempts = 15) {
   return null;
 }
 
+const TINY_PNG_B64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+/** 上传 1×1 PNG，供扩图/抠图等工具链用例（不依赖 generate 是否过审） */
+async function uploadTinyAsset(sessionId, authH) {
+  const uploadUrl = await req("/api/v1/assets/upload-url", {
+    method: "POST",
+    headers: authH,
+    body: JSON.stringify({
+      fileName: "tool-ref.png",
+      mimeType: "image/png",
+      sizeBytes: 128,
+      sessionId,
+    }),
+  });
+  const assetId = uploadUrl.json?.data?.assetId;
+  if (!assetId || uploadUrl.json?.data?.method !== "POST") return null;
+  const png = Buffer.from(TINY_PNG_B64, "base64");
+  const form = new FormData();
+  form.append("assetId", assetId);
+  form.append("file", new Blob([png], { type: "image/png" }), "tool-ref.png");
+  const complete = await fetch(`${API}/api/v1/assets/upload/complete`, {
+    method: "POST",
+    headers: { Authorization: authH.Authorization },
+    body: form,
+  });
+  const completeJson = await complete.json().catch(() => ({}));
+  return complete.ok && completeJson?.data?.url ? assetId : null;
+}
+
+function toolReferenceBody(outputId, assetId) {
+  if (outputId) return { referenceOutputIds: [outputId] };
+  if (assetId) return { assetIds: [assetId] };
+  return null;
+}
+
 async function main() {
   console.log(`\nAIMarket API 冒烟 @ ${API}\n`);
 
@@ -266,8 +302,6 @@ async function main() {
     `status=${deprecatedVariation.res.status}`,
   );
 
-  const TINY_PNG_B64 =
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
   const focusPoint = await req("/api/v1/focus/point", {
     method: "POST",
     headers: authH,
@@ -322,15 +356,8 @@ async function main() {
   if (jobId) {
     let outputId = null;
     const baseJob = await waitJob(jobId, authH, 25);
-    ok(
-      "generate job succeeded (tool ref)",
-      baseJob?.status === "succeeded",
-      baseJob?.status ?? "timeout",
-    );
-    outputId = baseJob?.outputs?.[0]?.id ?? null;
-    if (!outputId) {
-      for (let i = 0; i < 10; i++) {
-        await new Promise((r) => setTimeout(r, 800));
+    if (baseJob?.status === "succeeded") {
+      for (let i = 0; i < 5; i++) {
         const msgs = await req(`/api/v1/imageSession/${sessionId}/messages`, {
           headers: authH,
         });
@@ -340,15 +367,23 @@ async function main() {
           outputId = outs[0].id;
           break;
         }
+        await new Promise((r) => setTimeout(r, 400));
       }
     }
-    if (outputId) {
+    const toolAssetId = await uploadTinyAsset(sessionId, authH);
+    ok(
+      "upload tiny asset for tools",
+      !!toolAssetId,
+      toolAssetId ?? "upload failed",
+    );
+    const toolRef = toolReferenceBody(outputId, toolAssetId);
+    if (toolRef) {
       const expandRun = await req("/api/v1/tools/expand/run", {
         method: "POST",
         headers: authH,
         body: JSON.stringify({
           sessionId,
-          referenceOutputIds: [outputId],
+          ...toolRef,
           extend: { direction: "all" },
           resolution: "2k",
         }),
@@ -368,12 +403,28 @@ async function main() {
         );
       }
 
+      const extendImage = await req("/api/v1/image/extendImage", {
+        method: "POST",
+        headers: authH,
+        body: JSON.stringify({
+          sessionId,
+          assetId: toolAssetId,
+          extend: { direction: "right" },
+          resolution: "2k",
+        }),
+      });
+      ok(
+        "POST image/extendImage",
+        extendImage.res.ok && !!extendImage.json?.data?.jobId,
+        `job=${extendImage.json?.data?.jobId}`,
+      );
+
       const inpaintRun = await req("/api/v1/tools/inpaint/run", {
         method: "POST",
         headers: authH,
         body: JSON.stringify({
           sessionId,
-          referenceOutputIds: [outputId],
+          ...toolRef,
         }),
       });
       const inpaintJobId = inpaintRun.json?.data?.jobId;
@@ -404,7 +455,7 @@ async function main() {
               sessionId,
               prompt: intent === "replace" ? "红色花瓶" : "改成红色",
               intent,
-              referenceOutputIds: [outputId],
+              ...toolRef,
               focusPoints: [
                 {
                   pointId: fp.pointId,
@@ -437,7 +488,7 @@ async function main() {
         headers: authH,
         body: JSON.stringify({
           sessionId,
-          referenceOutputIds: [outputId],
+          ...toolRef,
         }),
       });
       const cutoutJobId = cutoutRun.json?.data?.jobId;
@@ -464,7 +515,7 @@ async function main() {
         headers: authH,
         body: JSON.stringify({
           sessionId,
-          referenceOutputIds: [outputId],
+          ...toolRef,
           scale: "2x",
           resolution: "2k",
         }),
@@ -521,8 +572,9 @@ async function main() {
         );
       }
     } else {
-      ok("POST tools/expand with ref", false, "no message output id");
-      ok("POST tools/cutout with ref", false, "no message output id");
+      ok("POST tools/expand with ref", false, "no tool reference");
+      ok("POST tools/cutout with ref", false, "no tool reference");
+      ok("POST image/extendImage", false, "no tool reference");
     }
   }
 
@@ -697,10 +749,7 @@ async function main() {
 
   const assetId = uploadUrl.json?.data?.assetId;
   if (assetId && uploadUrl.json?.data?.method === "POST") {
-    const png = Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-      "base64",
-    );
+    const png = Buffer.from(TINY_PNG_B64, "base64");
     const form = new FormData();
     form.append("assetId", assetId);
     form.append("file", new Blob([png], { type: "image/png" }), "test.png");
