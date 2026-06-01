@@ -32,11 +32,11 @@ export async function initAgentCheckpointer(): Promise<AgentCheckpointer> {
             "agent-checkpoints.sqlite",
           );
         const saver = SqliteSaver.fromConnString(`sqlite://${dbPath}`);
-        const withSetup = saver as {
+        const withSetup = saver as unknown as {
           setup?: () => Promise<void>;
         };
         if (typeof withSetup.setup === "function") {
-          await withSetup.setup.call(saver);
+          await withSetup.setup();
         }
         console.log(`[agent] checkpointer=sqlite path=${dbPath}`);
         checkpointer = saver;
