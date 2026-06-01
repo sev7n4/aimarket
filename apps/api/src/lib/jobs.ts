@@ -24,6 +24,7 @@ import {
 } from "../providers/video/registry.js";
 import { enqueueJob } from "./queue/index.js";
 import type { JobQueuePayload } from "./queue/types.js";
+import { notifyAgentJobCompleted } from "./agent/job-events.js";
 
 const delayMs = Number(process.env.MOCK_GENERATION_DELAY_MS ?? 2500);
 
@@ -389,6 +390,7 @@ export async function processGenerationJob({
       points: job.points_cost,
       mode: job.mode,
     });
+    notifyAgentJobCompleted(jobId);
   } catch (err) {
     const message = err instanceof Error ? err.message : "生成失败";
     const errorCode =
@@ -419,6 +421,7 @@ export async function processGenerationJob({
         jobId,
       );
     });
+    notifyAgentJobCompleted(jobId);
   }
 }
 
