@@ -5,10 +5,10 @@ import { cors } from "hono/cors";
 import { ZodError } from "zod";
 import "./db/index.js";
 import { seedDatabase } from "./db/seed.js";
+import { initAgentCheckpointer } from "./lib/agent/checkpointer.js";
 
 seedDatabase();
 
-void startJobQueue(processGenerationJob);
 import { AppError } from "./lib/errors.js";
 import { ensureUploadDir, getUploadDir } from "./lib/storage.js";
 import { requireAuth } from "./middleware/auth.js";
@@ -138,6 +138,10 @@ app.route("/api/v1", authed);
 
 const port = Number(process.env.PORT ?? 4000);
 
-serve({ fetch: app.fetch, port }, () => {
-  console.log(`AIMarket API v0.8 listening on http://localhost:${port}`);
-});
+void (async () => {
+  await initAgentCheckpointer();
+  void startJobQueue(processGenerationJob);
+  serve({ fetch: app.fetch, port }, () => {
+    console.log(`AIMarket API v0.8 listening on http://localhost:${port}`);
+  });
+})();

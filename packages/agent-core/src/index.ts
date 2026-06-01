@@ -22,7 +22,7 @@ export type {
   OrchestratorProvider,
   OrchestratorVendor,
 } from "./llm/types.js";
-export { createSessionGraph, getSessionGraphCheckpointer } from "./graph/session-graph.js";
+export { createSessionGraph } from "./graph/session-graph.js";
 export type {
   AgentRunStatus,
   AgentSessionState,

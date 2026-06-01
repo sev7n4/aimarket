@@ -1,32 +1,18 @@
 import { Command } from "@langchain/langgraph";
-import {
-  createSessionGraph,
-  type AgentSessionState,
-  type JobObservation,
-} from "@aimarket/agent-core";
-import { resolveAgentPlan } from "./resolve-plan.js";
-import { executeAgentPlanStep } from "./execute-step.js";
-import { observeAgentStep } from "./observe-step.js";
+import type { AgentSessionState, JobObservation } from "@aimarket/agent-core";
+import { getAgentGraph } from "./graph-instance.js";
 import {
   getAgentRun,
   parseAgentRunPlan,
+  parseAgentRunStateJson,
   serializeRunForApi,
   updateAgentRun,
   type AgentRunRow,
 } from "./runs.js";
-
-const graph = createSessionGraph({
-  resolvePlan: resolveAgentPlan,
-  executeStep: (state: AgentSessionState, stepIndex: number) => {
-    if (!state.plan) throw new Error("执行时缺少 plan");
-    const { jobId } = executeAgentPlanStep(state, state.plan, stepIndex);
-    return Promise.resolve({ jobId });
-  },
-  observeStep: observeAgentStep,
-  maxStepRetries: Number(process.env.AGENT_VLM_MAX_STEP_RETRIES ?? "1"),
-});
+import { resumeAgentRunFromDb } from "./resume-fallback.js";
 
 function rowToInitialState(row: AgentRunRow, confirmed: boolean): AgentSessionState {
+  const persisted = parseAgentRunStateJson(row);
   return {
     runId: row.id,
     sessionId: row.session_id,
@@ -37,10 +23,10 @@ function rowToInitialState(row: AgentRunRow, confirmed: boolean): AgentSessionSt
     plan: parseAgentRunPlan(row),
     currentStepIndex: row.current_step_index,
     pendingJobId: row.pending_job_id,
-    observations: [],
+    observations: persisted.observations,
     status: row.status as AgentSessionState["status"],
     error: row.error ?? undefined,
-    stepRetries: {},
+    stepRetries: persisted.stepRetries,
     observeDecision: null,
   };
 }
@@ -65,6 +51,7 @@ async function invokeGraph(
   runId: string,
   input: AgentSessionState | Command,
 ) {
+  const graph = getAgentGraph();
   const config = { configurable: { thread_id: runId } };
   const result = await graph.invoke(input, config);
   persistGraphState(runId, result as AgentSessionState);
@@ -88,6 +75,7 @@ export async function confirmAgentRun(userId: string, runId: string) {
   }
 
   const plan = parseAgentRunPlan(row);
+  const graph = getAgentGraph();
   const result = await graph.invoke(
     new Command({
       update: {
@@ -112,28 +100,31 @@ export async function resumeAgentRunOnJobCompleted(
   if (!linked) return null;
   if (linked.run.status !== "waiting_job") return null;
 
-  const config = { configurable: { thread_id: linked.run.id } };
-  const result = await graph.invoke(
-    new Command({ resume: observation }),
-    config,
-  );
-  persistGraphState(linked.run.id, result as AgentSessionState);
-  return result as AgentSessionState;
+  const runId = linked.run.id;
+  const graph = getAgentGraph();
+  const config = { configurable: { thread_id: runId } };
+
+  try {
+    const snapshot = await graph.getState(config);
+    if (snapshot.next?.length) {
+      const result = await graph.invoke(
+        new Command({ resume: observation }),
+        config,
+      );
+      persistGraphState(runId, result as AgentSessionState);
+      return result as AgentSessionState;
+    }
+  } catch (err) {
+    console.warn("[agent] graph resume failed, trying DB fallback:", err);
+  }
+
+  const state = await resumeAgentRunFromDb(linked.run, observation);
+  return state;
 }
 
 export function getAgentRunApiView(userId: string, runId: string) {
   const row = getAgentRun(userId, runId);
   if (!row) return null;
-  let observations: JobObservation[] = [];
-  if (row.state_json) {
-    try {
-      const parsed = JSON.parse(row.state_json) as {
-        observations?: JobObservation[];
-      };
-      observations = parsed.observations ?? [];
-    } catch {
-      observations = [];
-    }
-  }
+  const { observations } = parseAgentRunStateJson(row);
   return serializeRunForApi(row, observations);
 }
