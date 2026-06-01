@@ -6,6 +6,7 @@ import { suggestModel } from "../router.js";
 import { db } from "../../db/index.js";
 import { getTool } from "../tools.js";
 import { buildJobObservation } from "./job-observation.js";
+import { pickSkillHeroIndex } from "../../providers/vlm/pick-hero.js";
 import {
   getSkillRun,
   getSkillRunByJobId,
@@ -13,6 +14,7 @@ import {
   parseStepOutputs,
   updateSkillRun,
   type SkillRunRow,
+  type SkillStepOutput,
   type SkillStepOutputs,
 } from "./skill-runs.js";
 
@@ -24,7 +26,9 @@ function resolveSourceOutputId(
   if (!src?.outputIds?.length) {
     throw new Error(`缺少上一步输出: ${step.sourceStep}`);
   }
-  const idx = "sourceOutputIndex" in step ? (step.sourceOutputIndex ?? 0) : 0;
+  const yamlIdx =
+    "sourceOutputIndex" in step ? (step.sourceOutputIndex ?? 0) : 0;
+  const idx = src.heroOutputIndex ?? yamlIdx;
   const outputId = src.outputIds[idx];
   if (!outputId) throw new Error(`步骤 ${step.sourceStep} 输出索引无效`);
   return outputId;
@@ -182,11 +186,25 @@ export async function resumeSkillRunOnJobCompleted(jobId: string) {
   if (!step) return;
 
   const outputs = parseStepOutputs(row);
-  outputs[step.id] = {
+  const stepOutput: SkillStepOutput = {
     jobId,
     outputIds: observation.outputIds,
     urls: observation.urls,
   };
+
+  if (
+    observation.status === "succeeded" &&
+    step.type === "generate_set" &&
+    observation.urls.length > 0
+  ) {
+    stepOutput.heroOutputIndex = await pickSkillHeroIndex({
+      prompt: row.prompt,
+      jobId,
+      urls: observation.urls,
+    });
+  }
+
+  outputs[step.id] = stepOutput;
 
   if (observation.status === "failed") {
     updateSkillRun(row.id, {

@@ -15,12 +15,16 @@ export type SkillRunStatus =
   | "failed"
   | "cancelled";
 
+export interface SkillStepOutput {
+  jobId: string;
+  outputIds: string[];
+  urls: string[];
+  /** VLM 为套图步骤选定的主图索引（P3.2） */
+  heroOutputIndex?: number;
+}
+
 export interface SkillStepOutputs {
-  [stepId: string]: {
-    jobId: string;
-    outputIds: string[];
-    urls: string[];
-  };
+  [stepId: string]: SkillStepOutput;
 }
 
 export interface SkillRunRow {
