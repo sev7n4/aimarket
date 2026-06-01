@@ -321,16 +321,25 @@ async function main() {
 
   if (jobId) {
     let outputId = null;
-    for (let i = 0; i < 10; i++) {
-      await new Promise((r) => setTimeout(r, 800));
-      const msgs = await req(`/api/v1/imageSession/${sessionId}/messages`, {
-        headers: authH,
-      });
-      const outs =
-        msgs.json?.data?.flatMap((m) => m.outputs ?? []) ?? [];
-      if (outs[0]?.id) {
-        outputId = outs[0].id;
-        break;
+    const baseJob = await waitJob(jobId, authH, 25);
+    ok(
+      "generate job succeeded (tool ref)",
+      baseJob?.status === "succeeded",
+      baseJob?.status ?? "timeout",
+    );
+    outputId = baseJob?.outputs?.[0]?.id ?? null;
+    if (!outputId) {
+      for (let i = 0; i < 10; i++) {
+        await new Promise((r) => setTimeout(r, 800));
+        const msgs = await req(`/api/v1/imageSession/${sessionId}/messages`, {
+          headers: authH,
+        });
+        const outs =
+          msgs.json?.data?.flatMap((m) => m.outputs ?? []) ?? [];
+        if (outs[0]?.id) {
+          outputId = outs[0].id;
+          break;
+        }
       }
     }
     if (outputId) {
@@ -340,6 +349,8 @@ async function main() {
         body: JSON.stringify({
           sessionId,
           referenceOutputIds: [outputId],
+          extend: { direction: "all" },
+          resolution: "2k",
         }),
       });
       const expandJobId = expandRun.json?.data?.jobId;
@@ -531,12 +542,15 @@ async function main() {
       provider.json?.data?.tools?.upscaleMode === "auto" &&
       provider.json?.data?.tools?.upscaleHttpConfigured === false &&
       provider.json?.data?.tools?.enhanceProvider === "tool-upscale-mock" &&
-      provider.json?.data?.tools?.expandProvider === "tool-edit-mock" &&
+      (provider.json?.data?.tools?.expandProvider === "tool-edit-mock" ||
+        provider.json?.data?.tools?.expandProvider === "tool-wan-expand") &&
+      provider.json?.data?.tools?.expandMode === "auto" &&
       provider.json?.data?.tools?.inpaintProvider === "tool-edit-mock" &&
       provider.json?.data?.tools?.focusEditProvider === "tool-edit-mock" &&
       provider.json?.data?.focusPoint?.activeProvider === "focus-mock" &&
       provider.json?.data?.tools?.editMode === "auto" &&
       provider.json?.data?.tools?.editHttpConfigured === false &&
+      provider.json?.data?.tools?.expandHttpConfigured === false &&
       provider.json?.data?.tools?.genericToolProvider === "tool-mock" &&
       (provider.json?.data?.promptOptimize?.activeProvider ===
         "template-mock" ||
