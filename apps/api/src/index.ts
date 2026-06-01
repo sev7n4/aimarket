@@ -38,6 +38,7 @@ import { events } from "./routes/events.js";
 import { inspiration, keyword, inspirationAuthed } from "./routes/inspiration.js";
 import { prompt } from "./routes/prompt.js";
 import { agent } from "./routes/agent.js";
+import { skillInternal, skills as agentSkills } from "./routes/agent-skills.js";
 import { image } from "./routes/image.js";
 import { imageTask } from "./routes/imageTask.js";
 import { uploadCompat } from "./routes/upload-compat.js";
@@ -95,6 +96,7 @@ app.use(
 );
 
 app.route("/api/v1/product/webhook", productWebhook);
+app.route("/api/v1/internal/agent", skillInternal);
 
 app.route("/api/v1/auth", auth);
 app.route("/api/v1/productSet", productSetPublic);
@@ -123,6 +125,7 @@ authed.route("/reports", reports);
 authed.route("/workspaces", workspacesRoute);
 authed.route("/prompt", prompt);
 authed.route("/agent", agent);
+authed.route("/agent/skills", agentSkills);
 authed.route("/inspiration", inspirationAuthed);
 authed.route("/image", image);
 authed.route("/imageTask", imageTask);

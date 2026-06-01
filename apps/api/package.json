@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@aimarket/agent-core": "workspace:*",
+    "@aimarket/agent-skills": "workspace:*",
+    "inngest": "^3.35.0",
     "@langchain/langgraph": "^0.2.74",
     "@aws-sdk/client-s3": "^3.826.0",
     "@aws-sdk/s3-request-presigner": "^3.826.0",

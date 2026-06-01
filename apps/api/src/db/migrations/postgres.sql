@@ -264,3 +264,32 @@ CREATE TABLE IF NOT EXISTS agent_run_jobs (
 CREATE INDEX IF NOT EXISTS idx_agent_runs_session
   ON agent_runs(session_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_agent_run_jobs_job ON agent_run_jobs(job_id);
+
+CREATE TABLE IF NOT EXISTS skill_runs (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL REFERENCES image_sessions(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  skill_id TEXT NOT NULL,
+  skill_version INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'queued',
+  prompt TEXT NOT NULL,
+  inputs_json TEXT,
+  current_step_index INTEGER NOT NULL DEFAULT 0,
+  pending_job_id TEXT,
+  step_outputs_json TEXT,
+  estimated_points INTEGER NOT NULL DEFAULT 0,
+  error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS skill_run_jobs (
+  skill_run_id TEXT NOT NULL REFERENCES skill_runs(id) ON DELETE CASCADE,
+  job_id TEXT NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
+  step_id TEXT NOT NULL,
+  PRIMARY KEY (skill_run_id, job_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_skill_runs_session
+  ON skill_runs(session_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_skill_run_jobs_job ON skill_run_jobs(job_id);
