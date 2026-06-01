@@ -1,0 +1,10 @@
+# 自托管 Inngest（开发/预发）
+# 用法：docker compose -f deploy/docker-compose.inngest.yml up -d
+services:
+  inngest:
+    image: inngest/inngest:latest
+    command: inngest dev -u http://host.docker.internal:8288/api/inngest
+    ports:
+      - "8288:8288"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

@@ -33,6 +33,7 @@ runs:
         EOF
         cd "${GITHUB_WORKSPACE}"
         pnpm --filter @aimarket/agent-core build
+        pnpm --filter @aimarket/agent-skills build
         cd "$API_DIR"
         pnpm exec tsx --env-file=.env src/index.ts >> /tmp/aimarket-api.log 2>&1 &
         echo $! > /tmp/aimarket-api.pid

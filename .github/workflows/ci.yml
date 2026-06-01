@@ -31,7 +31,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm --filter @aimarket/agent-core build
+      - run: pnpm --filter @aimarket/agent-skills build
       - run: pnpm --filter @aimarket/api build
+      - run: pnpm --filter @aimarket/workflow-worker typecheck
       - run: pnpm --filter @aimarket/web build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:4100

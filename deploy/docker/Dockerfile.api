@@ -4,9 +4,11 @@ RUN corepack enable && corepack prepare pnpm@10.29.3 --activate
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/agent-core ./packages/agent-core
+COPY packages/agent-skills ./packages/agent-skills
 COPY apps/api ./apps/api
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @aimarket/agent-core build
+RUN pnpm --filter @aimarket/agent-skills build
 RUN pnpm --filter @aimarket/api build
 RUN pnpm deploy --filter=@aimarket/api --prod --legacy /deploy/api
 
