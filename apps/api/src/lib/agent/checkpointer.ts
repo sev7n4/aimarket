@@ -13,6 +13,74 @@ export function resolveAgentCheckpointerMode(): "memory" | "sqlite" | "redis" {
   return "memory";
 }
 
+function redisUrlHost(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "(invalid-url)";
+  }
+}
+
+async function createSqliteCheckpointer(): Promise<AgentCheckpointer | null> {
+  try {
+    const { SqliteSaver } = await import(
+      "@langchain/langgraph-checkpoint-sqlite"
+    );
+    const dbPath =
+      process.env.AGENT_CHECKPOINT_SQLITE_PATH ??
+      path.join(
+        process.env.DATABASE_PATH
+          ? path.dirname(process.env.DATABASE_PATH)
+          : "./data",
+        "agent-checkpoints.sqlite",
+      );
+    const saver = SqliteSaver.fromConnString(`sqlite://${dbPath}`);
+    const withSetup = saver as unknown as {
+      setup?: () => Promise<void>;
+    };
+    if (typeof withSetup.setup === "function") {
+      await withSetup.setup();
+    }
+    console.log(`[agent] checkpointer=sqlite path=${dbPath}`);
+    return saver;
+  } catch (err) {
+    console.warn(
+      "[agent] SqliteSaver unavailable (build better-sqlite3?), fallback memory:",
+      err,
+    );
+    return null;
+  }
+}
+
+async function createRedisCheckpointer(): Promise<AgentCheckpointer | null> {
+  const url = process.env.REDIS_URL?.trim();
+  if (!url) {
+    console.warn(
+      "[agent] AGENT_CHECKPOINTER=redis requires REDIS_URL, fallback sqlite",
+    );
+    return null;
+  }
+
+  try {
+    const { RedisSaver } = await import(
+      "@langchain/langgraph-checkpoint-redis"
+    );
+    const ttlRaw = process.env.AGENT_CHECKPOINT_REDIS_TTL_MINUTES;
+    const ttlMinutes =
+      ttlRaw !== undefined && ttlRaw !== "" ? Number(ttlRaw) : NaN;
+    const ttlConfig =
+      Number.isFinite(ttlMinutes) && ttlMinutes > 0
+        ? { defaultTTL: ttlMinutes, refreshOnRead: true }
+        : undefined;
+    const saver = await RedisSaver.fromUrl(url, ttlConfig);
+    console.log(`[agent] checkpointer=redis host=${redisUrlHost(url)}`);
+    return saver;
+  } catch (err) {
+    console.warn("[agent] RedisSaver unavailable, fallback sqlite:", err);
+    return null;
+  }
+}
+
 export async function initAgentCheckpointer(): Promise<AgentCheckpointer> {
   if (checkpointer) return checkpointer;
   if (initPromise) return initPromise;
@@ -21,39 +89,18 @@ export async function initAgentCheckpointer(): Promise<AgentCheckpointer> {
     const mode = resolveAgentCheckpointerMode();
 
     if (mode === "redis") {
-      console.warn(
-        "[agent] AGENT_CHECKPOINTER=redis 尚未启用（待接入 @langchain/langgraph-checkpoint-redis），回退 sqlite",
-      );
+      const redis = await createRedisCheckpointer();
+      if (redis) {
+        checkpointer = redis;
+        return redis;
+      }
     }
 
     if (mode === "sqlite" || mode === "redis") {
-      try {
-        const { SqliteSaver } = await import(
-          "@langchain/langgraph-checkpoint-sqlite"
-        );
-        const dbPath =
-          process.env.AGENT_CHECKPOINT_SQLITE_PATH ??
-          path.join(
-            process.env.DATABASE_PATH
-              ? path.dirname(process.env.DATABASE_PATH)
-              : "./data",
-            "agent-checkpoints.sqlite",
-          );
-        const saver = SqliteSaver.fromConnString(`sqlite://${dbPath}`);
-        const withSetup = saver as unknown as {
-          setup?: () => Promise<void>;
-        };
-        if (typeof withSetup.setup === "function") {
-          await withSetup.setup();
-        }
-        console.log(`[agent] checkpointer=sqlite path=${dbPath}`);
-        checkpointer = saver;
-        return saver;
-      } catch (err) {
-        console.warn(
-          "[agent] SqliteSaver unavailable (build better-sqlite3?), fallback memory:",
-          err,
-        );
+      const sqlite = await createSqliteCheckpointer();
+      if (sqlite) {
+        checkpointer = sqlite;
+        return sqlite;
       }
     }
 
