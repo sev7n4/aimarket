@@ -69,6 +69,9 @@ import { ModelPicker, AUTO_MODEL_ID } from "@/components/model-picker";
 import { CountPicker } from "@/components/count-picker";
 import type { StudioInspirationApply } from "@/lib/inspiration-studio";
 import { FocusEditChips } from "@/components/focus-edit-chips";
+import { AgentRunPanel } from "@/components/agent-run-panel";
+import { useAgentRun } from "@/hooks/use-agent-run";
+import type { AgentRunStatus } from "@/lib/types";
 import { StudioDockFocusButton } from "@/components/studio-dock-controls";
 import type { StudioDockMode } from "@/lib/studio-dock-state";
 import type {
@@ -185,6 +188,10 @@ interface CreationPanelProps {
   }) => Promise<string>;
   /** 上传完成后把图片添加到画布素材区 */
   onUploadToCanvas?: (assetId: string, url: string) => void;
+  /** Studio：走 Agent Run 编排（/agent/runs） */
+  agentOrchestration?: boolean;
+  /** Agent Run 结束（成功/失败/取消）后回调 */
+  onAgentRunComplete?: () => void;
 }
 
 export function CreationPanel({
@@ -224,6 +231,8 @@ export function CreationPanel({
   prompt: controlledPrompt,
   onPromptChange,
   onUploadToCanvas,
+  agentOrchestration = false,
+  onAgentRunComplete,
 }: CreationPanelProps) {
   const shouldNavigateOnSubmit =
     navigateOnSubmit ?? (!sessionId && !homeDirectSubmit);
@@ -301,6 +310,59 @@ export function CreationPanel({
   const selectedModel =
     modelId === AUTO_MODEL_ID ? undefined : models.find((m) => m.id === modelId);
   const isVideoModel = selectedModel?.type === "video";
+  const agentEnabled =
+    agentOrchestration &&
+    Boolean(sessionId) &&
+    embeddedInDock &&
+    !readOnly;
+
+  const {
+    run: agentRun,
+    busy: agentBusy,
+    startRun: startAgentRun,
+    confirmRun: confirmAgentRunAction,
+    cancelRun: cancelAgentRunAction,
+    resetRun: resetAgentRun,
+  } = useAgentRun({
+    sessionId,
+    mode: effectiveMode,
+    enabled: agentEnabled,
+    onJobStarted,
+    onRunSettled: (run) => {
+      if (run.status === "completed") {
+        setPrompt("");
+        setAssetIds([]);
+        setUploadPreviews([]);
+        setSelectedRefs([]);
+        setMentionedAssetIds([]);
+        setMentionedAssetPreviews([]);
+        setMentionedMasks([]);
+        void refreshUser();
+        void trackEvent("agent_run_complete", {
+          sessionId: sessionId ?? "",
+          runId: run.id,
+        });
+      } else if (run.status === "failed" && run.error) {
+        alert(run.error);
+      }
+      onAgentRunComplete?.();
+      resetAgentRun();
+    },
+  });
+
+  useEffect(() => {
+    resetAgentRun();
+  }, [sessionId, resetAgentRun]);
+
+  const agentAwaitingConfirm = agentRun?.status === "waiting_confirm";
+  const agentInFlight = Boolean(
+    agentRun &&
+      (["planning", "running", "waiting_job"] as AgentRunStatus[]).includes(
+        agentRun.status,
+      ),
+  );
+  const submitAriaLabel = agentAwaitingConfirm ? "确认执行" : "开始生成";
+
   const effectiveCollapsed = embeddedInDock ? false : collapsed;
   const dockIconBtn =
     "flex shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-white/5 hover:text-zinc-200";
@@ -665,6 +727,41 @@ export function CreationPanel({
     }
     if (!sessionId) return;
 
+    const useAgentSubmit =
+      agentEnabled &&
+      !focusEdit?.points.length &&
+      mentionedMasks.length === 0 &&
+      !isVideoModel &&
+      effectiveMode !== "ecommerce";
+
+    if (useAgentSubmit) {
+      if (agentAwaitingConfirm) {
+        setPending(true);
+        try {
+          await ensureSession(sessionId, mode);
+          await confirmAgentRunAction();
+        } catch (err) {
+          alert(err instanceof Error ? err.message : "确认失败");
+        } finally {
+          setPending(false);
+        }
+        return;
+      }
+      if (agentInFlight) return;
+
+      setPending(true);
+      try {
+        await ensureSession(sessionId, mode);
+        await startAgentRun(prompt);
+        void trackEvent("agent_run_start", { sessionId: sessionId ?? "", mode });
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Agent 提交失败");
+      } finally {
+        setPending(false);
+      }
+      return;
+    }
+
     if (focusEdit?.points.length && onFocusEditSubmit) {
       const sourceItem = canvasItems.find(
         (i) => i.id === focusEdit.points[0]?.itemId,
@@ -804,19 +901,30 @@ export function CreationPanel({
   const focusEditReady =
     Boolean(focusEdit?.points.length) && prompt.trim().length > 0;
 
+  const agentIdle =
+    !agentRun ||
+    (["completed", "failed", "cancelled"] as AgentRunStatus[]).includes(
+      agentRun.status,
+    );
+
   const canSubmit =
     !readOnly &&
     !jobStreamStatus &&
-    (focusEdit
-      ? focusEditReady && !focusEdit.recognizing
-      : effectiveMode === "ecommerce"
-        ? prompt.trim().length >= 10 && Boolean(productAssetId)
-        : prompt.trim().length > 0);
+    !agentBusy &&
+    (agentAwaitingConfirm ||
+      (agentIdle &&
+        (focusEdit
+          ? focusEditReady && !focusEdit.recognizing
+          : effectiveMode === "ecommerce"
+            ? prompt.trim().length >= 10 && Boolean(productAssetId)
+            : prompt.trim().length > 0)));
 
   const streamBusy =
-    Boolean(jobStreamStatus) &&
-    jobStreamStatus !== "succeeded" &&
-    jobStreamStatus !== "failed";
+    agentBusy ||
+    agentInFlight ||
+    (Boolean(jobStreamStatus) &&
+      jobStreamStatus !== "succeeded" &&
+      jobStreamStatus !== "failed");
 
   const jobStatusSubtext =
     jobStreamStatus === "queued" && queueAhead != null
@@ -1124,6 +1232,18 @@ export function CreationPanel({
           <p className="mt-1 text-xs text-orange-400/80">路由：{routeHint}</p>
         ) : null}
 
+        {agentEnabled && !effectiveCollapsed ? (
+          <AgentRunPanel
+            prompt={prompt}
+            mode={effectiveMode}
+            enabled={agentEnabled && !focusEdit}
+            run={agentRun}
+            confirmBusy={agentBusy || pending}
+            onConfirm={() => void handleSubmit()}
+            onCancelRun={() => void cancelAgentRunAction()}
+          />
+        ) : null}
+
           {effectiveCollapsed ? (
             <div className="mt-2 flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-1.5">
@@ -1164,7 +1284,7 @@ export function CreationPanel({
                   className="size-9 shrink-0 rounded-full p-0"
                   onClick={() => void handleSubmit()}
                   disabled={readOnly || pending || streamBusy || !canSubmit}
-                  aria-label="开始生成"
+                  aria-label={submitAriaLabel}
                 >
                   {pending ? (
                     <Loader2 className="size-5 animate-spin" />
@@ -1281,7 +1401,7 @@ export function CreationPanel({
             }`}
             onClick={() => void handleSubmit()}
             disabled={readOnly || pending || streamBusy || !canSubmit}
-            aria-label="开始生成"
+            aria-label={submitAriaLabel}
           >
             {pending ? (
               <Loader2 className="size-5 animate-spin" />
