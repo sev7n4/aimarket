@@ -28,5 +28,7 @@ export type {
   AgentSessionState,
   ExecuteStepResult,
   JobObservation,
+  ObserveStepDecision,
+  ObserveStepResult,
   SessionGraphDeps,
 } from "./graph/types.js";
