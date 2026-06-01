@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, UserPlus, Trash2 } from "lucide-react";
 import { createWorkspaceInvite, removeWorkspaceMember, fetchWorkspaceMembers } from "@/lib/api-client";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import { useWorkspace } from "@/lib/workspace-context";
 
 interface TeamSettingsDialogProps {
@@ -23,7 +24,7 @@ export function TeamSettingsDialog({ open, onClose }: TeamSettingsDialogProps) {
     try {
       const data = await createWorkspaceInvite(activeWorkspaceId);
       setInviteUrl(data.joinUrl);
-      await navigator.clipboard.writeText(data.joinUrl);
+      await copyTextToClipboard(data.joinUrl);
     } finally {
       setLoading(false);
     }

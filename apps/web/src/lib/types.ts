@@ -26,7 +26,10 @@ export interface ApiUser {
   id: string;
   email: string;
   credits: number;
+  pending_credits?: number;
+  email_verified?: boolean;
   created_at?: string;
+  phone?: string;
 }
 
 export interface ImageSession {
@@ -259,7 +262,31 @@ export interface SignStatus {
 export interface InviteInfo {
   code: string;
   inviteCount: number;
+  pendingInviteCount?: number;
   rewardPerInvite: number;
   totalEarned: number;
   inviteUrl: string;
+}
+
+export interface SessionShareStatus {
+  active: boolean;
+  expiresAt: string | null;
+  createdAt: string | null;
+}
+
+export interface PublicSharePayload {
+  sessionId: string;
+  title: string;
+  mode: string;
+  kind: string;
+  status: string;
+  updatedAt: string;
+  expiresAt: string | null;
+  messages: Array<{
+    id: string;
+    role: string;
+    content: string;
+    outputs: Array<{ id: string; url: string; sort_order: number; label?: string }>;
+  }>;
+  canvasLayout?: unknown;
 }

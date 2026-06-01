@@ -29,3 +29,12 @@ export function toPublicAssetUrl(url: string): string {
 export function toPublicAssetUrls(urls: string[]): string[] {
   return urls.map(toPublicAssetUrl);
 }
+
+/** 前端站点根 URL（邀请、分享、邮箱验证链接等） */
+export function getPublicWebUrl() {
+  return (
+    process.env.PUBLIC_WEB_URL?.replace(/\/$/, "") ??
+    process.env.APP_PUBLIC_URL?.replace(/\/$/, "") ??
+    "http://localhost:3000"
+  );
+}

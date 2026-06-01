@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Flag, FolderOpen, Home, Menu } from "lucide-react";
+import { Flag, FolderOpen, Gift, Home, Menu } from "lucide-react";
+import { InviteDialog } from "@/components/invite-dialog";
 import { useAuth } from "@/lib/auth-context";
 import { LoginDialog } from "@/components/login-dialog";
 import { CreditsDialog } from "@/components/credits-dialog";
@@ -42,6 +43,7 @@ export function StudioHeader({
   const { user, logout, loading, refreshUser } = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [signedToday, setSignedToday] = useState(true);
   const minimal = variant === "minimal";
 
@@ -191,6 +193,18 @@ export function StudioHeader({
             <>
               <button
                 type="button"
+                onClick={() => setInviteOpen(true)}
+                className="rounded-full border border-white/10 p-2 text-zinc-400 hover:text-orange-200 sm:px-2.5 sm:py-1"
+                title="邀请有礼"
+                aria-label="邀请有礼"
+              >
+                <span className="inline-flex items-center gap-1">
+                  <Gift className="size-3.5" />
+                  <span className="hidden sm:inline text-[11px]">邀请</span>
+                </span>
+              </button>
+              <button
+                type="button"
                 onClick={() => void signIn().then(() => refreshUser())}
                 disabled={signedToday}
                 className="hidden rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-zinc-400 hover:text-white disabled:opacity-40 sm:inline"
@@ -226,6 +240,7 @@ export function StudioHeader({
       </header>
       <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
       <CreditsDialog open={creditsOpen} onClose={() => setCreditsOpen(false)} />
+      <InviteDialog open={inviteOpen} onClose={() => setInviteOpen(false)} />
     </>
   );
 }

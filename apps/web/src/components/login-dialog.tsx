@@ -31,6 +31,7 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -79,6 +80,7 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
       return;
     }
     setError(null);
+    setInfoMessage(null);
     setPending(true);
     try {
       const invite = inviteCode.trim() || undefined;
@@ -89,8 +91,15 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
       } else if (mode === "login") {
         await login(email, password);
       } else {
-        await register(email, password, invite);
+        const res = await register(email, password, invite);
         sessionStorage.removeItem(INVITE_KEY);
+        if (res.verificationEmailSent) {
+          setInfoMessage(
+            res.message ??
+              "验证邮件已发送，请查收并点击链接完成验证后使用积分。",
+          );
+          return;
+        }
       }
       onClose();
     } catch (err) {
@@ -110,8 +119,8 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
           {mode === "login" ? "登录" : "注册"}
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
-          新用户注册即赠 100 积分
-          {inviteCode ? "，填写邀请码双方再得奖励" : ""}
+          验证邮箱后到账 100 积分
+          {inviteCode ? "；邀请奖励在验证后发放" : ""}
         </p>
 
         <div className="mt-4 flex gap-1 rounded-xl border border-white/10 bg-black/30 p-1">
@@ -248,6 +257,9 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
             </div>
           ) : null}
 
+          {infoMessage ? (
+            <p className="text-sm text-emerald-400">{infoMessage}</p>
+          ) : null}
           {error ? <p className="text-sm text-red-400">{error}</p> : null}
           <Button
             type="submit"

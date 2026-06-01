@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Share2, Trash2 } from "lucide-react";
 import { deleteSession, updateSessionTitle } from "@/lib/api-client";
+import { SessionShareDialog } from "@/components/session-share-dialog";
 
 interface SessionTitleActionsProps {
   sessionId: string;
@@ -25,6 +26,7 @@ export function SessionTitleActions({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(title);
   const [saving, setSaving] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -115,10 +117,24 @@ export function SessionTitleActions({
   }
 
   return (
+    <>
     <div className="flex min-w-0 flex-1 items-center gap-0.5">
       <span className={`min-w-0 flex-1 ${titleClass}`}>{title}</span>
       {!disabled ? (
         <>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShareOpen(true);
+            }}
+            title="分享作品"
+            aria-label="分享作品"
+            className={`shrink-0 rounded p-1 text-zinc-500 transition hover:bg-white/10 hover:text-orange-300 ${actionClass}`}
+          >
+            <Share2 className="size-3.5" />
+          </button>
           <button
             type="button"
             onClick={startEdit}
@@ -140,5 +156,12 @@ export function SessionTitleActions({
         </>
       ) : null}
     </div>
+    <SessionShareDialog
+      open={shareOpen}
+      onClose={() => setShareOpen(false)}
+      sessionId={sessionId}
+      sessionTitle={title}
+    />
+    </>
   );
 }

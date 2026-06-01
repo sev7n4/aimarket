@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { StudioUserDialog } from "@/components/studio-user-dialog";
 import { ModelProviderSettingsDialog } from "@/components/model-provider-settings-dialog";
 import { CreditsDialog } from "@/components/credits-dialog";
+import { InviteDialog } from "@/components/invite-dialog";
 
 interface StudioWorkspaceFooterProps {
   collapsed?: boolean;
@@ -26,6 +27,7 @@ export function StudioWorkspaceFooter({
   const [userOpen, setUserOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const initial = user?.email[0]?.toUpperCase() ?? "?";
 
@@ -47,11 +49,14 @@ export function StudioWorkspaceFooter({
           userOpen={userOpen}
           settingsOpen={settingsOpen}
           creditsOpen={creditsOpen}
+          inviteOpen={inviteOpen}
           onUserClose={() => setUserOpen(false)}
           onSettingsClose={() => setSettingsOpen(false)}
           onCreditsClose={() => setCreditsOpen(false)}
+          onInviteClose={() => setInviteOpen(false)}
           onLogin={onLogin}
           onOpenCredits={() => setCreditsOpen(true)}
+          onOpenInvite={() => setInviteOpen(true)}
         />
       </>
     );
@@ -84,11 +89,14 @@ export function StudioWorkspaceFooter({
           userOpen={userOpen}
           settingsOpen={settingsOpen}
           creditsOpen={creditsOpen}
+          inviteOpen={inviteOpen}
           onUserClose={() => setUserOpen(false)}
           onSettingsClose={() => setSettingsOpen(false)}
           onCreditsClose={() => setCreditsOpen(false)}
+          onInviteClose={() => setInviteOpen(false)}
           onLogin={onLogin}
           onOpenCredits={() => setCreditsOpen(true)}
+          onOpenInvite={() => setInviteOpen(true)}
         />
       </>
     );
@@ -142,11 +150,14 @@ export function StudioWorkspaceFooter({
         userOpen={userOpen}
         settingsOpen={settingsOpen}
         creditsOpen={creditsOpen}
+        inviteOpen={inviteOpen}
         onUserClose={() => setUserOpen(false)}
         onSettingsClose={() => setSettingsOpen(false)}
         onCreditsClose={() => setCreditsOpen(false)}
+        onInviteClose={() => setInviteOpen(false)}
         onLogin={onLogin}
         onOpenCredits={() => setCreditsOpen(true)}
+        onOpenInvite={() => setInviteOpen(true)}
       />
     </>
   );
@@ -156,20 +167,26 @@ function FooterDialogs({
   userOpen,
   settingsOpen,
   creditsOpen,
+  inviteOpen,
   onUserClose,
   onSettingsClose,
   onCreditsClose,
+  onInviteClose,
   onLogin,
   onOpenCredits,
+  onOpenInvite,
 }: {
   userOpen: boolean;
   settingsOpen: boolean;
   creditsOpen: boolean;
+  inviteOpen: boolean;
   onUserClose: () => void;
   onSettingsClose: () => void;
   onCreditsClose: () => void;
+  onInviteClose: () => void;
   onLogin: () => void;
   onOpenCredits: () => void;
+  onOpenInvite: () => void;
 }) {
   return (
     <>
@@ -181,6 +198,10 @@ function FooterDialogs({
           onLogin();
         }}
         onOpenCredits={onOpenCredits}
+        onOpenInvite={() => {
+          onUserClose();
+          onOpenInvite();
+        }}
       />
       <ModelProviderSettingsDialog
         open={settingsOpen}
@@ -188,6 +209,7 @@ function FooterDialogs({
         onLogin={onLogin}
       />
       <CreditsDialog open={creditsOpen} onClose={onCreditsClose} />
+      <InviteDialog open={inviteOpen} onClose={onInviteClose} />
     </>
   );
 }

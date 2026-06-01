@@ -197,6 +197,42 @@ try {
   /* index exists */
 }
 
+try {
+  database.exec(`ALTER TABLE users ADD COLUMN email_verified_at TEXT`);
+} catch {
+  /* column exists */
+}
+try {
+  database.exec(
+    `ALTER TABLE users ADD COLUMN pending_credits INTEGER NOT NULL DEFAULT 0`,
+  );
+} catch {
+  /* column exists */
+}
+try {
+  database.exec(
+    `ALTER TABLE invite_redemptions ADD COLUMN rewards_granted_at TEXT`,
+  );
+} catch {
+  /* column exists */
+}
+
+database.exec(`
+  CREATE TABLE IF NOT EXISTS email_verification_tokens (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL,
+    consumed_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_email_verify_user ON email_verification_tokens(user_id, created_at DESC);
+`);
+
+database.exec(`
+  UPDATE users SET email_verified_at = created_at WHERE email_verified_at IS NULL;
+`);
+
 database.exec(`
   CREATE TABLE IF NOT EXISTS workspaces (
     id TEXT PRIMARY KEY,
@@ -310,6 +346,7 @@ database.exec(`
     invitee_id TEXT NOT NULL UNIQUE REFERENCES users(id),
     inviter_id TEXT NOT NULL REFERENCES users(id),
     code TEXT NOT NULL,
+    rewards_granted_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -435,5 +472,22 @@ database.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_skill_runs_session ON skill_runs(session_id, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_skill_run_jobs_job ON skill_run_jobs(job_id);
+`);
+
+database.exec(`
+  UPDATE invite_redemptions SET rewards_granted_at = created_at WHERE rewards_granted_at IS NULL;
+`);
+
+database.exec(`
+  CREATE TABLE IF NOT EXISTS session_shares (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES image_sessions(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    created_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TEXT,
+    revoked_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_session_shares_session ON session_shares(session_id, created_at DESC);
 `);
 

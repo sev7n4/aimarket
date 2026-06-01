@@ -23,7 +23,7 @@ export default function InvitePage() {
         <GlassPanel className="p-8 text-center">
           <h1 className="text-2xl font-bold">邀请有礼</h1>
           <p className="mt-4 text-sm leading-relaxed text-zinc-400">
-            分享你的专属邀请码，好友注册成功后，双方各获得 100 积分奖励。
+            分享专属邀请链接，好友注册并验证邮箱后，双方各获得 100 积分奖励。
           </p>
           {loading ? null : user ? (
             <button

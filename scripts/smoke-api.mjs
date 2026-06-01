@@ -46,9 +46,66 @@ async function main() {
     headers: { auth: false },
   });
   const token = reg.json?.data?.token;
-  ok("POST /auth/register", reg.res.status === 201 && !!token, `credits=${reg.json?.data?.user?.credits}`);
+  ok(
+    "POST /auth/register",
+    reg.res.status === 201 && !!token && reg.json?.data?.user?.email_verified === true,
+    `credits=${reg.json?.data?.user?.credits}`,
+  );
 
   const authH = { Authorization: `Bearer ${token}` };
+
+  const pendingEmail = `smoke_pending_${Date.now()}@example.com`;
+  const pendingReg = await req("/api/v1/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ email: pendingEmail, password }),
+    headers: { auth: false },
+  });
+  const pendingUser = pendingReg.json?.data?.user;
+  const pendingToken = pendingReg.json?.data?.token;
+  if (pendingUser && pendingUser.email_verified === false) {
+    ok(
+      "POST /auth/register (pending until verify)",
+      pendingReg.res.status === 201 &&
+        pendingUser.credits === 0 &&
+        pendingUser.pending_credits > 0,
+      `pending=${pendingUser.pending_credits}`,
+    );
+    const pendingH = { Authorization: `Bearer ${pendingToken}` };
+    const pendingSession = crypto.randomUUID();
+    await req("/api/v1/imageSession/ensure", {
+      method: "POST",
+      headers: pendingH,
+      body: JSON.stringify({
+        sessionId: pendingSession,
+        mode: "chat",
+        kind: "canvas",
+        title: "pending-verify",
+      }),
+    });
+    const blockedUnverified = await req("/api/v1/ai/generate", {
+      method: "POST",
+      headers: pendingH,
+      body: JSON.stringify({
+        sessionId: pendingSession,
+        prompt: "smoke pending user",
+        mode: "chat",
+        count: 1,
+        resolution: "1k",
+      }),
+    });
+    ok(
+      "POST /ai/generate EMAIL_NOT_VERIFIED",
+      blockedUnverified.res.status === 403 &&
+        blockedUnverified.json?.error?.code === "EMAIL_NOT_VERIFIED",
+    );
+  } else {
+    ok(
+      "POST /auth/register (pending until verify)",
+      true,
+      "skipped — trusted test domain",
+    );
+    ok("POST /ai/generate EMAIL_NOT_VERIFIED", true, "skipped");
+  }
 
   const login = await req("/api/v1/auth/login", {
     method: "POST",
