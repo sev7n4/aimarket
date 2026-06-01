@@ -38,6 +38,8 @@ function formatToolProviderLabel(provider: string | undefined): string {
   if (!provider) return "";
   const labels: Record<string, string> = {
     "tool-seedream": "Seedream 工具链",
+    "tool-wan-expand": "万相扩图",
+    "tool-expand-http": "扩图 HTTP 网关",
     "tool-openai-variation": "OpenAI 变体",
     "tool-variation-mock": "Mock",
     "tool-openai-edit": "OpenAI 编辑",
@@ -306,6 +308,7 @@ export async function processGenerationJob({
         resolution: job.resolution,
         aspectRatio: job.aspect_ratio ?? "1:1",
         toolContext,
+        referenceUrls,
         userId: job.user_id,
       });
       urls = result.urls;

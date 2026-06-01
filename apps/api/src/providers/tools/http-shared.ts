@@ -4,7 +4,7 @@
  * 协议（最小约定，便于自建网关 / Replicate 包一层 / 国内云服务接入）：
  *   POST {URL}
  *   Headers: Authorization: Bearer {KEY}, Content-Type: application/json
- *   Body:    { tool, prompt, referenceUrls, count, resolution, aspectRatio, scale?, toolContext?, options? }
+ *   Body:    { tool, prompt, referenceUrls, count, resolution, aspectRatio, extend?, extendScales?, outpaint?, toolContext?, ... }
  *   Resp:    { urls: string[], mimeType?, width?, height? }
  *
  * 任何 4xx/5xx 或缺失 urls 视为失败；auto 模式下由上层回落到 mock。
@@ -71,6 +71,7 @@ export async function invokeHttpTool({
   };
   if (key) headers.Authorization = `Bearer ${key}`;
 
+  const extend = params.extend ?? params.toolContext?.extend;
   const body = {
     tool: params.toolId,
     prompt: params.prompt,
@@ -79,6 +80,7 @@ export async function invokeHttpTool({
     resolution: params.resolution,
     aspectRatio: params.aspectRatio ?? "1:1",
     toolContext: params.toolContext,
+    extend,
     ...extra,
   };
 

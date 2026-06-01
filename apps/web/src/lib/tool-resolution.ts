@@ -1,11 +1,12 @@
-/** Studio AI 工具默认输出分辨率（火山 Seedream 等需较大 size） */
+/** Studio AI 工具计费/规格档位（扩图走万相真扩图，默认 2k 档位） */
 export function resolveToolResolution(
   toolId: string,
 ): "1k" | "2k" | "4k" {
   switch (toolId) {
+    case "expand":
+      return "2k";
     case "cutout":
     case "variation":
-    case "expand":
     case "inpaint":
     case "focus-edit":
       return "4k";

@@ -37,7 +37,7 @@ export const TOOL_DISPLAY_NAMES: Record<string, string> = {
 /** 工具网格副文案：是否需要 prompt、张数、推荐路径等 */
 export const TOOL_GRID_HINTS: Record<string, string> = {
   variation: "选图 · 1–4 张 · 同构图微差",
-  expand: "选图 + prompt · 推荐工具链",
+  expand: "真扩图 · 按比例扩边 · 可选方向",
   cutout: "选图 · 一键 · 推荐工具链",
   inpaint: "圈选 + prompt",
   "focus-edit": "点选 + prompt",
@@ -65,6 +65,9 @@ export function toolRefineSpecLine(
   count = 1,
 ): string {
   const countPart = tool.id === "variation" ? `${count} 张 · ` : "";
+  if (tool.id === "expand") {
+    return `真扩图 · ${resolution.toUpperCase()} · ${countPart}`;
+  }
   return `${resolution.toUpperCase()} · ${countPart}`;
 }
 
@@ -74,7 +77,7 @@ export const TOOL_CONFIRM_STEPS: Record<string, string> = {
   upscale: "在保持风格的前提下提升分辨率与细节",
   enhance: "轻量锐化与对比增强，适合预览稿变清晰",
   variation: "同构图微差：细节、光影会有可见变化",
-  expand: "补充画面边缘，主体位置与风格尽量保持一致",
+  expand: "按所选方向扩展画布边缘，保持主体与风格一致（万相 expand / HTTP outpaint）",
   erase: "确认后请在图上圈选要消除的区域",
   inpaint: "确认后请在图上圈选要重绘的区域",
   "focus-edit": "确认后在图上点击目标，再在工作台输入短 prompt",

@@ -79,6 +79,7 @@ import { useSessionCanvas } from "@/hooks/use-session-canvas";
 import { watchJob } from "@/lib/job-stream";
 import { consumePendingAssets, type PendingAsset } from "@/lib/pending-assets";
 import { consumePendingInspiration } from "@/lib/pending-inspiration";
+import { expandFromDirection } from "@/lib/expand-extend";
 import { resolveToolResolution } from "@/lib/tool-resolution";
 import { formatToolProviderLabel } from "@/lib/studio-tool-meta";
 import { hapticLight } from "@/lib/haptics";
@@ -673,9 +674,13 @@ export function StudioWorkspace({
         referenceOutputIds,
         assetIds,
         resolution: resolveToolResolution(tool.id),
+        aspectRatio: tool.id === "expand" ? "auto" : undefined,
         count: tool.id === "variation" ? opts.count : 1,
         ...(tool.id === "upscale"
           ? { scale: opts.scale ?? ("2x" as const) }
+          : {}),
+        ...(tool.id === "expand"
+          ? { extend: expandFromDirection(opts.expandDirection) }
           : {}),
       });
       void trackEvent("tool_run", {

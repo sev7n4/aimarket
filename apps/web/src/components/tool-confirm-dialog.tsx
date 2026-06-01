@@ -27,6 +27,8 @@ export interface ToolConfirmOptions {
   prompt?: string;
   scale?: "2x" | "4x";
   intent?: "edit" | "replace";
+  /** 扩图方向 → API extend.direction */
+  expandDirection?: string | null;
 }
 
 interface ToolConfirmDialogProps {
@@ -176,6 +178,7 @@ export function ToolConfirmDialog({
       prompt: resolvedPrompt || undefined,
       scale: tool.id === "upscale" ? scale : undefined,
       intent: tool.id === "focus-edit" ? intent : undefined,
+      expandDirection: tool.id === "expand" ? expandDirection : undefined,
     });
   }
 

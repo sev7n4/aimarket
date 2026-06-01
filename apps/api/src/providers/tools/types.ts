@@ -1,3 +1,5 @@
+import type { ExpandExtend } from "../../lib/expand-extend.js";
+
 export interface ToolRunParams {
   toolId: string;
   prompt: string;
@@ -8,6 +10,8 @@ export interface ToolRunParams {
   /** 任务所属用户，用于 BYOK OpenAI 变体等 */
   userId?: string;
   count?: number;
+  /** 扩图四向比例（万相 expand / HTTP outpaint） */
+  extend?: ExpandExtend;
   toolContext?: {
     toolId: string;
     masks: Array<{
@@ -17,6 +21,7 @@ export interface ToolRunParams {
       bbox: { x: number; y: number; width: number; height: number };
       normalizedBbox: { x: number; y: number; width: number; height: number };
     }>;
+    extend?: ExpandExtend;
   };
 }
 
