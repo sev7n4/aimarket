@@ -70,8 +70,11 @@ import { CountPicker } from "@/components/count-picker";
 import type { StudioInspirationApply } from "@/lib/inspiration-studio";
 import { FocusEditChips } from "@/components/focus-edit-chips";
 import { AgentRunPanel } from "@/components/agent-run-panel";
+import { SkillPackagePicker } from "@/components/skill-package-picker";
+import { SkillRunPanel } from "@/components/skill-run-panel";
 import { useAgentRun } from "@/hooks/use-agent-run";
-import type { AgentRunStatus } from "@/lib/types";
+import { useSkillRun } from "@/hooks/use-skill-run";
+import type { AgentRunStatus, SkillRunStatus } from "@/lib/types";
 import { StudioDockFocusButton } from "@/components/studio-dock-controls";
 import type { StudioDockMode } from "@/lib/studio-dock-state";
 import type {
@@ -190,6 +193,8 @@ interface CreationPanelProps {
   onUploadToCanvas?: (assetId: string, url: string) => void;
   /** Studio：走 Agent Run 编排（/agent/runs） */
   agentOrchestration?: boolean;
+  /** Studio：展示长 Skill 套餐（/agent/skills） */
+  agentSkills?: boolean;
   /** Agent Run 结束（成功/失败/取消）后回调 */
   onAgentRunComplete?: () => void;
 }
@@ -232,6 +237,7 @@ export function CreationPanel({
   onPromptChange,
   onUploadToCanvas,
   agentOrchestration = false,
+  agentSkills = false,
   onAgentRunComplete,
 }: CreationPanelProps) {
   const shouldNavigateOnSubmit =
@@ -316,6 +322,51 @@ export function CreationPanel({
     embeddedInDock &&
     !readOnly;
 
+  const skillsEnabled = agentSkills && agentEnabled;
+
+  const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
+
+  const {
+    skills: skillPackages,
+    run: skillRun,
+    busy: skillBusy,
+    startRun: startSkillRun,
+    confirmRun: confirmSkillRunAction,
+    cancelRun: cancelSkillRunAction,
+    resetRun: resetSkillRun,
+  } = useSkillRun({
+    sessionId,
+    enabled: skillsEnabled,
+    onJobStarted,
+    onRunSettled: (run) => {
+      if (run.status === "completed") {
+        setPrompt("");
+        setAssetIds([]);
+        setUploadPreviews([]);
+        setProductAssetId(null);
+        setReferenceAssetId(null);
+        setSelectedRefs([]);
+        setMentionedAssetIds([]);
+        setMentionedAssetPreviews([]);
+        setMentionedMasks([]);
+        setSelectedSkillId(null);
+        void refreshUser();
+        void trackEvent("skill_run_complete", {
+          sessionId: sessionId ?? "",
+          runId: run.id,
+          skillId: run.skillId,
+        });
+      } else if (run.status === "failed" && run.error) {
+        alert(run.error);
+      }
+      onAgentRunComplete?.();
+      resetSkillRun();
+    },
+  });
+
+  const selectedSkill =
+    skillPackages.find((s) => s.id === selectedSkillId) ?? null;
+
   const {
     run: agentRun,
     busy: agentBusy,
@@ -352,7 +403,25 @@ export function CreationPanel({
 
   useEffect(() => {
     resetAgentRun();
-  }, [sessionId, resetAgentRun]);
+    resetSkillRun();
+    setSelectedSkillId(null);
+  }, [sessionId, resetAgentRun, resetSkillRun]);
+
+  const skillAwaitingConfirm = skillRun?.status === "waiting_confirm";
+  const skillInFlight = Boolean(
+    skillRun &&
+      (["queued", "running", "waiting_job"] as SkillRunStatus[]).includes(
+        skillRun.status,
+      ),
+  );
+  const skillIdle =
+    !skillRun ||
+    (["completed", "failed", "cancelled"] as SkillRunStatus[]).includes(
+      skillRun.status,
+    );
+
+  const resolveProductAssetId = () =>
+    productAssetId ?? assetIds[0] ?? mentionedAssetIds[0] ?? undefined;
 
   const agentAwaitingConfirm = agentRun?.status === "waiting_confirm";
   const agentInFlight = Boolean(
@@ -361,7 +430,13 @@ export function CreationPanel({
         agentRun.status,
       ),
   );
-  const submitAriaLabel = agentAwaitingConfirm ? "确认执行" : "开始生成";
+  const submitAriaLabel = skillAwaitingConfirm
+    ? "确认执行套餐"
+    : agentAwaitingConfirm
+      ? "确认执行"
+      : selectedSkillId
+        ? "开始套餐"
+        : "开始生成";
 
   const effectiveCollapsed = embeddedInDock ? false : collapsed;
   const dockIconBtn =
@@ -667,14 +742,14 @@ export function CreationPanel({
 
   async function handleSubmit() {
     if (readOnly) return;
-    if (!prompt.trim() && effectiveMode !== "ecommerce") return;
-    if (effectiveMode === "ecommerce") {
+    if (!prompt.trim() && effectiveMode !== "ecommerce" && !selectedSkillId) return;
+    if (effectiveMode === "ecommerce" || selectedSkillId) {
       if (prompt.trim().length < 10) {
         alert("请填写至少 10 字的产品卖点/描述");
         return;
       }
-      if (!productAssetId) {
-        alert("请先上传产品图");
+      if (!resolveProductAssetId()) {
+        alert("请先上传商品图（上传附件或产品图）");
         return;
       }
     }
@@ -727,8 +802,51 @@ export function CreationPanel({
     }
     if (!sessionId) return;
 
+    const useSkillSubmit =
+      skillsEnabled &&
+      Boolean(selectedSkillId) &&
+      !focusEdit?.points.length &&
+      mentionedMasks.length === 0 &&
+      !isVideoModel;
+
+    if (useSkillSubmit && selectedSkillId) {
+      if (skillAwaitingConfirm) {
+        setPending(true);
+        try {
+          await ensureSession(sessionId, mode);
+          await confirmSkillRunAction();
+        } catch (err) {
+          alert(err instanceof Error ? err.message : "确认失败");
+        } finally {
+          setPending(false);
+        }
+        return;
+      }
+      if (skillInFlight) return;
+
+      setPending(true);
+      try {
+        await ensureSession(sessionId, mode);
+        await startSkillRun(selectedSkillId, {
+          prompt,
+          productAssetId: resolveProductAssetId(),
+          referenceAssetId: referenceAssetId ?? undefined,
+        });
+        void trackEvent("skill_run_start", {
+          sessionId: sessionId ?? "",
+          skillId: selectedSkillId,
+        });
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "套餐提交失败");
+      } finally {
+        setPending(false);
+      }
+      return;
+    }
+
     const useAgentSubmit =
       agentEnabled &&
+      !selectedSkillId &&
       !focusEdit?.points.length &&
       mentionedMasks.length === 0 &&
       !isVideoModel &&
@@ -911,16 +1029,23 @@ export function CreationPanel({
     !readOnly &&
     !jobStreamStatus &&
     !agentBusy &&
-    (agentAwaitingConfirm ||
-      (agentIdle &&
+    !skillBusy &&
+    (skillAwaitingConfirm ||
+      agentAwaitingConfirm ||
+      (skillIdle &&
+        agentIdle &&
         (focusEdit
           ? focusEditReady && !focusEdit.recognizing
-          : effectiveMode === "ecommerce"
-            ? prompt.trim().length >= 10 && Boolean(productAssetId)
-            : prompt.trim().length > 0)));
+          : selectedSkillId
+            ? prompt.trim().length >= 10 && Boolean(resolveProductAssetId())
+            : effectiveMode === "ecommerce"
+              ? prompt.trim().length >= 10 && Boolean(productAssetId)
+              : prompt.trim().length > 0)));
 
   const streamBusy =
     agentBusy ||
+    skillBusy ||
+    skillInFlight ||
     agentInFlight ||
     (Boolean(jobStreamStatus) &&
       jobStreamStatus !== "succeeded" &&
@@ -1232,7 +1357,26 @@ export function CreationPanel({
           <p className="mt-1 text-xs text-orange-400/80">路由：{routeHint}</p>
         ) : null}
 
-        {agentEnabled && !effectiveCollapsed ? (
+        {skillsEnabled && !effectiveCollapsed && !focusEdit ? (
+          <SkillPackagePicker
+            skills={skillPackages}
+            selectedId={selectedSkillId}
+            disabled={skillInFlight || skillBusy || Boolean(skillRun && !skillIdle)}
+            onSelect={setSelectedSkillId}
+          />
+        ) : null}
+
+        {skillsEnabled && selectedSkillId && !effectiveCollapsed ? (
+          <SkillRunPanel
+            skill={selectedSkill}
+            run={skillRun}
+            confirmBusy={skillBusy || pending}
+            onConfirm={() => void handleSubmit()}
+            onCancelRun={() => void cancelSkillRunAction()}
+          />
+        ) : null}
+
+        {agentEnabled && !selectedSkillId && !effectiveCollapsed ? (
           <AgentRunPanel
             prompt={prompt}
             mode={effectiveMode}

@@ -995,6 +995,56 @@ export async function cancelAgentRun(runId: string) {
   return res.data;
 }
 
+export async function fetchAgentSkills() {
+  const res = await request<{ data: import("./types").AgentSkillPublic[] }>(
+    "/api/v1/agent/skills",
+  );
+  return res.data;
+}
+
+export async function createSkillRun(
+  skillId: string,
+  body: {
+    sessionId: string;
+    prompt: string;
+    productAssetId?: string;
+    referenceAssetId?: string;
+    confirmed?: boolean;
+  },
+) {
+  const res = await request<{ data: import("./types").SkillRun }>(
+    `/api/v1/agent/skills/${encodeURIComponent(skillId)}/runs`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+  return res.data;
+}
+
+export async function fetchSkillRun(runId: string) {
+  const res = await request<{ data: import("./types").SkillRun }>(
+    `/api/v1/agent/skills/runs/${encodeURIComponent(runId)}`,
+  );
+  return res.data;
+}
+
+export async function confirmSkillRun(runId: string) {
+  const res = await request<{ data: import("./types").SkillRun }>(
+    `/api/v1/agent/skills/runs/${encodeURIComponent(runId)}/confirm`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
+export async function cancelSkillRun(runId: string) {
+  const res = await request<{ data: import("./types").SkillRun }>(
+    `/api/v1/agent/skills/runs/${encodeURIComponent(runId)}/cancel`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
 export async function executeAgentPlan(body: {
   sessionId: string;
   prompt: string;

@@ -1078,6 +1078,7 @@ export function StudioWorkspace({
             : null
         }
         agentOrchestration
+        agentSkills
         onAgentRunComplete={() => {
           void loadCanvas();
           void refreshUser();
