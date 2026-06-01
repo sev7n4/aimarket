@@ -5,48 +5,16 @@ import { enrichPromptWithReferences } from "../references.js";
 import { suggestModel } from "../router.js";
 import { db } from "../../db/index.js";
 import { getTool } from "../tools.js";
+import { buildJobObservation } from "./job-observation.js";
 import {
   getSkillRun,
+  getSkillRunByJobId,
   linkSkillRunJob,
   parseStepOutputs,
   updateSkillRun,
   type SkillRunRow,
   type SkillStepOutputs,
 } from "./skill-runs.js";
-
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-async function waitForJob(jobId: string, maxMs = 600_000): Promise<{
-  status: "succeeded" | "failed";
-  outputIds: string[];
-  urls: string[];
-  error?: string;
-}> {
-  const started = Date.now();
-  while (Date.now() - started < maxMs) {
-    const job = db
-      .prepare(`SELECT status, error FROM generation_jobs WHERE id = ?`)
-      .get(jobId) as { status: string; error: string | null } | undefined;
-    if (!job) throw new Error("JOB_NOT_FOUND");
-    if (job.status === "succeeded" || job.status === "failed") {
-      const outputs = db
-        .prepare(
-          `SELECT id, url FROM job_outputs WHERE job_id = ? ORDER BY sort_order ASC`,
-        )
-        .all(jobId) as Array<{ id: string; url: string }>;
-      return {
-        status: job.status as "succeeded" | "failed",
-        outputIds: outputs.map((o) => o.id),
-        urls: outputs.map((o) => o.url),
-        error: job.error ?? undefined,
-      };
-    }
-    await sleep(1200);
-  }
-  throw new Error("JOB_TIMEOUT");
-}
 
 function resolveSourceOutputId(
   step: Extract<SkillStep, { type: "tool" } | { type: "video" }>,
@@ -147,54 +115,100 @@ function startStepJob(
   throw new Error(`UNSUPPORTED_STEP`);
 }
 
-/** 跑完整个 Skill（逐步创建 Job 并等待完成）。 */
-export async function executeSkillRun(skillRunId: string, userId: string) {
-  const initial = getSkillRun(userId, skillRunId);
-  if (!initial) throw new Error("SKILL_RUN_NOT_FOUND");
-  if (initial.status === "waiting_confirm") {
+/** 启动当前步骤 Job（不阻塞等待完成）。 */
+export async function startSkillRunStep(
+  skillRunId: string,
+  userId: string,
+): Promise<SkillRunRow | undefined> {
+  const row = getSkillRun(userId, skillRunId);
+  if (!row) throw new Error("SKILL_RUN_NOT_FOUND");
+  if (row.status === "waiting_confirm") {
     throw new Error("SKILL_RUN_NEEDS_CONFIRM");
   }
-  if (initial.status === "completed" || initial.status === "cancelled") {
-    return initial;
+  if (row.status === "completed" || row.status === "cancelled") {
+    return row;
+  }
+  if (row.status === "waiting_job" && row.pending_job_id) {
+    return row;
   }
 
-  const skill = loadSkill(initial.skill_id);
-  updateSkillRun(skillRunId, { status: "running", error: null });
+  const skill = loadSkill(row.skill_id);
+  const stepIndex = row.current_step_index;
+  if (stepIndex >= skill.steps.length) {
+    updateSkillRun(skillRunId, {
+      status: "completed",
+      pendingJobId: null,
+    });
+    return getSkillRun(userId, skillRunId);
+  }
 
-  let stepIndex = initial.current_step_index;
-  let outputs = parseStepOutputs(initial);
-
-  while (stepIndex < skill.steps.length) {
-    const row = getSkillRun(userId, skillRunId)!;
-    const step = skill.steps[stepIndex];
+  try {
+    const outputs = parseStepOutputs(row);
     const jobId = startStepJob(row, skill, stepIndex, outputs);
-
     updateSkillRun(skillRunId, {
       status: "waiting_job",
       pendingJobId: jobId,
+      error: null,
     });
-
-    const result = await waitForJob(jobId);
-    outputs = { ...outputs, [step.id]: { jobId, ...result } };
-
-    if (result.status === "failed") {
-      updateSkillRun(skillRunId, {
-        status: "failed",
-        error: result.error ?? "步骤失败",
-        stepOutputs: outputs,
-        pendingJobId: null,
-      });
-      return getSkillRun(userId, skillRunId);
-    }
-
-    stepIndex += 1;
+    return getSkillRun(userId, skillRunId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "启动步骤失败";
     updateSkillRun(skillRunId, {
-      currentStepIndex: stepIndex,
+      status: "failed",
+      error: message,
+      pendingJobId: null,
+    });
+    return getSkillRun(userId, skillRunId);
+  }
+}
+
+/** 兼容 Inngest / inline 调度入口：仅启动首步或续跑当前步。 */
+export async function executeSkillRun(skillRunId: string, userId: string) {
+  return startSkillRunStep(skillRunId, userId);
+}
+
+/** Job 完成后推进 Skill（由 `notifyAgentJobCompleted` 调用）。 */
+export async function resumeSkillRunOnJobCompleted(jobId: string) {
+  const row = getSkillRunByJobId(jobId);
+  if (!row) return;
+  if (row.pending_job_id !== jobId) return;
+  if (row.status !== "waiting_job") return;
+
+  const observation = buildJobObservation(jobId);
+  if (!observation) return;
+
+  const skill = loadSkill(row.skill_id);
+  const step = skill.steps[row.current_step_index];
+  if (!step) return;
+
+  const outputs = parseStepOutputs(row);
+  outputs[step.id] = {
+    jobId,
+    outputIds: observation.outputIds,
+    urls: observation.urls,
+  };
+
+  if (observation.status === "failed") {
+    updateSkillRun(row.id, {
+      status: "failed",
+      error: observation.error ?? "步骤失败",
       stepOutputs: outputs,
       pendingJobId: null,
-      status: stepIndex >= skill.steps.length ? "completed" : "running",
     });
+    return;
   }
 
-  return getSkillRun(userId, skillRunId);
+  const nextStepIndex = row.current_step_index + 1;
+  const done = nextStepIndex >= skill.steps.length;
+
+  updateSkillRun(row.id, {
+    currentStepIndex: nextStepIndex,
+    stepOutputs: outputs,
+    pendingJobId: null,
+    status: done ? "completed" : "running",
+  });
+
+  if (!done) {
+    await startSkillRunStep(row.id, row.user_id);
+  }
 }
