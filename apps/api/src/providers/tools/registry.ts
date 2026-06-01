@@ -10,13 +10,17 @@ import { editMockProvider } from "./edit-mock.js";
 import { variationMockProvider } from "./variation-mock.js";
 import { variationOpenaiToolProvider } from "./variation-openai-tool.js";
 import { mockToolProvider } from "./mock.js";
+import { expandHttpProvider } from "./expand-http.js";
 import { seedreamToolProvider } from "./seedream-tool.js";
+import { wanExpandToolProvider } from "./wan-expand-tool.js";
 import { upscaleHttpProvider } from "./upscale-http.js";
 import { upscaleMockProvider } from "./upscale-mock.js";
 import type { ImageToolProvider, ToolRunParams, ToolRunResult } from "./types.js";
 
-/** auto 优先级：OpenAI 变体 → Seedream → http → mock */
+/** auto 优先级：扩图 Wan → 扩图 HTTP → OpenAI 变体 → Seedream → 其他 http → mock */
 const providers: ImageToolProvider[] = [
+  wanExpandToolProvider,
+  expandHttpProvider,
   variationOpenaiToolProvider,
   seedreamToolProvider,
   cutoutHttpProvider,
@@ -69,11 +73,13 @@ export async function runToolImages(
 
   const provider = resolveToolProvider(params.toolId, params.userId);
   const resolvedToolId = effectiveToolId(params.toolId);
+  const extend = params.extend ?? params.toolContext?.extend;
   const result = await provider.run({
     ...params,
     toolId: resolvedToolId,
     referenceUrls,
     count: params.count ?? 1,
+    extend,
   });
   const urls = await persistOutputUrls(result.urls);
   return { ...result, urls };
@@ -93,6 +99,11 @@ export function getToolProviderStatus() {
   );
   const editMode = (process.env.TOOL_EDIT_PROVIDER ?? "auto").toLowerCase();
   const editHttpConfigured = Boolean(process.env.TOOL_EDIT_HTTP_URL?.trim());
+  const expandMode = (process.env.TOOL_EXPAND_PROVIDER ?? "auto").toLowerCase();
+  const expandHttpConfigured = Boolean(
+    process.env.TOOL_EXPAND_HTTP_URL?.trim(),
+  );
+  const wanExpandConfigured = Boolean(process.env.DASHSCOPE_API_KEY?.trim());
   const seedreamConfigured = Boolean(process.env.ARK_API_KEY?.trim());
   const seedreamModel =
     process.env.SEEDREAM_MODEL ?? "doubao-seedream-5-0-260128";
@@ -127,12 +138,17 @@ export function getToolProviderStatus() {
     variationProvider,
     editMode,
     editHttpConfigured,
+    expandMode,
+    expandHttpConfigured,
+    wanExpandConfigured,
+    wanExpandModel:
+      process.env.ALIYUN_WAN_EXPAND_MODEL?.trim() ?? "wanx2.1-imageedit",
     seedreamConfigured,
     seedreamModel,
     genericToolProvider,
     usingMock: allMock,
     hint: allMock
-      ? "Studio 工具按类型走专用 mock；配置 ARK_API_KEY（火山方舟 Seedream）或 TOOL_*_HTTP_URL 后切换真供应商"
+      ? "Studio 工具按类型走专用 mock；配置 DASHSCOPE_API_KEY（万相扩图）/ TOOL_EXPAND_HTTP_URL / ARK_API_KEY 后切换真供应商"
       : `Studio 工具真实供应商：${cutoutProvider}/${upscaleProvider}/${expandProvider}`,
   };
 }

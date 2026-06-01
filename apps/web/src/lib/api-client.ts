@@ -786,6 +786,13 @@ export async function runTool(
     assetIds?: string[];
     scale?: "2x" | "4x";
     intent?: "edit" | "replace";
+    extend?: {
+      top?: number;
+      right?: number;
+      bottom?: number;
+      left?: number;
+      direction?: "all" | "left" | "right" | "up" | "down";
+    };
     focusPoints?: Array<{
       pointId: string;
       objectName: string;

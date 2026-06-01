@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { expandExtendSchema } from "./expand-extend.js";
 import { focusPointEntrySchema } from "./focus.js";
 
 export type ToolCategory = "edit" | "enhance" | "compose";
@@ -41,7 +42,8 @@ export const toolMaskSchema = z.object({
 
 export const toolContextSchema = z.object({
   toolId: z.string().min(1).max(40),
-  masks: z.array(toolMaskSchema).max(4),
+  masks: z.array(toolMaskSchema).max(4).default([]),
+  extend: expandExtendSchema.optional(),
 });
 
 export type ToolContext = z.infer<typeof toolContextSchema>;
@@ -169,9 +171,12 @@ const toolRunBodySchema = z.object({
   assetIds: z.array(z.string().uuid()).optional(),
   scale: z.enum(["2x", "4x"]).optional(),
   toolContext: toolContextSchema.optional(),
+  extend: expandExtendSchema.optional(),
   focusPoints: z.array(focusPointEntrySchema).min(1).max(10).optional(),
   intent: z.enum(["edit", "replace"]).optional(),
 });
+
+export { expandExtendSchema };
 
 export type ToolRunBody = z.infer<typeof toolRunBodySchema>;
 

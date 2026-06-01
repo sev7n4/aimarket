@@ -14,11 +14,9 @@ const CONFIG: HttpProviderConfig = {
   timeoutMs: 180_000,
 };
 
-const EDIT_TOOL_IDS = new Set(["expand", "inpaint", "erase"]);
+const EDIT_TOOL_IDS = new Set(["inpaint", "erase"]);
 
-/** expand 默认 21:9 扩图；inpaint 保留原比例 */
 function targetAspect(params: ToolRunParams): string {
-  if (params.toolId === "expand") return "21:9";
   return params.aspectRatio ?? "1:1";
 }
 

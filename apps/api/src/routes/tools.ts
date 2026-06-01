@@ -16,6 +16,7 @@ import { AppError } from "../lib/errors.js";
 import { recordAnalyticsEvent } from "../lib/analytics.js";
 import { db } from "../db/index.js";
 import { resolveJobLineage } from "../lib/job-lineage.js";
+import { mergeExpandToolContext } from "../lib/expand-run.js";
 
 const tools = new Hono<{ Variables: AuthVariables }>();
 
@@ -130,6 +131,8 @@ tools.post("/:toolId/run", async (c) => {
   const lineage = resolveJobLineage({
     referenceOutputIds: body.referenceOutputIds,
   });
+  const toolContext = mergeExpandToolContext(toolId, body);
+
   const { jobId, pointsCost } = createGenerationJob({
     sessionId: body.sessionId,
     userId,
@@ -140,7 +143,7 @@ tools.post("/:toolId/run", async (c) => {
     resolution: body.resolution,
     aspectRatio: body.aspectRatio,
     toolType: toolId,
-    toolContext: body.toolContext,
+    toolContext,
     parentJobId: lineage.parentJobId,
     sourceOutputId: lineage.sourceOutputId,
   });

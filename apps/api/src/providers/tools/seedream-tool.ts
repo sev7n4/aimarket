@@ -52,9 +52,17 @@ export function shouldUseSeedream(toolId: string): boolean {
   return isSeedreamConfigured();
 }
 
-/** expand 默认 21:9；inpaint/cutout/upscale 保留原比例 */
+/** 有 extend 时保留原比例；无 extend 的 Seedream 回落仍为 21:9 宽画幅 */
 function resolveAspect(params: ToolRunParams): string {
-  if (params.toolId === "expand") return "21:9";
+  if (params.toolId === "expand") {
+    const extend = params.extend ?? params.toolContext?.extend;
+    if (extend) {
+      const ar = params.aspectRatio ?? "auto";
+      if (ar && ar !== "auto" && ar !== "21:9") return ar;
+      return "1:1";
+    }
+    return "21:9";
+  }
   return params.aspectRatio ?? "1:1";
 }
 

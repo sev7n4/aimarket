@@ -50,9 +50,9 @@ docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.i
 | 图像生成 | `IMAGE_PROVIDER` + `DASHSCOPE_API_KEY` / `OPENAI_API_KEY` | `mock` | `aliyun-wan`（wan2.6-t2i，¥0.2/张）/ `openai`（DALL·E 3） |
 | 抠图 cutout | `TOOL_CUTOUT_PROVIDER` + `ARK_API_KEY`（推荐）或 `TOOL_CUTOUT_HTTP_URL` | `tool-cutout-mock` | `tool-seedream`（火山方舟 Seedream 5 编辑） / `tool-cutout-http`（自建网关 → fal BiRefNet / Photoroom / remove.bg） |
 | 超分/增强 upscale·enhance | `TOOL_UPSCALE_PROVIDER` + `ARK_API_KEY` 或 `TOOL_UPSCALE_HTTP_URL` | `tool-upscale-mock` | `tool-seedream` / `tool-upscale-http`（Real-ESRGAN / Topaz / Magnific） |
-| 扩图/局部 expand·inpaint | `TOOL_EDIT_PROVIDER` + `ARK_API_KEY` 或 `TOOL_EDIT_HTTP_URL` | `tool-edit-mock` | `tool-seedream` / `tool-edit-http`（FLUX.1 Fill / Ideogram Canvas） |
+| **扩图 expand** | `TOOL_EXPAND_PROVIDER` + `DASHSCOPE_API_KEY` 或 `TOOL_EXPAND_HTTP_URL` | `tool-edit-mock` | **`tool-wan-expand`**（万相 `wanx2.1-imageedit` + `function:expand`）/ **`tool-expand-http`**（FLUX Fill 等 outpaint 网关）/ 回落 `tool-seedream` |
+| 局部 inpaint / 消除 erase | `TOOL_EDIT_PROVIDER` + `ARK_API_KEY` 或 `TOOL_EDIT_HTTP_URL` | `tool-edit-mock` | `tool-seedream` / `tool-edit-http` |
 | 超分/增强 | （同上） | `tool-upscale-mock` | 第三方 upscale API |
-| 扩图/局部 | （同上） | `tool-edit-mock` | outpaint/inpaint API |
 | 提示词润色 | `PROMPT_OPTIMIZE_PROVIDER` | `auto` 或 `mock` | `openai` + `OPENAI_API_KEY` |
 | 内容审核 | `MODERATION_PROVIDER` | `local` 或 `openai` | 视合规要求 |
 
@@ -99,7 +99,12 @@ DASHSCOPE_API_KEY=sk-xxx     # 阿里云百炼控制台 → API-KEY
 DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com
 ALIYUN_WAN_MODEL=wan2.6-t2i
 
-# 2. Studio 工具走火山方舟 Seedream 5
+# 2. Studio 扩图（万相真扩图，推荐）
+TOOL_EXPAND_PROVIDER=auto
+ALIYUN_WAN_EXPAND_MODEL=wanx2.1-imageedit
+# TOOL_EXPAND_HTTP_URL=https://your-outpaint-gateway/expand   # FLUX Fill / 自建
+
+# 3. Studio 其他工具走火山方舟 Seedream 5
 TOOL_CUTOUT_PROVIDER=auto
 TOOL_UPSCALE_PROVIDER=auto
 TOOL_EDIT_PROVIDER=auto
@@ -108,7 +113,9 @@ ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
 SEEDREAM_MODEL=doubao-seedream-5-0-260128
 ```
 
-**`auto` 优先级**：vendor (Seedream/wan) > HTTP > mock。即配 Key 后**所有工具自动切真供应商**，不需要逐工具开关。
+**扩图 `auto` 优先级**：`tool-wan-expand`（`DASHSCOPE_API_KEY`）→ `tool-expand-http`（`TOOL_EXPAND_HTTP_URL`）→ `tool-seedream`（`ARK_API_KEY`）→ mock。
+
+**其他工具 `auto` 优先级**：vendor (Seedream/wan) > HTTP > mock。
 
 **注意**：
 - Seedream 5 通过 prompt 指令完成 cutout/upscale 等，效果不如专用 CV 模型（BiRefNet/Topaz），但**不需要额外申请阿里视觉智能 viapi**。
@@ -132,6 +139,20 @@ Content-Type: application/json
   "aspectRatio": "1:1"
 }
 ```
+
+扩图专用网关（`TOOL_EXPAND_HTTP_URL`）额外字段：
+
+```json
+{
+  "tool": "expand",
+  "function": "expand",
+  "extend": { "direction": "left" },
+  "extendScales": { "top_scale": 1, "bottom_scale": 1, "left_scale": 1.25, "right_scale": 1 },
+  "outpaint": { "top_scale": 1, "bottom_scale": 1, "left_scale": 1.25, "right_scale": 1 }
+}
+```
+
+兼容接口：`POST /api/v1/image/extendImage`（`extend` + `sourceOssId` / `assetId`）→ 内部 `toolType=expand`。
 
 响应：
 
