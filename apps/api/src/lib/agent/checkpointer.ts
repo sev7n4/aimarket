@@ -1,20 +1,22 @@
 import { MemorySaver } from "@langchain/langgraph";
-import type { BaseCheckpointSaver } from "@langchain/langgraph-checkpoint";
 import path from "node:path";
 
-let checkpointer: BaseCheckpointSaver | null = null;
-let initPromise: Promise<BaseCheckpointSaver> | null = null;
+/** 与 agent-core `createSessionGraph` 注入类型一致，避免 checkpoint 包双版本冲突 */
+export type AgentCheckpointer = unknown;
+
+let checkpointer: AgentCheckpointer | null = null;
+let initPromise: Promise<AgentCheckpointer> | null = null;
 
 export function resolveAgentCheckpointerMode(): "memory" | "sqlite" {
   const mode = (process.env.AGENT_CHECKPOINTER ?? "memory").toLowerCase();
   return mode === "sqlite" ? "sqlite" : "memory";
 }
 
-export async function initAgentCheckpointer(): Promise<BaseCheckpointSaver> {
+export async function initAgentCheckpointer(): Promise<AgentCheckpointer> {
   if (checkpointer) return checkpointer;
   if (initPromise) return initPromise;
 
-  initPromise = (async () => {
+  initPromise = (async (): Promise<AgentCheckpointer> => {
     const mode = resolveAgentCheckpointerMode();
     if (mode === "sqlite") {
       try {
@@ -30,8 +32,11 @@ export async function initAgentCheckpointer(): Promise<BaseCheckpointSaver> {
             "agent-checkpoints.sqlite",
           );
         const saver = SqliteSaver.fromConnString(`sqlite://${dbPath}`);
-        if (typeof (saver as { setup?: () => Promise<void> }).setup === "function") {
-          await (saver as { setup: () => Promise<void> }).setup();
+        const withSetup = saver as {
+          setup?: () => Promise<void>;
+        };
+        if (typeof withSetup.setup === "function") {
+          await withSetup.setup.call(saver);
         }
         console.log(`[agent] checkpointer=sqlite path=${dbPath}`);
         checkpointer = saver;
@@ -44,15 +49,16 @@ export async function initAgentCheckpointer(): Promise<BaseCheckpointSaver> {
       }
     }
 
-    checkpointer = new MemorySaver();
+    const memory = new MemorySaver();
+    checkpointer = memory;
     console.log("[agent] checkpointer=memory");
-    return checkpointer;
+    return memory;
   })();
 
   return initPromise;
 }
 
-export function getAgentCheckpointer(): BaseCheckpointSaver {
+export function getAgentCheckpointer(): AgentCheckpointer {
   if (!checkpointer) {
     throw new Error("Agent checkpointer not initialized; call initAgentCheckpointer()");
   }
