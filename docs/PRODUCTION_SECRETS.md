@@ -77,6 +77,17 @@ S3_SECRET_ACCESS_KEY=...
 S3_PUBLIC_URL=https://...
 ```
 
+## Agent 编排（P3，多实例可选 Redis）
+
+| 变量 | 说明 |
+|------|------|
+| `AGENT_LLM_ENABLED` | `true` 启用 LLM 规划（需 `DEEPSEEK_API_KEY` 等） |
+| `AGENT_CHECKPOINTER` | `memory`（单实例）\| `sqlite` \| `redis`（多 API 副本） |
+| `REDIS_URL` | `AGENT_CHECKPOINTER=redis` 时必填；可与 `JOB_QUEUE=redis` 共用，需 **Redis Stack**（RediSearch） |
+| `AGENT_CHECKPOINT_REDIS_TTL_MINUTES` | 可选 checkpoint TTL（分钟） |
+| `AGENT_VLM_ENABLED` | 套图主图 VLM 选择、步骤质检（`AGENT_VLM_PROVIDER=auto`） |
+| `INNGEST_EVENT_KEY` | 长 Skill 自托管 Inngest（见 `deploy/.env.production.example`） |
+
 ## 国内推荐方案（阿里百炼 + 火山方舟）
 
 最少 2 个 Key 即可覆盖生成 + 编辑场景：

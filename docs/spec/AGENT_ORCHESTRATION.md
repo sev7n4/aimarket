@@ -4,7 +4,7 @@
 |------|------|
 | 版本 | v0.1（P0+P1 基线） |
 | 日期 | 2026-06-01 |
-| 状态 | P0+P1+P1.5 已落地；P2（自托管 Inngest 长 Skill）开发中 |
+| 状态 | P0–P3.3 已落地；P3.4 为创作台展示与生产配置抛光 |
 | 关联 | [TECH_SPEC.md](../TECH_SPEC.md) · [PROJECT_WORKFLOW.md](../PROJECT_WORKFLOW.md) · [JIAOTU_OPTIMIZED_DESIGN.md](./JIAOTU_OPTIMIZED_DESIGN.md) |
 
 ---
@@ -469,6 +469,7 @@ aimarket/
 | **P3.1** ✅ | SQLite checkpointer + DB fallback resume | API 重启后续跑 Agent Run |
 | **P3.2** ✅ | Skill VLM 选 hero（`heroOutputIndex`） | 套图主图索引 |
 | **P3.3** ✅ | Redis LangGraph checkpointer（`@langchain/langgraph-checkpoint-redis@0.0.2`） | 多 API 实例 |
+| **P3.4** ✅ | API/UI 暴露 `heroOutputIndex`；生产 Agent 环境变量文档 | 运营可见主图选择 |
 
 ---
 
@@ -495,3 +496,4 @@ DEEPSEEK_API_KEY=sk-...
 | v0.3.1 | 2026-06-01 | P3.1 Sqlite checkpointer + `resumeAgentRunFromDb` |
 | v0.3.2 | 2026-06-01 | P3.2 Skill VLM 选 hero（`pick-hero.ts`） |
 | v0.3.3 | 2026-06-01 | P3.3 `RedisSaver.fromUrl` + `REDIS_URL`；失败回退 sqlite |
+| v0.3.4 | 2026-06-01 | P3.4 套图主图索引 API/UI + 生产配置说明 |

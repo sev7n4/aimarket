@@ -194,15 +194,27 @@ export function serializeSkillRunForApi(row: SkillRunRow) {
     description: skill.description,
     status: row.status,
     prompt: row.prompt,
-    steps: skill.steps.map((s, i) => ({
-      id: s.id,
-      label: s.label,
-      type: s.type,
-      index: i,
-      done: i < row.current_step_index,
-      current: i === row.current_step_index && row.status !== "completed",
-      outputs: stepOutputs[s.id],
-    })),
+    steps: skill.steps.map((s, i) => {
+      const out = stepOutputs[s.id];
+      return {
+        id: s.id,
+        label: s.label,
+        type: s.type,
+        index: i,
+        done: i < row.current_step_index,
+        current: i === row.current_step_index && row.status !== "completed",
+        outputs: out
+          ? {
+              jobId: out.jobId,
+              outputIds: out.outputIds,
+              urls: out.urls,
+              ...(out.heroOutputIndex !== undefined
+                ? { heroOutputIndex: out.heroOutputIndex }
+                : {}),
+            }
+          : undefined,
+      };
+    }),
     currentStepIndex: row.current_step_index,
     pendingJobId: row.pending_job_id,
     estimatedPoints: row.estimated_points,

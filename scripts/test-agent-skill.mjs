@@ -107,6 +107,13 @@ async function main() {
       final?.steps?.length === 3,
       `steps=${final?.steps?.length}`,
     );
+    const setStep = final?.steps?.find((s) => s.id === "gen_set");
+    const heroIdx = setStep?.outputs?.heroOutputIndex;
+    ok(
+      "gen_set heroOutputIndex",
+      Number.isInteger(heroIdx) && heroIdx >= 0,
+      `hero=${heroIdx ?? "missing"}`,
+    );
   }
 
   const failed = results.filter((r) => !r.pass).length;
