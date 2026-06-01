@@ -10,6 +10,8 @@ import type {
   InspirationDetail,
   InspirationListItem,
   InviteInfo,
+  PublicSharePayload,
+  SessionShareStatus,
   Notice,
   ProductSetInit,
   RouteSuggestion,
@@ -291,6 +293,39 @@ export async function deleteSession(sessionId: string) {
   const res = await request<{ data: { deleted: boolean; sessionId: string } }>(
     `/api/v1/imageSession/${sessionId}`,
     { method: "DELETE" },
+  );
+  return res.data;
+}
+
+export async function fetchSessionShareStatus(sessionId: string) {
+  const res = await request<{ data: SessionShareStatus }>(
+    `/api/v1/imageSession/${sessionId}/share`,
+  );
+  return res.data;
+}
+
+export async function createSessionShare(sessionId: string) {
+  const res = await request<{
+    data: { shareUrl: string; expiresAt: string; shareId: string };
+  }>(`/api/v1/imageSession/${sessionId}/share`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  return res.data;
+}
+
+export async function revokeSessionShare(sessionId: string) {
+  const res = await request<{ data: { revoked: boolean } }>(
+    `/api/v1/imageSession/${sessionId}/share`,
+    { method: "DELETE" },
+  );
+  return res.data;
+}
+
+export async function fetchPublicShare(token: string) {
+  const res = await request<{ data: PublicSharePayload }>(
+    `/api/v1/share/${encodeURIComponent(token)}`,
+    { auth: false },
   );
   return res.data;
 }

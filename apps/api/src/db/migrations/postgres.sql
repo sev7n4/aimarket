@@ -21,6 +21,18 @@ CREATE TABLE IF NOT EXISTS email_verification_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_email_verify_user ON email_verification_tokens(user_id, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS session_shares (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL REFERENCES image_sessions(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  created_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ,
+  revoked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_session_shares_session ON session_shares(session_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS workspaces (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,

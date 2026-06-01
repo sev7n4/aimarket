@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
+import { InviteCaptureRoot } from "@/components/invite-capture-root";
 import { BRAND_NAME, BRAND_SLOGAN } from "@/lib/brand";
 import "./globals.css";
 
@@ -46,7 +47,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <InviteCaptureRoot />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

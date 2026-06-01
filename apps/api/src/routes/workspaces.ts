@@ -12,6 +12,7 @@ import {
   requireWorkspaceRole,
 } from "../lib/workspace-members.js";
 import { getUserDefaultWorkspaceId } from "../lib/workspaces.js";
+import { getPublicWebUrl } from "../lib/public-url.js";
 
 export const workspacesRoute = new Hono<{ Variables: AuthVariables }>();
 
@@ -93,8 +94,7 @@ workspacesRoute.post("/:workspaceId/invites", async (c) => {
     expiresInDays: body.expiresInDays,
   });
 
-  const webBase =
-    process.env.PUBLIC_WEB_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
+  const webBase = getPublicWebUrl();
   const joinUrl = `${webBase}/join?code=${invite.code}`;
 
   return c.json(

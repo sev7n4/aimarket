@@ -53,7 +53,7 @@ export function InviteDialog({ open, onClose }: InviteDialogProps) {
         </button>
         <h2 className="text-xl font-semibold">邀请有礼</h2>
         <p className="mt-2 text-sm text-zinc-500">
-          好友注册时填写你的邀请码，双方各得{" "}
+          好友通过链接注册并验证邮箱后，双方各得{" "}
           <span className="text-orange-400">
             {info?.rewardPerInvite ?? 100} 积分
           </span>
@@ -80,9 +80,17 @@ export function InviteDialog({ open, onClose }: InviteDialogProps) {
               </button>
             </div>
             <div className="flex justify-between text-sm text-zinc-500">
-              <span>已成功邀请</span>
+              <span>已到账邀请</span>
               <span className="text-white">{info.inviteCount} 人</span>
             </div>
+            {(info.pendingInviteCount ?? 0) > 0 ? (
+              <div className="flex justify-between text-sm text-zinc-500">
+                <span>待好友验证邮箱</span>
+                <span className="text-amber-400/90">
+                  {info.pendingInviteCount} 人
+                </span>
+              </div>
+            ) : null}
             <div className="flex justify-between text-sm text-zinc-500">
               <span>累计获得</span>
               <span className="text-orange-400">{info.totalEarned} 积分</span>

@@ -13,6 +13,7 @@ import { AppError } from "./lib/errors.js";
 import { ensureUploadDir, getUploadDir } from "./lib/storage.js";
 import { requireAuth } from "./middleware/auth.js";
 import { auth } from "./routes/auth.js";
+import { share } from "./routes/share.js";
 import { user } from "./routes/user.js";
 import { sessions } from "./routes/sessions.js";
 import { assets } from "./routes/assets.js";
@@ -99,6 +100,7 @@ app.route("/api/v1/product/webhook", productWebhook);
 app.route("/api/v1/internal/agent", skillInternal);
 
 app.route("/api/v1/auth", auth);
+app.route("/api/v1/share", share);
 app.route("/api/v1/productSet", productSetPublic);
 app.route("/api/v1/notice", noticePublic);
 app.route("/api/v1/version", versionPublic);

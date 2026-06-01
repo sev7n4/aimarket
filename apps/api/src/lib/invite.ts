@@ -114,11 +114,21 @@ export function applyInviteOnRegister(
 export function getInviteStats(userId: string) {
   const code = ensureInviteCode(userId);
   const count = db
-    .prepare("SELECT COUNT(*) as c FROM invite_redemptions WHERE inviter_id = ?")
+    .prepare(
+      `SELECT COUNT(*) as c FROM invite_redemptions
+       WHERE inviter_id = ? AND rewards_granted_at IS NOT NULL`,
+    )
+    .get(userId) as { c: number };
+  const pending = db
+    .prepare(
+      `SELECT COUNT(*) as c FROM invite_redemptions
+       WHERE inviter_id = ? AND rewards_granted_at IS NULL`,
+    )
     .get(userId) as { c: number };
   return {
     code,
     inviteCount: count.c,
+    pendingInviteCount: pending.c,
     rewardPerInvite: INVITE_REWARD_CREDITS,
     totalEarned: count.c * INVITE_REWARD_CREDITS,
   };

@@ -5,6 +5,7 @@ import { grantPendingInviteRewards } from "./invite.js";
 import { skipsEmailVerification } from "./email-trust.js";
 import { sendVerificationEmail } from "./mail.js";
 import { REGISTER_BONUS } from "./growth.js";
+import { getPublicWebUrl } from "./public-url.js";
 
 function hashToken(raw: string) {
   return createHash("sha256").update(raw).digest("hex");
@@ -16,10 +17,7 @@ function verificationTtlMs() {
 }
 
 export function publicAppUrl() {
-  return (
-    process.env.APP_PUBLIC_URL?.replace(/\/$/, "") ??
-    "http://localhost:3000"
-  );
+  return getPublicWebUrl();
 }
 
 export function initialCreditsForRegister(email: string) {

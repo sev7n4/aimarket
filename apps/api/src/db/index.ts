@@ -478,3 +478,16 @@ database.exec(`
   UPDATE invite_redemptions SET rewards_granted_at = created_at WHERE rewards_granted_at IS NULL;
 `);
 
+database.exec(`
+  CREATE TABLE IF NOT EXISTS session_shares (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES image_sessions(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    created_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TEXT,
+    revoked_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_session_shares_session ON session_shares(session_id, created_at DESC);
+`);
+

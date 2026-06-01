@@ -21,6 +21,11 @@ import {
 import { listSessionsForUser } from "../lib/session-list.js";
 import { resolveWorkspaceIdForUser } from "../lib/workspaces.js";
 import { rowToCanonical } from "../lib/inspiration.js";
+import {
+  createSessionShareLink,
+  getSessionShareStatus,
+  revokeSessionShare,
+} from "../lib/session-share.js";
 
 const SESSION_SELECT =
   "id, user_id, workspace_id, title, mode, kind, status, created_at, updated_at";
@@ -334,6 +339,32 @@ sessions.get("/:sessionId/messages", (c) => {
   });
 
   return c.json({ data, meta: access });
+});
+
+sessions.get("/:sessionId/share", (c) => {
+  const userId = c.get("userId");
+  const sessionId = c.req.param("sessionId");
+  const status = getSessionShareStatus(userId, sessionId);
+  return c.json({ data: status });
+});
+
+sessions.post("/:sessionId/share", async (c) => {
+  const userId = c.get("userId");
+  const sessionId = c.req.param("sessionId");
+  const body = z
+    .object({ expiresInDays: z.number().int().min(1).max(90).optional() })
+    .parse(await c.req.json().catch(() => ({})));
+  const data = createSessionShareLink(userId, sessionId, {
+    expiresInDays: body.expiresInDays,
+  });
+  return c.json({ data }, 201);
+});
+
+sessions.delete("/:sessionId/share", (c) => {
+  const userId = c.get("userId");
+  const sessionId = c.req.param("sessionId");
+  const data = revokeSessionShare(userId, sessionId);
+  return c.json({ data });
 });
 
 sessions.get("/:sessionId/export", (c) => {

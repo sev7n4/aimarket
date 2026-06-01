@@ -76,7 +76,8 @@
 
 | 变量 | 说明 |
 |------|------|
-| `APP_PUBLIC_URL` | Web 根 URL，拼验证链接 |
+| `PUBLIC_WEB_URL` | Web 根 URL（邀请/分享/邮箱验证链接统一） |
+| `APP_PUBLIC_URL` | 已废弃别名，未设 `PUBLIC_WEB_URL` 时回退 |
 | `MAIL_FROM` | 发件人 |
 | `RESEND_API_KEY` | 可选；未配置则 `console` 打日志 |
 | `EMAIL_VERIFICATION_TTL_HOURS` | 默认 24 |

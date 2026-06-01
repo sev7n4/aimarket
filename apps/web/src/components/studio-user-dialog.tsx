@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LogOut, Coins, CalendarCheck, X } from "lucide-react";
+import { LogOut, Coins, CalendarCheck, Gift, X } from "lucide-react";
 import { Button } from "@aimarket/ui";
 import { useAuth } from "@/lib/auth-context";
 import { fetchSignStatus, signIn } from "@/lib/api-client";
@@ -12,6 +12,7 @@ interface StudioUserDialogProps {
   onClose: () => void;
   onLogin: () => void;
   onOpenCredits: () => void;
+  onOpenInvite?: () => void;
 }
 
 function formatJoined(createdAt?: string) {
@@ -30,6 +31,7 @@ export function StudioUserDialog({
   onClose,
   onLogin,
   onOpenCredits,
+  onOpenInvite,
 }: StudioUserDialogProps) {
   const { user, loading, logout, refreshUser } = useAuth();
   const [signedToday, setSignedToday] = useState(true);
@@ -98,6 +100,14 @@ export function StudioUserDialog({
               onClose();
               onOpenCredits();
             }}
+            onOpenInvite={
+              onOpenInvite ?
+                () => {
+                  onClose();
+                  onOpenInvite();
+                }
+              : undefined
+            }
             onLogout={() => {
               logout();
               onClose();
@@ -117,6 +127,7 @@ function LoggedInBody({
   signing,
   onSignIn,
   onOpenCredits,
+  onOpenInvite,
   onLogout,
 }: {
   user: ApiUser;
@@ -124,6 +135,7 @@ function LoggedInBody({
   signing: boolean;
   onSignIn: () => void | Promise<void>;
   onOpenCredits: () => void;
+  onOpenInvite?: () => void;
   onLogout: () => void;
 }) {
   const joined = formatJoined(user.created_at);
@@ -166,6 +178,17 @@ function LoggedInBody({
         <CalendarCheck className="size-4" />
         {signedToday ? "今日已签到" : signing ? "签到中…" : "每日签到领积分"}
       </button>
+
+      {onOpenInvite ? (
+        <button
+          type="button"
+          onClick={onOpenInvite}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-purple-500/25 bg-purple-500/10 px-3 py-2.5 text-sm text-purple-200 transition hover:bg-purple-500/15"
+        >
+          <Gift className="size-4" />
+          邀请有礼
+        </button>
+      ) : null}
 
       <button
         type="button"
