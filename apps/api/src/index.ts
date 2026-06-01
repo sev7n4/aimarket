@@ -28,6 +28,7 @@ import { getVideoProviderStatus } from "./providers/video/registry.js";
 import { sign } from "./routes/sign.js";
 import { invite } from "./routes/invite.js";
 import { noticeAuthed, noticePublic } from "./routes/notice.js";
+import { APP_VERSION } from "./lib/app-version.js";
 import { versionPublic } from "./routes/version.js";
 import { brandKit } from "./routes/brandKit.js";
 import { admin } from "./routes/admin.js";
@@ -82,7 +83,7 @@ app.onError((err, c) => {
 });
 
 app.get("/health", (c) =>
-  c.json({ ok: true, service: "aimarket-api", version: "0.8.0" }),
+  c.json({ ok: true, service: "aimarket-api", version: APP_VERSION }),
 );
 
 app.use(

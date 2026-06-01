@@ -1,7 +1,7 @@
 {
   "name": "aimarket",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "出图宝 — 电商出图与宣传短视频",
   "scripts": {
     "dev": "pnpm --parallel -r dev",
