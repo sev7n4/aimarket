@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "../db/index.js";
 import type { AuthVariables } from "../middleware/auth.js";
 import { AppError } from "../lib/errors.js";
+import { mapUserPublic, USER_PUBLIC_SELECT } from "../lib/user-public.js";
 import {
   getUserProviderConfigPublic,
   saveUserProviderConfig,
@@ -13,10 +14,10 @@ const user = new Hono<{ Variables: AuthVariables }>();
 user.get("/getInfo", (c) => {
   const userId = c.get("userId");
   const row = db
-    .prepare("SELECT id, email, credits, created_at FROM users WHERE id = ?")
-    .get(userId);
+    .prepare(`SELECT ${USER_PUBLIC_SELECT} FROM users WHERE id = ?`)
+    .get(userId) as Parameters<typeof mapUserPublic>[0] | undefined;
   if (!row) throw new AppError(404, "NOT_FOUND", "用户不存在");
-  return c.json({ data: row });
+  return c.json({ data: mapUserPublic(row) });
 });
 
 user.get("/queryPoints", (c) => {

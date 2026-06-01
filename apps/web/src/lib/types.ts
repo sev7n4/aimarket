@@ -26,7 +26,10 @@ export interface ApiUser {
   id: string;
   email: string;
   credits: number;
+  pending_credits?: number;
+  email_verified?: boolean;
   created_at?: string;
+  phone?: string;
 }
 
 export interface ImageSession {

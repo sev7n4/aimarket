@@ -9,8 +9,17 @@ import { AppError } from "../lib/errors.js";
 import { rateLimit } from "../lib/rate-limit.js";
 import { issueSmsCode, verifySmsCode } from "../lib/sms-mock.js";
 import { ensurePersonalWorkspace } from "../lib/workspaces.js";
+import { assertRegisterableEmail } from "../lib/email-trust.js";
+import {
+  initialCreditsForRegister,
+  sendEmailVerificationLink,
+  verifyEmailWithToken,
+} from "../lib/email-verification.js";
+import { mapUserPublic, USER_PUBLIC_SELECT } from "../lib/user-public.js";
+import type { AuthVariables } from "../middleware/auth.js";
+import { requireAuth } from "../middleware/auth.js";
 
-const auth = new Hono();
+const auth = new Hono<{ Variables: AuthVariables }>();
 
 const registerSchema = z.object({
   email: z.string().email("邮箱格式不正确"),
@@ -21,6 +30,10 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email("邮箱格式不正确"),
   password: z.string().min(8, "密码至少 8 位"),
+});
+
+const verifyEmailSchema = z.object({
+  token: z.string().min(16).max(128),
 });
 
 const phoneSchema = z
@@ -54,67 +67,57 @@ function wechatEmail(openId: string) {
   return `wx_${openId}@wechat.aimarket`;
 }
 
-function selectUserPublic(row: {
-  id: string;
-  email: string;
-  credits: number;
-  created_at: string;
-  phone?: string | null;
-}) {
-  return {
-    id: row.id,
-    email: row.email,
-    credits: row.credits,
-    created_at: row.created_at,
-    phone: row.phone ?? undefined,
-  };
+function fetchUserById(id: string) {
+  return db
+    .prepare(`SELECT ${USER_PUBLIC_SELECT} FROM users WHERE id = ?`)
+    .get(id) as
+    | {
+        id: string;
+        email: string;
+        credits: number;
+        pending_credits: number;
+        email_verified_at: string | null;
+        created_at: string;
+        phone: string | null;
+      }
+    | undefined;
+}
+
+function inviteBonusPayload(
+  inviteResult: ReturnType<typeof applyInviteOnRegister>,
+) {
+  if (!inviteResult) return null;
+  const message =
+    inviteResult.pending ?
+      "邀请关系已记录，验证邮箱后双方各得邀请奖励"
+    : "邀请奖励已发放";
+  return { reward: inviteResult.reward, message, pending: inviteResult.pending };
 }
 
 async function findOrCreateByPhone(phone: string, inviteCode?: string) {
   const normalized = normalizePhone(phone);
   const existing = db
-    .prepare(
-      "SELECT id, email, credits, created_at, phone FROM users WHERE phone = ?",
-    )
-    .get(normalized) as
-    | {
-        id: string;
-        email: string;
-        credits: number;
-        created_at: string;
-        phone: string | null;
-      }
-    | undefined;
+    .prepare(`SELECT ${USER_PUBLIC_SELECT} FROM users WHERE phone = ?`)
+    .get(normalized) as Parameters<typeof mapUserPublic>[0] | undefined;
   if (existing) {
-    return { user: selectUserPublic(existing), inviteBonus: null };
+    return { user: mapUserPublic(existing), inviteBonus: null };
   }
 
   const id = randomUUID();
   const email = phoneEmail(normalized);
   const passwordHash = await hashPassword(randomUUID());
   db.prepare(
-    "INSERT INTO users (id, email, password_hash, credits, phone) VALUES (?, ?, ?, ?, ?)",
+    `INSERT INTO users (id, email, password_hash, credits, pending_credits, phone, email_verified_at)
+     VALUES (?, ?, ?, ?, 0, ?, datetime('now'))`,
   ).run(id, email, passwordHash, REGISTER_BONUS, normalized);
 
-  const inviteResult = applyInviteOnRegister(id, inviteCode);
+  const inviteResult = applyInviteOnRegister(id, inviteCode, email);
   ensurePersonalWorkspace(id);
-  const user = db
-    .prepare(
-      "SELECT id, email, credits, created_at, phone FROM users WHERE id = ?",
-    )
-    .get(id) as {
-    id: string;
-    email: string;
-    credits: number;
-    created_at: string;
-    phone: string | null;
-  };
+  const user = fetchUserById(id)!;
 
   return {
-    user: selectUserPublic(user),
-    inviteBonus: inviteResult
-      ? { reward: inviteResult.reward, message: "邀请奖励已发放" }
-      : null,
+    user: mapUserPublic(user),
+    inviteBonus: inviteBonusPayload(inviteResult),
   };
 }
 
@@ -125,49 +128,27 @@ async function findOrCreateByWechat(code: string, inviteCode?: string) {
       : `wx_${code.slice(0, 48)}`;
 
   const existing = db
-    .prepare(
-      "SELECT id, email, credits, created_at, phone FROM users WHERE wechat_open_id = ?",
-    )
-    .get(openId) as
-    | {
-        id: string;
-        email: string;
-        credits: number;
-        created_at: string;
-        phone: string | null;
-      }
-    | undefined;
+    .prepare(`SELECT ${USER_PUBLIC_SELECT} FROM users WHERE wechat_open_id = ?`)
+    .get(openId) as Parameters<typeof mapUserPublic>[0] | undefined;
   if (existing) {
-    return { user: selectUserPublic(existing), inviteBonus: null };
+    return { user: mapUserPublic(existing), inviteBonus: null };
   }
 
   const id = randomUUID();
   const email = wechatEmail(openId);
   const passwordHash = await hashPassword(randomUUID());
   db.prepare(
-    `INSERT INTO users (id, email, password_hash, credits, wechat_open_id)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO users (id, email, password_hash, credits, pending_credits, wechat_open_id, email_verified_at)
+     VALUES (?, ?, ?, ?, 0, ?, datetime('now'))`,
   ).run(id, email, passwordHash, REGISTER_BONUS, openId);
 
-  const inviteResult = applyInviteOnRegister(id, inviteCode);
+  const inviteResult = applyInviteOnRegister(id, inviteCode, email);
   ensurePersonalWorkspace(id);
-  const user = db
-    .prepare(
-      "SELECT id, email, credits, created_at, phone FROM users WHERE id = ?",
-    )
-    .get(id) as {
-    id: string;
-    email: string;
-    credits: number;
-    created_at: string;
-    phone: string | null;
-  };
+  const user = fetchUserById(id)!;
 
   return {
-    user: selectUserPublic(user),
-    inviteBonus: inviteResult
-      ? { reward: inviteResult.reward, message: "邀请奖励已发放" }
-      : null,
+    user: mapUserPublic(user),
+    inviteBonus: inviteBonusPayload(inviteResult),
   };
 }
 
@@ -177,54 +158,108 @@ auth.post("/register", async (c) => {
     process.env.E2E_RELAX_RATE_LIMIT === "true" ? 10_000 : 10;
   await rateLimit(`register:${ip}`, registerLimit, 60 * 60 * 1000);
   const body = registerSchema.parse(await c.req.json());
-  const existing = db
-    .prepare("SELECT id FROM users WHERE email = ?")
-    .get(body.email);
+  const email = body.email.toLowerCase();
+  assertRegisterableEmail(email);
+
+  const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
   if (existing) {
     throw new AppError(400, "EMAIL_EXISTS", "该邮箱已注册");
   }
 
+  const { credits, pending, verifiedNow } = initialCreditsForRegister(email);
   const id = randomUUID();
   const passwordHash = await hashPassword(body.password);
-  db.prepare(
-    "INSERT INTO users (id, email, password_hash, credits) VALUES (?, ?, ?, ?)",
-  ).run(id, body.email.toLowerCase(), passwordHash, REGISTER_BONUS);
 
-  const inviteResult = applyInviteOnRegister(id, body.inviteCode);
+  db.prepare(
+    `INSERT INTO users (id, email, password_hash, credits, pending_credits, email_verified_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    email,
+    passwordHash,
+    credits,
+    pending,
+    verifiedNow ? new Date().toISOString() : null,
+  );
+
+  const inviteResult = applyInviteOnRegister(id, body.inviteCode, email);
   ensurePersonalWorkspace(id);
 
+  let verificationEmailSent = false;
+  if (!verifiedNow) {
+    await sendEmailVerificationLink(id, email);
+    verificationEmailSent = true;
+  }
+
   const token = await signToken(id);
-  const user = db
-    .prepare(
-      "SELECT id, email, credits, created_at, phone FROM users WHERE id = ?",
-    )
-    .get(id) as {
-    id: string;
-    email: string;
-    credits: number;
-    created_at: string;
-    phone: string | null;
-  };
+  const user = mapUserPublic(fetchUserById(id)!);
 
   return c.json(
     {
       data: {
         token,
-        user: selectUserPublic(user),
-        inviteBonus: inviteResult
-          ? { reward: inviteResult.reward, message: "邀请奖励已发放" }
-          : null,
+        user,
+        inviteBonus: inviteBonusPayload(inviteResult),
+        verificationEmailSent,
+        message:
+          verifiedNow ?
+            undefined
+          : "注册成功，请查收验证邮件，验证后到账注册积分",
       },
     },
     201,
   );
 });
 
+auth.post("/verify-email", async (c) => {
+  const body = verifyEmailSchema.parse(await c.req.json());
+  const result = await verifyEmailWithToken(body.token);
+  const token = await signToken(result.userId);
+  const user = mapUserPublic(fetchUserById(result.userId)!);
+
+  return c.json({
+    data: {
+      token,
+      user,
+      creditsGranted: result.creditsGranted,
+      alreadyVerified: result.alreadyVerified,
+      message:
+        result.alreadyVerified ?
+          "邮箱已验证"
+        : `验证成功，已到账 ${result.creditsGranted} 积分`,
+    },
+  });
+});
+
+auth.post("/resend-verification", requireAuth, async (c) => {
+  const userId = c.get("userId");
+  const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
+  await rateLimit(`resend-verify:${userId}`, 1, 60 * 1000);
+  await rateLimit(`resend-verify-ip:${ip}`, 10, 60 * 60 * 1000);
+
+  const row = db
+    .prepare("SELECT id, email, email_verified_at FROM users WHERE id = ?")
+    .get(userId) as
+    | { id: string; email: string; email_verified_at: string | null }
+    | undefined;
+
+  if (!row) throw new AppError(404, "NOT_FOUND", "用户不存在");
+  if (row.email_verified_at) {
+    throw new AppError(400, "ALREADY_VERIFIED", "邮箱已验证，无需重复发送");
+  }
+
+  await sendEmailVerificationLink(row.id, row.email);
+  return c.json({
+    data: { message: "验证邮件已发送，请查收邮箱" },
+  });
+});
+
 auth.post("/login", async (c) => {
   const body = loginSchema.parse(await c.req.json());
   const row = db
     .prepare(
-      "SELECT id, email, password_hash, credits, created_at, phone FROM users WHERE email = ?",
+      `SELECT id, email, password_hash, credits, pending_credits, email_verified_at, created_at, phone
+       FROM users WHERE email = ?`,
     )
     .get(body.email.toLowerCase()) as
     | {
@@ -232,6 +267,8 @@ auth.post("/login", async (c) => {
         email: string;
         password_hash: string;
         credits: number;
+        pending_credits: number;
+        email_verified_at: string | null;
         created_at: string;
         phone: string | null;
       }
@@ -243,7 +280,7 @@ auth.post("/login", async (c) => {
 
   const token = await signToken(row.id);
   const { password_hash: _, ...rest } = row;
-  return c.json({ data: { token, user: selectUserPublic(rest) } });
+  return c.json({ data: { token, user: mapUserPublic(rest) } });
 });
 
 auth.post("/sms/send", async (c) => {

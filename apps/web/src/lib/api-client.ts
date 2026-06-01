@@ -71,7 +71,13 @@ export async function register(
     data: {
       token: string;
       user: ApiUser;
-      inviteBonus?: { reward: number; message: string } | null;
+      inviteBonus?: {
+        reward: number;
+        message: string;
+        pending?: boolean;
+      } | null;
+      verificationEmailSent?: boolean;
+      message?: string;
     };
   }>("/api/v1/auth/register", {
     method: "POST",
@@ -79,6 +85,32 @@ export async function register(
     auth: false,
   });
   setToken(res.data.token);
+  return res.data;
+}
+
+export async function verifyEmail(token: string) {
+  const res = await request<{
+    data: {
+      token: string;
+      user: ApiUser;
+      creditsGranted: number;
+      alreadyVerified: boolean;
+      message: string;
+    };
+  }>("/api/v1/auth/verify-email", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+    auth: false,
+  });
+  setToken(res.data.token);
+  return res.data;
+}
+
+export async function resendVerificationEmail() {
+  const res = await request<{ data: { message: string } }>(
+    "/api/v1/auth/resend-verification",
+    { method: "POST" },
+  );
   return res.data;
 }
 

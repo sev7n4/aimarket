@@ -25,6 +25,7 @@ import {
 import { enqueueJob } from "./queue/index.js";
 import type { JobQueuePayload } from "./queue/types.js";
 import { notifyAgentJobCompleted } from "./agent/job-events.js";
+import { assertEmailVerifiedForSpend } from "./email-verification.js";
 
 const delayMs = Number(process.env.MOCK_GENERATION_DELAY_MS ?? 2500);
 
@@ -74,6 +75,7 @@ export function createGenerationJob(input: CreateJobInput) {
   if (!user) {
     throw new AppError(404, "NOT_FOUND", "用户不存在");
   }
+  assertEmailVerifiedForSpend(input.userId);
   if (user.credits < pointsCost) {
     throw new AppError(402, "INSUFFICIENT_CREDITS", "积分不足，请充值后再试");
   }
