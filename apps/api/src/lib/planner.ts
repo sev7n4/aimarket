@@ -3,7 +3,7 @@ import { estimatePoints, estimateToolPoints } from "./pricing.js";
 import { suggestModel } from "./router.js";
 import { listToolsPublic } from "./tools.js";
 
-export type PlanStepType = "generate" | "tool";
+export type PlanStepType = "generate" | "tool" | "video";
 
 export interface PlanStep {
   type: PlanStepType;

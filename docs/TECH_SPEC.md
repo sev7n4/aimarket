@@ -46,6 +46,8 @@ aimarket/
 └── docs/               # PRD / 产品 / 技术文档
 ```
 
+Agent 编排详见 [spec/AGENT_ORCHESTRATION.md](./spec/AGENT_ORCHESTRATION.md)。
+
 ### 1.2 技术选型
 
 | 层 | 选型 | 理由 |

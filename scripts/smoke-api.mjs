@@ -728,8 +728,11 @@ async function main() {
   });
   ok(
     "POST agent/plan",
-    agentPlan.res.ok && Array.isArray(agentPlan.json?.data?.steps),
-    `steps=${agentPlan.json?.data?.steps?.length}`,
+    agentPlan.res.ok &&
+      Array.isArray(agentPlan.json?.data?.steps) &&
+      (agentPlan.json?.data?.planSource === "rule" ||
+        agentPlan.json?.data?.planSource === "llm"),
+    `steps=${agentPlan.json?.data?.steps?.length} source=${agentPlan.json?.data?.planSource}`,
   );
 
   const keywordPage = await req("/api/v1/keyword/page?pageSize=3", {

@@ -41,6 +41,11 @@ jobs:
           ADMIN_SECRET: aimarket-admin-dev
         run: node scripts/smoke-api.mjs
 
+      - name: Agent orchestration
+        env:
+          API_URL: http://localhost:4000
+        run: node scripts/test-agent-orchestration.mjs
+
       - name: Workspace switch
         env:
           API_URL: http://localhost:4000
@@ -61,7 +66,7 @@ jobs:
         if: always()
         run: |
           echo "## Integration Tests" >> "$GITHUB_STEP_SUMMARY"
-          echo "API scripts: smoke-api, workspace-switch, workspace-collab, verify-moderation-p2" >> "$GITHUB_STEP_SUMMARY"
+          echo "API scripts: smoke-api, test-agent-orchestration, workspace-switch, workspace-collab, verify-moderation-p2" >> "$GITHUB_STEP_SUMMARY"
 
   notify:
     name: Notify Status

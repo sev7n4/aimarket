@@ -235,3 +235,32 @@ ALTER TABLE image_sessions ADD COLUMN IF NOT EXISTS source_inspiration_id TEXT;
 ALTER TABLE image_sessions ADD COLUMN IF NOT EXISTS template_variables_json TEXT;
 ALTER TABLE message_outputs ADD COLUMN IF NOT EXISTS label TEXT;
 ALTER TABLE job_outputs ADD COLUMN IF NOT EXISTS label TEXT;
+
+CREATE TABLE IF NOT EXISTS agent_runs (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL REFERENCES image_sessions(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'planning',
+  prompt TEXT NOT NULL,
+  mode TEXT NOT NULL DEFAULT 'chat',
+  plan_json TEXT,
+  current_step_index INTEGER NOT NULL DEFAULT 0,
+  pending_job_id TEXT,
+  state_json TEXT,
+  plan_source TEXT,
+  skill_id TEXT,
+  error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS agent_run_jobs (
+  run_id TEXT NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
+  job_id TEXT NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
+  step_index INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (run_id, job_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_runs_session
+  ON agent_runs(session_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_run_jobs_job ON agent_run_jobs(job_id);
