@@ -152,7 +152,7 @@ WantedBy=multi-user.target
 
 ## 9. 监控建议
 
-- `/health` 返回 `version`（当前 0.8.0）
+- `/health` 返回 `version`（当前 0.0.1，稳定版 0.01）
 - Admin `GET /api/v1/admin/stats`：Provider、审核、限流、队列状态
 - Admin `GET /api/v1/admin/analytics?days=7`：埋点汇总
 - 日志：生成失败、审核 API 降级、Redis 连接失败
