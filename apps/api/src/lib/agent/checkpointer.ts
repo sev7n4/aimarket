@@ -7,9 +7,10 @@ export type AgentCheckpointer = unknown;
 let checkpointer: AgentCheckpointer | null = null;
 let initPromise: Promise<AgentCheckpointer> | null = null;
 
-export function resolveAgentCheckpointerMode(): "memory" | "sqlite" {
+export function resolveAgentCheckpointerMode(): "memory" | "sqlite" | "redis" {
   const mode = (process.env.AGENT_CHECKPOINTER ?? "memory").toLowerCase();
-  return mode === "sqlite" ? "sqlite" : "memory";
+  if (mode === "sqlite" || mode === "redis") return mode;
+  return "memory";
 }
 
 export async function initAgentCheckpointer(): Promise<AgentCheckpointer> {
@@ -18,7 +19,14 @@ export async function initAgentCheckpointer(): Promise<AgentCheckpointer> {
 
   initPromise = (async (): Promise<AgentCheckpointer> => {
     const mode = resolveAgentCheckpointerMode();
-    if (mode === "sqlite") {
+
+    if (mode === "redis") {
+      console.warn(
+        "[agent] AGENT_CHECKPOINTER=redis 尚未启用（待接入 @langchain/langgraph-checkpoint-redis），回退 sqlite",
+      );
+    }
+
+    if (mode === "sqlite" || mode === "redis") {
       try {
         const { SqliteSaver } = await import(
           "@langchain/langgraph-checkpoint-sqlite"
