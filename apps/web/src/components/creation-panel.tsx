@@ -57,6 +57,7 @@ import { useRotatingPlaceholder } from "@/hooks/use-rotating-placeholder";
 import { randomUUID } from "@/lib/uuid";
 import { storePendingAssets, type PendingAsset } from "@/lib/pending-assets";
 import { HomeGenerationPreview } from "@/components/home-generation-preview";
+import { CanvasLightbox } from "@/components/canvas-lightbox";
 import {
   UploadPreviewStack,
   type UploadPreviewItem,
@@ -307,6 +308,7 @@ export function CreationPanel({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [navigating, setNavigating] = useState(false);
   const [uploadPreviews, setUploadPreviews] = useState<UploadPreviewItem[]>([]);
+  const [uploadPreviewIndex, setUploadPreviewIndex] = useState<number | null>(null);
   const [reversing, setReversing] = useState(false);
 
   const rotatingText = useRotatingPlaceholder(
@@ -453,9 +455,7 @@ export function CreationPanel({
   const dockIconBtnClassSm = isDock
     ? `${dockIconBtn} size-8`
     : "flex size-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10";
-  const showStackUpload =
-    (leadingUpload || (isDock && !embeddedInDock)) &&
-    effectiveMode !== "ecommerce";
+  const showStackUpload = effectiveMode !== "ecommerce";
 
   useEffect(() => {
     if (!user) {
@@ -1236,6 +1236,7 @@ export function CreationPanel({
                 items={uploadPreviews}
                 uploading={uploading}
                 onAdd={() => openUpload("general")}
+                onPreview={(index) => setUploadPreviewIndex(index)}
                 onRemove={(id) => {
                   setUploadPreviews((prev) => prev.filter((p) => p.id !== id));
                   setAssetIds((prev) => prev.filter((a) => a !== id));
@@ -1622,6 +1623,17 @@ export function CreationPanel({
     return (
       <>
         <HomeGenerationPreview open={navigating || (pending && homeDirectSubmit)} />
+        {uploadPreviewIndex != null && uploadPreviews.length > 0 ? (
+          <CanvasLightbox
+            items={uploadPreviews.map((item, i) => ({
+              id: item.id,
+              url: item.url,
+              label: `上传图 ${i + 1}`,
+            }))}
+            initialIndex={Math.min(uploadPreviewIndex, uploadPreviews.length - 1)}
+            onClose={() => setUploadPreviewIndex(null)}
+          />
+        ) : null}
         {panel}
       </>
     );
@@ -1630,6 +1642,17 @@ export function CreationPanel({
   return (
     <>
       <HomeGenerationPreview open={navigating || (pending && homeDirectSubmit)} />
+      {uploadPreviewIndex != null && uploadPreviews.length > 0 ? (
+        <CanvasLightbox
+          items={uploadPreviews.map((item, i) => ({
+            id: item.id,
+            url: item.url,
+            label: `上传图 ${i + 1}`,
+          }))}
+          initialIndex={Math.min(uploadPreviewIndex, uploadPreviews.length - 1)}
+          onClose={() => setUploadPreviewIndex(null)}
+        />
+      ) : null}
       <GlassPanel
         className={`mx-auto w-full max-w-3xl p-4 sm:p-5 ${compact ? "" : "shadow-orange-500/5"}`}
       >
