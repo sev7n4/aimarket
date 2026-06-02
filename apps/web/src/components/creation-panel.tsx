@@ -707,6 +707,10 @@ export function CreationPanel({
     const target = uploadTargetRef.current;
     setUploading(true);
     try {
+      /** 首页 sessionId 为客户端 UUID，须先 ensure 再上传，否则 assets FK 触发 500 */
+      if (user) {
+        await ensureSession(sessionId, mode);
+      }
       if (target === "product") {
         const asset = await uploadAsset(files[0], sessionId);
         setProductAssetId(asset.id);

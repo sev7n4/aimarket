@@ -5,6 +5,7 @@ import { db } from "../db/index.js";
 import type { AuthVariables } from "../middleware/auth.js";
 import { saveUpload } from "../lib/storage.js";
 import { AppError } from "../lib/errors.js";
+import { getSessionById } from "../lib/session-access.js";
 import {
   completeLocalAssetUpload,
   confirmAssetUpload,
@@ -81,6 +82,15 @@ assets.post("/upload", async (c) => {
     throw new AppError(500, "UPLOAD_FAILED", "上传失败");
   }
 
+  let boundSessionId: string | null = sessionId ?? null;
+  if (boundSessionId && !getSessionById(boundSessionId)) {
+    throw new AppError(
+      400,
+      "SESSION_NOT_READY",
+      "会话尚未创建，请刷新页面后重试",
+    );
+  }
+
   const id = randomUUID();
   db.prepare(
     `INSERT INTO assets (id, user_id, session_id, filename, url, mime_type, size_bytes)
@@ -88,7 +98,7 @@ assets.post("/upload", async (c) => {
   ).run(
     id,
     userId,
-    sessionId ?? null,
+    boundSessionId,
     saved.filename,
     saved.url,
     file.type,
