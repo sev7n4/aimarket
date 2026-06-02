@@ -57,6 +57,7 @@ import { useRotatingPlaceholder } from "@/hooks/use-rotating-placeholder";
 import { randomUUID } from "@/lib/uuid";
 import { storePendingAssets, type PendingAsset } from "@/lib/pending-assets";
 import { HomeGenerationPreview } from "@/components/home-generation-preview";
+import { CanvasLightbox } from "@/components/canvas-lightbox";
 import {
   UploadPreviewStack,
   type UploadPreviewItem,
@@ -111,7 +112,11 @@ interface CreationPanelProps {
   onModeChange?: (mode: CreationMode) => void;
   showModeTabs?: boolean;
   sessionId?: string;
-  onAuthRequired?: () => void;
+  onAuthRequired?: (hint?: string) => void;
+  /** 首页：空提交等轻提示（不触发登录） */
+  onInteractionHint?: (message: string) => void;
+  /** 首页 dock：Enter 直接提交（Shift+Enter 换行） */
+  submitOnEnter?: boolean;
   onJobStarted?: (jobId: string, lineage?: PendingBatchLineage) => void;
   /** Studio 父级 SSE/轮询推送的状态（对标椒图进度感） */
   jobStreamStatus?: string | null;
@@ -209,6 +214,8 @@ export function CreationPanel({
   showModeTabs = true,
   sessionId,
   onAuthRequired,
+  onInteractionHint,
+  submitOnEnter = false,
   onJobStarted,
   jobStreamStatus = null,
   pollingJobId = null,
@@ -301,6 +308,7 @@ export function CreationPanel({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [navigating, setNavigating] = useState(false);
   const [uploadPreviews, setUploadPreviews] = useState<UploadPreviewItem[]>([]);
+  const [uploadPreviewIndex, setUploadPreviewIndex] = useState<number | null>(null);
   const [reversing, setReversing] = useState(false);
 
   const rotatingText = useRotatingPlaceholder(
@@ -447,9 +455,7 @@ export function CreationPanel({
   const dockIconBtnClassSm = isDock
     ? `${dockIconBtn} size-8`
     : "flex size-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10";
-  const showStackUpload =
-    (leadingUpload || (isDock && !embeddedInDock)) &&
-    effectiveMode !== "ecommerce";
+  const showStackUpload = effectiveMode !== "ecommerce";
 
   useEffect(() => {
     if (!user) {
@@ -585,12 +591,15 @@ export function CreationPanel({
     effectiveMode,
   ]);
 
+  function requireAuth(hint: string): boolean {
+    if (user) return true;
+    onAuthRequired?.(hint);
+    return false;
+  }
+
   async function handleUpload(files: FileList | null) {
     if (!files?.length || !sessionId) return;
-    if (!user) {
-      onAuthRequired?.();
-      return;
-    }
+    if (!requireAuth("登录后即可上传参考图")) return;
     const target = uploadTargetRef.current;
     setUploading(true);
     try {
@@ -623,6 +632,8 @@ export function CreationPanel({
           onUploadToCanvas(asset.id, asset.url);
         }
       }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "上传失败");
     } finally {
       setUploading(false);
       uploadTargetRef.current = "general";
@@ -632,9 +643,10 @@ export function CreationPanel({
 
   function openUpload(target: "product" | "reference" | "general") {
     if (!sessionId) {
-      onAuthRequired?.();
+      onAuthRequired?.("会话未就绪，请刷新页面后重试");
       return;
     }
+    if (homeDirectSubmit && !requireAuth("登录后即可上传参考图")) return;
     uploadTargetRef.current = target;
     setUploadTarget(target);
     fileRef.current?.click();
@@ -714,10 +726,8 @@ export function CreationPanel({
   }, [mentionItemRequest?.key]);
 
   async function handlePromptReverse() {
-    if (!user || !sessionId) {
-      onAuthRequired?.();
-      return;
-    }
+    if (!sessionId) return;
+    if (!requireAuth("登录后可使用图生文")) return;
     const assetId = assetIds[0];
     const imageUrl = uploadPreviews[0]?.url;
     if (!assetId && !imageUrl) {
@@ -740,9 +750,27 @@ export function CreationPanel({
     }
   }
 
+  function handleSubmitAttempt() {
+    if (readOnly || pending || streamBusy) return;
+    if (
+      !prompt.trim() &&
+      effectiveMode !== "ecommerce" &&
+      !selectedSkillId
+    ) {
+      onInteractionHint?.("请先输入描述，再点击开始生成");
+      textareaRef.current?.focus();
+      return;
+    }
+    void handleSubmit();
+  }
+
   async function handleSubmit() {
     if (readOnly) return;
-    if (!prompt.trim() && effectiveMode !== "ecommerce" && !selectedSkillId) return;
+    if (!prompt.trim() && effectiveMode !== "ecommerce" && !selectedSkillId) {
+      onInteractionHint?.("请先输入描述，再点击开始生成");
+      textareaRef.current?.focus();
+      return;
+    }
     if (effectiveMode === "ecommerce" || selectedSkillId) {
       if (prompt.trim().length < 10) {
         alert("请填写至少 10 字的产品卖点/描述");
@@ -774,8 +802,12 @@ export function CreationPanel({
       }
     }
 
-    const shouldNavigate =
-      shouldNavigateOnSubmit || (homeDirectSubmit && !user);
+    if (homeDirectSubmit && !user) {
+      onAuthRequired?.("登录后即可开始生成");
+      return;
+    }
+
+    const shouldNavigate = shouldNavigateOnSubmit;
 
     if (shouldNavigate) {
       const id = sessionId ?? randomUUID();
@@ -797,7 +829,7 @@ export function CreationPanel({
     }
 
     if (!user) {
-      onAuthRequired?.();
+      onAuthRequired?.("登录后即可开始生成");
       return;
     }
     if (!sessionId) return;
@@ -1204,6 +1236,7 @@ export function CreationPanel({
                 items={uploadPreviews}
                 uploading={uploading}
                 onAdd={() => openUpload("general")}
+                onPreview={(index) => setUploadPreviewIndex(index)}
                 onRemove={(id) => {
                   setUploadPreviews((prev) => prev.filter((p) => p.id !== id));
                   setAssetIds((prev) => prev.filter((a) => a !== id));
@@ -1270,9 +1303,12 @@ export function CreationPanel({
                     : "rounded-2xl border border-white/10 bg-black/40 px-4 py-3 focus:border-purple-500/40"
                 }`}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  if (
+                    e.key === "Enter" &&
+                    (submitOnEnter ? !e.shiftKey : e.metaKey || e.ctrlKey)
+                  ) {
                     e.preventDefault();
-                    void handleSubmit();
+                    handleSubmitAttempt();
                   }
                 }}
               />
@@ -1426,8 +1462,8 @@ export function CreationPanel({
                 <Button
                   variant="primary"
                   className="size-9 shrink-0 rounded-full p-0"
-                  onClick={() => void handleSubmit()}
-                  disabled={readOnly || pending || streamBusy || !canSubmit}
+                  onClick={handleSubmitAttempt}
+                  disabled={readOnly || pending || streamBusy}
                   aria-label={submitAriaLabel}
                 >
                   {pending ? (
@@ -1543,8 +1579,8 @@ export function CreationPanel({
                 ? "shadow-[0_0_22px_rgba(249,115,22,0.35)] transition-shadow hover:shadow-[0_0_28px_rgba(249,115,22,0.45)]"
                 : ""
             }`}
-            onClick={() => void handleSubmit()}
-            disabled={readOnly || pending || streamBusy || !canSubmit}
+            onClick={handleSubmitAttempt}
+            disabled={readOnly || pending || streamBusy}
             aria-label={submitAriaLabel}
           >
             {pending ? (
@@ -1587,6 +1623,17 @@ export function CreationPanel({
     return (
       <>
         <HomeGenerationPreview open={navigating || (pending && homeDirectSubmit)} />
+        {uploadPreviewIndex != null && uploadPreviews.length > 0 ? (
+          <CanvasLightbox
+            items={uploadPreviews.map((item, i) => ({
+              id: item.id,
+              url: item.url,
+              label: `上传图 ${i + 1}`,
+            }))}
+            initialIndex={Math.min(uploadPreviewIndex, uploadPreviews.length - 1)}
+            onClose={() => setUploadPreviewIndex(null)}
+          />
+        ) : null}
         {panel}
       </>
     );
@@ -1595,6 +1642,17 @@ export function CreationPanel({
   return (
     <>
       <HomeGenerationPreview open={navigating || (pending && homeDirectSubmit)} />
+      {uploadPreviewIndex != null && uploadPreviews.length > 0 ? (
+        <CanvasLightbox
+          items={uploadPreviews.map((item, i) => ({
+            id: item.id,
+            url: item.url,
+            label: `上传图 ${i + 1}`,
+          }))}
+          initialIndex={Math.min(uploadPreviewIndex, uploadPreviews.length - 1)}
+          onClose={() => setUploadPreviewIndex(null)}
+        />
+      ) : null}
       <GlassPanel
         className={`mx-auto w-full max-w-3xl p-4 sm:p-5 ${compact ? "" : "shadow-orange-500/5"}`}
       >
