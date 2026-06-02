@@ -19,7 +19,7 @@ import { createGenerationJob, getJob } from "../lib/jobs.js";
 import { suggestModel } from "../lib/router.js";
 import { userHasByokOpenAi } from "../lib/user-provider-config.js";
 import {
-  enrichPromptWithReferences,
+  buildReferenceAwarePrompt,
   resolveReferenceUrls,
 } from "../lib/references.js";
 import { toPublicAssetUrl } from "../lib/public-url.js";
@@ -174,9 +174,8 @@ ai.post("/generate", async (c) => {
 
   const allReferenceUrls = [...refUrls, ...assetUrls];
   let prompt = body.prompt;
-  
   if (allReferenceUrls.length > 0) {
-    prompt = `${body.prompt}\n（参考了 ${allReferenceUrls.length} 张图片）`;
+    prompt = buildReferenceAwarePrompt(body.prompt, allReferenceUrls);
   }
   
   if (body.toolContext?.masks.length) {

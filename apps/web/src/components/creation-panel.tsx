@@ -76,6 +76,21 @@ import { useAgentRun } from "@/hooks/use-agent-run";
 import { useSkillRun } from "@/hooks/use-skill-run";
 import type { AgentRunStatus, SkillRunStatus } from "@/lib/types";
 import { StudioDockFocusButton } from "@/components/studio-dock-controls";
+import {
+  CreationDockToolbar,
+  buildDockSkillOptions,
+  ECOMMERCE_DOCK_SKILL_ID,
+} from "@/components/creation-dock-controls";
+import {
+  persistCreationLane,
+  persistOutputMode,
+  readStoredCreationLane,
+  readStoredOutputMode,
+  type CreationLane,
+  type OutputPreferenceMode,
+  type VideoDurationSec,
+  type VideoReferenceMode,
+} from "@/lib/creation-dock-prefs";
 import type { StudioDockMode } from "@/lib/studio-dock-state";
 import type {
   FocusEditIntent,
@@ -325,6 +340,23 @@ export function CreationPanel({
   const skillsEnabled = agentSkills && agentEnabled;
 
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
+  const defaultCreationLane: CreationLane = agentOrchestration ? "agent" : "image";
+  const [creationLane, setCreationLane] = useState<CreationLane>(() =>
+    readStoredCreationLane(defaultCreationLane),
+  );
+  const [outputPrefMode, setOutputPrefMode] = useState<OutputPreferenceMode>(
+    () => readStoredOutputMode("auto"),
+  );
+  const [dockSkillId, setDockSkillId] = useState<string | null>(null);
+  const [videoReferenceMode, setVideoReferenceMode] =
+    useState<VideoReferenceMode>("omni");
+  const [videoDurationSec, setVideoDurationSec] = useState<VideoDurationSec>(5);
+  const dockEcommerce = dockSkillId === ECOMMERCE_DOCK_SKILL_ID;
+  const dockSkillPackageId =
+    dockSkillId && dockSkillId !== ECOMMERCE_DOCK_SKILL_ID ? dockSkillId : null;
+  const activeSkillId = isDock ? dockSkillPackageId : selectedSkillId;
+  const submitEcommerce = isDock ? dockEcommerce : effectiveMode === "ecommerce";
+  const submitVideo = isDock ? creationLane === "video" : isVideoModel;
 
   const {
     skills: skillPackages,
@@ -350,6 +382,7 @@ export function CreationPanel({
         setMentionedAssetPreviews([]);
         setMentionedMasks([]);
         setSelectedSkillId(null);
+        setDockSkillId(null);
         void refreshUser();
         void trackEvent("skill_run_complete", {
           sessionId: sessionId ?? "",
@@ -365,7 +398,76 @@ export function CreationPanel({
   });
 
   const selectedSkill =
-    skillPackages.find((s) => s.id === selectedSkillId) ?? null;
+    skillPackages.find(
+      (s) => s.id === (dockSkillPackageId ?? selectedSkillId),
+    ) ?? null;
+
+  const dockSkillOptions = useMemo(
+    () => buildDockSkillOptions(skillPackages, true),
+    [skillPackages],
+  );
+
+  function handleCreationLaneChange(lane: CreationLane) {
+    setCreationLane(lane);
+    persistCreationLane(lane);
+    if (lane !== "agent") {
+      setDockSkillId(null);
+      setSelectedSkillId(null);
+    }
+    if (lane === "video") {
+      const vm = models.find((m) => m.type === "video");
+      if (vm) setModelId(vm.id);
+      setOutputPrefMode("manual");
+      persistOutputMode("manual");
+    } else if (lane === "image") {
+      const im = models.find((m) => m.type === "image");
+      setOutputPrefMode("manual");
+      persistOutputMode("manual");
+      setModelId(im?.id ?? AUTO_MODEL_ID);
+      setAspectRatio("auto");
+    } else {
+      handleOutputPrefModeChange("auto");
+    }
+  }
+
+  function handleOutputPrefModeChange(mode: OutputPreferenceMode) {
+    setOutputPrefMode(mode);
+    persistOutputMode(mode);
+    if (mode === "auto") {
+      setModelId(AUTO_MODEL_ID);
+      setAspectRatio("auto");
+    }
+  }
+
+  function handleDockSkillChange(id: string | null) {
+    setDockSkillId(id);
+    if (id === ECOMMERCE_DOCK_SKILL_ID) {
+      setSelectedSkillId(null);
+      return;
+    }
+    if (id) {
+      setSelectedSkillId(id);
+      return;
+    }
+    setSelectedSkillId(null);
+  }
+
+  useEffect(() => {
+    if (!agentEnabled && creationLane === "agent") {
+      setCreationLane("image");
+    }
+  }, [agentEnabled, creationLane]);
+
+  useEffect(() => {
+    if (!isDock || outputPrefMode !== "auto") return;
+    if (creationLane === "video") {
+      const vm = models.find((m) => m.type === "video");
+      if (vm) setModelId(vm.id);
+    } else {
+      setModelId(AUTO_MODEL_ID);
+      setAspectRatio("auto");
+    }
+  }, [isDock, outputPrefMode, creationLane, models]);
 
   const {
     run: agentRun,
@@ -434,9 +536,17 @@ export function CreationPanel({
     ? "确认执行套餐"
     : agentAwaitingConfirm
       ? "确认执行"
-      : selectedSkillId
-        ? "开始套餐"
-        : "开始生成";
+      : dockEcommerce
+        ? "开始电商套图"
+        : activeSkillId
+          ? "开始套餐"
+          : isDock && creationLane === "agent"
+            ? "Agent 模式"
+            : isDock && creationLane === "image"
+              ? "图片生成"
+              : isDock && creationLane === "video"
+                ? "视频生成"
+                : "开始生成";
 
   const effectiveCollapsed = embeddedInDock ? false : collapsed;
   const dockIconBtn =
@@ -742,8 +852,8 @@ export function CreationPanel({
 
   async function handleSubmit() {
     if (readOnly) return;
-    if (!prompt.trim() && effectiveMode !== "ecommerce" && !selectedSkillId) return;
-    if (effectiveMode === "ecommerce" || selectedSkillId) {
+    if (!prompt.trim() && !submitEcommerce && !activeSkillId) return;
+    if (submitEcommerce || activeSkillId) {
       if (prompt.trim().length < 10) {
         alert("请填写至少 10 字的产品卖点/描述");
         return;
@@ -754,11 +864,18 @@ export function CreationPanel({
       }
     }
 
-    const hasReferenceImages = mentionedAssetIds.length > 0 || selectedRefs.length > 0;
+    const hasReferenceImages =
+      assetIds.length > 0 ||
+      mentionedAssetIds.length > 0 ||
+      selectedRefs.length > 0;
     if (hasReferenceImages && modelId === AUTO_MODEL_ID) {
       try {
         const providerStatus = await fetchProviderStatus();
-        if (!providerStatus.seedreamConfigured && !providerStatus.aliyunWanConfigured) {
+        const i2iReady =
+          providerStatus.seedreamConfigured ||
+          (providerStatus.aliyunWanConfigured &&
+            Boolean(providerStatus.aliyunWanI2iConfigured));
+        if (!i2iReady) {
           const proceed = confirm(
             "您引用了参考图片，但未配置图生图 API key。\n\n" +
             "当前将使用文生图流程，生成效果可能无法参考您引用的图片。\n\n" +
@@ -804,12 +921,12 @@ export function CreationPanel({
 
     const useSkillSubmit =
       skillsEnabled &&
-      Boolean(selectedSkillId) &&
+      Boolean(activeSkillId) &&
       !focusEdit?.points.length &&
       mentionedMasks.length === 0 &&
-      !isVideoModel;
+      !submitVideo;
 
-    if (useSkillSubmit && selectedSkillId) {
+    if (useSkillSubmit && activeSkillId) {
       if (skillAwaitingConfirm) {
         setPending(true);
         try {
@@ -827,14 +944,14 @@ export function CreationPanel({
       setPending(true);
       try {
         await ensureSession(sessionId, mode);
-        await startSkillRun(selectedSkillId, {
+        await startSkillRun(activeSkillId, {
           prompt,
           productAssetId: resolveProductAssetId(),
           referenceAssetId: referenceAssetId ?? undefined,
         });
         void trackEvent("skill_run_start", {
           sessionId: sessionId ?? "",
-          skillId: selectedSkillId,
+          skillId: activeSkillId,
         });
       } catch (err) {
         alert(err instanceof Error ? err.message : "套餐提交失败");
@@ -846,11 +963,13 @@ export function CreationPanel({
 
     const useAgentSubmit =
       agentEnabled &&
-      !selectedSkillId &&
+      (isDock ? creationLane === "agent" : true) &&
+      !activeSkillId &&
+      !dockEcommerce &&
       !focusEdit?.points.length &&
       mentionedMasks.length === 0 &&
-      !isVideoModel &&
-      effectiveMode !== "ecommerce";
+      !submitVideo &&
+      !submitEcommerce;
 
     if (useAgentSubmit) {
       if (agentAwaitingConfirm) {
@@ -927,16 +1046,23 @@ export function CreationPanel({
       });
       const lineageApi = pendingLineageToApiFields(submitLineage);
       let jobId: string;
-      if (isVideoModel) {
+      if (submitVideo) {
+        const videoModel = models.find((m) => m.type === "video");
+        if (!videoModel) {
+          alert("当前暂无可用视频模型");
+          return;
+        }
+        const videoModelId =
+          modelId === AUTO_MODEL_ID ? videoModel.id : modelId;
         const res = await submitVideoGeneration({
           sessionId,
           prompt: prompt.trim(),
-          modelId,
+          modelId: videoModelId,
           count,
           ...lineageApi,
         });
         jobId = res.jobId;
-      } else if (effectiveMode === "ecommerce") {
+      } else if (submitEcommerce) {
         const res = await submitEcommerceGenerate({
           sessionId,
           brand: brand || undefined,
@@ -965,7 +1091,7 @@ export function CreationPanel({
           modelId: useAuto ? undefined : modelId,
           count: toolEdit ? 1 : count,
           resolution,
-          aspectRatio,
+          aspectRatio: coerceAspectRatio(aspectRatio),
           mode: toolEdit ? "chat" : effectiveMode,
           assetIds: mergedAssetIds.length ? mergedAssetIds : undefined,
           referenceOutputIds: selectedRefs.map((r) => r.id),
@@ -996,6 +1122,7 @@ export function CreationPanel({
       setMentionedAssetIds([]);
       setMentionedAssetPreviews([]);
       setMentionedMasks([]);
+      setDockSkillId(null);
       await refreshUser();
       void trackEvent("generation_submit", { mode, sessionId });
       onJobStarted?.(jobId, submitLineage);
@@ -1036,11 +1163,9 @@ export function CreationPanel({
         agentIdle &&
         (focusEdit
           ? focusEditReady && !focusEdit.recognizing
-          : selectedSkillId
+          : activeSkillId || submitEcommerce
             ? prompt.trim().length >= 10 && Boolean(resolveProductAssetId())
-            : effectiveMode === "ecommerce"
-              ? prompt.trim().length >= 10 && Boolean(productAssetId)
-              : prompt.trim().length > 0)));
+            : prompt.trim().length > 0)));
 
   const streamBusy =
     agentBusy ||
@@ -1357,7 +1482,7 @@ export function CreationPanel({
           <p className="mt-1 text-xs text-orange-400/80">路由：{routeHint}</p>
         ) : null}
 
-        {skillsEnabled && !effectiveCollapsed && !focusEdit ? (
+        {skillsEnabled && !isDock && !effectiveCollapsed && !focusEdit ? (
           <SkillPackagePicker
             skills={skillPackages}
             selectedId={selectedSkillId}
@@ -1366,7 +1491,7 @@ export function CreationPanel({
           />
         ) : null}
 
-        {skillsEnabled && selectedSkillId && !effectiveCollapsed ? (
+        {skillsEnabled && activeSkillId && !effectiveCollapsed ? (
           <SkillRunPanel
             skill={selectedSkill}
             run={skillRun}
@@ -1376,7 +1501,11 @@ export function CreationPanel({
           />
         ) : null}
 
-        {agentEnabled && !selectedSkillId && !effectiveCollapsed ? (
+        {agentEnabled &&
+        !activeSkillId &&
+        !dockEcommerce &&
+        (!isDock || creationLane === "agent") &&
+        !effectiveCollapsed ? (
           <AgentRunPanel
             prompt={prompt}
             mode={effectiveMode}
@@ -1499,7 +1628,35 @@ export function CreationPanel({
               )}
             </button>
           ) : null}
-          {effectiveMode !== "ecommerce" ? (
+          {isDock ? (
+            <CreationDockToolbar
+              creationLane={creationLane}
+              onCreationLaneChange={handleCreationLaneChange}
+              agentAvailable={agentEnabled}
+              disabled={readOnly || pending || streamBusy}
+              outputPrefMode={outputPrefMode}
+              onOutputPrefModeChange={handleOutputPrefModeChange}
+              dockSkillOptions={dockSkillOptions}
+              dockSkillId={dockSkillId}
+              onDockSkillChange={handleDockSkillChange}
+              skillTriggerLabel={embeddedInDock ? "创意设计" : "使用技能"}
+              onInspirationClick={onInspirationClick}
+              inspirationActive={inspirationActive}
+              models={models}
+              modelId={modelId}
+              onModelChange={setModelId}
+              count={count}
+              onCountChange={setCount}
+              resolution={resolution}
+              aspectRatio={aspectRatio}
+              onResolutionChange={setResolution}
+              onAspectRatioChange={setAspectRatio}
+              videoReferenceMode={videoReferenceMode}
+              onVideoReferenceModeChange={setVideoReferenceMode}
+              videoDurationSec={videoDurationSec}
+              onVideoDurationSecChange={setVideoDurationSec}
+            />
+          ) : effectiveMode !== "ecommerce" ? (
             <>
               <ModelPicker
                 models={models}
@@ -1507,23 +1664,22 @@ export function CreationPanel({
                 onChange={setModelId}
               />
               <CountPicker value={count} onChange={setCount} max={4} />
+              <GenerationSettingsPopover
+                mode={mode}
+                resolution={resolution}
+                aspectRatio={aspectRatio}
+                onResolutionChange={setResolution}
+                onAspectRatioChange={setAspectRatio}
+                videoMode={isVideoModel}
+              />
             </>
           ) : (
-            <Pill>最新图片 V2 Pro · 4 张 · 2K</Pill>
-          )}
-          {effectiveMode === "ecommerce" ? (
-            <Pill>
-              智能 · {resolution.toUpperCase()} · 1:1 套图
-            </Pill>
-          ) : (
-            <GenerationSettingsPopover
-              mode={mode}
-              resolution={resolution}
-              aspectRatio={aspectRatio}
-              onResolutionChange={setResolution}
-              onAspectRatioChange={setAspectRatio}
-              videoMode={isVideoModel}
-            />
+            <>
+              <Pill>最新图片 V2 Pro · 4 张 · 2K</Pill>
+              <Pill>
+                智能 · {resolution.toUpperCase()} · 1:1 套图
+              </Pill>
+            </>
           )}
         </div>
         <div className={`flex shrink-0 items-center ${isDock ? "gap-1.5" : "gap-2"}`}>

@@ -127,6 +127,9 @@ function buildToolPromptSuffix(tool: StudioTool): string {
   }
 }
 
+/** Studio 侧栏会话列表：拉取上限（API 按 updated_at 降序） */
+const STUDIO_SIDEBAR_SESSION_LIMIT = 200;
+
 interface StudioWorkspaceProps {
   sessionId: string;
   initialMode: CreationMode;
@@ -257,7 +260,9 @@ export function StudioWorkspace({
 
   const handleWorkspaceChange = useCallback((id: string) => {
     setActiveWorkspaceId(id);
-    void listSessions(20, undefined, id).then(setSessions);
+    void listSessions(STUDIO_SIDEBAR_SESSION_LIMIT, undefined, id).then(
+      setSessions,
+    );
   }, []);
 
   const handleWorkspaceDragStart = useCallback((e: React.MouseEvent) => {
@@ -350,7 +355,7 @@ export function StudioWorkspace({
       if (refItems[0]) setSelectedCanvasId(refItems[0].id);
     }
     const [list, toolList] = await Promise.all([
-      listSessions(20, undefined, wsId),
+      listSessions(STUDIO_SIDEBAR_SESSION_LIMIT, undefined, wsId),
       fetchTools().catch(() => []),
     ]);
     setSessions(list);
@@ -473,7 +478,11 @@ export function StudioWorkspace({
     await loadCanvas();
     await refreshUser();
     setSessions(
-      await listSessions(20, undefined, activeWorkspaceId ?? undefined),
+      await listSessions(
+        STUDIO_SIDEBAR_SESSION_LIMIT,
+        undefined,
+        activeWorkspaceId ?? undefined,
+      ),
     );
     if (canvasRef.current?.isInRefineMode()) {
       if (jobStatus === "succeeded") {
@@ -935,9 +944,11 @@ export function StudioWorkspace({
   const handleSessionDeleted = useCallback(
     (deletedId?: string) => {
       const id = deletedId ?? sessionId;
-      void listSessions(20, undefined, activeWorkspaceId ?? undefined).then(
-        setSessions,
-      );
+      void listSessions(
+        STUDIO_SIDEBAR_SESSION_LIMIT,
+        undefined,
+        activeWorkspaceId ?? undefined,
+      ).then(setSessions);
       if (id === sessionId) {
         router.push(buildStudioUrl("canvas", { mode }));
       }
@@ -1167,7 +1178,7 @@ export function StudioWorkspace({
           style={
             workspaceCollapsed ? undefined : { width: workspaceWidth }
           }
-          className={`fixed bottom-0 left-0 z-50 flex w-[min(85vw,280px)] flex-col border-r border-white/5 bg-[#080808] p-3 transition-all ${
+          className={`fixed bottom-0 left-0 z-50 flex min-h-0 w-[min(85vw,280px)] flex-col border-r border-white/5 bg-[#080808] p-3 transition-all ${
             showTopBar ? "top-12" : "top-0"
           } ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -1267,9 +1278,9 @@ export function StudioWorkspace({
             <WorkspaceSwitcher onWorkspaceChange={handleWorkspaceChange} />
           ) : null}
 
-          <div className="mt-4 flex items-center justify-between">
+          <div className="mt-4 flex shrink-0 items-center justify-between">
             <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">
-              最近创作
+              画布历史
             </p>
             <Link
               href={
@@ -1283,8 +1294,8 @@ export function StudioWorkspace({
               查看全部
             </Link>
           </div>
-          <ul className="mt-2 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
-            {sessions.slice(0, 3).map((s) => (
+          <ul className="mt-2 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain">
+            {sessions.map((s) => (
               <li key={s.id} className="group">
                 <Link
                   href={studioUrlForSession({
@@ -1320,7 +1331,9 @@ export function StudioWorkspace({
               </li>
             ))}
           </ul>
-          <StudioWorkspaceFooter onLogin={() => setLoginOpen(true)} />
+          <div className="shrink-0">
+            <StudioWorkspaceFooter onLogin={() => setLoginOpen(true)} />
+          </div>
         </aside>
 
         {!workspaceCollapsed && (

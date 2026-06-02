@@ -49,3 +49,15 @@ export function enrichPromptWithReferences(
     .join("\n");
   return `${prompt}\n\n${refs}`;
 }
+
+const I2I_INSTRUCTION =
+  "【图生图约束】必须以参考图为主体，保持主体身份、构图与关键细节一致；仅在用户描述范围内做修改，禁止替换成无关场景或人物。";
+
+/** 普通生成 / Seedream 图生图：强约束 + 引用 URL 标注 */
+export function buildReferenceAwarePrompt(
+  prompt: string,
+  referenceUrls: string[],
+): string {
+  if (!referenceUrls.length) return prompt;
+  return `${I2I_INSTRUCTION}\n\n${enrichPromptWithReferences(prompt, referenceUrls)}`;
+}
