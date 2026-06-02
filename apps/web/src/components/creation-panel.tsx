@@ -548,13 +548,7 @@ export function CreationPanel({
         ? "开始电商套图"
         : activeSkillId
           ? "开始套餐"
-          : isDock && creationLane === "agent"
-            ? "Agent 模式"
-            : isDock && creationLane === "image"
-              ? "图片生成"
-              : isDock && creationLane === "video"
-                ? "视频生成"
-                : "开始生成";
+          : "开始生成";
 
   const effectiveCollapsed = embeddedInDock ? false : collapsed;
   const dockIconBtn =
