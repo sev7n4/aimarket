@@ -1,4 +1,3 @@
-import { HeroSection } from "@/components/hero-section";
 import { HomeMain } from "@/components/home-main";
 import { PromoBanner } from "@/components/promo-banner";
 import { SiteFooter } from "@/components/site-footer";
@@ -12,7 +11,6 @@ export default function HomePage() {
       <PromoBanner />
       <SiteHeader />
       <main className="relative">
-        <HeroSection />
         <HomeMain />
       </main>
       <SiteFooter />

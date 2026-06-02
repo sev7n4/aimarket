@@ -1,25 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { Sparkles } from "lucide-react";
 import { BRAND_SLOGAN } from "@/lib/brand";
-import { StartCreateDialog } from "@/components/start-create-dialog";
-import { useAuth } from "@/lib/auth-context";
+
+function focusHomeCreation() {
+  const section = document.getElementById("home-creation");
+  section?.scrollIntoView({ behavior: "smooth", block: "center" });
+  const textarea = section?.querySelector("textarea");
+  if (textarea instanceof HTMLTextAreaElement) {
+    window.setTimeout(() => textarea.focus(), 280);
+  }
+}
 
 export function HeroSection() {
-  const { user } = useAuth();
-  const [dialogOpen, setDialogOpen] = useState(false);
-
-  function handleStartCreate() {
-    if (!user) {
-      document.dispatchEvent(new Event("aimarket:open-login"));
-      return;
-    }
-    setDialogOpen(true);
-  }
-
   return (
-    <section className="relative px-4 pb-6 pt-8 text-center">
+    <section className="relative px-4 pb-2 pt-6 text-center lg:pb-4 lg:pt-8">
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(ellipse_at_top_right,rgba(249,115,22,0.25),transparent_55%)]"
         aria-hidden
@@ -28,18 +22,19 @@ export function HeroSection() {
         <h1 className="text-balance text-xl font-semibold leading-snug tracking-tight text-zinc-100 sm:text-2xl md:text-3xl">
           {BRAND_SLOGAN}
         </h1>
-        <div className="mt-6 flex justify-center">
+        <p className="mt-3 text-sm text-zinc-500">
+          在下方输入描述或上传参考图，即可开始生成
+        </p>
+        <div className="mt-4 flex justify-center">
           <button
             type="button"
-            onClick={handleStartCreate}
-            className="flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-400 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-orange-500/25 transition hover:from-orange-600 hover:to-orange-500 hover:shadow-xl hover:shadow-orange-500/30 active:scale-[0.98]"
+            onClick={focusHomeCreation}
+            className="text-sm font-medium text-orange-400 transition hover:text-orange-300 hover:underline"
           >
-            <Sparkles className="size-4" />
-            <span>开始创作</span>
+            跳转到创作输入区
           </button>
         </div>
       </div>
-      <StartCreateDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
     </section>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 
 export interface UploadPreviewItem {
@@ -12,6 +13,7 @@ interface UploadPreviewStackProps {
   uploading?: boolean;
   onAdd: () => void;
   onRemove: (id: string) => void;
+  onPreview?: (index: number) => void;
   max?: number;
 }
 
@@ -21,22 +23,41 @@ export function UploadPreviewStack({
   uploading,
   onAdd,
   onRemove,
+  onPreview,
   max = 4,
 }: UploadPreviewStackProps) {
   const canAdd = items.length < max;
+  const [expanded, setExpanded] = useState(false);
+  const spread = useMemo(() => {
+    if (!expanded || items.length <= 1) return 6;
+    return 42;
+  }, [expanded, items.length]);
 
   return (
-    <div className="relative flex h-[72px] w-[88px] shrink-0 items-center justify-center">
+    <div
+      className="relative flex h-[72px] w-[168px] shrink-0 items-center justify-center"
+      onMouseEnter={() => setExpanded(true)}
+      onMouseLeave={() => setExpanded(false)}
+    >
       {items.map((item, i) => (
         <div
           key={item.id}
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-transform"
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200"
           style={{
-            transform: `translate(-50%, -50%) rotate(-15deg) translateX(${i * 6}px)`,
-            zIndex: i + 1,
+            transform: `translate(-50%, -50%) rotate(${expanded ? 0 : -15}deg) translateX(${
+              expanded
+                ? (i - (items.length - 1) / 2) * spread
+                : i * spread
+            }px)`,
+            zIndex: expanded ? i + 10 : i + 1,
           }}
         >
-          <div className="group relative size-14 overflow-hidden rounded-lg border border-white/20 bg-zinc-900 shadow-lg shadow-black/50">
+          <button
+            type="button"
+            onClick={() => onPreview?.(i)}
+            className="group relative block size-14 overflow-hidden rounded-lg border border-white/20 bg-zinc-900 shadow-lg shadow-black/50"
+            title="预览图片"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={item.url}
@@ -45,13 +66,16 @@ export function UploadPreviewStack({
             />
             <button
               type="button"
-              onClick={() => onRemove(item.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(item.id);
+              }}
               className="absolute right-0.5 top-0.5 rounded-full bg-black/70 p-0.5 text-white opacity-0 transition group-hover:opacity-100"
               aria-label="移除图片"
             >
               <X className="size-3" />
             </button>
-          </div>
+          </button>
         </div>
       ))}
 

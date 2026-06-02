@@ -154,6 +154,13 @@ export function StudioWorkspace({
   const compactLayout = useIsMobile(1024);
   const canvasRef = useRef<DesignCanvasHandle>(null);
   const prevItemCountRef = useRef(0);
+  const canvasItemsRef = useRef<CanvasItem[]>([]);
+  const loadCanvasRef = useRef<
+    () => Promise<void>
+  >(async () => {});
+  const handleJobCompleteRef = useRef<
+    (completedJobId?: string) => Promise<void>
+  >(async () => {});
   const { user, loading: authLoading, refreshUser } = useAuth();
   const uploadRef = useRef<HTMLInputElement>(null);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -211,6 +218,8 @@ export function StudioWorkspace({
     canEdit: canvasCanEdit,
     setCanEdit,
   } = useSessionCanvas(sessionId, Boolean(user));
+  loadCanvasRef.current = loadCanvas;
+  canvasItemsRef.current = canvasItems;
   const [sessions, setSessions] = useState<ImageSession[]>([]);
   const [tools, setTools] = useState<StudioTool[]>([]);
   const [ready, setReady] = useState(false);
@@ -387,8 +396,29 @@ export function StudioWorkspace({
 
   useEffect(() => {
     if (!initialJobId || !user) return;
-    setPollingJobId(initialJobId);
-  }, [initialJobId, user]);
+    let cancelled = false;
+    void fetchJob(initialJobId)
+      .then((job) => {
+        if (cancelled) return;
+        if (job.status === "succeeded" || job.status === "failed") {
+          setPollingJobId(null);
+          setJobStreamStatus(null);
+          void loadCanvasRef.current();
+          if (job.status === "failed") setJobFailed(true);
+          router.replace(
+            `/studio?sessionId=${encodeURIComponent(sessionId)}&mode=${mode}`,
+          );
+          return;
+        }
+        setPollingJobId(initialJobId);
+      })
+      .catch(() => {
+        if (!cancelled) setPollingJobId(initialJobId);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialJobId, user, sessionId, mode, router]);
 
   useEffect(() => {
     if (!initialToolId || !tools.length) return;
@@ -423,7 +453,7 @@ export function StudioWorkspace({
   );
 
   const focusLatestCanvasItem = useCallback(() => {
-    const target = pickLatestBatchFocusTarget(canvasItems);
+    const target = pickLatestBatchFocusTarget(canvasItemsRef.current);
     if (!target) return;
     setSelectedCanvasId(target.itemId);
     if (target.batchId) {
@@ -432,7 +462,7 @@ export function StudioWorkspace({
       canvasRef.current?.fitToItem(target.itemId);
     }
     canvasRef.current?.pulseItem(target.itemId);
-  }, [canvasItems]);
+  }, []);
 
   const handleJumpToParentBatch = useCallback(
     (parentBatchId: string, sourceItemId?: string) => {
@@ -454,6 +484,9 @@ export function StudioWorkspace({
     setJobStartedAt(null);
     setQueueAhead(null);
     lastOutputCountRef.current = 0;
+    router.replace(
+      `/studio?sessionId=${encodeURIComponent(sessionId)}&mode=${mode}`,
+    );
     let jobStatus: string | undefined;
     let toolType: string | undefined;
     if (completedJobId) {
@@ -493,18 +526,42 @@ export function StudioWorkspace({
     } else {
       window.requestAnimationFrame(() => focusLatestCanvasItem());
     }
-  }, [loadCanvas, refreshUser, activeWorkspaceId, focusLatestCanvasItem]);
+  }, [
+    loadCanvas,
+    refreshUser,
+    activeWorkspaceId,
+    focusLatestCanvasItem,
+    router,
+    sessionId,
+    mode,
+  ]);
+
+  handleJobCompleteRef.current = handleJobComplete;
 
   useEffect(() => {
     if (!pollingJobId || !user) return;
     const t0 = performance.now();
     const jobId = pollingJobId;
+    let cancelled = false;
+
+    void fetchJob(jobId)
+      .then((job) => {
+        if (cancelled) return;
+        setJobStreamStatus(job.status);
+        if (job.count) setJobProgressTotal(job.count);
+        setQueueAhead(job.queue_ahead ?? null);
+        if (job.status === "succeeded" || job.status === "failed") {
+          if (job.status === "failed") setJobFailed(true);
+          void handleJobCompleteRef.current(jobId);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setJobStreamStatus("queued");
+      });
+
     setJobFailed(false);
-    setJobStreamStatus("queued");
     setJobProgressCompleted(0);
-    setJobProgressTotal(0);
     setJobStartedAt(Date.now());
-    setQueueAhead(null);
     lastOutputCountRef.current = 0;
     const tickTimer = window.setInterval(() => setJobTick((n) => n + 1), 1000);
     const stop = watchJob(
@@ -520,13 +577,13 @@ export function StudioWorkspace({
             ev.completed > lastOutputCountRef.current
           ) {
             lastOutputCountRef.current = ev.completed;
-            void loadCanvas();
+            void loadCanvasRef.current();
           }
         }
         if (ev.status === "failed") setJobFailed(true);
       },
       () => {
-        void handleJobComplete(jobId);
+        void handleJobCompleteRef.current(jobId);
       },
       () => {
         void trackEvent("generation_fail", {
@@ -540,10 +597,11 @@ export function StudioWorkspace({
       },
     );
     return () => {
+      cancelled = true;
       window.clearInterval(tickTimer);
       stop();
     };
-  }, [pollingJobId, user, handleJobComplete]);
+  }, [pollingJobId, user]);
 
   const jobElapsedMs =
     jobStartedAt != null ? Date.now() - jobStartedAt : undefined;
@@ -554,16 +612,6 @@ export function StudioWorkspace({
       focusLatestCanvasItem();
     }
     prevItemCountRef.current = count;
-  }, [canvasItems.length, focusLatestCanvasItem]);
-
-  /**
-   * 同款栏折叠态切换时画布可视高度变化，自动 fit-all 重排。
-   * 等待 transition 结束（约 1 帧 + 50ms 让布局稳定）。
-   */
-  useEffect(() => {
-    if (canvasItems.length === 0) return;
-    const t = window.setTimeout(() => focusLatestCanvasItem(), 80);
-    return () => window.clearTimeout(t);
   }, [canvasItems.length, focusLatestCanvasItem]);
 
   function handleQuickToolFromCanvas(
