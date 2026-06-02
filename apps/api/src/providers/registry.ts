@@ -109,6 +109,7 @@ export function getProviderStatus() {
     openaiBaseUrl: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
     openaiImageModel: process.env.OPENAI_IMAGE_MODEL ?? "(按模型自动)",
     aliyunWanConfigured,
+    aliyunWanI2iConfigured: aliyunWanI2iConfigured(),
     aliyunWanBaseUrl:
       process.env.DASHSCOPE_BASE_URL ?? "https://dashscope.aliyuncs.com",
     aliyunWanModel: process.env.ALIYUN_WAN_MODEL ?? "wan2.6-t2i",

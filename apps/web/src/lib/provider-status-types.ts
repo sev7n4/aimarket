@@ -26,6 +26,7 @@ export interface ProviderStatusPayload {
   mode: string;
   openaiConfigured: boolean;
   aliyunWanConfigured: boolean;
+  aliyunWanI2iConfigured?: boolean;
   seedreamConfigured: boolean;
   activeProvider: string;
   usingMock?: boolean;

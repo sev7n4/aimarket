@@ -172,7 +172,7 @@ sessions.post("/create", async (c) => {
 
 sessions.get("/list", (c) => {
   const userId = c.get("userId");
-  const limit = Math.min(Number(c.req.query("limit") ?? 20), 50);
+  const limit = Math.min(Number(c.req.query("limit") ?? 20), 200);
   const kindRaw = c.req.query("kind");
   const kindParsed = kindRaw ? sessionKindSchema.safeParse(kindRaw) : null;
   if (kindRaw && kindParsed && !kindParsed.success) {

@@ -57,6 +57,8 @@ export const seedreamImageProvider: ImageProvider = {
     const model = process.env.SEEDREAM_MODEL ?? "doubao-seedream-5-0-260128";
     const size = resolveSeedreamSize(params.resolution, params.aspectRatio ?? "1:1");
 
+    const refs = params.referenceUrls ?? [];
+
     const body: Record<string, unknown> = {
       model,
       prompt: params.prompt.slice(0, 4000),
@@ -65,8 +67,10 @@ export const seedreamImageProvider: ImageProvider = {
       response_format: "url",
     };
 
-    if (params.referenceUrls?.length) {
-      body.image = params.referenceUrls[0];
+    if (refs.length === 1) {
+      body.image = refs[0];
+    } else if (refs.length > 1) {
+      body.image = refs;
     }
 
     const res = await fetch(`${base}/images/generations`, {
