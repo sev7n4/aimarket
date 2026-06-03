@@ -25,6 +25,7 @@ import {
   getToken,
   fetchModels,
   fetchReferences,
+  fetchAgentPlan,
   fetchProviderStatus,
   submitEcommerceGenerate,
   submitGeneration,
@@ -75,12 +76,17 @@ import { SkillPackagePicker } from "@/components/skill-package-picker";
 import { SkillRunPanel } from "@/components/skill-run-panel";
 import { useAgentRun } from "@/hooks/use-agent-run";
 import { useSkillRun } from "@/hooks/use-skill-run";
-import type { AgentRunStatus, SkillRunStatus } from "@/lib/types";
+import type { AgentPlan, AgentRunStatus, SkillRunStatus } from "@/lib/types";
+import {
+  buildOrchestrationTimelineEvent,
+  type OrchestrationTimelineActions,
+} from "@/lib/canvas-timeline";
 import { StudioDockFocusButton } from "@/components/studio-dock-controls";
 import {
   CreationDockToolbar,
   buildDockSkillOptions,
-  ECOMMERCE_DOCK_SKILL_ID,
+  ECOMMERCE_SET_SKILL_ID,
+  normalizeDockSkillId,
 } from "@/components/creation-dock-controls";
 import {
   persistCreationLane,
@@ -220,6 +226,14 @@ interface CreationPanelProps {
   agentSkills?: boolean;
   /** Agent Run 结束（成功/失败/取消）后回调 */
   onAgentRunComplete?: () => void;
+  /** Studio 滚动画布：同步 Agent/Skill 编排时间线卡片 */
+  onOrchestrationTimelineChange?: (
+    event: import("@/lib/canvas-timeline").OrchestrationTimelineEvent | null,
+  ) => void;
+  /** Studio：编排确认/取消交给滚动画布时间线，Dock 仅保留输入与发送 */
+  onOrchestrationActionsChange?: (
+    actions: OrchestrationTimelineActions | null,
+  ) => void;
 }
 
 export function CreationPanel({
@@ -264,6 +278,8 @@ export function CreationPanel({
   agentOrchestration = false,
   agentSkills = false,
   onAgentRunComplete,
+  onOrchestrationTimelineChange,
+  onOrchestrationActionsChange,
 }: CreationPanelProps) {
   const shouldNavigateOnSubmit =
     navigateOnSubmit ?? (!sessionId && !homeDirectSubmit);
@@ -359,14 +375,15 @@ export function CreationPanel({
     () => readStoredOutputMode("auto"),
   );
   const [dockSkillId, setDockSkillId] = useState<string | null>(null);
+  const [agentPreviewPlan, setAgentPreviewPlan] = useState<AgentPlan | null>(null);
+  const [agentPreviewLoading, setAgentPreviewLoading] = useState(false);
+  const sessionEnsuredRef = useRef(false);
   const [videoReferenceMode, setVideoReferenceMode] =
     useState<VideoReferenceMode>("omni");
   const [videoDurationSec, setVideoDurationSec] = useState<VideoDurationSec>(5);
-  const dockEcommerce = dockSkillId === ECOMMERCE_DOCK_SKILL_ID;
-  const dockSkillPackageId =
-    dockSkillId && dockSkillId !== ECOMMERCE_DOCK_SKILL_ID ? dockSkillId : null;
-  const activeSkillId = isDock ? dockSkillPackageId : selectedSkillId;
-  const submitEcommerce = isDock ? dockEcommerce : effectiveMode === "ecommerce";
+  const normalizedDockSkillId = normalizeDockSkillId(dockSkillId);
+  const activeSkillId = isDock ? normalizedDockSkillId : selectedSkillId;
+  const submitEcommerce = !isDock && effectiveMode === "ecommerce";
   const submitVideo = isDock ? creationLane === "video" : isVideoModel;
 
   const {
@@ -410,7 +427,7 @@ export function CreationPanel({
 
   const selectedSkill =
     skillPackages.find(
-      (s) => s.id === (dockSkillPackageId ?? selectedSkillId),
+      (s) => s.id === (activeSkillId ?? selectedSkillId),
     ) ?? null;
 
   const dockSkillOptions = useMemo(
@@ -451,13 +468,12 @@ export function CreationPanel({
   }
 
   function handleDockSkillChange(id: string | null) {
-    setDockSkillId(id);
-    if (id === ECOMMERCE_DOCK_SKILL_ID) {
-      setSelectedSkillId(null);
-      return;
-    }
-    if (id) {
-      setSelectedSkillId(id);
+    const normalized = normalizeDockSkillId(id);
+    setDockSkillId(normalized);
+    if (normalized) {
+      setCreationLane("agent");
+      persistCreationLane("agent");
+      setSelectedSkillId(normalized);
       return;
     }
     setSelectedSkillId(null);
@@ -515,9 +531,12 @@ export function CreationPanel({
   });
 
   useEffect(() => {
+    sessionEnsuredRef.current = false;
     resetAgentRun();
     resetSkillRun();
     setSelectedSkillId(null);
+    setDockSkillId(null);
+    setAgentPreviewPlan(null);
   }, [sessionId, resetAgentRun, resetSkillRun]);
 
   const skillAwaitingConfirm = skillRun?.status === "waiting_confirm";
@@ -547,7 +566,7 @@ export function CreationPanel({
     ? "确认执行套餐"
     : agentAwaitingConfirm
       ? "确认执行"
-      : dockEcommerce
+      : activeSkillId === ECOMMERCE_SET_SKILL_ID
         ? "开始电商套图"
         : activeSkillId
           ? "开始套餐"
@@ -646,10 +665,115 @@ export function CreationPanel({
 
   useEffect(() => {
     if (!user || !sessionId) return;
-    fetchReferences(sessionId)
-      .then(setReferences)
-      .catch(() => setReferences([]));
-  }, [user, sessionId, canvasMentionSignature]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        if (!sessionEnsuredRef.current) {
+          await ensureSession(sessionId, mode);
+          sessionEnsuredRef.current = true;
+        }
+        if (cancelled) return;
+        const refs = await fetchReferences(sessionId);
+        if (!cancelled) setReferences(refs);
+      } catch {
+        if (!cancelled) setReferences([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, sessionId, canvasMentionSignature, mode]);
+
+  useEffect(() => {
+    if (
+      !embeddedInDock ||
+      !agentEnabled ||
+      creationLane !== "agent" ||
+      activeSkillId ||
+      agentRun ||
+      focusEdit
+    ) {
+      if (embeddedInDock) {
+        setAgentPreviewPlan(null);
+        setAgentPreviewLoading(false);
+      }
+      return;
+    }
+    if (!prompt.trim()) {
+      setAgentPreviewPlan(null);
+      setAgentPreviewLoading(false);
+      return;
+    }
+    setAgentPreviewLoading(true);
+    const t = window.setTimeout(() => {
+      void fetchAgentPlan({ prompt: prompt.trim(), mode: effectiveMode })
+        .then((data) => setAgentPreviewPlan(data))
+        .catch(() => setAgentPreviewPlan(null))
+        .finally(() => setAgentPreviewLoading(false));
+    }, 500);
+    return () => window.clearTimeout(t);
+  }, [
+    embeddedInDock,
+    agentEnabled,
+    activeSkillId,
+    agentRun,
+    focusEdit,
+    prompt,
+    effectiveMode,
+  ]);
+
+  useEffect(() => {
+    if (!onOrchestrationTimelineChange) return;
+    const event = buildOrchestrationTimelineEvent({
+      agentRun,
+      skillRun,
+      agentPreviewPlan: embeddedInDock ? agentPreviewPlan : null,
+      agentPreviewLoading: embeddedInDock ? agentPreviewLoading : false,
+      prompt,
+    });
+    onOrchestrationTimelineChange(event);
+  }, [
+    agentRun,
+    skillRun,
+    agentPreviewPlan,
+    agentPreviewLoading,
+    embeddedInDock,
+    prompt,
+    onOrchestrationTimelineChange,
+  ]);
+
+  useEffect(() => {
+    if (!embeddedInDock || !onOrchestrationActionsChange) return;
+    const hasOrchestration = Boolean(
+      agentRun || skillRun || agentPreviewPlan || agentPreviewLoading,
+    );
+    if (!hasOrchestration) {
+      onOrchestrationActionsChange(null);
+      return;
+    }
+    onOrchestrationActionsChange({
+      onConfirm: () => void handleSubmit(),
+      onCancel: () => {
+        if (skillRun) void cancelSkillRunAction();
+        else if (agentRun) void cancelAgentRunAction();
+      },
+      confirmBusy: pending || agentBusy || skillBusy,
+      readOnly,
+    });
+  }, [
+    embeddedInDock,
+    onOrchestrationActionsChange,
+    agentRun,
+    skillRun,
+    agentPreviewPlan,
+    agentPreviewLoading,
+    pending,
+    agentBusy,
+    skillBusy,
+    readOnly,
+    cancelSkillRunAction,
+    cancelAgentRunAction,
+  ]);
 
   useEffect(() => {
     if (!user || !getToken()) {
@@ -715,6 +839,7 @@ export function CreationPanel({
       /** 首页 sessionId 为客户端 UUID，须先 ensure 再上传，否则 assets FK 触发 500 */
       if (user) {
         await ensureSession(sessionId, mode);
+        sessionEnsuredRef.current = true;
       }
       if (target === "product") {
         const asset = await uploadAsset(selectedFiles[0]!, sessionId);
@@ -732,7 +857,16 @@ export function CreationPanel({
         const asset = await uploadAsset(file, sessionId);
         setAssetIds((prev) => [...prev, asset.id].slice(0, 4));
         setUploadPreviews((prev) =>
-          [...prev, { id: asset.id, url: asset.url }].slice(0, 4),
+          [
+            ...prev,
+            {
+              id: asset.id,
+              url:
+                asset.url.startsWith("http") || asset.url.startsWith("blob:")
+                  ? asset.url
+                  : assetUrl(asset.url),
+            },
+          ].slice(0, 4),
         );
         if (onUploadToCanvas) {
           onUploadToCanvas(asset.id, asset.url);
@@ -1000,7 +1134,6 @@ export function CreationPanel({
       agentEnabled &&
       (isDock ? creationLane === "agent" : true) &&
       !activeSkillId &&
-      !dockEcommerce &&
       !focusEdit?.points.length &&
       mentionedMasks.length === 0 &&
       !submitVideo &&
@@ -1334,8 +1467,22 @@ export function CreationPanel({
                 : ""
           }
         >
-          <div className="relative flex gap-3">
-            {onInspirationClick ? (
+          {isDock && embeddedInDock && showStackUpload ? (
+            <div className="mb-2.5">
+              <UploadPreviewStack
+                items={uploadPreviews}
+                uploading={uploading}
+                onAdd={() => openUpload("general")}
+                onPreview={(index) => setUploadPreviewIndex(index)}
+                onRemove={(id) => {
+                  setUploadPreviews((prev) => prev.filter((p) => p.id !== id));
+                  setAssetIds((prev) => prev.filter((a) => a !== id));
+                }}
+              />
+            </div>
+          ) : null}
+          <div className="relative flex min-w-0 gap-3">
+            {onInspirationClick && !(isDock && embeddedInDock) ? (
               <button
                 type="button"
                 onClick={onInspirationClick}
@@ -1364,7 +1511,7 @@ export function CreationPanel({
                 </span>
               </button>
             ) : null}
-            {showStackUpload ? (
+            {showStackUpload && !(isDock && embeddedInDock) ? (
               <UploadPreviewStack
                 items={uploadPreviews}
                 uploading={uploading}
@@ -1521,12 +1668,12 @@ export function CreationPanel({
             onCancel={focusEdit.onCancel}
           />
         ) : null}
-        {assetIds.length > 0 ? (
+        {assetIds.length > 0 && !(isDock && embeddedInDock) ? (
           <p className="mt-1 text-xs text-zinc-500">
             已上传 {assetIds.length} 张附件
           </p>
         ) : null}
-        {routeHint ? (
+        {routeHint && !(isDock && embeddedInDock) ? (
           <p className="mt-1 text-xs text-orange-400/80">路由：{routeHint}</p>
         ) : null}
 
@@ -1539,7 +1686,10 @@ export function CreationPanel({
           />
         ) : null}
 
-        {skillsEnabled && activeSkillId && !effectiveCollapsed ? (
+        {skillsEnabled &&
+        activeSkillId &&
+        !effectiveCollapsed &&
+        !embeddedInDock ? (
           <SkillRunPanel
             skill={selectedSkill}
             run={skillRun}
@@ -1551,14 +1701,15 @@ export function CreationPanel({
 
         {agentEnabled &&
         !activeSkillId &&
-        !dockEcommerce &&
         (!isDock || creationLane === "agent") &&
-        !effectiveCollapsed ? (
+        !effectiveCollapsed &&
+        !embeddedInDock ? (
           <AgentRunPanel
             prompt={prompt}
             mode={effectiveMode}
             enabled={agentEnabled && !focusEdit}
             run={agentRun}
+            onPlanPreview={setAgentPreviewPlan}
             confirmBusy={agentBusy || pending}
             onConfirm={() => void handleSubmit()}
             onCancelRun={() => void cancelAgentRunAction()}

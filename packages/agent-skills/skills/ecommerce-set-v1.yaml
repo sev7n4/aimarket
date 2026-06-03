@@ -1,0 +1,9 @@
+id: ecommerce-set-v1
+version: 1
+name: 电商套图
+description: 商品主图 4 张 · 2K · 智能构图
+confirmIfPointsOver: 40
+steps:
+  - id: gen_set
+    type: generate_set
+    label: 生成电商套图（4 张）

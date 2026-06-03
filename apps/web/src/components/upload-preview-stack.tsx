@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
+import { assetUrl } from "@/lib/api-client";
 
 export interface UploadPreviewItem {
   id: string;
@@ -60,7 +61,11 @@ export function UploadPreviewStack({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={item.url}
+              src={
+                item.url.startsWith("http") || item.url.startsWith("blob:")
+                  ? item.url
+                  : assetUrl(item.url)
+              }
               alt=""
               className="size-full object-cover"
             />

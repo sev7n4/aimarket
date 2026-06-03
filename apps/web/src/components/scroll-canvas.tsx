@@ -7,6 +7,11 @@ import { batchDisplayIndex } from "@/lib/canvas-tools";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
 import { ScrollCanvasItemChrome } from "@/components/scroll-canvas-item-chrome";
 import { RefineSelectedCta } from "@/components/refine-selected-cta";
+import { ScrollCanvasOrchestrationCard } from "@/components/scroll-canvas-orchestration-card";
+import type {
+  OrchestrationTimelineActions,
+  OrchestrationTimelineEvent,
+} from "@/lib/canvas-timeline";
 import type { StudioTool } from "@/lib/types";
 import { hapticLight } from "@/lib/haptics";
 
@@ -59,6 +64,9 @@ interface ScrollCanvasProps {
     point: { x: number; y: number },
   ) => void;
   scrollBottomInset?: string;
+  /** Agent / Skill 编排卡片（对标 Cursor 主区时间线） */
+  orchestrationEvent?: OrchestrationTimelineEvent | null;
+  orchestrationActions?: OrchestrationTimelineActions;
   batchTools?: {
     tools: StudioTool[];
     pendingToolId?: string | null;
@@ -96,6 +104,8 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       focusItem,
       onFocusImageClick,
       scrollBottomInset = "",
+      orchestrationEvent = null,
+      orchestrationActions,
       batchTools,
     },
     ref,
@@ -139,22 +149,22 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
           />
         ) : null}
 
-        {items.length === 0 ? (
+        {items.length === 0 && !orchestrationEvent ? (
           <div
             className={`min-h-full w-full ${scrollBottomInset}`.trim()}
             aria-label="画布"
           />
         ) : (
           <div
-            className={`mx-auto w-full max-w-5xl px-3 py-4 sm:px-5 ${scrollBottomInset}`.trim()}
+            className={`w-full py-3 pl-2 pr-3 sm:py-4 sm:pl-3 sm:pr-4 ${scrollBottomInset}`.trim()}
           >
             <div
-              className="relative"
+              className="relative max-w-5xl"
               data-testid="scroll-canvas-timeline"
               role="list"
             >
               <div
-                className="pointer-events-none absolute left-[0.4375rem] top-2 bottom-2 w-px bg-gradient-to-b from-zinc-600/80 via-zinc-700/50 to-transparent"
+                className="pointer-events-none absolute left-[0.1875rem] top-2 bottom-2 w-px bg-gradient-to-b from-zinc-600/80 via-zinc-700/50 to-transparent"
                 aria-hidden
               />
 
@@ -165,7 +175,8 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                 const parentNum = section.parentBatchId
                   ? batchDisplayIndex(items, section.parentBatchId)
                   : null;
-                const isLast = sectionIdx === batchSections.length - 1;
+                const isLast =
+                  sectionIdx === batchSections.length - 1 && !orchestrationEvent;
                 const batchLabel = timelineMetaLabel(section);
                 const timeLabel = timelineTimeLabel(section);
 
@@ -174,9 +185,9 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                     key={section.id}
                     role="listitem"
                     data-testid={`canvas-batch-section-${section.id}`}
-                    className={`relative flex gap-4 sm:gap-5 ${isLast ? "pb-2" : "pb-10"}`}
+                    className={`relative flex gap-3 sm:gap-3.5 ${isLast ? "pb-2" : "pb-10"}`}
                   >
-                    <div className="relative z-[1] flex w-4 shrink-0 flex-col items-center pt-1">
+                    <div className="relative z-[1] flex w-3 shrink-0 flex-col items-center pt-1">
                       <span
                         className="size-2.5 shrink-0 rounded-full bg-zinc-100 shadow-[0_0_0_3px_rgba(9,9,11,0.95)] ring-2 ring-zinc-500/80"
                         aria-hidden
@@ -357,6 +368,27 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                   </section>
                 );
               })}
+
+              {orchestrationEvent ? (
+                <section
+                  role="listitem"
+                  data-testid="orchestration-timeline-section"
+                  className="relative flex gap-3 sm:gap-3.5 pb-2"
+                >
+                  <div className="relative z-[1] flex w-3 shrink-0 flex-col items-center pt-1">
+                    <span
+                      className="size-2.5 shrink-0 rounded-full bg-orange-400/90 shadow-[0_0_0_3px_rgba(9,9,11,0.95)] ring-2 ring-orange-500/50"
+                      aria-hidden
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <ScrollCanvasOrchestrationCard
+                      event={orchestrationEvent}
+                      actions={orchestrationActions}
+                    />
+                  </div>
+                </section>
+              ) : null}
             </div>
           </div>
         )}
