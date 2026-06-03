@@ -117,7 +117,7 @@ export function resizePaddingFromHandle(
   aspectPreset: ExpandAspectPreset,
 ): ExpandFramePadding {
   const minPad = 8;
-  let next = { ...padding };
+  const next = { ...padding };
 
   switch (handle) {
     case "top-left":

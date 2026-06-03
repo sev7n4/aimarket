@@ -83,7 +83,6 @@ import { expandFromDirection } from "@/lib/expand-extend";
 import {
   paddingToExtend,
   type ExpandAspectPreset,
-  type ExpandFramePadding,
 } from "@/lib/expand-frame";
 import { focusIndexLabel } from "@/lib/focus-index-labels";
 import { resolveToolResolution } from "@/lib/tool-resolution";
