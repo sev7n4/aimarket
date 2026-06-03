@@ -270,8 +270,20 @@ jobs:
               }
             }
 
+      - name: Check deployment notification email
+        if: always()
+        id: deployment_email
+        run: |
+          if [ -n "${DEPLOYMENT_NOTIFICATION_EMAIL}" ]; then
+            echo "send=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "send=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          DEPLOYMENT_NOTIFICATION_EMAIL: ${{ secrets.DEPLOYMENT_NOTIFICATION_EMAIL }}
+
       - name: Send email notification
-        if: always() && secrets.DEPLOYMENT_NOTIFICATION_EMAIL != ''
+        if: always() && steps.deployment_email.outputs.send == 'true'
         uses: dawidd6/action-send-mail@v3
         continue-on-error: true
         with:
