@@ -10,5 +10,6 @@ export async function skipStudioCoach(page: Page) {
   await page.addInitScript(() => {
     localStorage.setItem("aimarket_studio_coach_v2", "1");
     localStorage.setItem("aimarket_studio_mobile_coach_v1", "1");
+    localStorage.setItem("aimarket_studio_dock_mode_v1", "expanded");
   });
 }

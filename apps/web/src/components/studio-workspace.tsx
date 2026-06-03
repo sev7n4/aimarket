@@ -919,6 +919,7 @@ export function StudioWorkspace({
     e.target.value = "";
     if (!file || !user || readOnly) return;
     try {
+      await ensureSession(sessionId, mode);
       const { id, url } = await uploadAsset(file, sessionId);
       setCanvasItems((prev) => [
         ...prev,

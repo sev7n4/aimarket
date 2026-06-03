@@ -31,15 +31,11 @@ test.describe("focus edit", () => {
       { timeout: 30_000 },
     );
 
-    const fileInput = station.locator(
-      'input[type="file"][accept="image/jpeg,image/png,image/webp"]',
-    );
     const uploadDone = page.waitForResponse(
       (r) => r.url().includes("/assets/upload") && r.ok(),
       { timeout: 30_000 },
     );
-    await station.getByTitle("上传图片").click();
-    await fileInput.setInputFiles({
+    await page.locator('input[type="file"][aria-label="上传图片"]').setInputFiles({
       name: "focus-source.png",
       mimeType: "image/png",
       buffer: TINY_PNG,
