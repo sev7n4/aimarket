@@ -72,8 +72,8 @@ on:
 | 层级 | 策略 |
 |------|------|
 | **GHCR** | 每次部署 push `:${{ github.sha }}` + `:latest`；workflow 末尾保留每包 **15** 个版本 |
-| **服务器** | `pull` 后 `docker image prune -f`；删除非当前 `IMAGE_TAG` / `latest` 的旧 GHCR 本地 tag；移除历史 `aimarket-*:release` 本地镜像 |
-| **构建缓存** | `docker builder prune -f --filter until=72h`（部署脚本内，失败忽略） |
+| **服务器** | `pull` **前**先删旧 GHCR tag + builder prune；`pull` 后再 `image prune`；可用空间 &lt;2GB 时 `image prune -af` |
+| **应急** | SSH 执行 `sudo bash /opt/aimarket/deploy/cleanup-disk.sh`（见 `deploy/cleanup-disk.sh`） |
 
 手动回滚（需已登录 GHCR）：
 
