@@ -13,6 +13,25 @@ GHCR_OWNER="${GHCR_OWNER:-sev7n4}"
 
 COMPOSE="docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.images.yml"
 
+echo "=== Disk before pull ==="
+df -h / /var/lib/docker 2>/dev/null || df -h /
+set +euo
+docker image prune -f >/dev/null 2>&1
+for REPO in "ghcr.io/${GHCR_OWNER}/aimarket-api" "ghcr.io/${GHCR_OWNER}/aimarket-web"; do
+  docker images "$REPO" --format '{{.Tag}}' 2>/dev/null | while read -r tag; do
+    [[ -z "$tag" || "$tag" == "<none>" ]] && continue
+    [[ "$tag" == "$IMAGE_TAG" || "$tag" == "latest" ]] && continue
+    docker rmi "${REPO}:${tag}" 2>/dev/null || true
+  done || true
+done
+docker builder prune -af --filter "until=48h" 2>/dev/null || true
+AVAIL_KB=$(df -Pk / | awk 'NR==2 {print $4}')
+if [[ "${AVAIL_KB:-0}" -lt 2097152 ]]; then
+  echo "WARN: disk < 2GB, pruning all unused images"
+  docker image prune -af >/dev/null 2>&1
+fi
+set -euo pipefail
+
 for i in 1 2 3 4 5; do
   if IMAGE_TAG="$IMAGE_TAG" $COMPOSE pull; then
     break

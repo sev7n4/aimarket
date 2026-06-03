@@ -115,7 +115,8 @@ jobs:
           username: ${{ env.SSH_USER }}
           key: ${{ env.SSH_KEY }}
           timeout: 120s
-          command_timeout: 40m
+          # 国内 CVM 从 GHCR pull 大镜像层可能 >40min，与 command_timeout 对齐
+          command_timeout: 90m
           script_stop: true
           script: |
             set -euo pipefail
@@ -136,6 +137,35 @@ jobs:
             fi
             echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
             COMPOSE="docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.images.yml"
+            echo "=== Disk before deploy ==="
+            df -h / /var/lib/docker 2>/dev/null || df -h /
+            docker system df 2>/dev/null || true
+            echo "Pre-pull cleanup (free space before pull)..."
+            set +euo
+            docker image prune -f >/dev/null 2>&1
+            for REPO in "ghcr.io/${GHCR_OWNER}/aimarket-api" "ghcr.io/${GHCR_OWNER}/aimarket-web"; do
+              docker images "$REPO" --format '{{.Tag}}' 2>/dev/null | while read -r tag; do
+                [[ -z "$tag" || "$tag" == "<none>" ]] && continue
+                [[ "$tag" == "$IMAGE_TAG" || "$tag" == "latest" ]] && continue
+                docker rmi "${REPO}:${tag}" 2>/dev/null || true
+              done || true
+            done
+            for LEGACY in aimarket-api:release aimarket-web:release aimarket-api:local aimarket-web:local; do
+              docker rmi "$LEGACY" 2>/dev/null || true
+            done
+            docker builder prune -af --filter "until=48h" 2>/dev/null || true
+            AVAIL_KB=$(df -Pk / | awk 'NR==2 {print $4}')
+            if [[ "${AVAIL_KB:-0}" -lt 2097152 ]]; then
+              echo "WARN: disk < 2GB free, pruning all unused images"
+              docker image prune -af >/dev/null 2>&1
+            fi
+            AVAIL_KB=$(df -Pk / | awk 'NR==2 {print $4}')
+            if [[ "${AVAIL_KB:-0}" -lt 1048576 ]]; then
+              echo "ERROR: disk < 1GB free after prune — run: sudo bash $AIMARKET_DIR/deploy/cleanup-disk.sh"
+              exit 1
+            fi
+            set -euo pipefail
+            echo "=== Pull images (may take long on slow links to GHCR) ==="
             for i in 1 2 3; do
               if IMAGE_TAG="$IMAGE_TAG" $COMPOSE pull; then
                 break
@@ -241,7 +271,7 @@ jobs:
             }
 
       - name: Send email notification
-        if: always()
+        if: always() && secrets.DEPLOYMENT_NOTIFICATION_EMAIL != ''
         uses: dawidd6/action-send-mail@v3
         continue-on-error: true
         with:
