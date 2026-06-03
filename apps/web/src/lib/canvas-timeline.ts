@@ -21,9 +21,41 @@ export interface OrchestrationTimelineEvent {
   prompt: string;
   steps: OrchestrationStepView[];
   estimatedPoints?: number;
+  planReason?: string | null;
   error?: string | null;
   showConfirm: boolean;
+  /** 执行中可取消（非待确认态） */
+  showCancelActive: boolean;
+  planLoading?: boolean;
   updatedAt: string;
+}
+
+export interface OrchestrationTimelineActions {
+  onConfirm?: () => void;
+  onCancel?: () => void;
+  confirmBusy?: boolean;
+  readOnly?: boolean;
+}
+
+const AGENT_TERMINAL = new Set<AgentRunStatus>([
+  "completed",
+  "failed",
+  "cancelled",
+]);
+const SKILL_TERMINAL = new Set<SkillRunStatus>([
+  "completed",
+  "failed",
+  "cancelled",
+]);
+
+function isActiveOrchestration(
+  status: AgentRunStatus | SkillRunStatus,
+): boolean {
+  return (
+    !AGENT_TERMINAL.has(status as AgentRunStatus) &&
+    !SKILL_TERMINAL.has(status as SkillRunStatus) &&
+    status !== "waiting_confirm"
+  );
 }
 
 function agentStepsFromPlan(
@@ -46,9 +78,11 @@ export function buildOrchestrationTimelineEvent(input: {
   agentRun: AgentRun | null;
   skillRun: SkillRun | null;
   agentPreviewPlan: AgentPlan | null;
+  agentPreviewLoading?: boolean;
   prompt: string;
 }): OrchestrationTimelineEvent | null {
-  const { agentRun, skillRun, agentPreviewPlan, prompt } = input;
+  const { agentRun, skillRun, agentPreviewPlan, agentPreviewLoading, prompt } =
+    input;
   const trimmed = prompt.trim();
 
   if (skillRun) {
@@ -67,6 +101,7 @@ export function buildOrchestrationTimelineEvent(input: {
       estimatedPoints: skillRun.estimatedPoints,
       error: skillRun.error,
       showConfirm: skillRun.status === "waiting_confirm",
+      showCancelActive: isActiveOrchestration(skillRun.status),
       updatedAt: skillRun.updatedAt,
     };
   }
@@ -84,7 +119,23 @@ export function buildOrchestrationTimelineEvent(input: {
       estimatedPoints: plan.estimatedPoints,
       error: agentRun.error,
       showConfirm: agentRun.status === "waiting_confirm",
+      showCancelActive: isActiveOrchestration(agentRun.status),
       updatedAt: agentRun.updatedAt,
+    };
+  }
+
+  if (agentPreviewLoading && trimmed) {
+    return {
+      id: "agent-preview-loading",
+      runType: "agent",
+      title: "Agent 执行计划",
+      status: "preview",
+      prompt: trimmed,
+      steps: [],
+      planLoading: true,
+      showConfirm: false,
+      showCancelActive: false,
+      updatedAt: new Date().toISOString(),
     };
   }
 
@@ -97,8 +148,10 @@ export function buildOrchestrationTimelineEvent(input: {
       prompt: trimmed,
       steps: agentStepsFromPlan(agentPreviewPlan, null),
       estimatedPoints: agentPreviewPlan.estimatedPoints,
+      planReason: agentPreviewPlan.reason ?? null,
       error: null,
       showConfirm: agentPreviewPlan.requiresConfirm,
+      showCancelActive: false,
       updatedAt: new Date().toISOString(),
     };
   }

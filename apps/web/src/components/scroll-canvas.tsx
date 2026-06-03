@@ -8,7 +8,10 @@ import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
 import { ScrollCanvasItemChrome } from "@/components/scroll-canvas-item-chrome";
 import { RefineSelectedCta } from "@/components/refine-selected-cta";
 import { ScrollCanvasOrchestrationCard } from "@/components/scroll-canvas-orchestration-card";
-import type { OrchestrationTimelineEvent } from "@/lib/canvas-timeline";
+import type {
+  OrchestrationTimelineActions,
+  OrchestrationTimelineEvent,
+} from "@/lib/canvas-timeline";
 import type { StudioTool } from "@/lib/types";
 import { hapticLight } from "@/lib/haptics";
 
@@ -63,6 +66,7 @@ interface ScrollCanvasProps {
   scrollBottomInset?: string;
   /** Agent / Skill 编排卡片（对标 Cursor 主区时间线） */
   orchestrationEvent?: OrchestrationTimelineEvent | null;
+  orchestrationActions?: OrchestrationTimelineActions;
   batchTools?: {
     tools: StudioTool[];
     pendingToolId?: string | null;
@@ -101,6 +105,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       onFocusImageClick,
       scrollBottomInset = "",
       orchestrationEvent = null,
+      orchestrationActions,
       batchTools,
     },
     ref,
@@ -377,7 +382,10 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                     />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <ScrollCanvasOrchestrationCard event={orchestrationEvent} />
+                    <ScrollCanvasOrchestrationCard
+                      event={orchestrationEvent}
+                      actions={orchestrationActions}
+                    />
                   </div>
                 </section>
               ) : null}

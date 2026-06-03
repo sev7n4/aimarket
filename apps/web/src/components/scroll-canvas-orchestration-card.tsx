@@ -1,7 +1,10 @@
 "use client";
 
-import { Check, Loader2 } from "lucide-react";
-import type { OrchestrationTimelineEvent } from "@/lib/canvas-timeline";
+import { Check, Loader2, X } from "lucide-react";
+import type {
+  OrchestrationTimelineActions,
+  OrchestrationTimelineEvent,
+} from "@/lib/canvas-timeline";
 
 const STATUS_LABEL: Record<string, string> = {
   preview: "计划预览",
@@ -17,12 +20,16 @@ const STATUS_LABEL: Record<string, string> = {
 
 interface ScrollCanvasOrchestrationCardProps {
   event: OrchestrationTimelineEvent;
+  actions?: OrchestrationTimelineActions;
 }
 
 export function ScrollCanvasOrchestrationCard({
   event,
+  actions,
 }: ScrollCanvasOrchestrationCardProps) {
   const statusLabel = STATUS_LABEL[event.status] ?? event.status;
+  const readOnly = actions?.readOnly ?? false;
+  const confirmBusy = actions?.confirmBusy ?? false;
 
   return (
     <article
@@ -40,7 +47,14 @@ export function ScrollCanvasOrchestrationCard({
         </p>
       ) : null}
 
-      {event.steps.length > 0 ? (
+      {event.planLoading ? (
+        <p className="flex items-center gap-2 text-xs text-zinc-500">
+          <Loader2 className="size-3.5 animate-spin text-orange-400/90" />
+          Agent 分析意图中…
+        </p>
+      ) : null}
+
+      {!event.planLoading && event.steps.length > 0 ? (
         <ol className="space-y-1.5">
           {event.steps.map((step, i) => (
             <li
@@ -85,17 +99,66 @@ export function ScrollCanvasOrchestrationCard({
         </ol>
       ) : null}
 
-      {event.estimatedPoints != null ? (
+      {event.estimatedPoints != null && !event.planLoading ? (
         <p className="mt-2 text-[10px] text-zinc-600">
           约 {event.estimatedPoints} 积分
-          {event.showConfirm && event.status === "preview"
-            ? " · 提交后将请求确认"
+          {event.status === "preview" && event.showConfirm
+            ? " · 提交后将在时间线请求确认"
             : ""}
         </p>
       ) : null}
 
+      {event.planReason && event.status === "preview" ? (
+        <p className="mt-2 text-[10px] text-zinc-600">{event.planReason}</p>
+      ) : null}
+
       {event.error ? (
         <p className="mt-2 text-[10px] text-red-400/90">{event.error}</p>
+      ) : null}
+
+      {!readOnly && event.showConfirm && actions?.onConfirm ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={confirmBusy}
+            onClick={() => actions.onConfirm?.()}
+            className="rounded-lg bg-orange-500/90 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-500 disabled:opacity-50"
+          >
+            {confirmBusy ? (
+              <span className="inline-flex items-center gap-1">
+                <Loader2 className="size-3 animate-spin" />
+                确认中…
+              </span>
+            ) : (
+              "确认执行"
+            )}
+          </button>
+          {actions.onCancel ? (
+            <button
+              type="button"
+              disabled={confirmBusy}
+              onClick={() => actions.onCancel?.()}
+              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-zinc-400 hover:bg-white/5"
+            >
+              取消
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!readOnly &&
+      event.showCancelActive &&
+      actions?.onCancel &&
+      !event.showConfirm ? (
+        <button
+          type="button"
+          onClick={() => actions.onCancel?.()}
+          disabled={confirmBusy}
+          className="mt-3 inline-flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 disabled:opacity-50"
+        >
+          <X className="size-3" />
+          取消任务
+        </button>
       ) : null}
     </article>
   );

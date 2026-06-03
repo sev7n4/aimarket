@@ -25,6 +25,7 @@ import {
   getToken,
   fetchModels,
   fetchReferences,
+  fetchAgentPlan,
   fetchProviderStatus,
   submitEcommerceGenerate,
   submitGeneration,
@@ -76,7 +77,10 @@ import { SkillRunPanel } from "@/components/skill-run-panel";
 import { useAgentRun } from "@/hooks/use-agent-run";
 import { useSkillRun } from "@/hooks/use-skill-run";
 import type { AgentPlan, AgentRunStatus, SkillRunStatus } from "@/lib/types";
-import { buildOrchestrationTimelineEvent } from "@/lib/canvas-timeline";
+import {
+  buildOrchestrationTimelineEvent,
+  type OrchestrationTimelineActions,
+} from "@/lib/canvas-timeline";
 import { StudioDockFocusButton } from "@/components/studio-dock-controls";
 import {
   CreationDockToolbar,
@@ -226,6 +230,10 @@ interface CreationPanelProps {
   onOrchestrationTimelineChange?: (
     event: import("@/lib/canvas-timeline").OrchestrationTimelineEvent | null,
   ) => void;
+  /** Studio：编排确认/取消交给滚动画布时间线，Dock 仅保留输入与发送 */
+  onOrchestrationActionsChange?: (
+    actions: OrchestrationTimelineActions | null,
+  ) => void;
 }
 
 export function CreationPanel({
@@ -271,6 +279,7 @@ export function CreationPanel({
   agentSkills = false,
   onAgentRunComplete,
   onOrchestrationTimelineChange,
+  onOrchestrationActionsChange,
 }: CreationPanelProps) {
   const shouldNavigateOnSubmit =
     navigateOnSubmit ?? (!sessionId && !homeDirectSubmit);
@@ -367,6 +376,7 @@ export function CreationPanel({
   );
   const [dockSkillId, setDockSkillId] = useState<string | null>(null);
   const [agentPreviewPlan, setAgentPreviewPlan] = useState<AgentPlan | null>(null);
+  const [agentPreviewLoading, setAgentPreviewLoading] = useState(false);
   const sessionEnsuredRef = useRef(false);
   const [videoReferenceMode, setVideoReferenceMode] =
     useState<VideoReferenceMode>("omni");
@@ -675,11 +685,50 @@ export function CreationPanel({
   }, [user, sessionId, canvasMentionSignature, mode]);
 
   useEffect(() => {
+    if (
+      !embeddedInDock ||
+      !agentEnabled ||
+      creationLane !== "agent" ||
+      activeSkillId ||
+      agentRun ||
+      focusEdit
+    ) {
+      if (embeddedInDock) {
+        setAgentPreviewPlan(null);
+        setAgentPreviewLoading(false);
+      }
+      return;
+    }
+    if (!prompt.trim()) {
+      setAgentPreviewPlan(null);
+      setAgentPreviewLoading(false);
+      return;
+    }
+    setAgentPreviewLoading(true);
+    const t = window.setTimeout(() => {
+      void fetchAgentPlan({ prompt: prompt.trim(), mode: effectiveMode })
+        .then((data) => setAgentPreviewPlan(data))
+        .catch(() => setAgentPreviewPlan(null))
+        .finally(() => setAgentPreviewLoading(false));
+    }, 500);
+    return () => window.clearTimeout(t);
+  }, [
+    embeddedInDock,
+    agentEnabled,
+    activeSkillId,
+    agentRun,
+    focusEdit,
+    prompt,
+    effectiveMode,
+  ]);
+
+  useEffect(() => {
     if (!onOrchestrationTimelineChange) return;
     const event = buildOrchestrationTimelineEvent({
       agentRun,
       skillRun,
-      agentPreviewPlan,
+      agentPreviewPlan: embeddedInDock ? agentPreviewPlan : null,
+      agentPreviewLoading: embeddedInDock ? agentPreviewLoading : false,
       prompt,
     });
     onOrchestrationTimelineChange(event);
@@ -687,8 +736,43 @@ export function CreationPanel({
     agentRun,
     skillRun,
     agentPreviewPlan,
+    agentPreviewLoading,
+    embeddedInDock,
     prompt,
     onOrchestrationTimelineChange,
+  ]);
+
+  useEffect(() => {
+    if (!embeddedInDock || !onOrchestrationActionsChange) return;
+    const hasOrchestration = Boolean(
+      agentRun || skillRun || agentPreviewPlan || agentPreviewLoading,
+    );
+    if (!hasOrchestration) {
+      onOrchestrationActionsChange(null);
+      return;
+    }
+    onOrchestrationActionsChange({
+      onConfirm: () => void handleSubmit(),
+      onCancel: () => {
+        if (skillRun) void cancelSkillRunAction();
+        else if (agentRun) void cancelAgentRunAction();
+      },
+      confirmBusy: pending || agentBusy || skillBusy,
+      readOnly,
+    });
+  }, [
+    embeddedInDock,
+    onOrchestrationActionsChange,
+    agentRun,
+    skillRun,
+    agentPreviewPlan,
+    agentPreviewLoading,
+    pending,
+    agentBusy,
+    skillBusy,
+    readOnly,
+    cancelSkillRunAction,
+    cancelAgentRunAction,
   ]);
 
   useEffect(() => {
@@ -1584,12 +1668,12 @@ export function CreationPanel({
             onCancel={focusEdit.onCancel}
           />
         ) : null}
-        {assetIds.length > 0 ? (
+        {assetIds.length > 0 && !(isDock && embeddedInDock) ? (
           <p className="mt-1 text-xs text-zinc-500">
             已上传 {assetIds.length} 张附件
           </p>
         ) : null}
-        {routeHint ? (
+        {routeHint && !(isDock && embeddedInDock) ? (
           <p className="mt-1 text-xs text-orange-400/80">路由：{routeHint}</p>
         ) : null}
 
@@ -1602,7 +1686,10 @@ export function CreationPanel({
           />
         ) : null}
 
-        {skillsEnabled && activeSkillId && !effectiveCollapsed ? (
+        {skillsEnabled &&
+        activeSkillId &&
+        !effectiveCollapsed &&
+        !embeddedInDock ? (
           <SkillRunPanel
             skill={selectedSkill}
             run={skillRun}
@@ -1612,10 +1699,11 @@ export function CreationPanel({
           />
         ) : null}
 
-        {        agentEnabled &&
+        {agentEnabled &&
         !activeSkillId &&
         (!isDock || creationLane === "agent") &&
-        !effectiveCollapsed ? (
+        !effectiveCollapsed &&
+        !embeddedInDock ? (
           <AgentRunPanel
             prompt={prompt}
             mode={effectiveMode}

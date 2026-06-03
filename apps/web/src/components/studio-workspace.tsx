@@ -46,7 +46,10 @@ import { trackEvent } from "@/lib/api-client";
 import { type CreationMode } from "@aimarket/ui";
 import type { ImageSession, StudioTool } from "@/lib/types";
 import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
-import type { OrchestrationTimelineEvent } from "@/lib/canvas-timeline";
+import type {
+  OrchestrationTimelineActions,
+  OrchestrationTimelineEvent,
+} from "@/lib/canvas-timeline";
 import { useAuth } from "@/lib/auth-context";
 import {
   assetUrl,
@@ -190,6 +193,8 @@ export function StudioWorkspace({
   const [jobFailed, setJobFailed] = useState(false);
   const [orchestrationTimeline, setOrchestrationTimeline] =
     useState<OrchestrationTimelineEvent | null>(null);
+  const [orchestrationActions, setOrchestrationActions] =
+    useState<OrchestrationTimelineActions | null>(null);
 
   const [mode, setMode] = useState<CreationMode>(initialMode);
   const [selectedCanvasId, setSelectedCanvasId] = useState<string | null>(null);
@@ -200,6 +205,7 @@ export function StudioWorkspace({
 
   useEffect(() => {
     setOrchestrationTimeline(null);
+    setOrchestrationActions(null);
   }, [sessionId]);
 
   const handleOrchestrationTimelineChange = useCallback(
@@ -1243,6 +1249,7 @@ export function StudioWorkspace({
         agentOrchestration
         agentSkills
         onOrchestrationTimelineChange={handleOrchestrationTimelineChange}
+        onOrchestrationActionsChange={setOrchestrationActions}
         onAgentRunComplete={() => {
           void loadCanvas();
           void refreshUser();
@@ -1553,6 +1560,7 @@ export function StudioWorkspace({
               emptyHint=""
               scrollBottomInset={studioDockScrollInset(dockMode)}
               orchestrationEvent={orchestrationTimeline}
+              orchestrationActions={orchestrationActions ?? undefined}
               readOnly={readOnly}
               jobStreamStatus={jobStreamStatus}
               jobFailed={jobFailed}
