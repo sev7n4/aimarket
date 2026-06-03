@@ -705,7 +705,9 @@ export function CreationPanel({
   }
 
   async function handleUpload(files: FileList | null) {
-    if (!files?.length || !sessionId) return;
+    /** FileList 与 input 联动；onChange 会立刻清空 value，须在 await 前拷贝 */
+    const selectedFiles = files ? Array.from(files) : [];
+    if (!selectedFiles.length || !sessionId) return;
     if (!requireAuth("登录后即可上传参考图")) return;
     const target = uploadTargetRef.current;
     setUploading(true);
@@ -715,17 +717,17 @@ export function CreationPanel({
         await ensureSession(sessionId, mode);
       }
       if (target === "product") {
-        const asset = await uploadAsset(files[0], sessionId);
+        const asset = await uploadAsset(selectedFiles[0]!, sessionId);
         setProductAssetId(asset.id);
         return;
       }
       if (target === "reference") {
-        const asset = await uploadAsset(files[0], sessionId);
+        const asset = await uploadAsset(selectedFiles[0]!, sessionId);
         setReferenceAssetId(asset.id);
         return;
       }
       const remaining = Math.max(0, 4 - assetIds.length);
-      const batch = Array.from(files).slice(0, remaining);
+      const batch = selectedFiles.slice(0, remaining);
       for (const file of batch) {
         const asset = await uploadAsset(file, sessionId);
         setAssetIds((prev) => [...prev, asset.id].slice(0, 4));
@@ -736,7 +738,7 @@ export function CreationPanel({
           onUploadToCanvas(asset.id, asset.url);
         }
       }
-      const extraFiles = Array.from(files).slice(remaining);
+      const extraFiles = selectedFiles.slice(remaining);
       for (const file of extraFiles) {
         const asset = await uploadAsset(file, sessionId);
         if (onUploadToCanvas) {
@@ -1297,8 +1299,9 @@ export function CreationPanel({
         multiple={uploadTarget === "general"}
         className="hidden"
         onChange={(e) => {
-          void handleUpload(e.target.files);
+          const picked = e.target.files;
           e.target.value = "";
+          void handleUpload(picked);
         }}
       />
 
