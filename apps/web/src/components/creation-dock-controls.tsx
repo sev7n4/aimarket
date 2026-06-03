@@ -33,7 +33,15 @@ import {
 const DOCK_PILL =
   "inline-flex max-w-[11rem] shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-zinc-300 transition hover:border-white/15 hover:bg-white/[0.07] hover:text-zinc-100";
 
+/** 历史 Dock 存盘别名；新逻辑统一为 Skill `ecommerce-set-v1` */
 export const ECOMMERCE_DOCK_SKILL_ID = "__ecommerce__";
+export const ECOMMERCE_SET_SKILL_ID = "ecommerce-set-v1";
+
+export function normalizeDockSkillId(id: string | null): string | null {
+  if (!id) return null;
+  if (id === ECOMMERCE_DOCK_SKILL_ID) return ECOMMERCE_SET_SKILL_ID;
+  return id;
+}
 
 function laneIcon(lane: CreationLane) {
   if (lane === "agent") {
@@ -703,23 +711,24 @@ export function CreationDockToolbar({
 
 export function buildDockSkillOptions(
   skills: AgentSkillPublic[],
-  includeEcommerce: boolean,
+  _includeEcommerce?: boolean,
 ): DockSkillOption[] {
-  const out: DockSkillOption[] = [];
-  if (includeEcommerce) {
-    out.push({
-      id: ECOMMERCE_DOCK_SKILL_ID,
-      name: "电商套图",
-      description: "商品主图 4 张 · 2K · 智能构图",
-      badge: "hot",
-    });
-  }
-  for (const s of skills) {
-    out.push({
-      id: s.id,
-      name: s.name,
-      description: s.description,
-    });
-  }
-  return out;
+  const ordered = [...skills].sort((a, b) => {
+    if (a.id === ECOMMERCE_SET_SKILL_ID) return -1;
+    if (b.id === ECOMMERCE_SET_SKILL_ID) return 1;
+    if (a.id === "ecommerce-taobao-launch-v1") return -1;
+    if (b.id === "ecommerce-taobao-launch-v1") return 1;
+    return 0;
+  });
+  return ordered.map((s) => ({
+    id: s.id,
+    name: s.name,
+    description: s.description,
+    badge:
+      s.id === ECOMMERCE_SET_SKILL_ID
+        ? ("hot" as const)
+        : s.id === "ecommerce-taobao-launch-v1"
+          ? ("new" as const)
+          : undefined,
+  }));
 }

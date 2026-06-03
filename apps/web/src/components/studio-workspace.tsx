@@ -46,6 +46,7 @@ import { trackEvent } from "@/lib/api-client";
 import { type CreationMode } from "@aimarket/ui";
 import type { ImageSession, StudioTool } from "@/lib/types";
 import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
+import type { OrchestrationTimelineEvent } from "@/lib/canvas-timeline";
 import { useAuth } from "@/lib/auth-context";
 import {
   assetUrl,
@@ -187,6 +188,8 @@ export function StudioWorkspace({
     null,
   );
   const [jobFailed, setJobFailed] = useState(false);
+  const [orchestrationTimeline, setOrchestrationTimeline] =
+    useState<OrchestrationTimelineEvent | null>(null);
 
   const [mode, setMode] = useState<CreationMode>(initialMode);
   const [selectedCanvasId, setSelectedCanvasId] = useState<string | null>(null);
@@ -194,6 +197,28 @@ export function StudioWorkspace({
   useEffect(() => {
     setMode(initialMode);
   }, [initialMode]);
+
+  useEffect(() => {
+    setOrchestrationTimeline(null);
+  }, [sessionId]);
+
+  const handleOrchestrationTimelineChange = useCallback(
+    (event: OrchestrationTimelineEvent | null) => {
+      setOrchestrationTimeline((prev) => {
+        if (event) return event;
+        if (
+          prev &&
+          (prev.status === "completed" ||
+            prev.status === "failed" ||
+            prev.status === "cancelled")
+        ) {
+          return prev;
+        }
+        return null;
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     const saved = readStudioDockMode();
@@ -1217,6 +1242,7 @@ export function StudioWorkspace({
         }
         agentOrchestration
         agentSkills
+        onOrchestrationTimelineChange={handleOrchestrationTimelineChange}
         onAgentRunComplete={() => {
           void loadCanvas();
           void refreshUser();
@@ -1526,6 +1552,7 @@ export function StudioWorkspace({
               onRerun={(item) => void handleRerun(item)}
               emptyHint=""
               scrollBottomInset={studioDockScrollInset(dockMode)}
+              orchestrationEvent={orchestrationTimeline}
               readOnly={readOnly}
               jobStreamStatus={jobStreamStatus}
               jobFailed={jobFailed}
