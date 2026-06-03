@@ -8,6 +8,11 @@ export interface FocusPointChip {
   x: number;
   y: number;
   itemId: string;
+  /** 该焦点对应的短 prompt（chip 内编辑） */
+  chipPrompt?: string;
+  /** 对象替换时上传的参考图 assetId */
+  replaceAssetId?: string;
+  replaceAssetUrl?: string;
 }
 
 export const MAX_FOCUS_POINTS = 10;

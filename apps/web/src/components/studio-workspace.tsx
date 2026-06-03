@@ -80,6 +80,12 @@ import { watchJob } from "@/lib/job-stream";
 import { consumePendingAssets, type PendingAsset } from "@/lib/pending-assets";
 import { consumePendingInspiration } from "@/lib/pending-inspiration";
 import { expandFromDirection } from "@/lib/expand-extend";
+import {
+  paddingToExtend,
+  type ExpandAspectPreset,
+  type ExpandFramePadding,
+} from "@/lib/expand-frame";
+import { focusIndexLabel } from "@/lib/focus-index-labels";
 import { resolveToolResolution } from "@/lib/tool-resolution";
 import { formatToolProviderLabel } from "@/lib/studio-tool-meta";
 import { hapticLight } from "@/lib/haptics";
@@ -87,7 +93,12 @@ import { type SessionKind } from "@/lib/session-kind";
 import { buildStudioUrl, studioUrlForSession } from "@/lib/studio-navigation";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 
-type SelectionToolInteraction = "direct" | "brush" | "prompt" | "click";
+type SelectionToolInteraction =
+  | "direct"
+  | "brush"
+  | "prompt"
+  | "click"
+  | "expand-frame";
 
 const TOOL_INTERACTIONS: Record<string, SelectionToolInteraction> = {
   cutout: "direct",
@@ -97,7 +108,7 @@ const TOOL_INTERACTIONS: Record<string, SelectionToolInteraction> = {
   erase: "brush",
   inpaint: "brush",
   "focus-edit": "click",
-  expand: "prompt",
+  expand: "expand-frame",
   text: "prompt",
   blend: "prompt",
 };
@@ -248,6 +259,13 @@ export function StudioWorkspace({
     toolId: string;
     toolName: string;
     promptExtra?: string;
+  } | null>(null);
+  const [expandRequest, setExpandRequest] = useState<{
+    key: number;
+    itemId: string;
+    toolName: string;
+    promptExtra?: string;
+    aspectPreset?: ExpandAspectPreset;
   } | null>(null);
   const [focusEditSession, setFocusEditSession] =
     useState<FocusEditSession | null>(null);
@@ -722,9 +740,7 @@ export function StudioWorkspace({
     try {
       const userPrompt = opts.prompt?.trim();
       const prompt =
-        tool.id === "text" && userPrompt
-          ? `${tool.defaultPrompt}，新文字：${userPrompt}`
-          : userPrompt || tool.defaultPrompt;
+        userPrompt || tool.defaultPrompt;
       const { jobId } = await runTool(tool.id, {
         sessionId,
         prompt,
@@ -737,7 +753,11 @@ export function StudioWorkspace({
           ? { scale: opts.scale ?? ("2x" as const) }
           : {}),
         ...(tool.id === "expand"
-          ? { extend: expandFromDirection(opts.expandDirection) }
+          ? {
+              extend:
+                opts.expandExtend ??
+                expandFromDirection(opts.expandDirection),
+            }
           : {}),
       });
       void trackEvent("tool_run", {
@@ -768,15 +788,36 @@ export function StudioWorkspace({
 
     if (interaction === "brush") {
       setToolConfirm(null);
+      setExpandRequest(null);
       setBrushRequest({
         key: Date.now(),
         itemId: item.id,
         toolId: tool.id,
         toolName: tool.name,
-        promptExtra: opts.prompt?.trim() || undefined,
+        promptExtra:
+          tool.id === "erase" ? opts.prompt?.trim() || undefined : undefined,
       });
       setSelectSourceBanner(
-        `${tool.name}：请在图片上圈选区域${opts.prompt?.trim() ? "，提示词已预填到工作台" : "，完成后再到工作台补充提示词"}。`,
+        tool.id === "inpaint"
+          ? `${tool.name}：请先用画笔圈选区域，完成后再在工作台填写修改提示词。`
+          : `${tool.name}：请在图片上涂抹要处理的区域（可调节画笔粗细）。`,
+      );
+      hapticLight();
+      return;
+    }
+
+    if (interaction === "expand-frame") {
+      setToolConfirm(null);
+      setBrushRequest(null);
+      setExpandRequest({
+        key: Date.now(),
+        itemId: item.id,
+        toolName: tool.name,
+        promptExtra: opts.prompt?.trim() || undefined,
+        aspectPreset: opts.expandAspectPreset,
+      });
+      setSelectSourceBanner(
+        `${tool.name}：拖拽外框四角或四边调整扩图范围，可选比例后确认。`,
       );
       hapticLight();
       return;
@@ -1133,6 +1174,38 @@ export function StudioWorkspace({
                         }
                       : prev,
                   ),
+                onChipPromptChange: (pointId, chipPrompt) =>
+                  setFocusEditSession((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          points: prev.points.map((p) =>
+                            p.pointId === pointId ? { ...p, chipPrompt } : p,
+                          ),
+                        }
+                      : prev,
+                  ),
+                onReplaceImage: (pointId, assetId, url) =>
+                  setFocusEditSession((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          points: prev.points.map((p) =>
+                            p.pointId === pointId
+                              ? {
+                                  ...p,
+                                  replaceAssetId: assetId,
+                                  replaceAssetUrl: url,
+                                }
+                              : p,
+                          ),
+                        }
+                      : prev,
+                  ),
+                onClearAll: () =>
+                  setFocusEditSession((prev) =>
+                    prev ? { ...prev, points: [] } : prev,
+                  ),
                 onCropSizeChange: (size) =>
                   setFocusEditSession((prev) =>
                     prev ? { ...prev, cropSize: size } : prev,
@@ -1149,13 +1222,28 @@ export function StudioWorkspace({
         }}
         onFocusEditSubmit={async ({ prompt, intent, points, item }) => {
           const referenceOutputIds = item.outputId ? [item.outputId] : undefined;
-          const assetIds =
-            !referenceOutputIds && item.assetId ? [item.assetId] : undefined;
+          const replaceAssets = points
+            .map((p) => p.replaceAssetId)
+            .filter((id): id is string => Boolean(id));
+          const assetIds = [
+            ...(!referenceOutputIds && item.assetId ? [item.assetId] : []),
+            ...replaceAssets,
+          ];
+          const chipLines = points
+            .map((p, i) => {
+              const chip = p.chipPrompt?.trim();
+              if (!chip) return null;
+              return `${focusIndexLabel(i)}${p.objectName}：${chip}`;
+            })
+            .filter((line): line is string => Boolean(line));
+          const mergedPrompt = [chipLines.join("；"), prompt.trim()]
+            .filter(Boolean)
+            .join("\n");
           const { jobId } = await runTool("focus-edit", {
             sessionId,
-            prompt: prompt.trim(),
+            prompt: mergedPrompt || "按焦点区域进行局部编辑",
             referenceOutputIds,
-            assetIds,
+            assetIds: assetIds.length ? assetIds : undefined,
             resolution: resolveToolResolution("focus-edit"),
             intent,
             focusPoints: points.map((p) => ({
@@ -1458,6 +1546,32 @@ export function StudioWorkspace({
                   "点选已完成：请在工作站补充 prompt 并提交焦点编辑。",
                 );
               }}
+              expandRequest={expandRequest}
+              onExpandCancel={() => {
+                setExpandRequest(null);
+                setSelectSourceBanner(null);
+              }}
+              onExpandComplete={(padding, aspect) => {
+                const item = canvasItems.find(
+                  (i) => i.id === expandRequest?.itemId,
+                );
+                const tool = tools.find((t) => t.id === "expand");
+                if (!item || !tool) return;
+                const extend = paddingToExtend(
+                  padding,
+                  item.width,
+                  item.height,
+                );
+                const promptExtra = expandRequest?.promptExtra ?? "";
+                setExpandRequest(null);
+                void executeDirectTool(tool, item, {
+                  count: 1,
+                  prompt: promptExtra || undefined,
+                  expandDirection: undefined,
+                  expandExtend: extend,
+                  expandAspectPreset: aspect,
+                });
+              }}
               onBrushCancel={() => {
                 setBrushRequest(null);
                 setSelectSourceBanner(null);
@@ -1483,7 +1597,9 @@ export function StudioWorkspace({
                   maskSelection: selection,
                 }));
                 setSelectSourceBanner(
-                  "已完成圈选：区域 mask 已加入工作台，请补充提示词后提交。",
+                  selection.toolId === "inpaint"
+                    ? "已完成圈选：请在工作台填写要将该区域改成什么，然后提交。"
+                    : "已完成圈选：区域 mask 已加入工作台，可补充说明后提交。",
                 );
                 hapticLight();
               }}

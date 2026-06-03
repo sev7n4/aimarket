@@ -77,11 +77,11 @@ export const TOOL_CONFIRM_STEPS: Record<string, string> = {
   upscale: "在保持风格的前提下提升分辨率与细节",
   enhance: "轻量锐化与对比增强，适合预览稿变清晰",
   variation: "同构图微差：细节、光影会有可见变化",
-  expand: "按所选方向扩展画布边缘，保持主体与风格一致（万相 expand / HTTP outpaint）",
-  erase: "确认后请在图上圈选要消除的区域",
-  inpaint: "确认后请在图上圈选要重绘的区域",
+  expand: "确认后在画布拖拽外框扩边，可选 1:1 / 4:3 / 16:9 / 9:16",
+  erase: "确认后用画笔涂抹要消除的区域（可调粗细、撤销/重做/清空）",
+  inpaint: "确认后先画笔圈选，再在工作台填写修改提示词",
   "focus-edit": "确认后在图上点击目标，再在工作台输入短 prompt",
-  text: "描述要替换成的文字内容，保持原图质感",
+  text: "选择字体与字号，填写要替换成的文字内容",
   blend: "确认后 @ 第二张图到工作台，补充融合要求后提交",
 };
 
@@ -105,10 +105,10 @@ export function toolConfirmPrimaryLabel(toolId: string): string {
     case "enhance":
       return "开始增强";
     case "expand":
-      return "开始扩图";
+      return "调整扩图范围";
     case "erase":
     case "inpaint":
-      return "开始圈选";
+      return "开始涂抹";
     case "focus-edit":
       return "开始点选";
     case "text":
