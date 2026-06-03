@@ -14,7 +14,7 @@
 | **Environment** | `production` | `production` ✅ 可共用 Secrets |
 | **SSH Secrets** | `TENCENT_CLOUD_*` | 优先读 `TENCENT_CLOUD_*`，兼容 `DEPLOY_*` |
 | **部署目录** | `TENCENT_CLOUD_PROJECT_DIR` → `/opt/pintuotuo` | 固定 `/opt/aimarket`（勿混用） |
-| **镜像交付** | 推 GHCR，`sha` tag，服务器 `pull` | 同 ✅ `ghcr.io/sev7n4/aimarket-{api,web}:${sha}` |
+| **镜像交付** | 推 GHCR，`sha` tag，服务器 `pull` | GHA **双推** GHCR + **TCR**；服务器 **仅拉 TCR** ✅ |
 | **部署后验证** | `/api/v1/health` + catalog | `/health` + Web 200 |
 | **通知** | Summary + 邮件（SMTP） | 同（邮件可选） |
 
@@ -56,6 +56,8 @@ on:
 | `TENCENT_CLOUD_IP` | ✅ | ✅ |
 | `TENCENT_CLOUD_USER` | ✅ | ✅ |
 | `TENCENT_CLOUD_SSH_KEY` | ✅ | ✅ |
+| `TCR_USERNAME` | — | ✅ **必填**（TCR 登录用户名） |
+| `TCR_PASSWORD` | — | ✅ **必填**（TCR 访问凭证/长期令牌） |
 | `SMTP_*` / `DEPLOYMENT_NOTIFICATION_EMAIL` | 可选 | 可选（邮件步骤 `continue-on-error`） |
 
 **不要复用**：
@@ -63,24 +65,45 @@ on:
 - `TENCENT_CLOUD_PROJECT_DIR`（指向拼兔兔目录）
 - `TENCENT_CLOUD_PROJECT_DIR`（拼兔兔专用；AIMarket 固定 `/opt/aimarket`）
 
+**Repository Variables**（可选，有默认值）：
+
+| Variable | 默认 | 说明 |
+|----------|------|------|
+| `TCR_REGISTRY` | `ccr.ccs.tencentyun.com` | 个人版 TCR；企业版填 `*.tencentcloudcr.com` |
+| `TCR_NAMESPACE` | `aimarket` | TCR 命名空间，须与控制台一致 |
+
 可选 **Repository variable**（仿 pintuotuo `DEPLOY_VERIFY_*`）：
 
 - `DEPLOY_VERIFY_API_URL` — 覆盖默认 `http://IP:4100`（一般不必）
+
+### 一次性：开通 TCR 并配置 GHA
+
+**逐步操作见 [TCR_PERSONAL_SETUP.md](./TCR_PERSONAL_SETUP.md)**（个人版免费，`ccr.ccs.tencentyun.com`）。
+
+摘要：控制台初始化个人版密码 → 命名空间 `aimarket` → GitHub `production` 添加 `TCR_USERNAME`（账号 ID）与 `TCR_PASSWORD`（固定密码）。
+
+镜像地址示例：
+
+- 生产拉取：`ccr.ccs.tencentyun.com/aimarket/aimarket-api:<sha>`
+- GHCR 备份：`ghcr.io/sev7n4/aimarket-api:<sha>`（仅 GHA 推送，服务器不拉）
 
 ## 镜像与磁盘清理
 
 | 层级 | 策略 |
 |------|------|
-| **GHCR** | 每次部署 push `:${{ github.sha }}` + `:latest`；workflow 末尾保留每包 **15** 个版本 |
-| **服务器** | `pull` **前**先删旧 GHCR tag + builder prune；`pull` 后再 `image prune`；可用空间 &lt;2GB 时 `image prune -af` |
+| **GHCR** | 每次部署 push `:${{ github.sha }}` + `:latest`（备份）；workflow 末尾保留每包 **15** 个版本 |
+| **TCR** | 同 tag 双推；**服务器仅 `docker compose pull` TCR**（国内带宽，通常 &lt;10 分钟） |
+| **服务器** | `pull` **前**先删旧 TCR tag + builder prune；`pull` 后再 `image prune`；可用空间 &lt;2GB 时 `image prune -af` |
 | **应急** | SSH 执行 `sudo bash /opt/aimarket/deploy/cleanup-disk.sh`（见 `deploy/cleanup-disk.sh`） |
 
-手动回滚（需已登录 GHCR）：
+手动回滚（需已 `docker login` TCR）：
 
 ```bash
 cd /opt/aimarket
 export IMAGE_TAG=<previous-sha>
-export GHCR_OWNER=sev7n4
+export TCR_REGISTRY=ccr.ccs.tencentyun.com
+export TCR_NAMESPACE=aimarket
+# echo "$TCR_PASSWORD" | docker login "$TCR_REGISTRY" -u "$TCR_USERNAME" --password-stdin
 bash deploy/deploy-remote.sh
 ```
 
@@ -137,7 +160,7 @@ Agent/开发者 PR 全流程见 **[PR_WORKFLOW.md](./PR_WORKFLOW.md)**（`mydev-
 | `CI` | PR + push main | typecheck、build、Docker 构建校验 |
 | `Integration Tests` | PR + manual | `smoke-api`、工作区脚本、`verify-moderation-p2` |
 | `E2E Tests` | PR + cron + manual | Playwright 冒烟（`apps/web/e2e/smoke.spec.ts`） |
-| `Deploy` | push main（非仅 docs）+ manual | GHCR push、scp compose、服务器 pull、清理、curl 验证 |
+| `Deploy` | push main（非仅 docs）+ manual | 双推 GHCR+TCR、scp compose、服务器 **TCR pull**、清理、curl 验证 |
 
 本地：
 

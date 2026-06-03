@@ -1,7 +1,9 @@
 # 生产 compose — 独立网络，不接入 pintuotuo 栈
-# GHA / 服务器推荐（无本地构建）:
-#   IMAGE_TAG=<sha> docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.images.yml pull
-#   IMAGE_TAG=<sha> docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.images.yml up -d --no-build
+# GHA / 服务器推荐（从 TCR 拉取，无本地构建）:
+#   TCR_REGISTRY=ccr.ccs.tencentyun.com TCR_NAMESPACE=aimarket IMAGE_TAG=<sha> \
+#   docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.images.yml pull
+#   TCR_REGISTRY=... TCR_NAMESPACE=... IMAGE_TAG=<sha> \
+#   docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.images.yml up -d --no-build
 # 本地调试构建:
 #   cp deploy/.env.production.example .env
 #   docker compose -f deploy/docker-compose.prod.yml up -d --build
