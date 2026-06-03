@@ -41,6 +41,7 @@ import {
 import { getActiveWorkspaceId } from "@/lib/active-workspace";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { resolveApiBase } from "@/lib/api-base";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import { trackEvent } from "@/lib/api-client";
 import { type CreationMode } from "@aimarket/ui";
 import type { ImageSession, StudioTool } from "@/lib/types";
@@ -1614,6 +1615,14 @@ export function StudioWorkspace({
                   }));
                   hapticLight();
                 },
+              }}
+              onShareItem={async (item) => {
+                try {
+                  await copyTextToClipboard(assetUrl(item.url));
+                  setSelectSourceBanner("图片链接已复制，可粘贴分享");
+                } catch {
+                  setSelectSourceBanner("复制失败，请重试");
+                }
               }}
               selectionToolbar={
                 <CanvasSelectionToolbar
