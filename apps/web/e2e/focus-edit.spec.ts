@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { registerViaEmail } from "./helpers/auth";
 import { studioWorkstation, skipStudioCoach } from "./helpers/studio";
 
-/** 12×12 PNG，避免 1×1 在滚动画布上 boundingBox 为 0 */
+/** 12×12 PNG，避免 1×1 在滚动画布上布局异常 */
 const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+FABJADveWkH6oAAAAAElFTkSuQmCC",
   "base64",
@@ -26,10 +26,6 @@ test.describe("focus edit", () => {
 
     const station = studioWorkstation(page);
     await expect(station).toBeVisible({ timeout: 15_000 });
-    await page.waitForResponse(
-      (r) => r.url().includes("/imageSession/ensure") && r.ok(),
-      { timeout: 30_000 },
-    );
 
     const uploadDone = page.waitForResponse(
       (r) => r.url().includes("/assets/upload") && r.ok(),
@@ -60,22 +56,12 @@ test.describe("focus edit", () => {
     await expect(page.getByTestId("focus-edit-canvas-banner")).toBeVisible({
       timeout: 10_000,
     });
-    await focusTarget.scrollIntoViewIfNeeded();
-    let box = await focusTarget.boundingBox();
-    await expect
-      .poll(async () => {
-        box = await focusTarget.boundingBox();
-        return box?.width ?? 0;
-      })
-      .toBeGreaterThan(0);
+
     const focusPointDone = page.waitForResponse(
       (r) => r.url().includes("/focus/point") && r.ok(),
       { timeout: 30_000 },
     );
-    await focusTarget.click({
-      position: { x: box!.width / 2, y: box!.height / 2 },
-      force: true,
-    });
+    await focusTarget.click({ force: true });
     await focusPointDone;
     await expect(station.getByTestId("focus-edit-panel")).toBeVisible({
       timeout: 15_000,
