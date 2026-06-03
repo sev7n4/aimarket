@@ -33,6 +33,7 @@ import { FreeCanvas } from "@/components/free-canvas";
 import type { FreeCanvasHandle } from "@/components/free-canvas";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { hapticLight } from "@/lib/haptics";
+import { assetUrl } from "@/lib/api-client";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { ArrowLeft, Columns2 } from "lucide-react";
 import type { StudioTool } from "@/lib/types";
@@ -122,6 +123,8 @@ interface DesignCanvasProps {
     onRunTool: (tool: StudioTool, item: CanvasItem) => void;
     onMentionItem?: (item: CanvasItem) => void;
   };
+  onDownloadItem?: (item: CanvasItem) => void;
+  onShareItem?: (item: CanvasItem) => void;
 }
 
 export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
@@ -164,6 +167,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       queueAhead,
       scrollBottomInset = "",
       batchTools,
+      onDownloadItem,
+      onShareItem,
     },
     ref,
   ) {
@@ -841,6 +846,11 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               onFocusImageClick={onFocusImageClick}
               scrollBottomInset={scrollBottomInset}
               batchTools={batchTools}
+              onDownloadItem={
+                onDownloadItem ??
+                ((item) => window.open(assetUrl(item.url), "_blank"))
+              }
+              onShareItem={onShareItem}
             />
           )}
 

@@ -1,0 +1,140 @@
+"use client";
+
+import {
+  AtSign,
+  Download,
+  Eye,
+  RotateCcw,
+  Share2,
+  Trash2,
+  Wand2,
+} from "lucide-react";
+import type { CanvasItem } from "@/lib/canvas-tools";
+import type { StudioTool } from "@/lib/types";
+import { OverflowIconRow, type OverflowIconAction } from "@/components/overflow-icon-row";
+import { buildCanvasToolActions } from "@/components/canvas-tool-actions";
+
+interface ScrollCanvasItemChromeProps {
+  item: CanvasItem;
+  selected: boolean;
+  readOnly: boolean;
+  tools?: StudioTool[];
+  pendingToolId?: string | null;
+  onPreview: () => void;
+  onRefine: () => void;
+  onRerun: () => void;
+  onDelete: () => void;
+  onDownload?: () => void;
+  onShare?: () => void;
+  onRunTool?: (tool: StudioTool, item: CanvasItem) => void;
+  onMentionItem?: (item: CanvasItem) => void;
+}
+
+export function ScrollCanvasItemChrome({
+  item,
+  selected,
+  readOnly,
+  tools = [],
+  pendingToolId = null,
+  onPreview,
+  onRefine,
+  onRerun,
+  onDelete,
+  onDownload,
+  onShare,
+  onRunTool,
+  onMentionItem,
+}: ScrollCanvasItemChromeProps) {
+  if (readOnly) return null;
+
+  const show = selected
+    ? "pointer-events-auto opacity-100"
+    : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100";
+
+  const topActions: OverflowIconAction[] = [
+    {
+      id: "preview",
+      icon: Eye,
+      title: "预览",
+      onClick: onPreview,
+    },
+    {
+      id: "refine",
+      icon: Wand2,
+      title: "精修",
+      tone: "orange",
+      onClick: onRefine,
+    },
+    {
+      id: "rerun",
+      icon: RotateCcw,
+      title: "重做",
+      tone: "blue",
+      onClick: onRerun,
+    },
+    {
+      id: "delete",
+      icon: Trash2,
+      title: "删除",
+      tone: "red",
+      onClick: onDelete,
+    },
+    ...(onDownload
+      ? [
+          {
+            id: "download",
+            icon: Download,
+            title: "下载",
+            onClick: onDownload,
+          } satisfies OverflowIconAction,
+        ]
+      : []),
+    ...(onShare
+      ? [
+          {
+            id: "share",
+            icon: Share2,
+            title: "分享",
+            onClick: onShare,
+          } satisfies OverflowIconAction,
+        ]
+      : []),
+  ];
+
+  const toolActions = buildCanvasToolActions({
+    tools,
+    item,
+    pendingToolId,
+    onRunTool,
+    onMentionItem,
+  });
+
+  const hasToolchain = toolActions.length > 0;
+
+  return (
+    <>
+      <div
+        className={`pointer-events-none absolute inset-x-0 top-0 z-30 bg-gradient-to-b from-black/75 via-black/35 to-transparent px-1 pt-1 pb-6 transition-opacity ${show}`}
+      >
+        <div className="pointer-events-auto">
+          <OverflowIconRow actions={topActions} maxVisible={4} size="sm" />
+        </div>
+      </div>
+      {hasToolchain ? (
+        <div
+          className={`pointer-events-none absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-1 pb-1 pt-5 transition-opacity ${show}`}
+          data-testid="canvas-item-toolchain"
+        >
+          <div className="pointer-events-auto">
+            <OverflowIconRow
+              actions={toolActions}
+              maxVisible={6}
+              size="sm"
+              align="start"
+            />
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}

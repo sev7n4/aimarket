@@ -8,7 +8,7 @@ const STORAGE_KEY = "aimarket_studio_coach_v2";
 const STEPS = [
   {
     title: "这是画布",
-    body: "生成的图片会按批次纵向排列。点击图片可选中；hover 图片底部可预览、精修或重跑。",
+    body: "生成结果按时间线纵向排列。hover 图片：顶部为预览/精修/下载等，底部为 AI 工具链。",
   },
   {
     title: "底部创作栏",
