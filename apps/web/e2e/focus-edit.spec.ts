@@ -40,11 +40,13 @@ test.describe("focus edit", () => {
       .first();
     await expect(canvasImage).toBeVisible({ timeout: 20_000 });
     await canvasImage.click();
+    await canvasImage.hover();
 
     const focusTool = page
       .getByTestId("canvas-batch-tool-focus-edit")
-      .or(page.getByTestId("canvas-tool-focus-edit"));
-    await focusTool.first().scrollIntoViewIfNeeded();
+      .or(page.getByTestId("canvas-tool-focus-edit"))
+      .or(page.getByRole("button", { name: "焦点" }));
+    await expect(focusTool.first()).toBeVisible({ timeout: 10_000 });
     await focusTool.first().click();
     const confirmDialog = page.getByTestId("tool-confirm-dialog");
     await expect(confirmDialog).toBeVisible({ timeout: 10_000 });

@@ -69,7 +69,15 @@ export function buildCanvasToolActions(opts: {
     });
   }
 
-  for (const tool of tools.filter((t) => !t.clientOnly)) {
+  const visibleTools = tools
+    .filter((t) => !t.clientOnly)
+    .sort((a, b) => {
+      if (a.id === "focus-edit") return -1;
+      if (b.id === "focus-edit") return 1;
+      return 0;
+    });
+
+  for (const tool of visibleTools) {
     const Icon = TOOL_ICONS[tool.id] ?? Sparkles;
     const requireMissing = tool.requiresSource && !canUseSource;
     const isPending = pendingToolId === tool.id;

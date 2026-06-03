@@ -47,8 +47,9 @@ export function ScrollCanvasItemChrome({
 }: ScrollCanvasItemChromeProps) {
   if (readOnly) return null;
 
-  const show =
-    selected ? "opacity-100" : "opacity-0 group-hover:opacity-100";
+  const show = selected
+    ? "pointer-events-auto opacity-100"
+    : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100";
 
   const topActions: OverflowIconAction[] = [
     {
