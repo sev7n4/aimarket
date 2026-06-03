@@ -52,7 +52,6 @@ export function buildOrchestrationTimelineEvent(input: {
   const trimmed = prompt.trim();
 
   if (skillRun) {
-    const terminal = SKILL_TERMINAL.has(skillRun.status);
     return {
       id: `skill-${skillRun.id}`,
       runType: "skill",
