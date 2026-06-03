@@ -3,8 +3,9 @@ import { randomUUID } from "node:crypto";
 import { registerViaEmail } from "./helpers/auth";
 import { studioWorkstation, skipStudioCoach } from "./helpers/studio";
 
+/** 12×12 PNG，避免 1×1 在滚动画布上 boundingBox 为 0 */
 const TINY_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+FABJADveWkH6oAAAAAElFTkSuQmCC",
   "base64",
 );
 
@@ -25,22 +26,31 @@ test.describe("focus edit", () => {
 
     const station = studioWorkstation(page);
     await expect(station).toBeVisible({ timeout: 15_000 });
+    await page.waitForResponse(
+      (r) => r.url().includes("/imageSession/ensure") && r.ok(),
+      { timeout: 30_000 },
+    );
 
-    const fileInput = page.locator('input[type="file"]').first();
+    const fileInput = station.locator(
+      'input[type="file"][accept="image/jpeg,image/png,image/webp"]',
+    );
+    const uploadDone = page.waitForResponse(
+      (r) => r.url().includes("/assets/upload") && r.ok(),
+      { timeout: 30_000 },
+    );
     await station.getByTitle("上传图片").click();
     await fileInput.setInputFiles({
       name: "focus-source.png",
       mimeType: "image/png",
       buffer: TINY_PNG,
     });
+    await uploadDone;
 
-    const canvasImage = page
-      .locator('[role="button"]')
-      .filter({ has: page.locator("img") })
-      .first();
-    await expect(canvasImage).toBeVisible({ timeout: 20_000 });
-    await canvasImage.click();
-    await canvasImage.hover();
+    const focusTarget = page.locator('[data-testid^="canvas-item-"]').first();
+    await expect(focusTarget).toBeVisible({ timeout: 20_000 });
+    await focusTarget.scrollIntoViewIfNeeded();
+    await focusTarget.click();
+    await focusTarget.hover();
 
     const focusTool = page
       .getByTestId("canvas-batch-tool-focus-edit")
@@ -54,15 +64,23 @@ test.describe("focus edit", () => {
     await expect(page.getByTestId("focus-edit-canvas-banner")).toBeVisible({
       timeout: 10_000,
     });
-
-    const focusTarget = page.locator('[data-testid^="canvas-item-"]').first();
-    await expect(focusTarget).toBeVisible({ timeout: 10_000 });
-    const box = await focusTarget.boundingBox();
-    if (!box) throw new Error("canvas item has no bounding box");
+    await focusTarget.scrollIntoViewIfNeeded();
+    let box = await focusTarget.boundingBox();
+    await expect
+      .poll(async () => {
+        box = await focusTarget.boundingBox();
+        return box?.width ?? 0;
+      })
+      .toBeGreaterThan(0);
+    const focusPointDone = page.waitForResponse(
+      (r) => r.url().includes("/focus/point") && r.ok(),
+      { timeout: 30_000 },
+    );
     await focusTarget.click({
-      position: { x: box.width / 2, y: box.height / 2 },
+      position: { x: box!.width / 2, y: box!.height / 2 },
       force: true,
     });
+    await focusPointDone;
     await expect(station.getByTestId("focus-edit-panel")).toBeVisible({
       timeout: 15_000,
     });
