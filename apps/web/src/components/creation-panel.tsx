@@ -200,6 +200,9 @@ interface CreationPanelProps {
     onIntentChange: (intent: FocusEditIntent) => void;
     onRemovePoint: (pointId: string) => void;
     onEditPoint?: (pointId: string, newName: string) => void;
+    onChipPromptChange?: (pointId: string, prompt: string) => void;
+    onReplaceImage?: (pointId: string, assetId: string, url: string) => void;
+    onClearAll?: () => void;
     onCropSizeChange?: (size: number) => void;
     onCancel: () => void;
   } | null;
@@ -1174,7 +1177,11 @@ export function CreationPanel({
   }
 
   const focusEditReady =
-    Boolean(focusEdit?.points.length) && prompt.trim().length > 0;
+    Boolean(focusEdit?.points.length) &&
+    (prompt.trim().length > 0 ||
+      (focusEdit?.points ?? []).some(
+        (p) => (p.chipPrompt ?? "").trim().length > 0,
+      ));
 
   const agentIdle =
     !agentRun ||
@@ -1500,9 +1507,13 @@ export function CreationPanel({
             intent={focusEdit.intent}
             cropSize={focusEdit.cropSize}
             recognizing={focusEdit.recognizing}
+            sessionId={sessionId}
             onIntentChange={focusEdit.onIntentChange}
             onRemove={focusEdit.onRemovePoint}
             onEdit={focusEdit.onEditPoint}
+            onChipPromptChange={focusEdit.onChipPromptChange}
+            onReplaceImage={focusEdit.onReplaceImage}
+            onClearAll={focusEdit.onClearAll}
             onCropSizeChange={focusEdit.onCropSizeChange}
             onCancel={focusEdit.onCancel}
           />

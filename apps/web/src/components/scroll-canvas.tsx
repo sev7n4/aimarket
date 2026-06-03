@@ -271,13 +271,22 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                             src={assetUrl(item.url)}
                             alt=""
                             loading="lazy"
-                            className="pointer-events-none w-full aspect-square bg-zinc-800 object-cover transition-opacity duration-300"
+                            className="pointer-events-none w-full aspect-square object-contain transition-opacity duration-300"
+                            style={{
+                              opacity: 0,
+                              backgroundColor: "#1a1a1a",
+                              backgroundImage: item.url.toLowerCase().includes(".png")
+                                ? `linear-gradient(45deg, #2a2a2a 25%, transparent 25%), linear-gradient(-45deg, #2a2a2a 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #2a2a2a 75%), linear-gradient(-45deg, transparent 75%, #2a2a2a 75%)`
+                                : undefined,
+                              backgroundSize: item.url.toLowerCase().includes(".png")
+                                ? "12px 12px"
+                                : undefined,
+                            }}
                             draggable={false}
                             onLoad={(e) => {
                               (e.target as HTMLImageElement).style.opacity =
                                 "1";
                             }}
-                            style={{ opacity: 0 }}
                           />
                         )}
                       </div>

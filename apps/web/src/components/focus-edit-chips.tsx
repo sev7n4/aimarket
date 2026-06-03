@@ -1,23 +1,29 @@
 "use client";
 
-import { useState } from "react";
-import { Crosshair, Pencil, Settings2, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { Crosshair, ImagePlus, Pencil, RotateCcw, Settings2, X } from "lucide-react";
 import type { FocusEditIntent, FocusPointChip } from "@/lib/focus-edit";
 import {
   MAX_FOCUS_POINTS,
   CROP_SIZE_OPTIONS,
   DEFAULT_CROP_SIZE,
 } from "@/lib/focus-edit";
+import { focusIndexLabel } from "@/lib/focus-index-labels";
+import { assetUrl } from "@/lib/api-client";
 
 interface FocusEditChipsProps {
   points: FocusPointChip[];
   intent: FocusEditIntent;
   cropSize?: number;
   recognizing?: boolean;
+  sessionId?: string;
   onIntentChange: (intent: FocusEditIntent) => void;
   onCropSizeChange?: (size: number) => void;
   onRemove: (pointId: string) => void;
   onEdit?: (pointId: string, newName: string) => void;
+  onChipPromptChange?: (pointId: string, prompt: string) => void;
+  onReplaceImage?: (pointId: string, assetId: string, url: string) => void;
+  onClearAll?: () => void;
   onCancel?: () => void;
 }
 
@@ -26,15 +32,21 @@ export function FocusEditChips({
   intent,
   cropSize = DEFAULT_CROP_SIZE,
   recognizing = false,
+  sessionId,
   onIntentChange,
   onCropSizeChange,
   onRemove,
   onEdit,
+  onChipPromptChange,
+  onReplaceImage,
+  onClearAll,
   onCancel,
 }: FocusEditChipsProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const uploadTargetRef = useRef<string | null>(null);
 
   function startEdit(pointId: string, currentName: string) {
     setEditingId(pointId);
@@ -74,7 +86,7 @@ export function FocusEditChips({
         {recognizing ? (
           <span className="text-[10px] text-zinc-500">识别中…</span>
         ) : null}
-        <div className="ml-auto flex gap-1">
+        <div className="ml-auto flex flex-wrap gap-1">
           <button
             type="button"
             onClick={() => onIntentChange("edit")}
@@ -97,6 +109,17 @@ export function FocusEditChips({
           >
             对象替换
           </button>
+          {points.length > 0 && onClearAll ? (
+            <button
+              type="button"
+              onClick={onClearAll}
+              className="inline-flex items-center gap-0.5 rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-zinc-400 hover:text-zinc-200"
+              title="清除全部焦点"
+            >
+              <RotateCcw className="size-3" />
+              清除
+            </button>
+          ) : null}
           {onCropSizeChange ? (
             <button
               type="button"
@@ -148,59 +171,124 @@ export function FocusEditChips({
         </div>
       ) : null}
 
+      <input
+        ref={uploadRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          const pointId = uploadTargetRef.current;
+          if (!file || !pointId || !onReplaceImage) return;
+          void (async () => {
+            if (!sessionId) return;
+            const { uploadAsset } = await import("@/lib/api-client");
+            const { id, url } = await uploadAsset(file, sessionId);
+            onReplaceImage(pointId, id, url);
+          })();
+        }}
+      />
+
       {points.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="space-y-2">
           {points.map((p, i) => (
-            <span
+            <div
               key={p.pointId}
               data-testid={`focus-edit-chip-${i}`}
-              className="inline-flex items-center gap-1 rounded-full border border-purple-400/30 bg-purple-500/15 px-2 py-0.5 text-[11px] text-purple-100"
+              className="rounded-lg border border-purple-400/25 bg-purple-500/10 p-2"
             >
-              <span className="text-[10px] text-purple-300/80">{i + 1}</span>
-              {editingId === p.pointId ? (
+              <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                <span className="text-sm font-semibold text-purple-200">
+                  {focusIndexLabel(i)}
+                </span>
+                {editingId === p.pointId ? (
+                  <input
+                    type="text"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        commitEdit();
+                      }
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        cancelEdit();
+                      }
+                    }}
+                    onBlur={commitEdit}
+                    autoFocus
+                    maxLength={24}
+                    className="min-w-0 flex-1 rounded bg-black/40 px-1.5 py-0.5 text-[11px] text-purple-100 outline-none ring-1 ring-purple-400/50"
+                  />
+                ) : (
+                  <>
+                    <span className="text-[11px] text-purple-100">
+                      {p.objectName}
+                    </span>
+                    {onEdit ? (
+                      <button
+                        type="button"
+                        aria-label={`编辑焦点名称 ${p.objectName}`}
+                        onClick={() => startEdit(p.pointId, p.objectName)}
+                        className="rounded-full p-0.5 text-purple-200/60 hover:bg-white/10 hover:text-purple-100"
+                      >
+                        <Pencil className="size-3" />
+                      </button>
+                    ) : null}
+                  </>
+                )}
+                {intent === "replace" && onReplaceImage ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      uploadTargetRef.current = p.pointId;
+                      uploadRef.current?.click();
+                    }}
+                    className="inline-flex items-center gap-0.5 rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-zinc-300 hover:text-white"
+                    title="上传替换参考图"
+                  >
+                    <ImagePlus className="size-3" />
+                    {p.replaceAssetUrl ? "换图" : "上传"}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  aria-label={`移除焦点 ${p.objectName}`}
+                  onClick={() => onRemove(p.pointId)}
+                  className="ml-auto rounded-full p-0.5 text-purple-200/80 hover:bg-white/10 hover:text-white"
+                >
+                  <X className="size-3" />
+                </button>
+              </div>
+              {p.replaceAssetUrl ? (
+                <div className="mb-1.5 flex items-center gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={assetUrl(p.replaceAssetUrl)}
+                    alt=""
+                    className="size-8 rounded border border-white/10 object-cover"
+                  />
+                  <span className="text-[10px] text-zinc-500">替换参考图</span>
+                </div>
+              ) : null}
+              {onChipPromptChange ? (
                 <input
                   type="text"
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      commitEdit();
-                    }
-                    if (e.key === "Escape") {
-                      e.preventDefault();
-                      cancelEdit();
-                    }
-                  }}
-                  onBlur={commitEdit}
-                  autoFocus
-                  maxLength={24}
-                  className="w-[80px] rounded bg-black/40 px-1 py-0.5 text-[11px] text-purple-100 outline-none ring-1 ring-purple-400/50"
+                  value={p.chipPrompt ?? ""}
+                  onChange={(e) =>
+                    onChipPromptChange(p.pointId, e.target.value)
+                  }
+                  placeholder={
+                    intent === "replace"
+                      ? "描述要替换成什么，或已上传参考图"
+                      : "短 prompt：如改成红色、改成「SALE」"
+                  }
+                  className="w-full rounded-md border border-white/10 bg-black/30 px-2 py-1.5 text-[11px] text-zinc-200 placeholder:text-zinc-600 focus:border-purple-400/40 focus:outline-none"
                 />
-              ) : (
-                <>
-                  <span>{p.objectName}</span>
-                  {onEdit ? (
-                    <button
-                      type="button"
-                      aria-label={`编辑焦点名称 ${p.objectName}`}
-                      onClick={() => startEdit(p.pointId, p.objectName)}
-                      className="rounded-full p-0.5 text-purple-200/60 hover:bg-white/10 hover:text-purple-100"
-                    >
-                      <Pencil className="size-3" />
-                    </button>
-                  ) : null}
-                </>
-              )}
-              <button
-                type="button"
-                aria-label={`移除焦点 ${p.objectName}`}
-                onClick={() => onRemove(p.pointId)}
-                className="rounded-full p-0.5 text-purple-200/80 hover:bg-white/10 hover:text-white"
-              >
-                <X className="size-3" />
-              </button>
-            </span>
+              ) : null}
+            </div>
           ))}
         </div>
       ) : (

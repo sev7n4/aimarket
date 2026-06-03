@@ -80,6 +80,17 @@ interface DesignCanvasProps {
   } | null;
   onBrushComplete?: (selection: CanvasMaskSelection) => void;
   onBrushCancel?: () => void;
+  expandRequest?: {
+    key: number;
+    itemId: string;
+    toolName: string;
+    aspectPreset?: import("@/lib/expand-frame").ExpandAspectPreset;
+  } | null;
+  onExpandComplete?: (
+    padding: import("@/lib/expand-frame").ExpandFramePadding,
+    aspect: import("@/lib/expand-frame").ExpandAspectPreset,
+  ) => void;
+  onExpandCancel?: () => void;
   focusClickRequest?: {
     key: number;
     itemId: string;
@@ -136,6 +147,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       brushRequest = null,
       onBrushComplete,
       onBrushCancel,
+      expandRequest = null,
+      onExpandComplete,
+      onExpandCancel,
       focusClickRequest = null,
       onFocusImageClick,
       onFocusClickCancel,
@@ -461,6 +475,17 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     }, [brushRequest, internalLayoutMode, onLayoutModeChange, onSelect]);
 
     useEffect(() => {
+      if (!expandRequest) return;
+      setRefineRootItemId((root) => root ?? expandRequest.itemId);
+      setRefineItemId(expandRequest.itemId);
+      onSelect(expandRequest.itemId);
+      if (internalLayoutMode !== "free") {
+        setInternalLayoutMode("free");
+        onLayoutModeChange?.("free");
+      }
+    }, [expandRequest, internalLayoutMode, onLayoutModeChange, onSelect]);
+
+    useEffect(() => {
       if (!focusClickRequest) return;
       setRefineRootItemId((root) => root ?? focusClickRequest.itemId);
       setRefineItemId(focusClickRequest.itemId);
@@ -770,6 +795,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               brushRequest={brushRequest}
               onBrushComplete={onBrushComplete}
               onBrushCancel={onBrushCancel}
+              expandRequest={expandRequest}
+              onExpandComplete={onExpandComplete}
+              onExpandCancel={onExpandCancel}
               focusClickRequest={focusClickRequest}
               onFocusImageClick={onFocusImageClick}
               onFocusClickCancel={onFocusClickCancel}
