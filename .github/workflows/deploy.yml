@@ -1,5 +1,7 @@
-# GHA 构建双推 GHCR（备份）+ 腾讯云 TCR；国内 CVM 仅从 TCR pull。
-# 合并前须在 PR 上通过 CI + Integration + E2E；合并 main 后自动部署。暂不上 HTTPS。
+# GHA 在 GitHub 托管 runner 构建并仅推 TCR；生产 CVM 只从 TCR pull。
+# 可选：同地域 self-hosted runner（aimarket-build）见 docs/DEPLOY_CI.md。
+# GHCR 备份见 workflow_dispatch：Mirror TCR images to GHCR。
+# 合并节奏见 docs/DEPLOY_MERGE_POLICY.md（保留 cancel-in-progress，避免连续 merge 浪费 push）。
 name: Deploy to Tencent Cloud (AIMarket)
 
 on:
@@ -17,7 +19,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: aimarket-deploy-production
@@ -25,7 +26,6 @@ concurrency:
 
 env:
   IMAGE_TAG: ${{ github.sha }}
-  GHCR_OWNER: ${{ github.repository_owner }}
   TCR_REGISTRY: ${{ vars.TCR_REGISTRY || 'ccr.ccs.tencentyun.com' }}
   TCR_NAMESPACE: ${{ vars.TCR_NAMESPACE || 'aimarket' }}
 
@@ -57,15 +57,10 @@ jobs:
             exit 1
           fi
           echo "TCR registry: ${{ env.TCR_REGISTRY }}/${{ env.TCR_NAMESPACE }}"
+          echo "Build runner: ${{ runner.name }} (${{ runner.os }})"
+          echo "Build started (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
       - uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
 
       - name: Login to TCR
         uses: docker/login-action@v3
@@ -84,7 +79,7 @@ jobs:
           fi
           echo "Web build API URL: $url"
 
-      - name: Build and push
+      - name: Build and push (TCR only)
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -92,12 +87,14 @@ jobs:
           push: true
           build-args: ${{ matrix.web_image && format('NEXT_PUBLIC_API_URL={0}', env.PUBLIC_API_URL) || '' }}
           tags: |
-            ghcr.io/${{ env.GHCR_OWNER }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}
-            ghcr.io/${{ env.GHCR_OWNER }}/${{ matrix.image }}:latest
             ${{ env.TCR_REGISTRY }}/${{ env.TCR_NAMESPACE }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}
             ${{ env.TCR_REGISTRY }}/${{ env.TCR_NAMESPACE }}/${{ matrix.image }}:latest
           cache-from: type=gha,scope=aimarket-${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=aimarket-${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=aimarket-${{ matrix.image }},ignore-error=true
+
+      - name: Build timing
+        if: always()
+        run: echo "Build finished (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ) — ${{ matrix.image }}"
 
   deploy:
     name: Deploy AIMarket
@@ -186,6 +183,7 @@ jobs:
             fi
             set -euo pipefail
             echo "=== Pull images from TCR (${IMAGE_REPO_PREFIX}) ==="
+            PULL_START=$(date +%s)
             for i in 1 2 3; do
               if TCR_REGISTRY="$TCR_REGISTRY" TCR_NAMESPACE="$TCR_NAMESPACE" IMAGE_TAG="$IMAGE_TAG" $COMPOSE pull; then
                 break
@@ -196,6 +194,7 @@ jobs:
               fi
               sleep $((i * 15))
             done
+            echo "Pull elapsed: $(($(date +%s) - PULL_START))s"
             TCR_REGISTRY="$TCR_REGISTRY" TCR_NAMESPACE="$TCR_NAMESPACE" IMAGE_TAG="$IMAGE_TAG" $COMPOSE up -d --no-build
             echo "Pruning dangling images..."
             set +euo
@@ -249,48 +248,15 @@ jobs:
             echo "| Status | ${{ job.status }} |"
             echo "| Branch | ${{ env.DEPLOY_BRANCH }} |"
             echo "| Image tag | \`${{ env.IMAGE_TAG }}\` |"
-            echo "| Pull registry | \`${{ env.TCR_REGISTRY }}/${{ env.TCR_NAMESPACE }}\` |"
-            echo "| GHCR backup | \`ghcr.io/${{ env.GHCR_OWNER }}/aimarket-*\` |"
+            echo "| Registry | \`${{ env.TCR_REGISTRY }}/${{ env.TCR_NAMESPACE }}\` |"
+            echo "| Build | \`ubuntu-latest\` (TCR push; optional [self-hosted](../docs/DEPLOY_CI.md)) |"
+            echo "| GHCR backup | manual workflow \`ghcr-backup.yml\` |"
             echo "| Server | ${{ env.SSH_HOST }} |"
             echo "| Web | ${{ env.PUBLIC_WEB_URL }} |"
             echo "| API | ${{ env.PUBLIC_API_URL }} |"
+            echo ""
+            echo "合并节奏：见 [DEPLOY_MERGE_POLICY.md](../docs/DEPLOY_MERGE_POLICY.md)"
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Cleanup GHCR tags (keep latest 15 per package)
-        if: success()
-        uses: actions/github-script@v7
-        continue-on-error: true
-        with:
-          script: |
-            const keep = 15;
-            const owner = context.repo.owner;
-            const packages = ['aimarket-api', 'aimarket-web'];
-
-            for (const pkg of packages) {
-              const versions = await github.paginate(
-                github.rest.packages.getAllPackageVersionsForPackageOwnedByUser,
-                {
-                  package_type: 'container',
-                  package_name: pkg,
-                  username: owner,
-                  per_page: 100,
-                }
-              );
-
-              versions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-              const stale = versions.slice(keep);
-
-              core.info(`${pkg}: total=${versions.length}, delete=${stale.length}`);
-              for (const v of stale) {
-                await github.rest.packages.deletePackageVersionForUser({
-                  package_type: 'container',
-                  package_name: pkg,
-                  username: owner,
-                  package_version_id: v.id,
-                });
-                core.info(`deleted ${pkg}@${v.name} (${v.id})`);
-              }
-            }
 
       - name: Check deployment notification email
         if: always()
@@ -318,7 +284,6 @@ jobs:
             Status: ${{ job.status }}
             Branch: ${{ env.DEPLOY_BRANCH }}
             Image: ${{ env.TCR_REGISTRY }}/${{ env.TCR_NAMESPACE }}/aimarket-*:${{ env.IMAGE_TAG }}
-            GHCR backup: ghcr.io/${{ env.GHCR_OWNER }}/aimarket-*:${{ env.IMAGE_TAG }}
             Server: ${{ env.SSH_HOST }}
             Web: ${{ env.PUBLIC_WEB_URL }}
             API: ${{ env.PUBLIC_API_URL }}

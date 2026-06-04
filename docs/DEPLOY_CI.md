@@ -14,7 +14,7 @@
 | **Environment** | `production` | `production` ✅ 可共用 Secrets |
 | **SSH Secrets** | `TENCENT_CLOUD_*` | 优先读 `TENCENT_CLOUD_*`，兼容 `DEPLOY_*` |
 | **部署目录** | `TENCENT_CLOUD_PROJECT_DIR` → `/opt/pintuotuo` | 固定 `/opt/aimarket`（勿混用） |
-| **镜像交付** | 推 GHCR，`sha` tag，服务器 `pull` | GHA **双推** GHCR + **TCR**；服务器 **仅拉 TCR** ✅ |
+| **镜像交付** | 推 GHCR，`sha` tag，服务器 `pull` | 自建 runner **仅推 TCR**；服务器 **仅拉 TCR**；GHCR 手动镜像 ✅ |
 | **部署后验证** | `/api/v1/health` + catalog | `/health` + Web 200 |
 | **通知** | Summary + 邮件（SMTP） | 同（邮件可选） |
 
@@ -72,6 +72,8 @@ on:
 | `TCR_REGISTRY` | `ccr.ccs.tencentyun.com` | 个人版 TCR；企业版填 `*.tencentcloudcr.com` |
 | `TCR_NAMESPACE` | `aimarket` | TCR 命名空间，须与控制台一致 |
 
+**自建 runner（可选）**：默认 Deploy 在 `ubuntu-latest` 构建并推 TCR；若有同地域专用 CVM，可注册标签 `aimarket-build` 以缩短跨境 push（见下文「构建机」）。
+
 可选 **Repository variable**（仿 pintuotuo `DEPLOY_VERIFY_*`）：
 
 - `DEPLOY_VERIFY_API_URL` — 覆盖默认 `http://IP:4100`（一般不必）
@@ -85,14 +87,34 @@ on:
 镜像地址示例：
 
 - 生产拉取：`ccr.ccs.tencentyun.com/aimarket/aimarket-api:<sha>`
-- GHCR 备份：`ghcr.io/sev7n4/aimarket-api:<sha>`（仅 GHA 推送，服务器不拉）
+- GHCR 备份：`ghcr.io/sev7n4/aimarket-api:<sha>`（**手动** workflow `ghcr-backup.yml`，从 TCR 复制 manifest）
+
+## 构建机（可选 self-hosted `aimarket-build`）
+
+当前 **默认** `deploy.yml` 的 `build-push` 为 `runs-on: ubuntu-latest`（无需额外机器）。跨境推 TCR 可能较慢（API 镜像曾达 60+ 分钟）。
+
+若后续有与 TCR 同地域的专用 CVM（建议 4C8G+、50GB+ 盘，与生产机分离），可注册 runner 并自行将 workflow 改为 `runs-on: [self-hosted, aimarket-build]`：
+
+```bash
+# GitHub → Settings → Actions → Runners → New self-hosted runner → 复制 token
+export RUNNER_URL="https://github.com/sev7n4/aimarket"
+export RUNNER_TOKEN="<一次性 registration token>"
+export RUNNER_NAME="aimarket-build-1"
+sudo -E bash deploy/bootstrap-github-runner.sh
+```
+
+脚本：`deploy/bootstrap-github-runner.sh`。
+
+## main 合并节奏
+
+见 **[DEPLOY_MERGE_POLICY.md](./DEPLOY_MERGE_POLICY.md)**：合并间隔、保留 `cancel-in-progress`、下一单 PR 前等待 Deploy 成功。
 
 ## 镜像与磁盘清理
 
 | 层级 | 策略 |
 |------|------|
-| **GHCR** | 每次部署 push `:${{ github.sha }}` + `:latest`（备份）；workflow 末尾保留每包 **15** 个版本 |
-| **TCR** | 同 tag 双推；**服务器仅 `docker compose pull` TCR**（国内带宽，通常 &lt;10 分钟） |
+| **TCR** | 每次 deploy 仅推 `:${{ github.sha }}` + `:latest`；**服务器仅 pull TCR**（通常 &lt;2 分钟） |
+| **GHCR** | 不自动推；`ghcr-backup.yml` 按需镜像；可选清理保留 15 版 |
 | **服务器** | `pull` **前**先删旧 TCR tag + builder prune；`pull` 后再 `image prune`；可用空间 &lt;2GB 时 `image prune -af` |
 | **应急** | SSH 执行 `sudo bash /opt/aimarket/deploy/cleanup-disk.sh`（见 `deploy/cleanup-disk.sh`） |
 
@@ -160,7 +182,8 @@ Agent/开发者 PR 全流程见 **[PR_WORKFLOW.md](./PR_WORKFLOW.md)**（`mydev-
 | `CI` | PR + push main | typecheck、build、Docker 构建校验 |
 | `Integration Tests` | PR + manual | `smoke-api`、工作区脚本、`verify-moderation-p2` |
 | `E2E Tests` | PR + cron + manual | Playwright 冒烟（`apps/web/e2e/smoke.spec.ts`） |
-| `Deploy` | push main（非仅 docs）+ manual | 双推 GHCR+TCR、scp compose、服务器 **TCR pull**、清理、curl 验证 |
+| `Deploy` | push main（非仅 docs）+ manual | 自建 runner 仅推 TCR、scp、服务器 **TCR pull**、验证 |
+| `Mirror TCR → GHCR` | manual | `ghcr-backup.yml`，按 `image_tag` 备份 |
 
 本地：
 
@@ -176,8 +199,9 @@ pnpm test:e2e   # 需 API + web dev 或 build+start
 ## 日常发布
 
 - **PR**：`CI` + `Integration Tests` + `E2E Tests` 全部通过 + 审核批准
-- **合并 main**：`Deploy to Tencent Cloud (AIMarket)` 自动执行
-- **手动**：Actions → Deploy workflow → Run workflow → 选择分支
+- **合并 main**：等待 **Deploy** 成功后再合并下一单（见 [DEPLOY_MERGE_POLICY.md](./DEPLOY_MERGE_POLICY.md)）
+- **手动部署**：Actions → Deploy → Run workflow → 选分支
+- **GHCR 备份**：Actions → Mirror TCR images to GHCR → 填已部署的 `image_tag`（git sha）
 
 ## 注意事项
 

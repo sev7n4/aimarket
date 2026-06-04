@@ -51,8 +51,8 @@ jobs:
           file: deploy/docker/Dockerfile.api
           push: false
           tags: aimarket-api:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=aimarket-api
+          cache-to: type=gha,scope=aimarket-api,mode=max,ignore-error=true
       - name: Build Web image
         uses: docker/build-push-action@v6
         with:
@@ -62,8 +62,8 @@ jobs:
           tags: aimarket-web:ci
           build-args: |
             NEXT_PUBLIC_API_URL=http://119.29.173.89:4100
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=aimarket-web
+          cache-to: type=gha,scope=aimarket-web,mode=max,ignore-error=true
 
   ci-summary:
     runs-on: ubuntu-latest
