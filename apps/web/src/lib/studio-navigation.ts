@@ -15,7 +15,7 @@ export function buildStudioUrl(
 ): string {
   const params = new URLSearchParams({
     sessionId: options?.sessionId ?? randomUUID(),
-    mode: options?.mode ?? "chat",
+    mode: options?.mode ?? "image",
     kind,
   });
   if (options?.title) {

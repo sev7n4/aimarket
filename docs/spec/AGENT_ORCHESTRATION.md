@@ -337,7 +337,7 @@ graph.invoke(Command({ resume: observation }), { configurable: { thread_id: runI
 | user_id | TEXT FK | users |
 | status | TEXT | 见 §4.1 |
 | prompt | TEXT | 用户输入 |
-| mode | TEXT | chat / quick / ecommerce |
+| mode | TEXT | chat / image / ecommerce |
 | plan_json | TEXT | AgentPlan JSON |
 | current_step_index | INTEGER | 当前步骤 |
 | pending_job_id | TEXT | 等待中的 Job |

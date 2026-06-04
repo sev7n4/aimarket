@@ -15,7 +15,7 @@ import type { ImageSession } from "@/lib/types";
 
 const modeLabel: Record<string, string> = {
   chat: "对话",
-  quick: "快速",
+  image: "图片模式",
   ecommerce: "电商套图",
 };
 
@@ -33,7 +33,7 @@ function ProjectsContent() {
   const workspaceId = searchParams.get("workspaceId") ?? getActiveWorkspaceId() ?? undefined;
   const fromStudio = searchParams.get("from") === "studio";
   const returnSessionId = searchParams.get("sessionId");
-  const returnMode = searchParams.get("mode") ?? "chat";
+  const returnMode = searchParams.get("mode") ?? "image";
   const returnKind = searchParams.get("kind") === "project" ? "project" : "canvas";
   const studioBackHref =
     returnSessionId

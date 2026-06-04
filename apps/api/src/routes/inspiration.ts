@@ -115,7 +115,7 @@ inspirationAuthed.post("/:id/fork-project", async (c) => {
   const body = z
     .object({
       variables: z.record(z.string(), z.string()).optional(),
-      mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
+      mode: z.enum(["chat", "image", "ecommerce"]).default("image"),
       workspaceId: z.string().uuid().optional(),
     })
     .parse(await c.req.json().catch(() => ({})));

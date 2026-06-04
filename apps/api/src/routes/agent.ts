@@ -18,7 +18,7 @@ const agent = new Hono<{ Variables: AuthVariables }>();
 
 const planBody = z.object({
   prompt: z.string().min(1).max(4000),
-  mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
+  mode: z.enum(["chat", "image", "ecommerce"]).default("image"),
   modelId: z.string().optional(),
   resolution: z.string().optional(),
   aspectRatio: z.string().optional(),
@@ -37,7 +37,7 @@ agent.post("/plan", async (c) => {
 const runBody = z.object({
   sessionId: z.string().uuid(),
   prompt: z.string().min(1).max(4000),
-  mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
+  mode: z.enum(["chat", "image", "ecommerce"]).default("image"),
   modelId: z.string().optional(),
   resolution: z.string().optional(),
   aspectRatio: z.string().optional(),
@@ -115,7 +115,7 @@ agent.post("/runs/:id/cancel", async (c) => {
 const executeBody = z.object({
   sessionId: z.string().uuid(),
   prompt: z.string().min(1),
-  mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
+  mode: z.enum(["chat", "image", "ecommerce"]).default("image"),
   modelId: z.string().optional(),
   resolution: z.string().optional(),
   aspectRatio: z.string().optional(),

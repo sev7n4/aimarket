@@ -7,13 +7,13 @@ export const metadata = {
   title: "创作页",
 };
 
-const modes: CreationMode[] = ["chat", "quick", "ecommerce"];
+const modes: CreationMode[] = ["chat", "image", "ecommerce"];
 
 function parseMode(value?: string): CreationMode {
   if (value && modes.includes(value as CreationMode)) {
     return value as CreationMode;
   }
-  return "chat";
+  return "image";
 }
 
 type PageProps = {

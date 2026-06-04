@@ -124,7 +124,7 @@ async function main() {
     body: JSON.stringify({
       sessionId,
       prompt: "一只咖啡杯放在木桌上，柔和自然光",
-      mode: "quick",
+      mode: "image",
     }),
   });
   const runId = runCreate.json?.data?.id;

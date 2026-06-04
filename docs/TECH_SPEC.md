@@ -123,7 +123,7 @@ erDiagram
 ### 2.2 枚举
 
 ```typescript
-type CreationMode = "chat" | "quick" | "ecommerce";
+type CreationMode = "chat" | "image" | "ecommerce";
 type JobStatus = "queued" | "running" | "succeeded" | "failed";
 type MessageRole = "user" | "assistant" | "system";
 ```
