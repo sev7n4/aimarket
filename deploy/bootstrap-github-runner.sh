@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# 在「专用构建机」上安装 GitHub Actions self-hosted runner（标签 aimarket-build）
+# 可选：在「专用构建机」上安装 GitHub Actions self-hosted runner（标签 aimarket-build）
+# 当前 deploy.yml 默认 ubuntu-latest；启用自建 runner 后需改 workflow runs-on。
 # 勿与生产 /opt/aimarket 同机混跑，除非资源充足且接受安全边界重叠。
 #
 # 用法（root 或 sudo）:
@@ -61,4 +62,4 @@ sudo -u "$RUNNER_USER" ./config.sh \
 
 echo ""
 echo "完成。在 GitHub → Settings → Actions → Runners 应看到 Online，标签含: $RUNNER_LABELS"
-echo "Deploy workflow build-push 使用: runs-on: [self-hosted, aimarket-build]"
+echo "启用后请将 deploy.yml build-push 改为: runs-on: [self-hosted, aimarket-build]"

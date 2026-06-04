@@ -1,4 +1,5 @@
-# GHA 在腾讯云自建 runner 构建并仅推 TCR；生产 CVM 只从 TCR pull。
+# GHA 在 GitHub 托管 runner 构建并仅推 TCR；生产 CVM 只从 TCR pull。
+# 可选：同地域 self-hosted runner（aimarket-build）见 docs/DEPLOY_CI.md。
 # GHCR 备份见 workflow_dispatch：Mirror TCR images to GHCR。
 # 合并节奏见 docs/DEPLOY_MERGE_POLICY.md（保留 cancel-in-progress，避免连续 merge 浪费 push）。
 name: Deploy to Tencent Cloud (AIMarket)
@@ -15,11 +16,6 @@ on:
         description: Branch to deploy
         required: true
         default: main
-      use_github_hosted:
-        description: Emergency fallback — build on ubuntu-latest (slow TCR push)
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -36,14 +32,12 @@ env:
 jobs:
   build-push:
     name: Build ${{ matrix.image }}
-    runs-on: ${{ (github.event_name == 'workflow_dispatch' && inputs.use_github_hosted == true) && 'ubuntu-latest' || fromJSON('["self-hosted", "aimarket-build"]') }}
+    runs-on: ubuntu-latest
     environment: production
     env:
       PUBLIC_API_URL: http://${{ secrets.TENCENT_CLOUD_IP || secrets.DEPLOY_HOST }}:4100
     strategy:
       fail-fast: false
-      # 单台自建 runner 时串行构建，避免 web/api 同时占满 CPU
-      max-parallel: 1
       matrix:
         include:
           - image: aimarket-api
@@ -255,7 +249,7 @@ jobs:
             echo "| Branch | ${{ env.DEPLOY_BRANCH }} |"
             echo "| Image tag | \`${{ env.IMAGE_TAG }}\` |"
             echo "| Registry | \`${{ env.TCR_REGISTRY }}/${{ env.TCR_NAMESPACE }}\` |"
-            echo "| Build | self-hosted \`aimarket-build\` (see [runner setup](../docs/DEPLOY_CI.md)) |"
+            echo "| Build | \`ubuntu-latest\` (TCR push; optional [self-hosted](../docs/DEPLOY_CI.md)) |"
             echo "| GHCR backup | manual workflow \`ghcr-backup.yml\` |"
             echo "| Server | ${{ env.SSH_HOST }} |"
             echo "| Web | ${{ env.PUBLIC_WEB_URL }} |"

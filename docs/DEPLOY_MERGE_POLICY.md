@@ -26,9 +26,6 @@ Deploy workflow（`.github/workflows/deploy.yml`）在每次 **push main**（非
 - 生产回滚：TCR 上保留历史 tag，在服务器执行 `deploy/deploy-remote.sh`（见 [DEPLOY_CI.md](./DEPLOY_CI.md)）。
 - GHCR 备份：非自动；对需要备份的 `IMAGE_TAG` 运行 **Mirror TCR images to GHCR**（`ghcr-backup.yml`）。
 
-## 应急：无自建 runner
+## 构建耗时
 
-若 `aimarket-build` runner 离线，Deploy 的 build 会排队失败。可：
-
-1. 修复 runner（`deploy/bootstrap-github-runner.sh`）。
-2. 或 `workflow_dispatch` 勾选 **use_github_hosted**（跨境推 TCR，慢，仅应急）。
+默认在 GitHub 托管 runner 推 TCR，单次 Deploy 可能 30–90 分钟（以 API 镜像 push 为主）。合并间隔见上文，避免连续 merge 浪费已进行的 push。

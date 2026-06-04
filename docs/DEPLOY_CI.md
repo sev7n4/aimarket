@@ -72,7 +72,7 @@ on:
 | `TCR_REGISTRY` | `ccr.ccs.tencentyun.com` | 个人版 TCR；企业版填 `*.tencentcloudcr.com` |
 | `TCR_NAMESPACE` | `aimarket` | TCR 命名空间，须与控制台一致 |
 
-**自建 runner（Deploy 构建阶段必填）**：在专用 CVM 注册标签 `aimarket-build`，见 `deploy/bootstrap-github-runner.sh` 与下文「构建机」。
+**自建 runner（可选）**：默认 Deploy 在 `ubuntu-latest` 构建并推 TCR；若有同地域专用 CVM，可注册标签 `aimarket-build` 以缩短跨境 push（见下文「构建机」）。
 
 可选 **Repository variable**（仿 pintuotuo `DEPLOY_VERIFY_*`）：
 
@@ -89,9 +89,11 @@ on:
 - 生产拉取：`ccr.ccs.tencentyun.com/aimarket/aimarket-api:<sha>`
 - GHCR 备份：`ghcr.io/sev7n4/aimarket-api:<sha>`（**手动** workflow `ghcr-backup.yml`，从 TCR 复制 manifest）
 
-## 构建机（self-hosted `aimarket-build`）
+## 构建机（可选 self-hosted `aimarket-build`）
 
-与生产机 **分离** 的 CVM（建议 4C8G+、50GB+ 盘）：
+当前 **默认** `deploy.yml` 的 `build-push` 为 `runs-on: ubuntu-latest`（无需额外机器）。跨境推 TCR 可能较慢（API 镜像曾达 60+ 分钟）。
+
+若后续有与 TCR 同地域的专用 CVM（建议 4C8G+、50GB+ 盘，与生产机分离），可注册 runner 并自行将 workflow 改为 `runs-on: [self-hosted, aimarket-build]`：
 
 ```bash
 # GitHub → Settings → Actions → Runners → New self-hosted runner → 复制 token
@@ -101,9 +103,7 @@ export RUNNER_NAME="aimarket-build-1"
 sudo -E bash deploy/bootstrap-github-runner.sh
 ```
 
-Deploy 的 `build-push` 使用 `runs-on: [self-hosted, aimarket-build]`，与 TCR 同地域推送，避免 GitHub 托管 runner 跨境上传（曾出现 API 镜像 push 60+ 分钟）。
-
-应急：`workflow_dispatch` 勾选 **use_github_hosted** 回退 `ubuntu-latest`（慢）。
+脚本：`deploy/bootstrap-github-runner.sh`。
 
 ## main 合并节奏
 

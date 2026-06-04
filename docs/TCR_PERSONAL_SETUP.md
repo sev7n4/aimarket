@@ -85,18 +85,17 @@ docker login ccr.ccs.tencentyun.com --username=<你的账号ID>
 
 ## 六、合并代码并触发部署
 
-1. **先**在专用 CVM 注册 self-hosted runner（标签 `aimarket-build`），见 [DEPLOY_CI.md](./DEPLOY_CI.md) 与 `deploy/bootstrap-github-runner.sh`。
-2. 合并到 `main` 后自动 Deploy，或手动：
+1. 合并到 `main` 后自动 Deploy（构建在 `ubuntu-latest`，仅推 TCR），或手动：
 
 ```bash
 gh workflow run "Deploy to Tencent Cloud (AIMarket)" -f branch=main
 ```
 
-3. 在 Actions 日志中确认：
-   - `Build and push (TCR only)` 在 runner `aimarket-build` 上成功
+2. 在 Actions 日志中确认：
+   - `Build and push` 推 TCR 成功（耗时可能较长）
    - `Deploy on server` 出现 `Pull images from TCR` 且 `Pull elapsed` 通常 &lt;120s
    - `Verify deployment` 通过
-4. 合并节奏见 [DEPLOY_MERGE_POLICY.md](./DEPLOY_MERGE_POLICY.md)。
+3. 合并节奏见 [DEPLOY_MERGE_POLICY.md](./DEPLOY_MERGE_POLICY.md)。
 
 ## 七、镜像地址对照
 
