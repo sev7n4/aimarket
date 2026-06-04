@@ -25,7 +25,6 @@ import {
   getToken,
   fetchModels,
   fetchReferences,
-  fetchAgentPlan,
   fetchProviderStatus,
   submitEcommerceGenerate,
   submitGeneration,
@@ -76,11 +75,8 @@ import { SkillPackagePicker } from "@/components/skill-package-picker";
 import { SkillRunPanel } from "@/components/skill-run-panel";
 import { useAgentRun } from "@/hooks/use-agent-run";
 import { useSkillRun } from "@/hooks/use-skill-run";
-import type { AgentPlan, AgentRunStatus, SkillRunStatus } from "@/lib/types";
-import {
-  buildOrchestrationTimelineEvent,
-  type OrchestrationTimelineActions,
-} from "@/lib/canvas-timeline";
+import type { AgentRunStatus, SkillRunStatus } from "@/lib/types";
+import { useStudioOrchestrationOptional } from "@/components/studio-orchestration-provider";
 import { StudioDockFocusButton } from "@/components/studio-dock-controls";
 import {
   CreationDockToolbar,
@@ -226,14 +222,6 @@ interface CreationPanelProps {
   agentSkills?: boolean;
   /** Agent Run 结束（成功/失败/取消）后回调 */
   onAgentRunComplete?: () => void;
-  /** Studio 滚动画布：同步 Agent/Skill 编排时间线卡片 */
-  onOrchestrationTimelineChange?: (
-    event: import("@/lib/canvas-timeline").OrchestrationTimelineEvent | null,
-  ) => void;
-  /** Studio：编排确认/取消交给滚动画布时间线，Dock 仅保留输入与发送 */
-  onOrchestrationActionsChange?: (
-    actions: OrchestrationTimelineActions | null,
-  ) => void;
 }
 
 export function CreationPanel({
@@ -278,9 +266,10 @@ export function CreationPanel({
   agentOrchestration = false,
   agentSkills = false,
   onAgentRunComplete,
-  onOrchestrationTimelineChange,
-  onOrchestrationActionsChange,
 }: CreationPanelProps) {
+  const studioOrch = useStudioOrchestrationOptional();
+  const studioOrchestrationActive =
+    embeddedInDock && studioOrch != null;
   const shouldNavigateOnSubmit =
     navigateOnSubmit ?? (!sessionId && !homeDirectSubmit);
   const router = useRouter();
@@ -375,8 +364,6 @@ export function CreationPanel({
     () => readStoredOutputMode("auto"),
   );
   const [dockSkillId, setDockSkillId] = useState<string | null>(null);
-  const [agentPreviewPlan, setAgentPreviewPlan] = useState<AgentPlan | null>(null);
-  const [agentPreviewLoading, setAgentPreviewLoading] = useState(false);
   const sessionEnsuredRef = useRef(false);
   const [videoReferenceMode, setVideoReferenceMode] =
     useState<VideoReferenceMode>("omni");
@@ -396,7 +383,7 @@ export function CreationPanel({
     resetRun: resetSkillRun,
   } = useSkillRun({
     sessionId,
-    enabled: skillsEnabled,
+    enabled: skillsEnabled && !studioOrchestrationActive,
     onJobStarted,
     onRunSettled: (run) => {
       if (run.status === "completed") {
@@ -426,13 +413,16 @@ export function CreationPanel({
   });
 
   const selectedSkill =
-    skillPackages.find(
-      (s) => s.id === (activeSkillId ?? selectedSkillId),
-    ) ?? null;
+    (studioOrchestrationActive ? studioOrch!.skillPackages : skillPackages)
+      .find((s) => s.id === (activeSkillId ?? selectedSkillId)) ?? null;
 
   const dockSkillOptions = useMemo(
-    () => buildDockSkillOptions(skillPackages, true),
-    [skillPackages],
+    () =>
+      buildDockSkillOptions(
+        studioOrchestrationActive ? studioOrch!.skillPackages : skillPackages,
+        true,
+      ),
+    [studioOrchestrationActive, studioOrch, skillPackages],
   );
 
   function handleCreationLaneChange(lane: CreationLane) {
@@ -506,7 +496,7 @@ export function CreationPanel({
   } = useAgentRun({
     sessionId,
     mode: effectiveMode,
-    enabled: agentEnabled,
+    enabled: agentEnabled && !studioOrchestrationActive,
     onJobStarted,
     onRunSettled: (run) => {
       if (run.status === "completed") {
@@ -530,36 +520,109 @@ export function CreationPanel({
     },
   });
 
+  const orchSkillRun = studioOrchestrationActive
+    ? studioOrch!.skillRun
+    : skillRun;
+  const orchAgentRun = studioOrchestrationActive
+    ? studioOrch!.agentRun
+    : agentRun;
+  const orchSkillBusy = studioOrchestrationActive
+    ? studioOrch!.skillBusy
+    : skillBusy;
+  const orchAgentBusy = studioOrchestrationActive
+    ? studioOrch!.agentBusy
+    : agentBusy;
+  const orchStartSkillRun = studioOrchestrationActive
+    ? studioOrch!.startSkillRun
+    : startSkillRun;
+  const orchStartAgentRun = studioOrchestrationActive
+    ? studioOrch!.startAgentRun
+    : startAgentRun;
+  const orchConfirmOrchestration = studioOrchestrationActive
+    ? () => studioOrch!.confirmOrchestration()
+    : null;
+  const orchCancelOrchestration = studioOrchestrationActive
+    ? () => studioOrch!.cancelOrchestration()
+    : null;
+
   useEffect(() => {
     sessionEnsuredRef.current = false;
-    resetAgentRun();
-    resetSkillRun();
+    if (!studioOrchestrationActive) {
+      resetAgentRun();
+      resetSkillRun();
+    }
     setSelectedSkillId(null);
     setDockSkillId(null);
-    setAgentPreviewPlan(null);
-  }, [sessionId, resetAgentRun, resetSkillRun]);
+  }, [sessionId, resetAgentRun, resetSkillRun, studioOrchestrationActive]);
 
-  const skillAwaitingConfirm = skillRun?.status === "waiting_confirm";
+  useEffect(() => {
+    if (!studioOrchestrationActive || !studioOrch) return;
+    studioOrch.setInput({
+      prompt,
+      creationLane,
+      activeSkillId,
+      effectiveMode,
+      focusEditActive: Boolean(focusEdit),
+    });
+  }, [
+    studioOrchestrationActive,
+    studioOrch,
+    prompt,
+    creationLane,
+    activeSkillId,
+    effectiveMode,
+    focusEdit,
+  ]);
+
+  useEffect(() => {
+    if (!studioOrchestrationActive) return;
+    if (orchSkillRun?.status !== "completed") return;
+    setPrompt("");
+    setAssetIds([]);
+    setUploadPreviews([]);
+    setProductAssetId(null);
+    setReferenceAssetId(null);
+    setSelectedRefs([]);
+    setMentionedAssetIds([]);
+    setMentionedAssetPreviews([]);
+    setMentionedMasks([]);
+    setSelectedSkillId(null);
+    setDockSkillId(null);
+  }, [studioOrchestrationActive, orchSkillRun?.status]);
+
+  useEffect(() => {
+    if (!studioOrchestrationActive) return;
+    if (orchAgentRun?.status !== "completed") return;
+    setPrompt("");
+    setAssetIds([]);
+    setUploadPreviews([]);
+    setSelectedRefs([]);
+    setMentionedAssetIds([]);
+    setMentionedAssetPreviews([]);
+    setMentionedMasks([]);
+  }, [studioOrchestrationActive, orchAgentRun?.status]);
+
+  const skillAwaitingConfirm = orchSkillRun?.status === "waiting_confirm";
   const skillInFlight = Boolean(
-    skillRun &&
+    orchSkillRun &&
       (["queued", "running", "waiting_job"] as SkillRunStatus[]).includes(
-        skillRun.status,
+        orchSkillRun.status,
       ),
   );
   const skillIdle =
-    !skillRun ||
+    !orchSkillRun ||
     (["completed", "failed", "cancelled"] as SkillRunStatus[]).includes(
-      skillRun.status,
+      orchSkillRun.status,
     );
 
   const resolveProductAssetId = () =>
     productAssetId ?? assetIds[0] ?? mentionedAssetIds[0] ?? undefined;
 
-  const agentAwaitingConfirm = agentRun?.status === "waiting_confirm";
+  const agentAwaitingConfirm = orchAgentRun?.status === "waiting_confirm";
   const agentInFlight = Boolean(
-    agentRun &&
+    orchAgentRun &&
       (["planning", "running", "waiting_job"] as AgentRunStatus[]).includes(
-        agentRun.status,
+        orchAgentRun.status,
       ),
   );
   const submitAriaLabel = skillAwaitingConfirm
@@ -683,97 +746,6 @@ export function CreationPanel({
       cancelled = true;
     };
   }, [user, sessionId, canvasMentionSignature, mode]);
-
-  useEffect(() => {
-    if (
-      !embeddedInDock ||
-      !agentEnabled ||
-      creationLane !== "agent" ||
-      activeSkillId ||
-      agentRun ||
-      focusEdit
-    ) {
-      if (embeddedInDock) {
-        setAgentPreviewPlan(null);
-        setAgentPreviewLoading(false);
-      }
-      return;
-    }
-    if (!prompt.trim()) {
-      setAgentPreviewPlan(null);
-      setAgentPreviewLoading(false);
-      return;
-    }
-    setAgentPreviewLoading(true);
-    const t = window.setTimeout(() => {
-      void fetchAgentPlan({ prompt: prompt.trim(), mode: effectiveMode })
-        .then((data) => setAgentPreviewPlan(data))
-        .catch(() => setAgentPreviewPlan(null))
-        .finally(() => setAgentPreviewLoading(false));
-    }, 500);
-    return () => window.clearTimeout(t);
-  }, [
-    embeddedInDock,
-    agentEnabled,
-    activeSkillId,
-    agentRun,
-    focusEdit,
-    prompt,
-    effectiveMode,
-  ]);
-
-  useEffect(() => {
-    if (!onOrchestrationTimelineChange) return;
-    const event = buildOrchestrationTimelineEvent({
-      agentRun,
-      skillRun,
-      agentPreviewPlan: embeddedInDock ? agentPreviewPlan : null,
-      agentPreviewLoading: embeddedInDock ? agentPreviewLoading : false,
-      prompt,
-    });
-    onOrchestrationTimelineChange(event);
-  }, [
-    agentRun,
-    skillRun,
-    agentPreviewPlan,
-    agentPreviewLoading,
-    embeddedInDock,
-    prompt,
-    onOrchestrationTimelineChange,
-  ]);
-
-  useEffect(() => {
-    if (!embeddedInDock || !onOrchestrationActionsChange) return;
-    const hasOrchestration = Boolean(
-      agentRun || skillRun || agentPreviewPlan || agentPreviewLoading,
-    );
-    if (!hasOrchestration) {
-      onOrchestrationActionsChange(null);
-      return;
-    }
-    onOrchestrationActionsChange({
-      onConfirm: () => void handleSubmit(),
-      onCancel: () => {
-        if (skillRun) void cancelSkillRunAction();
-        else if (agentRun) void cancelAgentRunAction();
-      },
-      confirmBusy: pending || agentBusy || skillBusy,
-      readOnly,
-    });
-  }, [
-    embeddedInDock,
-    onOrchestrationActionsChange,
-    agentRun,
-    skillRun,
-    agentPreviewPlan,
-    agentPreviewLoading,
-    pending,
-    agentBusy,
-    skillBusy,
-    readOnly,
-    cancelSkillRunAction,
-    cancelAgentRunAction,
-  ]);
 
   useEffect(() => {
     if (!user || !getToken()) {
@@ -1100,7 +1072,11 @@ export function CreationPanel({
         setPending(true);
         try {
           await ensureSession(sessionId, mode);
-          await confirmSkillRunAction();
+          if (orchConfirmOrchestration) {
+            await orchConfirmOrchestration();
+          } else {
+            await confirmSkillRunAction();
+          }
         } catch (err) {
           alert(err instanceof Error ? err.message : "确认失败");
         } finally {
@@ -1113,7 +1089,7 @@ export function CreationPanel({
       setPending(true);
       try {
         await ensureSession(sessionId, mode);
-        await startSkillRun(activeSkillId, {
+        await orchStartSkillRun(activeSkillId, {
           prompt,
           productAssetId: resolveProductAssetId(),
           referenceAssetId: referenceAssetId ?? undefined,
@@ -1144,7 +1120,11 @@ export function CreationPanel({
         setPending(true);
         try {
           await ensureSession(sessionId, mode);
-          await confirmAgentRunAction();
+          if (orchConfirmOrchestration) {
+            await orchConfirmOrchestration();
+          } else {
+            await confirmAgentRunAction();
+          }
         } catch (err) {
           alert(err instanceof Error ? err.message : "确认失败");
         } finally {
@@ -1157,7 +1137,7 @@ export function CreationPanel({
       setPending(true);
       try {
         await ensureSession(sessionId, mode);
-        await startAgentRun(prompt);
+        await orchStartAgentRun(prompt);
         void trackEvent("agent_run_start", { sessionId: sessionId ?? "", mode });
       } catch (err) {
         alert(err instanceof Error ? err.message : "Agent 提交失败");
@@ -1319,16 +1299,16 @@ export function CreationPanel({
       ));
 
   const agentIdle =
-    !agentRun ||
+    !orchAgentRun ||
     (["completed", "failed", "cancelled"] as AgentRunStatus[]).includes(
-      agentRun.status,
+      orchAgentRun.status,
     );
 
   const canSubmit =
     !readOnly &&
     !jobStreamStatus &&
-    !agentBusy &&
-    !skillBusy &&
+    !orchAgentBusy &&
+    !orchSkillBusy &&
     (skillAwaitingConfirm ||
       agentAwaitingConfirm ||
       (skillIdle &&
@@ -1340,8 +1320,8 @@ export function CreationPanel({
             : prompt.trim().length > 0)));
 
   const streamBusy =
-    agentBusy ||
-    skillBusy ||
+    orchAgentBusy ||
+    orchSkillBusy ||
     skillInFlight ||
     agentInFlight ||
     (Boolean(jobStreamStatus) &&
@@ -1681,7 +1661,9 @@ export function CreationPanel({
           <SkillPackagePicker
             skills={skillPackages}
             selectedId={selectedSkillId}
-            disabled={skillInFlight || skillBusy || Boolean(skillRun && !skillIdle)}
+            disabled={
+              skillInFlight || orchSkillBusy || Boolean(orchSkillRun && !skillIdle)
+            }
             onSelect={setSelectedSkillId}
           />
         ) : null}
@@ -1709,7 +1691,6 @@ export function CreationPanel({
             mode={effectiveMode}
             enabled={agentEnabled && !focusEdit}
             run={agentRun}
-            onPlanPreview={setAgentPreviewPlan}
             confirmBusy={agentBusy || pending}
             onConfirm={() => void handleSubmit()}
             onCancelRun={() => void cancelAgentRunAction()}
