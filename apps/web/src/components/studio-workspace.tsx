@@ -46,10 +46,8 @@ import { trackEvent } from "@/lib/api-client";
 import { type CreationMode } from "@aimarket/ui";
 import type { ImageSession, StudioTool } from "@/lib/types";
 import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
-import type {
-  OrchestrationTimelineActions,
-  OrchestrationTimelineEvent,
-} from "@/lib/canvas-timeline";
+import { StudioOrchestrationProvider } from "@/components/studio-orchestration-provider";
+import { StudioCanvasWithOrchestration } from "@/components/studio-canvas-with-orchestration";
 import { useAuth } from "@/lib/auth-context";
 import {
   assetUrl,
@@ -191,10 +189,6 @@ export function StudioWorkspace({
     null,
   );
   const [jobFailed, setJobFailed] = useState(false);
-  const [orchestrationTimeline, setOrchestrationTimeline] =
-    useState<OrchestrationTimelineEvent | null>(null);
-  const [orchestrationActions, setOrchestrationActions] =
-    useState<OrchestrationTimelineActions | null>(null);
 
   const [mode, setMode] = useState<CreationMode>(initialMode);
   const [selectedCanvasId, setSelectedCanvasId] = useState<string | null>(null);
@@ -203,28 +197,6 @@ export function StudioWorkspace({
     setMode(initialMode);
   }, [initialMode]);
 
-  useEffect(() => {
-    setOrchestrationTimeline(null);
-    setOrchestrationActions(null);
-  }, [sessionId]);
-
-  const handleOrchestrationTimelineChange = useCallback(
-    (event: OrchestrationTimelineEvent | null) => {
-      setOrchestrationTimeline((prev) => {
-        if (event) return event;
-        if (
-          prev &&
-          (prev.status === "completed" ||
-            prev.status === "failed" ||
-            prev.status === "cancelled")
-        ) {
-          return prev;
-        }
-        return null;
-      });
-    },
-    [],
-  );
 
   useEffect(() => {
     const saved = readStudioDockMode();
@@ -1248,8 +1220,6 @@ export function StudioWorkspace({
         }
         agentOrchestration
         agentSkills
-        onOrchestrationTimelineChange={handleOrchestrationTimelineChange}
-        onOrchestrationActionsChange={setOrchestrationActions}
         onAgentRunComplete={() => {
           void loadCanvas();
           void refreshUser();
@@ -1534,13 +1504,23 @@ export function StudioWorkspace({
               onLogin={() => setLoginOpen(true)}
             />
           ) : null}
+          <StudioOrchestrationProvider
+            sessionId={sessionId}
+            mode={mode}
+            readOnly={readOnly}
+            onJobStarted={handleJobStarted}
+            onRunSettled={() => {
+              void loadCanvas();
+              void refreshUser();
+            }}
+          >
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
             {readOnly ? (
               <p className="shrink-0 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200/90">
                 只读：他人会话，仅创建者或管理员可编辑与生成
               </p>
             ) : null}
-            <DesignCanvas
+            <StudioCanvasWithOrchestration
               ref={canvasRef}
               items={canvasItems}
               onJumpToParentBatch={handleJumpToParentBatch}
@@ -1559,8 +1539,6 @@ export function StudioWorkspace({
               onRerun={(item) => void handleRerun(item)}
               emptyHint=""
               scrollBottomInset={studioDockScrollInset(dockMode)}
-              orchestrationEvent={orchestrationTimeline}
-              orchestrationActions={orchestrationActions ?? undefined}
               readOnly={readOnly}
               jobStreamStatus={jobStreamStatus}
               jobFailed={jobFailed}
@@ -1686,6 +1664,7 @@ export function StudioWorkspace({
               {dockPanel}
             </StudioDock>
           </div>
+          </StudioOrchestrationProvider>
         </div>
       </div>
 
