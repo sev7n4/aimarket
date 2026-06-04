@@ -50,7 +50,7 @@ ai.get("/providerStatus", (c) =>
 ai.post("/suggestModel", async (c) => {
   const body = z
     .object({
-      mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
+      mode: z.enum(["chat", "image", "ecommerce"]).default("image"),
       prompt: z.string().default(""),
       hasReferenceImages: z.boolean().optional(),
     })
@@ -115,7 +115,7 @@ ai.post("/generate", async (c) => {
           "21:9",
         ])
         .default("auto"),
-      mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
+      mode: z.enum(["chat", "image", "ecommerce"]).default("image"),
       operation: z.enum(["generate", "edit", "variation"]).default("generate"),
       image: z.string().optional(),
       mask: z.string().optional(),

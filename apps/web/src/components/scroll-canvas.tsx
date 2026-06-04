@@ -39,6 +39,23 @@ function timelineMetaLabel(section: BatchSection): string | null {
   return null;
 }
 
+const FAN_THUMB_CLASSES = [
+  "left-5 top-1 z-30 rotate-0",
+  "left-1 top-2 z-20 -rotate-[13deg]",
+  "left-9 top-2 z-20 rotate-[13deg]",
+  "left-[1.65rem] top-4 z-10 rotate-[4deg]",
+];
+
+function fanThumbClass(index: number, total: number) {
+  if (total <= 1) return "left-4 top-1 z-30 rotate-0";
+  if (total === 2) {
+    return index === 0
+      ? "left-2 top-2 z-20 -rotate-[10deg]"
+      : "left-8 top-2 z-30 rotate-[10deg]";
+  }
+  return FAN_THUMB_CLASSES[index] ?? FAN_THUMB_CLASSES[0];
+}
+
 interface ScrollCanvasProps {
   items: CanvasItem[];
   batchSections: BatchSection[];
@@ -220,6 +237,12 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                 const firstItem = batchItems[0] ?? null;
                 const params = firstItem?.generationParams;
                 const expanded = expandedRecordIds.has(section.id);
+                const previewItems = batchItems.slice(0, 4);
+                const hiddenPreviewCount = Math.max(
+                  0,
+                  batchItems.length - previewItems.length,
+                );
+                const hasRecordDetails = Boolean(params || section.title);
                 const parentNum = section.parentBatchId
                   ? batchDisplayIndex(items, section.parentBatchId)
                   : null;
@@ -260,12 +283,15 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                         </span>
                       </header>
 
-                      <div className="mb-3 flex gap-2.5 rounded-2xl border border-white/5 bg-white/[0.025] p-2.5">
-                        <div className="flex max-w-[7.25rem] flex-wrap gap-1.5">
-                          {batchItems.slice(0, 4).map((thumb) => (
+                      <div className="mb-3 flex items-start gap-2.5 rounded-2xl border border-white/5 bg-white/[0.025] px-2.5 py-2">
+                        <div className="relative h-[4.6rem] w-[5.65rem] shrink-0">
+                          {previewItems.map((thumb, thumbIdx) => (
                             <div
                               key={`thumb-${thumb.id}`}
-                              className="group/thumb relative size-[3.375rem] overflow-hidden rounded-xl border border-white/10 bg-zinc-900"
+                              className={`group/thumb absolute size-[3.35rem] overflow-hidden rounded-xl border border-white/10 bg-zinc-900 shadow-[0_10px_22px_rgba(0,0,0,0.36)] transition duration-200 hover:z-40 hover:rotate-0 hover:scale-105 ${fanThumbClass(
+                                thumbIdx,
+                                previewItems.length,
+                              )}`}
                             >
                               {thumb.isVideo ? (
                                 <video
@@ -301,8 +327,13 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                               ) : null}
                             </div>
                           ))}
+                          {hiddenPreviewCount > 0 ? (
+                            <span className="absolute bottom-0 right-0 z-50 rounded-full border border-white/10 bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-zinc-200 shadow-lg">
+                              +{hiddenPreviewCount}
+                            </span>
+                          ) : null}
                         </div>
-                        <div className="min-w-0 flex-1">
+                        <div className="relative min-w-0 flex-1 pr-5">
                           {section.title ? (
                             <p
                               className={`${expanded ? "" : "line-clamp-2"} text-[12px] leading-relaxed text-zinc-300`}
@@ -344,21 +375,22 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                               </div>
                             </dl>
                           ) : null}
-                          {(params || section.title) ? (
+                          {hasRecordDetails && !expanded ? (
                             <button
                               type="button"
-                              className="mt-2 text-[11px] text-orange-300 hover:text-orange-200"
+                              aria-label="展开完整操作记录"
+                              title="展开完整操作记录"
+                              className="absolute bottom-0 right-0 rounded-full px-1 text-[13px] font-semibold leading-none text-orange-300 transition hover:bg-orange-500/15 hover:text-orange-100"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setExpandedRecordIds((prev) => {
                                   const next = new Set(prev);
-                                  if (next.has(section.id)) next.delete(section.id);
-                                  else next.add(section.id);
+                                  next.add(section.id);
                                   return next;
                                 });
                               }}
                             >
-                              {expanded ? "收起" : "展开全部"}
+                              ...
                             </button>
                           ) : null}
                         </div>

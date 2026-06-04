@@ -32,7 +32,7 @@ pnpm dev:api   # http://localhost:4000
 ## 页面
 
 - `/` — 营销首页（Hero + 三模式输入 + 灵感瀑布流）
-- `/studio?sessionId=...&mode=chat|quick|ecommerce` — 创作工作台
+- `/studio?sessionId=...&mode=chat|image|ecommerce` — 创作工作台
 - `/about` — 品牌介绍
 - `/settings` — 品牌 Kit（主色/Logo）
 - `/admin` — 管理看板（需管理密钥）

@@ -735,8 +735,6 @@ export function CreationPanel({
     if (effectiveMode === "ecommerce") {
       setResolution("2k");
       setCount(4);
-    } else if (mode === "quick") {
-      setCount(1);
     }
   }, [mode]);
 
@@ -1276,7 +1274,7 @@ export function CreationPanel({
           count: toolEdit ? 1 : count,
           resolution,
           aspectRatio: coerceAspectRatio(aspectRatio),
-          mode: toolEdit ? "chat" : effectiveMode,
+          mode: effectiveMode === "ecommerce" ? "ecommerce" : "image",
           assetIds: mergedAssetIds.length ? mergedAssetIds : undefined,
           referenceOutputIds: selectedRefs.map((r) => r.id),
           autoRoute: useAuto,

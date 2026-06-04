@@ -1014,7 +1014,7 @@ export async function forkInspirationProject(
   id: string,
   body?: {
     variables?: Record<string, string>;
-    mode?: "chat" | "quick" | "ecommerce";
+    mode?: "chat" | "image" | "ecommerce";
     workspaceId?: string;
   },
 ) {
@@ -1052,7 +1052,7 @@ export async function fetchAgentPlan(body: {
 export async function createAgentRun(body: {
   sessionId: string;
   prompt: string;
-  mode: "chat" | "quick" | "ecommerce";
+  mode: "chat" | "image" | "ecommerce";
   modelId?: string;
   resolution?: string;
   aspectRatio?: string;
@@ -1144,7 +1144,7 @@ export async function cancelSkillRun(runId: string) {
 export async function executeAgentPlan(body: {
   sessionId: string;
   prompt: string;
-  mode: "chat" | "quick" | "ecommerce";
+  mode: "chat" | "image" | "ecommerce";
   modelId?: string;
   resolution?: string;
   aspectRatio?: string;
@@ -1169,7 +1169,7 @@ export async function executeAgentPlan(body: {
 
 export async function optimizePromptApi(
   prompt: string,
-  mode: "chat" | "quick" | "ecommerce" = "chat",
+  mode: "chat" | "image" | "ecommerce" = "image",
 ) {
   const res = await request<{ data: { prompt: string } }>(
     "/api/v1/prompt/optimize",

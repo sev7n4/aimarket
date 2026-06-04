@@ -16,7 +16,7 @@ export function forkProjectFromInspiration(
   inspirationId: string,
   opts?: {
     variables?: Record<string, string>;
-    mode?: "chat" | "quick" | "ecommerce";
+    mode?: "chat" | "image" | "ecommerce";
     workspaceId?: string;
   },
 ) {

@@ -65,10 +65,10 @@ export function suggestModel(
     };
   }
 
-  if (mode === "quick") {
+  if (mode === "image") {
     return {
       modelId: "omni-v2",
-      reason: "快速模式，优先速度与性价比",
+      reason: "图片模式，按当前图片生成偏好出图",
     };
   }
 

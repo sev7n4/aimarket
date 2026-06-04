@@ -146,7 +146,7 @@ export function GenerationSettingsPopover({
           </button>
         ))}
       </div>
-      {mode === "quick" ? (
+      {mode === "image" ? (
         <p className="mt-1.5 text-[9px] leading-snug text-zinc-600">
           智能比例将根据描述自动选择最佳画幅
         </p>

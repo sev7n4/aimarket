@@ -55,7 +55,7 @@ async function main() {
   await req("/api/v1/imageSession/ensure", {
     method: "POST",
     headers: H,
-    body: JSON.stringify({ sessionId, mode: "quick", kind: "canvas" }),
+    body: JSON.stringify({ sessionId, mode: "image", kind: "canvas" }),
   });
 
   const gen = await req("/api/v1/ai/generate", {
@@ -67,7 +67,7 @@ async function main() {
       modelId: "nano-banana",
       count: 1,
       resolution: "1k",
-      mode: "quick",
+      mode: "image",
     }),
   });
   const jobId = gen.json?.data?.jobId;

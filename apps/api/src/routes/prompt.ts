@@ -13,7 +13,7 @@ prompt.post("/optimize", async (c) => {
   const body = z
     .object({
       prompt: z.string().max(4000),
-      mode: optimizeModeSchema.default("chat"),
+      mode: optimizeModeSchema.default("image"),
     })
     .parse(await c.req.json());
 

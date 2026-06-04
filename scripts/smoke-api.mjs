@@ -273,7 +273,7 @@ async function main() {
     body: JSON.stringify({
       sessionId,
       prompt: "冒烟测试生成一只猫",
-      mode: "chat",
+      mode: "image",
       count: 1,
       resolution: "1k",
     }),
@@ -292,14 +292,44 @@ async function main() {
       `status=${taskStatus.json?.data?.status}`,
     );
 
-    await new Promise((r) => setTimeout(r, 3500));
+    const settledJob = await waitJob(jobId, authH, 8);
     const job = await req(`/api/v1/ai/jobs/${jobId}`, { headers: authH });
     ok(
       "GET job status",
       job.res.ok && ["succeeded", "failed", "running"].includes(job.json?.data?.status),
       job.json?.data?.status,
     );
+    if (settledJob?.status === "succeeded") {
+      const bundle = await req(`/api/v1/imageSession/${sessionId}/canvas-bundle`, {
+        headers: authH,
+      });
+      const assistantWithOutputs = bundle.json?.data?.messages?.find(
+        (m) => m.role === "assistant" && m.job_id === jobId && m.outputs?.length > 0,
+      );
+      ok(
+        "GET canvas-bundle includes generated outputs",
+        bundle.res.ok && Boolean(assistantWithOutputs),
+        `job=${jobId}`,
+      );
+    }
   }
+
+  const quickRejected = await req("/api/v1/ai/generate", {
+    method: "POST",
+    headers: authH,
+    body: JSON.stringify({
+      sessionId,
+      prompt: "旧 quick 模式应被拒绝",
+      mode: "quick",
+      count: 1,
+      resolution: "1k",
+    }),
+  });
+  ok(
+    "POST /ai/generate quick rejected",
+    quickRejected.res.status === 400,
+    `status=${quickRejected.res.status}`,
+  );
 
   const toolsList = await req("/api/v1/tools/list", { headers: authH });
   const toolRows = toolsList.json?.data ?? [];

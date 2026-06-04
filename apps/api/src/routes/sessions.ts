@@ -74,6 +74,7 @@ function loadSourceInspirationForSession(sessionId: string) {
 }
 
 const sessions = new Hono<{ Variables: AuthVariables }>();
+const sessionModeSchema = z.enum(["chat", "image", "ecommerce"]);
 
 function loadSessionRow(sessionId: string) {
   return db
@@ -174,7 +175,7 @@ sessions.post("/ensure", async (c) => {
   const body = z
     .object({
       sessionId: z.string().uuid(),
-      mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
+      mode: sessionModeSchema.default("image"),
       title: z.string().max(100).optional(),
       kind: sessionKindSchema.default("canvas"),
       workspaceId: z.string().uuid().optional(),
@@ -240,7 +241,7 @@ sessions.post("/create", async (c) => {
   const userId = c.get("userId");
   const body = z
     .object({
-      mode: z.enum(["chat", "quick", "ecommerce"]).default("chat"),
+      mode: sessionModeSchema.default("image"),
       title: z.string().max(100).optional(),
       kind: sessionKindSchema.default("canvas"),
       workspaceId: z.string().uuid().optional(),

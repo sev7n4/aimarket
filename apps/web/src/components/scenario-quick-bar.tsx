@@ -35,7 +35,7 @@ const items: QuickItem[] = [
   {
     label: "白底主图",
     icon: ImageIcon,
-    mode: "quick",
+    mode: "image",
     prompt: "电商白底主图，商品居中，柔和顶光，高清质感",
   },
   {

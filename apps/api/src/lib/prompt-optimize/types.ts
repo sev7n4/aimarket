@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const optimizeModeSchema = z.enum(["chat", "quick", "ecommerce"]);
+export const optimizeModeSchema = z.enum(["chat", "image", "ecommerce"]);
 
 export type OptimizeMode = z.infer<typeof optimizeModeSchema>;
 

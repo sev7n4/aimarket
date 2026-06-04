@@ -10,7 +10,7 @@ export const rotatingHints: Record<CreationMode, string[]> = {
     "去除画面中的路人",
     "让产品图更有高级感",
   ],
-  quick: [
+  image: [
     "从特写视角生成这张图片",
     "生成同款风格的 4 张变体",
     "高清放大并保留细节",
