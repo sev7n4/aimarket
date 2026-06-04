@@ -2,7 +2,6 @@
 
 import {
   ArrowUpToLine,
-  AtSign,
   Brush,
   Copy,
   Crop,
@@ -53,21 +52,10 @@ export function buildCanvasToolActions(opts: {
   item: CanvasItem;
   pendingToolId?: string | null;
   onRunTool?: (tool: StudioTool, item: CanvasItem) => void;
-  onMentionItem?: (item: CanvasItem) => void;
 }): OverflowIconAction[] {
-  const { tools, item, pendingToolId, onRunTool, onMentionItem } = opts;
+  const { tools, item, pendingToolId, onRunTool } = opts;
   const canUseSource = Boolean(item.outputId || item.assetId);
   const actions: OverflowIconAction[] = [];
-
-  if (onMentionItem && canUseSource) {
-    actions.push({
-      id: "mention",
-      icon: AtSign,
-      title: "引用到工作台",
-      tone: "purple",
-      onClick: () => onMentionItem(item),
-    });
-  }
 
   const visibleTools = tools
     .filter((t) => !t.clientOnly)

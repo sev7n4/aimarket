@@ -1,9 +1,9 @@
 "use client";
 
 import {
-  AtSign,
   Download,
   Eye,
+  Plus,
   RotateCcw,
   Share2,
   Trash2,
@@ -107,7 +107,6 @@ export function ScrollCanvasItemChrome({
     item,
     pendingToolId,
     onRunTool,
-    onMentionItem,
   });
 
   const hasToolchain = toolActions.length > 0;
@@ -121,6 +120,21 @@ export function ScrollCanvasItemChrome({
           <OverflowIconRow actions={topActions} maxVisible={3} size="sm" />
         </div>
       </div>
+      {onMentionItem && (item.outputId || item.assetId) ? (
+        <button
+          type="button"
+          title="引用到工作台"
+          aria-label="引用到工作台"
+          data-testid="canvas-item-quick-mention"
+          className={`absolute right-2 top-1/2 z-50 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/[0.58] text-white shadow-[0_10px_28px_rgba(0,0,0,0.38)] backdrop-blur-md transition hover:scale-105 hover:border-orange-300/60 hover:bg-orange-500/80 ${show}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onMentionItem(item);
+          }}
+        >
+          <Plus className="size-4" strokeWidth={2} />
+        </button>
+      ) : null}
       {hasToolchain ? (
         <div
           className={`pointer-events-none absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-1.5 pb-1.5 pt-6 transition-opacity ${show}`}
@@ -132,6 +146,7 @@ export function ScrollCanvasItemChrome({
               maxVisible={5}
               size="sm"
               align="start"
+              menuPlacement="side"
             />
           </div>
         </div>

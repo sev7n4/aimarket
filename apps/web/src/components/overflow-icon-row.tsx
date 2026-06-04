@@ -59,6 +59,7 @@ interface OverflowIconRowProps {
   maxVisible?: number;
   size?: "sm" | "md";
   align?: "start" | "center" | "end";
+  menuPlacement?: "auto" | "side";
   className?: string;
 }
 
@@ -67,13 +68,15 @@ export function OverflowIconRow({
   maxVisible = 5,
   size = "md",
   align = "center",
+  menuPlacement = "auto",
   className = "",
 }: OverflowIconRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{
     top: number;
-    right: number;
-    placement: "above" | "below";
+    left?: number;
+    right?: number;
+    placement: "above" | "below" | "side-right" | "side-left";
   } | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
   const visible = actions.slice(0, maxVisible);
@@ -105,12 +108,22 @@ export function OverflowIconRow({
               e.stopPropagation();
               const rect = moreButtonRef.current?.getBoundingClientRect();
               if (rect) {
-                const placement = rect.top < 140 ? "below" : "above";
-                setMenuPosition({
-                  top: placement === "below" ? rect.bottom + 6 : rect.top - 6,
-                  right: window.innerWidth - rect.right,
-                  placement,
-                });
+                if (menuPlacement === "side") {
+                  const menuWidth = 144;
+                  const hasRight = rect.right + menuWidth + 10 < window.innerWidth;
+                  setMenuPosition({
+                    top: rect.top + rect.height / 2,
+                    left: hasRight ? rect.right + 8 : rect.left - 8,
+                    placement: hasRight ? "side-right" : "side-left",
+                  });
+                } else {
+                  const placement = rect.top < 140 ? "below" : "above";
+                  setMenuPosition({
+                    top: placement === "below" ? rect.bottom + 6 : rect.top - 6,
+                    right: window.innerWidth - rect.right,
+                    placement,
+                  });
+                }
               }
               setMenuOpen((v) => !v);
             }}
@@ -129,10 +142,18 @@ export function OverflowIconRow({
                 className="fixed z-50 min-w-[8rem] rounded-xl border border-white/10 bg-[#151515]/95 py-1 shadow-2xl backdrop-blur-xl"
                 style={{
                   top: menuPosition?.top ?? 0,
-                  right: menuPosition?.right ?? 0,
+                  left: menuPosition?.left,
+                  right:
+                    menuPosition?.left == null
+                      ? (menuPosition?.right ?? 0)
+                      : undefined,
                   transform:
                     menuPosition?.placement === "above"
                       ? "translateY(-100%)"
+                      : menuPosition?.placement === "side-right"
+                        ? "translateY(-50%)"
+                        : menuPosition?.placement === "side-left"
+                          ? "translate(-100%, -50%)"
                       : undefined,
                 }}
               >

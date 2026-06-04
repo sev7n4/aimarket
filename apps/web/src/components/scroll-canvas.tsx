@@ -6,7 +6,9 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from "react";
+import { Plus } from "lucide-react";
 import { assetUrl } from "@/lib/api-client";
 import type { CanvasItem, BatchSection } from "@/lib/canvas-tools";
 import { batchDisplayIndex } from "@/lib/canvas-tools";
@@ -118,6 +120,9 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
   ) {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const lastScrollTopRef = useRef(0);
+    const [expandedRecordIds, setExpandedRecordIds] = useState<Set<string>>(
+      () => new Set(),
+    );
 
     const showJobOverlay =
       Boolean(jobStreamStatus) &&
@@ -212,6 +217,9 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
 
               {batchSections.map((section, sectionIdx) => {
                 const batchItems = itemsByBatch.get(section.id) ?? [];
+                const firstItem = batchItems[0] ?? null;
+                const params = firstItem?.generationParams;
+                const expanded = expandedRecordIds.has(section.id);
                 const parentNum = section.parentBatchId
                   ? batchDisplayIndex(items, section.parentBatchId)
                   : null;
@@ -237,7 +245,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                     <div className="min-w-0 flex-1">
                       <header className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                         <time
-                          className="text-[13px] font-medium tabular-nums text-zinc-300"
+                          className="text-xl font-semibold leading-none tabular-nums text-zinc-100"
                           dateTime={timeLabel}
                         >
                           {timeLabel}
@@ -252,15 +260,109 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                         </span>
                       </header>
 
-                      {section.title && section.index >= 0 ? (
-                        <p className="mb-3 line-clamp-2 text-[12px] leading-relaxed text-zinc-500">
-                          {section.title}
-                        </p>
-                      ) : section.title ? (
-                        <p className="mb-3 line-clamp-2 text-[12px] text-zinc-500">
-                          {section.title}
-                        </p>
-                      ) : null}
+                      <div className="mb-3 flex gap-2.5 rounded-2xl border border-white/5 bg-white/[0.025] p-2.5">
+                        <div className="flex max-w-[7.25rem] flex-wrap gap-1.5">
+                          {batchItems.slice(0, 4).map((thumb) => (
+                            <div
+                              key={`thumb-${thumb.id}`}
+                              className="group/thumb relative size-[3.375rem] overflow-hidden rounded-xl border border-white/10 bg-zinc-900"
+                            >
+                              {thumb.isVideo ? (
+                                <video
+                                  src={assetUrl(thumb.url)}
+                                  className="h-full w-full object-cover"
+                                  preload="none"
+                                />
+                              ) : (
+                                <img
+                                  src={assetUrl(thumb.thumbUrl ?? thumb.url)}
+                                  alt=""
+                                  loading="lazy"
+                                  decoding="async"
+                                  className="h-full w-full object-cover"
+                                />
+                              )}
+                              {batchTools?.onMentionItem &&
+                              (thumb.outputId || thumb.assetId) ? (
+                                <button
+                                  type="button"
+                                  aria-label="引用缩略图到工作台"
+                                  title="引用到工作台"
+                                  className="absolute inset-0 flex items-center justify-center bg-black/45 text-white opacity-0 transition group-hover/thumb:opacity-100"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    batchTools.onMentionItem?.(thumb);
+                                  }}
+                                >
+                                  <span className="flex size-7 items-center justify-center rounded-full bg-orange-500 shadow-lg">
+                                    <Plus className="size-4" />
+                                  </span>
+                                </button>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          {section.title ? (
+                            <p
+                              className={`${expanded ? "" : "line-clamp-2"} text-[12px] leading-relaxed text-zinc-300`}
+                            >
+                              {section.title}
+                            </p>
+                          ) : null}
+                          {params ? (
+                            <dl
+                              className={`mt-2 grid gap-1 text-[11px] leading-relaxed text-zinc-500 sm:grid-cols-2 ${
+                                expanded ? "" : "max-h-[2.9rem] overflow-hidden"
+                              }`}
+                            >
+                              <div>
+                                <dt className="inline text-zinc-600">模型：</dt>
+                                <dd className="inline">{params.modelId ?? "-"}</dd>
+                              </div>
+                              <div>
+                                <dt className="inline text-zinc-600">比例：</dt>
+                                <dd className="inline">{params.aspectRatio ?? "-"}</dd>
+                              </div>
+                              <div>
+                                <dt className="inline text-zinc-600">分辨率：</dt>
+                                <dd className="inline">{params.resolution ?? "-"}</dd>
+                              </div>
+                              <div>
+                                <dt className="inline text-zinc-600">工具：</dt>
+                                <dd className="inline">{params.toolType ?? "生成"}</dd>
+                              </div>
+                              <div>
+                                <dt className="inline text-zinc-600">输出：</dt>
+                                <dd className="inline">{section.count} 张</dd>
+                              </div>
+                              <div className="sm:col-span-2">
+                                <dt className="inline text-zinc-600">Prompt：</dt>
+                                <dd className="inline whitespace-pre-wrap">
+                                  {params.prompt || section.title}
+                                </dd>
+                              </div>
+                            </dl>
+                          ) : null}
+                          {(params || section.title) ? (
+                            <button
+                              type="button"
+                              className="mt-2 text-[11px] text-orange-300 hover:text-orange-200"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedRecordIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(section.id)) next.delete(section.id);
+                                  else next.add(section.id);
+                                  return next;
+                                });
+                              }}
+                            >
+                              {expanded ? "收起" : "展开全部"}
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
 
                       {section.parentBatchId && parentNum ? (
                         <button
