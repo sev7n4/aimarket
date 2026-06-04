@@ -16,6 +16,7 @@ interface UploadPreviewStackProps {
   onRemove: (id: string) => void;
   onPreview?: (index: number) => void;
   max?: number;
+  compact?: boolean;
 }
 
 /** 对标椒图：上传缩略图 -15° 叠放 */
@@ -26,22 +27,28 @@ export function UploadPreviewStack({
   onRemove,
   onPreview,
   max = 4,
+  compact = false,
 }: UploadPreviewStackProps) {
   const canAdd = items.length < max;
   const [expanded, setExpanded] = useState(false);
   const spread = useMemo(() => {
-    if (!expanded || items.length <= 1) return 6;
-    return 42;
-  }, [expanded, items.length]);
+    if (!expanded || items.length <= 1) return compact ? 4 : 6;
+    return compact ? 30 : 42;
+  }, [compact, expanded, items.length]);
   const addButtonOffset = items.length
     ? expanded
       ? ((items.length - 1) / 2 + 1) * spread
-      : 48 + (items.length - 1) * spread
+      : (compact ? 34 : 48) + (items.length - 1) * spread
     : 0;
+  const containerClass = compact
+    ? "relative flex h-10 w-11 shrink-0 items-center justify-center overflow-visible"
+    : "relative flex h-[72px] w-[168px] shrink-0 items-center justify-center";
+  const cardClass = compact ? "size-10 rounded-xl" : "size-14 rounded-lg";
+  const iconClass = compact ? "size-4" : "size-5";
 
   return (
     <div
-      className="relative flex h-[72px] w-[168px] shrink-0 items-center justify-center"
+      className={containerClass}
       onMouseEnter={() => setExpanded(true)}
       onMouseLeave={() => setExpanded(false)}
     >
@@ -62,7 +69,7 @@ export function UploadPreviewStack({
             type="button"
             onClick={() => onPreview?.(i)}
             data-testid={`upload-preview-card-${i}`}
-            className="group relative block size-14 overflow-hidden rounded-lg border border-white/20 bg-zinc-900 shadow-lg shadow-black/50"
+            className={`group relative block overflow-hidden border border-white/20 bg-zinc-900 shadow-lg shadow-black/50 ${cardClass}`}
             title="预览图片"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -96,7 +103,9 @@ export function UploadPreviewStack({
           onClick={onAdd}
           disabled={uploading}
           data-testid="upload-preview-add"
-          className="absolute left-1/2 top-1/2 z-[1] flex size-14 flex-col items-center justify-center gap-0.5 rounded-xl border border-dashed border-white/25 bg-black/40 text-[10px] text-zinc-500 transition hover:border-orange-500/50 hover:text-zinc-300"
+          className={`absolute left-1/2 top-1/2 z-[1] flex flex-col items-center justify-center gap-0.5 rounded-xl border border-dashed border-white/25 bg-black/40 text-[10px] text-zinc-500 transition hover:border-orange-500/50 hover:text-zinc-300 ${
+            compact ? "size-10" : "size-14"
+          }`}
           style={{
             transform:
               `translate(-50%, -50%) rotate(${expanded ? 0 : -15}deg) ` +
@@ -106,11 +115,11 @@ export function UploadPreviewStack({
           title="上传图片"
         >
           {uploading ? (
-            <Loader2 className="size-5 animate-spin text-orange-400" />
+            <Loader2 className={`${iconClass} animate-spin text-orange-400`} />
           ) : (
-            <ImagePlus className="size-5" />
+            <ImagePlus className={iconClass} />
           )}
-          <span>上传</span>
+          {compact ? null : <span>上传</span>}
         </button>
       ) : null}
     </div>

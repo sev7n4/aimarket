@@ -26,7 +26,7 @@ export function RefineSelectedCta({ onRefine }: RefineSelectedCtaProps) {
 
   return (
     <div
-      className="absolute inset-x-1 top-1 z-40 flex items-start justify-center gap-1"
+      className="absolute inset-x-1 bottom-9 z-30 flex items-end justify-center gap-1"
       data-testid="refine-selected-cta"
       onClick={(e) => e.stopPropagation()}
     >

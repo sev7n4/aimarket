@@ -111,6 +111,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
     ref,
   ) {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const lastScrollTopRef = useRef(0);
 
     const showJobOverlay =
       Boolean(jobStreamStatus) &&
@@ -130,11 +131,35 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
 
     useImperativeHandle(ref, () => ({ scrollToBatch }), [scrollToBatch]);
 
+    const handleScroll = useCallback(() => {
+      const el = scrollContainerRef.current;
+      if (!el) return;
+      const delta = el.scrollTop - lastScrollTopRef.current;
+      lastScrollTopRef.current = el.scrollTop;
+      if (delta < -6) {
+        window.dispatchEvent(
+          new CustomEvent("aimarket:creation-dock-expand", {
+            detail: { expanded: true },
+          }),
+        );
+        return;
+      }
+      const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (distanceToBottom < 24) {
+        window.dispatchEvent(
+          new CustomEvent("aimarket:creation-dock-expand", {
+            detail: { expanded: false },
+          }),
+        );
+      }
+    }, []);
+
     return (
       <div
         ref={scrollContainerRef}
         className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
         onClick={() => onSelect(null)}
+        onScroll={handleScroll}
       >
         {showJobOverlay || jobFailed ? (
           <CanvasJobOverlay

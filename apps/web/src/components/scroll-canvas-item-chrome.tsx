@@ -66,18 +66,19 @@ export function ScrollCanvasItemChrome({
       onClick: onRefine,
     },
     {
-      id: "rerun",
-      icon: RotateCcw,
-      title: "重做",
-      tone: "blue",
-      onClick: onRerun,
-    },
-    {
       id: "delete",
       icon: Trash2,
       title: "删除",
       tone: "red",
       onClick: onDelete,
+    },
+    {
+      id: "rerun",
+      icon: RotateCcw,
+      title: "重做",
+      tone: "blue",
+      disabled: !item.generationParams,
+      onClick: onRerun,
     },
     ...(onDownload
       ? [
@@ -114,21 +115,21 @@ export function ScrollCanvasItemChrome({
   return (
     <>
       <div
-        className={`pointer-events-none absolute inset-x-0 top-0 z-30 bg-gradient-to-b from-black/75 via-black/35 to-transparent px-1 pt-1 pb-6 transition-opacity ${show}`}
+        className={`pointer-events-none absolute inset-x-0 top-0 z-50 bg-gradient-to-b from-black/80 via-black/35 to-transparent px-1.5 pb-7 pt-1.5 transition-opacity ${show}`}
       >
         <div className="pointer-events-auto">
-          <OverflowIconRow actions={topActions} maxVisible={4} size="sm" />
+          <OverflowIconRow actions={topActions} maxVisible={3} size="sm" />
         </div>
       </div>
       {hasToolchain ? (
         <div
-          className={`pointer-events-none absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-1 pb-1 pt-5 transition-opacity ${show}`}
+          className={`pointer-events-none absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-1.5 pb-1.5 pt-6 transition-opacity ${show}`}
           data-testid="canvas-item-toolchain"
         >
           <div className="pointer-events-auto">
             <OverflowIconRow
               actions={toolActions}
-              maxVisible={6}
+              maxVisible={5}
               size="sm"
               align="start"
             />
