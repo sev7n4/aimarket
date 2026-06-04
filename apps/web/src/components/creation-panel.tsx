@@ -776,9 +776,7 @@ export function CreationPanel({
     return false;
   }
 
-  async function handleUpload(files: FileList | null) {
-    /** FileList 与 input 联动；onChange 会立刻清空 value，须在 await 前拷贝 */
-    const selectedFiles = files ? Array.from(files) : [];
+  async function handleUpload(selectedFiles: File[]) {
     if (!selectedFiles.length || !sessionId) return;
     if (!requireAuth("登录后即可上传参考图")) return;
     const target = uploadTargetRef.current;
@@ -1404,7 +1402,8 @@ export function CreationPanel({
         multiple={uploadTarget === "general"}
         className="hidden"
         onChange={(e) => {
-          const picked = e.target.files;
+          /** FileList 与 input 联动；清空 value 前必须拷贝成普通数组。 */
+          const picked = Array.from(e.currentTarget.files ?? []);
           e.target.value = "";
           void handleUpload(picked);
         }}
