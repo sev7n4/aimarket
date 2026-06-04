@@ -60,8 +60,16 @@ async function request<T>(
 }
 
 export function assetUrl(path: string) {
-  if (path.startsWith("http")) return path;
-  return `${API_BASE}${path}`;
+  const normalized = path.trim();
+  if (
+    normalized.startsWith("http") ||
+    normalized.startsWith("blob:") ||
+    normalized.startsWith("data:")
+  ) {
+    return normalized;
+  }
+  const relativePath = normalized.startsWith("/") ? normalized : `/${normalized}`;
+  return `${API_BASE}${relativePath}`;
 }
 
 export async function register(
