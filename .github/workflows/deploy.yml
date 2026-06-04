@@ -94,7 +94,8 @@ jobs:
 
       - name: Build timing
         if: always()
-        run: echo "Build finished (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ) — ${{ matrix.image }}"
+        run: |
+          echo "Build finished (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ) — ${{ matrix.image }}"
 
   deploy:
     name: Deploy AIMarket
