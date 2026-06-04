@@ -1,6 +1,12 @@
 "use client";
 
-import { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from "react";
 import { assetUrl } from "@/lib/api-client";
 import type { CanvasItem, BatchSection } from "@/lib/canvas-tools";
 import { batchDisplayIndex } from "@/lib/canvas-tools";
@@ -118,6 +124,17 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       jobStreamStatus !== "succeeded" &&
       jobStreamStatus !== "failed";
 
+    const itemsByBatch = useMemo(() => {
+      const map = new Map<string, CanvasItem[]>();
+      for (const item of items) {
+        const key = item.batchId ?? "default";
+        const list = map.get(key) ?? [];
+        list.push(item);
+        map.set(key, list);
+      }
+      return map;
+    }, [items]);
+
     const scrollToBatch = useCallback((batchId: string) => {
       const el = scrollContainerRef.current;
       if (!el) return;
@@ -194,9 +211,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
               />
 
               {batchSections.map((section, sectionIdx) => {
-                const batchItems = items.filter(
-                  (i) => i.batchId === section.id,
-                );
+                const batchItems = itemsByBatch.get(section.id) ?? [];
                 const parentNum = section.parentBatchId
                   ? batchDisplayIndex(items, section.parentBatchId)
                   : null;
@@ -366,12 +381,15 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                                 <video
                                   src={assetUrl(item.url)}
                                   className="h-full w-full object-cover"
+                              preload="none"
                                 />
                               ) : (
                                 <img
-                                  src={assetUrl(item.url)}
+                              src={assetUrl(item.thumbUrl ?? item.url)}
                                   alt=""
                                   loading="lazy"
+                              decoding="async"
+                              fetchPriority={sectionIdx < 2 ? "high" : "low"}
                                   className="pointer-events-none h-full w-full object-cover transition-opacity duration-300"
                                   style={{
                                     opacity: 0,

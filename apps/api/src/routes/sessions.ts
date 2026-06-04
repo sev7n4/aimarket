@@ -81,6 +81,94 @@ function loadSessionRow(sessionId: string) {
     .get(sessionId) as Parameters<typeof mapSessionForUser>[0] | undefined;
 }
 
+type SessionMessageRow = {
+  id: string;
+  role: string;
+  content: string;
+  job_id: string | null;
+  created_at: string;
+  parent_job_id: string | null;
+  source_output_id: string | null;
+  model_id: string | null;
+  resolution: string | null;
+  aspect_ratio: string | null;
+  tool_type: string | null;
+  prompt: string | null;
+  count: number | null;
+  image_provider: string | null;
+};
+
+type MessageOutputRow = {
+  id: string;
+  message_id: string;
+  url: string;
+  thumb_url: string | null;
+  sort_order: number;
+  label: string | null;
+};
+
+function loadSessionMessages(sessionId: string) {
+  const messages = db
+    .prepare(
+      `SELECT m.id, m.role, m.content, m.job_id, m.created_at,
+              j.parent_job_id, j.source_output_id, j.model_id, j.resolution, j.aspect_ratio, j.tool_type, j.prompt, j.count, j.image_provider
+       FROM messages m
+       LEFT JOIN generation_jobs j ON j.id = m.job_id
+       WHERE m.session_id = ? ORDER BY m.created_at ASC`,
+    )
+    .all(sessionId) as SessionMessageRow[];
+
+  if (messages.length === 0) return [];
+
+  const placeholders = messages.map(() => "?").join(",");
+  const outputRows = db
+    .prepare(
+      `SELECT id, message_id, url, thumb_url, sort_order, label
+       FROM message_outputs
+       WHERE message_id IN (${placeholders})
+       ORDER BY message_id, sort_order`,
+    )
+    .all(...messages.map((m) => m.id)) as MessageOutputRow[];
+
+  const outputsByMessage = new Map<string, MessageOutputRow[]>();
+  for (const output of outputRows) {
+    const list = outputsByMessage.get(output.message_id) ?? [];
+    list.push(output);
+    outputsByMessage.set(output.message_id, list);
+  }
+
+  return messages.map((m) => {
+    const outputs = outputsByMessage.get(m.id) ?? [];
+    return {
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      job_id: m.job_id,
+      created_at: m.created_at,
+      parent_job_id: m.parent_job_id ?? undefined,
+      source_output_id: m.source_output_id ?? undefined,
+      outputs: outputs.map((o) => ({
+        id: o.id,
+        url: o.url,
+        thumbUrl: o.thumb_url ?? o.url,
+        sort_order: o.sort_order,
+        label: o.label ?? undefined,
+      })),
+      generation_params: m.job_id
+        ? {
+            prompt: m.prompt ?? "",
+            modelId: m.model_id ?? undefined,
+            resolution: m.resolution ?? undefined,
+            aspectRatio: m.aspect_ratio ?? undefined,
+            toolType: m.tool_type ?? undefined,
+            count: m.count ?? undefined,
+            imageProvider: m.image_provider ?? undefined,
+          }
+        : undefined,
+    };
+  });
+}
+
 sessions.post("/ensure", async (c) => {
   const userId = c.get("userId");
   const body = z
@@ -249,6 +337,28 @@ sessions.get("/:sessionId/canvas", (c) => {
   return c.json({ data: layout ?? { version: 1 as const, items: [] } });
 });
 
+sessions.get("/:sessionId/canvas-bundle", (c) => {
+  const userId = c.get("userId");
+  const sessionId = c.req.param("sessionId");
+  const session = assertSessionRead(userId, sessionId);
+  const access = mapSessionForUser(session, userId);
+  const row = db
+    .prepare("SELECT canvas_layout FROM image_sessions WHERE id = ?")
+    .get(sessionId) as { canvas_layout: string | null } | undefined;
+  const layout = parseCanvasLayout(row?.canvas_layout ?? null) ?? {
+    version: 1 as const,
+    items: [],
+  };
+
+  return c.json({
+    data: {
+      layout,
+      messages: loadSessionMessages(sessionId),
+      meta: access,
+    },
+  });
+});
+
 sessions.put("/:sessionId/canvas", async (c) => {
   const userId = c.get("userId");
   const sessionId = c.req.param("sessionId");
@@ -275,68 +385,7 @@ sessions.get("/:sessionId/messages", (c) => {
   const sessionId = c.req.param("sessionId");
   const session = assertSessionRead(userId, sessionId);
   const access = mapSessionForUser(session, userId);
-
-  const messages = db
-    .prepare(
-      `SELECT m.id, m.role, m.content, m.job_id, m.created_at,
-              j.parent_job_id, j.source_output_id, j.model_id, j.resolution, j.aspect_ratio, j.tool_type, j.prompt, j.count, j.image_provider
-       FROM messages m
-       LEFT JOIN generation_jobs j ON j.id = m.job_id
-       WHERE m.session_id = ? ORDER BY m.created_at ASC`,
-    )
-    .all(sessionId) as {
-    id: string;
-    role: string;
-    content: string;
-    job_id: string | null;
-    created_at: string;
-    parent_job_id: string | null;
-    source_output_id: string | null;
-    model_id: string | null;
-    resolution: string | null;
-    aspect_ratio: string | null;
-    tool_type: string | null;
-    prompt: string | null;
-    count: number | null;
-    image_provider: string | null;
-  }[];
-
-  const data = messages.map((m) => {
-    const outputs = db
-      .prepare(
-        `SELECT id, url, sort_order, label FROM message_outputs WHERE message_id = ? ORDER BY sort_order`,
-      )
-      .all(m.id) as {
-      id: string;
-      url: string;
-      sort_order: number;
-      label: string | null;
-    }[];
-    return {
-      id: m.id,
-      role: m.role,
-      content: m.content,
-      job_id: m.job_id,
-      created_at: m.created_at,
-      parent_job_id: m.parent_job_id ?? undefined,
-      source_output_id: m.source_output_id ?? undefined,
-      outputs: outputs.map((o) => ({
-        id: o.id,
-        url: o.url,
-        sort_order: o.sort_order,
-        label: o.label ?? undefined,
-      })),
-      generation_params: m.job_id ? {
-        prompt: m.prompt ?? "",
-        modelId: m.model_id ?? undefined,
-        resolution: m.resolution ?? undefined,
-        aspectRatio: m.aspect_ratio ?? undefined,
-        toolType: m.tool_type ?? undefined,
-        count: m.count ?? undefined,
-        imageProvider: m.image_provider ?? undefined,
-      } : undefined,
-    };
-  });
+  const data = loadSessionMessages(sessionId);
 
   return c.json({ data, meta: access });
 });

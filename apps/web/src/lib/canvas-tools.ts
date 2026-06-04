@@ -66,6 +66,7 @@ export type CanvasItemRole = "reference" | "product" | "output";
 export interface CanvasItem {
   id: string;
   url: string;
+  thumbUrl?: string;
   label?: string;
   x: number;
   y: number;
@@ -385,7 +386,13 @@ export function buildCanvasItemsFromMessages(
     parent_job_id?: string | null;
     source_output_id?: string | null;
     created_at?: string;
-    outputs: { id?: string; url: string; sort_order: number; label?: string }[];
+    outputs: {
+      id?: string;
+      url: string;
+      thumbUrl?: string;
+      sort_order: number;
+      label?: string;
+    }[];
     generation_params?: {
       prompt: string;
       modelId?: string;
@@ -430,6 +437,7 @@ export function buildCanvasItemsFromMessages(
         id: out.id ?? `${msg.id}-${i}`,
         outputId: out.id,
         url: out.url,
+        thumbUrl: out.thumbUrl,
         label: out.label ?? fallbackLabel,
         x: BATCH_LEFT + col * (CELL_W + GAP),
         y: yCursor + BATCH_TITLE_GAP + row * (CELL_W + GAP),
@@ -466,6 +474,7 @@ export function mergeCanvasItems(
     const missingBatch = !item.batchId && match.batchId;
     return {
       ...item,
+      thumbUrl: item.thumbUrl ?? match.thumbUrl,
       outputId: item.outputId ?? match.outputId,
       batchId: item.batchId ?? match.batchId,
       batchIndex: item.batchIndex ?? match.batchIndex,
@@ -501,7 +510,12 @@ export function mergeCanvasItems(
 export function createUploadCanvasItem(
   url: string,
   items: CanvasItem[],
-  options?: { assetId?: string; role?: CanvasItemRole; label?: string },
+  options?: {
+    assetId?: string;
+    role?: CanvasItemRole;
+    label?: string;
+    thumbUrl?: string;
+  },
 ): CanvasItem {
   const uploadItems = items.filter((item) => item.batchId === "uploads");
   const pos = nextCanvasPosition(uploadItems);
@@ -509,6 +523,7 @@ export function createUploadCanvasItem(
   return {
     id: `upload-${randomUUID()}`,
     url,
+    thumbUrl: options?.thumbUrl,
     assetId: options?.assetId,
     role,
     ...pos,

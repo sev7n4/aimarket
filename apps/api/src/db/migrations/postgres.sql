@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS message_outputs (
   id TEXT PRIMARY KEY,
   message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
   url TEXT NOT NULL,
+  thumb_url TEXT,
   sort_order INTEGER NOT NULL DEFAULT 0
 );
 
@@ -100,6 +101,7 @@ CREATE TABLE IF NOT EXISTS assets (
   session_id TEXT REFERENCES image_sessions(id) ON DELETE SET NULL,
   filename TEXT NOT NULL,
   url TEXT NOT NULL,
+  thumb_url TEXT,
   mime_type TEXT NOT NULL,
   size_bytes INTEGER NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -129,6 +131,7 @@ CREATE TABLE IF NOT EXISTS job_outputs (
   id TEXT PRIMARY KEY,
   job_id TEXT NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
   url TEXT NOT NULL,
+  thumb_url TEXT,
   sort_order INTEGER NOT NULL DEFAULT 0
 );
 
@@ -261,6 +264,9 @@ ALTER TABLE image_sessions ADD COLUMN IF NOT EXISTS source_inspiration_id TEXT;
 ALTER TABLE image_sessions ADD COLUMN IF NOT EXISTS template_variables_json TEXT;
 ALTER TABLE message_outputs ADD COLUMN IF NOT EXISTS label TEXT;
 ALTER TABLE job_outputs ADD COLUMN IF NOT EXISTS label TEXT;
+ALTER TABLE message_outputs ADD COLUMN IF NOT EXISTS thumb_url TEXT;
+ALTER TABLE job_outputs ADD COLUMN IF NOT EXISTS thumb_url TEXT;
+ALTER TABLE assets ADD COLUMN IF NOT EXISTS thumb_url TEXT;
 
 CREATE TABLE IF NOT EXISTS agent_runs (
   id TEXT PRIMARY KEY,

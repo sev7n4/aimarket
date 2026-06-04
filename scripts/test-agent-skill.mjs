@@ -57,6 +57,25 @@ async function main() {
   ok("register", reg.res.status === 201 && !!token);
   const authH = { Authorization: `Bearer ${token}` };
 
+  const packages = await req("/api/v1/product/packages", { headers: authH });
+  const largestPackage = packages.json?.data
+    ?.slice()
+    ?.sort((a, b) => (b.credits ?? 0) - (a.credits ?? 0))?.[0];
+  if (largestPackage?.id) {
+    const purchase = await req("/api/v1/product/purchase", {
+      method: "POST",
+      headers: authH,
+      body: JSON.stringify({ packageId: largestPackage.id }),
+    });
+    ok(
+      "purchase skill credits",
+      purchase.res.ok,
+      `credits=${purchase.json?.data?.creditsAdded ?? "missing"}`,
+    );
+  } else {
+    ok("purchase skill credits", false, "no package");
+  }
+
   const skills = await req("/api/v1/agent/skills", { headers: authH });
   ok(
     "GET /agent/skills",
@@ -100,7 +119,7 @@ async function main() {
     ok(
       "skill run completes",
       final?.status === "completed",
-      final?.status ?? "timeout",
+      final?.error ?? final?.status ?? "timeout",
     );
     ok(
       "skill has 3 steps",

@@ -351,6 +351,7 @@ export interface CanvasLayoutDto {
   items: {
     id: string;
     url: string;
+    thumbUrl?: string;
     x: number;
     y: number;
     width: number;
@@ -373,6 +374,19 @@ export interface CanvasLayoutDto {
 export async function fetchCanvasLayout(sessionId: string) {
   const res = await request<{ data: CanvasLayoutDto }>(
     `/api/v1/imageSession/${sessionId}/canvas`,
+  );
+  return res.data;
+}
+
+export interface CanvasBundleDto {
+  layout: CanvasLayoutDto;
+  messages: ChatMessage[];
+  meta?: SessionAccessMeta;
+}
+
+export async function fetchCanvasBundle(sessionId: string) {
+  const res = await request<{ data: CanvasBundleDto }>(
+    `/api/v1/imageSession/${sessionId}/canvas-bundle`,
   );
   return res.data;
 }
@@ -1208,7 +1222,13 @@ export async function completeAssetUpload(assetId: string, file: File) {
   form.append("assetId", assetId);
   form.append("file", file);
   const res = await request<{
-    data: { id: string; url: string; mimeType: string; sizeBytes: number };
+    data: {
+      id: string;
+      url: string;
+      thumbUrl?: string;
+      mimeType: string;
+      sizeBytes: number;
+    };
   }>("/api/v1/assets/upload/complete", {
     method: "POST",
     body: form,
@@ -1234,7 +1254,7 @@ export async function uploadAssetViaPresign(file: File, sessionId?: string) {
       throw new Error(`直传失败 (${putRes.status})`);
     }
     const confirmed = await request<{
-      data: { id: string; url: string };
+      data: { id: string; url: string; thumbUrl?: string };
     }>("/api/v1/assets/confirm", {
       method: "POST",
       body: JSON.stringify({ assetId: intent.assetId }),
@@ -1242,6 +1262,7 @@ export async function uploadAssetViaPresign(file: File, sessionId?: string) {
     return {
       id: confirmed.data.id,
       url: confirmed.data.url,
+      thumbUrl: confirmed.data.thumbUrl,
       mimeType: file.type,
     };
   }
@@ -1254,7 +1275,7 @@ export async function uploadAsset(file: File, sessionId?: string) {
   form.append("file", file);
   if (sessionId) form.append("sessionId", sessionId);
   const res = await request<{
-    data: { id: string; url: string; mimeType: string };
+    data: { id: string; url: string; thumbUrl?: string; mimeType: string };
   }>("/api/v1/assets/upload", {
     method: "POST",
     body: form,
@@ -1268,7 +1289,7 @@ export async function registerAssetFromUrl(body: {
   fileName?: string;
 }) {
   const res = await request<{
-    data: { id: string; url: string; mimeType: string };
+    data: { id: string; url: string; thumbUrl?: string; mimeType: string };
   }>("/api/v1/assets/register-url", {
     method: "POST",
     body: JSON.stringify(body),

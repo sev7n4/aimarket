@@ -88,6 +88,11 @@ app.get("/health", (c) =>
   c.json({ ok: true, service: "aimarket-api", version: APP_VERSION }),
 );
 
+app.use("/uploads/*", async (c, next) => {
+  await next();
+  c.header("Cache-Control", "public, max-age=31536000, immutable");
+});
+
 app.use(
   "/uploads/*",
   serveStatic({

@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  fetchCanvasBundle,
   fetchCanvasLayout,
   fetchMessages,
   saveCanvasLayout,
+  type CanvasBundleDto,
   type CanvasLayoutDto,
 } from "@/lib/api-client";
 import {
@@ -14,6 +16,71 @@ import {
   type CanvasItem,
   type PendingBatchLineage,
 } from "@/lib/canvas-tools";
+import type { ChatMessage } from "@/lib/types";
+
+type CanvasBundle = {
+  layout: CanvasLayoutDto;
+  messages: ChatMessage[];
+  canEdit: boolean;
+};
+
+const canvasBundleCache = new Map<string, CanvasBundle>();
+const canvasBundleInflight = new Map<string, Promise<CanvasBundle>>();
+
+function normalizeBundle(bundle: CanvasBundleDto): CanvasBundle {
+  return {
+    layout: bundle.layout ?? { version: 1, items: [] },
+    messages: bundle.messages ?? [],
+    canEdit: bundle.meta?.can_edit ?? true,
+  };
+}
+
+async function fetchLegacyBundle(sessionId: string): Promise<CanvasBundle> {
+  const [layout, msgRes] = await Promise.all([
+    fetchCanvasLayout(sessionId).catch(() => ({
+      version: 1 as const,
+      items: [],
+    })),
+    fetchMessages(sessionId),
+  ]);
+  return {
+    layout,
+    messages: msgRes.messages,
+    canEdit: msgRes.meta?.can_edit ?? true,
+  };
+}
+
+async function loadCanvasBundle(sessionId: string, force = false) {
+  if (!force) {
+    const cached = canvasBundleCache.get(sessionId);
+    if (cached) return cached;
+    const inflight = canvasBundleInflight.get(sessionId);
+    if (inflight) return inflight;
+  }
+
+  const promise = fetchCanvasBundle(sessionId)
+    .then(normalizeBundle)
+    .catch(() => fetchLegacyBundle(sessionId))
+    .then((bundle) => {
+      canvasBundleCache.set(sessionId, bundle);
+      canvasBundleInflight.delete(sessionId);
+      return bundle;
+    })
+    .catch((error) => {
+      canvasBundleInflight.delete(sessionId);
+      throw error;
+    });
+  canvasBundleInflight.set(sessionId, promise);
+  return promise;
+}
+
+export function prefetchSessionCanvasBundle(sessionId: string) {
+  void loadCanvasBundle(sessionId).catch(() => {});
+}
+
+export function invalidateSessionCanvasBundle(sessionId: string) {
+  canvasBundleCache.delete(sessionId);
+}
 
 function toLayoutDto(items: CanvasItem[]): CanvasLayoutDto {
   return {
@@ -21,6 +88,7 @@ function toLayoutDto(items: CanvasItem[]): CanvasLayoutDto {
     items: items.map((i) => ({
       id: i.id,
       url: i.url,
+      thumbUrl: i.thumbUrl,
       x: i.x,
       y: i.y,
       width: i.width,
@@ -41,15 +109,18 @@ function toLayoutDto(items: CanvasItem[]): CanvasLayoutDto {
   };
 }
 
-export function useSessionCanvas(sessionId: string, enabled: boolean) {
+export function useSessionCanvas(
+  sessionId: string,
+  enabled: boolean,
+  options?: { autoLoad?: boolean },
+) {
   const [items, setItems] = useState<CanvasItem[]>([]);
-  const [messages, setMessages] = useState<
-    Awaited<ReturnType<typeof fetchMessages>>["messages"]
-  >([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [canEdit, setCanEdit] = useState(true);
   const persistReady = useRef(false);
   const skipNextSave = useRef(true);
   const pendingLineageRef = useRef(new Map<string, PendingBatchLineage>());
+  const activeSessionRef = useRef<string | null>(null);
 
   const withPendingLineage = useCallback((items: CanvasItem[]) => {
     return applyPendingBatchLineage(items, pendingLineageRef.current);
@@ -62,17 +133,16 @@ export function useSessionCanvas(sessionId: string, enabled: boolean) {
     [],
   );
 
-  const load = useCallback(async () => {
-    const [layout, msgRes] = await Promise.all([
-      fetchCanvasLayout(sessionId).catch(() => ({
-        version: 1 as const,
-        items: [],
-      })),
-      fetchMessages(sessionId),
-    ]);
-    setMessages(msgRes.messages);
-    setCanEdit(msgRes.meta?.can_edit ?? true);
-    const fromMsgs = buildCanvasItemsFromMessages(msgRes.messages);
+  const autoLoad = options?.autoLoad ?? true;
+
+  const load = useCallback(async (opts?: { force?: boolean }) => {
+    activeSessionRef.current = sessionId;
+    const bundle = await loadCanvasBundle(sessionId, opts?.force ?? false);
+    if (activeSessionRef.current !== sessionId) return;
+    setMessages(bundle.messages);
+    setCanEdit(bundle.canEdit);
+    const fromMsgs = buildCanvasItemsFromMessages(bundle.messages);
+    const layout = bundle.layout;
     const saved = (layout.items ?? []) as CanvasItem[];
     const merged = withPendingLineage(
       saved.length > 0 ? mergeCanvasItems(saved, fromMsgs) : fromMsgs,
@@ -83,10 +153,10 @@ export function useSessionCanvas(sessionId: string, enabled: boolean) {
   }, [sessionId, withPendingLineage]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !autoLoad) return;
     persistReady.current = false;
     void load();
-  }, [enabled, load, sessionId]);
+  }, [autoLoad, enabled, load, sessionId]);
 
   const syncFromMessages = useCallback(
     (msgs: typeof messages) => {
@@ -106,7 +176,9 @@ export function useSessionCanvas(sessionId: string, enabled: boolean) {
       return;
     }
     const timer = setTimeout(() => {
-      void saveCanvasLayout(sessionId, toLayoutDto(items)).catch(() => {});
+      void saveCanvasLayout(sessionId, toLayoutDto(items))
+        .then(() => invalidateSessionCanvasBundle(sessionId))
+        .catch(() => {});
     }, 700);
     return () => clearTimeout(timer);
   }, [items, sessionId, enabled, canEdit]);
