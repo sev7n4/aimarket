@@ -45,7 +45,7 @@ export function StudioDock({ mode, onModeChange, children }: StudioDockProps) {
 
   return (
     <div
-      className="absolute inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[max(0.875rem,env(safe-area-inset-bottom))] sm:px-4"
+      className="absolute inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[max(0.65rem,env(safe-area-inset-bottom))] sm:px-4"
       aria-label="创作 Dock"
       data-dock-mode={mode}
     >
@@ -64,5 +64,5 @@ export function studioDockCanvasPadding(_mode: StudioDockMode): string {
 /** 滚动内容底部留白，避免最后一批图片被 Dock 挡住 */
 export function studioDockScrollInset(mode: StudioDockMode): string {
   if (mode === "focus") return "pb-[4.75rem] sm:pb-20";
-  return "pb-32 sm:pb-36";
+  return "pb-28 sm:pb-32";
 }

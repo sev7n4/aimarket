@@ -45,10 +45,18 @@ test.describe("studio upload references", () => {
     await expect(page.getByText("素材区").first()).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.locator('[data-testid^="canvas-item-upload-"]')).toHaveCount(
-      1,
-      { timeout: 20_000 },
-    );
+    const uploadedCanvasItem = page.locator('[data-testid^="canvas-item-upload-"]');
+    await expect(uploadedCanvasItem).toHaveCount(1, { timeout: 20_000 });
+
+    await uploadedCanvasItem.first().hover();
+    await expect(uploadedCanvasItem.first().getByTitle("更多").first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await uploadedCanvasItem.first().getByTitle("更多").first().click();
+    await expect(
+      page.getByRole("button", { name: /下载|分享|重做/ }).first(),
+    ).toBeVisible({ timeout: 10_000 });
+    await page.getByLabel("关闭菜单").click();
 
     await station.getByRole("button", { name: "引用画布图片" }).click();
     await expect(page.getByRole("button", { name: /上传图1.*当前上传/ })).toBeVisible({

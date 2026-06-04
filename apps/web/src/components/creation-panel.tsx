@@ -326,6 +326,8 @@ export function CreationPanel({
     [],
   );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [dockExpanded, setDockExpanded] = useState(false);
+  const [dockFocused, setDockFocused] = useState(false);
   const [navigating, setNavigating] = useState(false);
   const [uploadPreviews, setUploadPreviews] = useState<UploadPreviewItem[]>([]);
   const [uploadPreviewIndex, setUploadPreviewIndex] = useState<number | null>(null);
@@ -347,13 +349,15 @@ export function CreationPanel({
   const agentEnabled =
     agentOrchestration &&
     Boolean(sessionId) &&
-    isStudioDock &&
+    isDock &&
     !readOnly;
+  const agentLaneAvailable = agentOrchestration && isDock;
 
   const skillsEnabled = agentSkills && agentEnabled;
 
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
-  const defaultCreationLane: CreationLane = agentOrchestration ? "agent" : "image";
+  const defaultCreationLane: CreationLane =
+    agentOrchestration && isStudioDock ? "agent" : "image";
   const [creationLane, setCreationLane] = useState<CreationLane>(() =>
     readStoredCreationLane(defaultCreationLane),
   );
@@ -467,10 +471,10 @@ export function CreationPanel({
   }
 
   useEffect(() => {
-    if (!agentEnabled && creationLane === "agent") {
+    if (!agentLaneAvailable && creationLane === "agent") {
       setCreationLane("image");
     }
-  }, [agentEnabled, creationLane]);
+  }, [agentLaneAvailable, creationLane]);
 
   useEffect(() => {
     if (!isDock || outputPrefMode !== "auto") return;
@@ -612,6 +616,18 @@ export function CreationPanel({
           : "开始生成";
 
   const effectiveCollapsed = isStudioDock ? false : collapsed;
+  const promptNeedsExpandedDock = prompt.includes("\n") || prompt.length > 72;
+  const dockShouldExpand =
+    !isDock ||
+    effectiveCollapsed ||
+    dockFocused ||
+    dockExpanded ||
+    promptNeedsExpandedDock ||
+    uploadPreviews.length > 0 ||
+    selectedRefs.length > 0 ||
+    mentionedAssetIds.length > 0 ||
+    mentionedMasks.length > 0 ||
+    Boolean(focusEdit);
   const dockIconBtn =
     "flex shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-white/5 hover:text-zinc-200";
   const dockIconBtnClass = isDock
@@ -651,6 +667,17 @@ export function CreationPanel({
         })),
     );
   }, [restoredAssets, sessionId]);
+
+  useEffect(() => {
+    if (!isDock) return;
+    function onDockExpand(event: Event) {
+      const detail = (event as CustomEvent<{ expanded?: boolean }>).detail;
+      setDockExpanded(detail?.expanded ?? true);
+    }
+    window.addEventListener("aimarket:creation-dock-expand", onDockExpand);
+    return () =>
+      window.removeEventListener("aimarket:creation-dock-expand", onDockExpand);
+  }, [isDock]);
 
   useEffect(() => {
     if (!inspirationApply) return;
@@ -1253,6 +1280,12 @@ export function CreationPanel({
         else if (res.byokActive) setRouteHint("BYOK 已启用 · 将使用您的 OpenAI Key");
         if (res.modelId && useAuto) setModelId(res.modelId);
       }
+      if (homeDirectSubmit) {
+        setNavigating(true);
+        router.replace(
+          `/studio?sessionId=${sessionId}&mode=${mode}&jobId=${jobId}`,
+        );
+      }
       setPrompt("");
       setAssetIds([]);
       setUploadPreviews([]);
@@ -1267,12 +1300,6 @@ export function CreationPanel({
       if (sessionId) {
         const refs = await fetchReferences(sessionId);
         setReferences(refs);
-      }
-      if (homeDirectSubmit) {
-        setNavigating(true);
-        router.replace(
-          `/studio?sessionId=${sessionId}&mode=${mode}&jobId=${jobId}`,
-        );
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : "提交失败");
@@ -1431,62 +1458,18 @@ export function CreationPanel({
         />
         <div
           className={
-            isDock && !isStudioDock
-              ? "rounded-2xl border border-white/10 bg-[#141414] px-3 pb-3 pt-3 sm:px-4 sm:pt-4"
-              : isDock && isStudioDock
-                ? "px-3.5 pb-2.5 pt-2.5 sm:px-4 sm:pt-3"
-                : ""
+            isDock
+              ? "px-3 pb-2.5 pt-2.5 sm:px-3.5"
+              : ""
           }
         >
-          {isDock && isStudioDock && showStackUpload ? (
-            <div className="mb-2.5">
+          <div className="relative flex min-w-0 items-start gap-2">
+            {showStackUpload ? (
               <UploadPreviewStack
                 items={uploadPreviews}
                 uploading={uploading}
                 onAdd={() => openUpload("general")}
-                onPreview={(index) => setUploadPreviewIndex(index)}
-                onRemove={(id) => {
-                  setUploadPreviews((prev) => prev.filter((p) => p.id !== id));
-                  setAssetIds((prev) => prev.filter((a) => a !== id));
-                }}
-              />
-            </div>
-          ) : null}
-          <div className="relative flex min-w-0 gap-3">
-            {onInspirationClick && !(isDock && isStudioDock) ? (
-              <button
-                type="button"
-                onClick={onInspirationClick}
-                aria-label={
-                  inspirationActive ? "收起灵感套图" : "查看灵感套图"
-                }
-                aria-pressed={inspirationActive}
-                className={`relative flex size-14 shrink-0 -rotate-6 items-center justify-center overflow-hidden rounded-xl border bg-gradient-to-br from-orange-500/20 to-purple-600/20 text-orange-200 shadow-[0_4px_18px_rgba(249,115,22,0.18)] transition hover:rotate-0 hover:shadow-[0_6px_22px_rgba(249,115,22,0.28)] ${
-                  inspirationActive
-                    ? "border-orange-300/80 ring-2 ring-orange-300/50"
-                    : "border-orange-300/40"
-                }`}
-              >
-                {inspirationCoverUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={inspirationCoverUrl}
-                    alt=""
-                    className="absolute inset-0 size-full object-cover"
-                  />
-                ) : null}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                <Sparkles className="relative size-5 drop-shadow" />
-                <span className="absolute bottom-0.5 left-0.5 right-0.5 text-center text-[8px] font-medium text-white/90 drop-shadow">
-                  灵感套图
-                </span>
-              </button>
-            ) : null}
-            {showStackUpload && !(isDock && isStudioDock) ? (
-              <UploadPreviewStack
-                items={uploadPreviews}
-                uploading={uploading}
-                onAdd={() => openUpload("general")}
+                compact={isDock}
                 onPreview={(index) => setUploadPreviewIndex(index)}
                 onRemove={(id) => {
                   setUploadPreviews((prev) => prev.filter((p) => p.id !== id));
@@ -1505,7 +1488,13 @@ export function CreationPanel({
                   <Pencil className="size-3.5" strokeWidth={1.75} />
                 </div>
               ) : null}
-              <div className="relative min-w-0 flex-1">
+              <div
+                className="relative min-w-0 flex-1"
+                onClick={() => {
+                  if (isDock) setDockExpanded(true);
+                  textareaRef.current?.focus();
+                }}
+              >
               <textarea
                 ref={textareaRef}
                 value={prompt}
@@ -1543,16 +1532,48 @@ export function CreationPanel({
                         : placeholders[mode]
                 }
                 rows={
-                  effectiveCollapsed ? 1 : effectiveMode === "ecommerce" ? 3 : isDock ? 2 : 2
+                  effectiveCollapsed
+                    ? 1
+                    : effectiveMode === "ecommerce"
+                      ? 3
+                      : isDock
+                        ? dockShouldExpand
+                          ? 2
+                          : 1
+                        : 2
                 }
                 readOnly={readOnly}
                 className={`w-full resize-none bg-transparent text-sm outline-none placeholder:text-zinc-600 ${
                   readOnly ? "cursor-not-allowed opacity-60" : ""
                 } ${
                   isDock
-                    ? `${effectiveCollapsed ? "min-h-[28px]" : "min-h-[56px]"} pr-9 text-zinc-100`
+                    ? `${dockShouldExpand ? "min-h-[52px]" : "min-h-[28px] focus:min-h-[52px]"} pr-9 leading-7 text-zinc-100 transition-[min-height] duration-200`
                     : "rounded-2xl border border-white/10 bg-black/40 px-4 py-3 focus:border-purple-500/40"
                 }`}
+                onFocus={() => {
+                  setDockFocused(true);
+                  if (isDock) setDockExpanded(true);
+                }}
+                onPointerDown={() => {
+                  if (isDock) setDockExpanded(true);
+                }}
+                onClick={() => {
+                  if (isDock) setDockExpanded(true);
+                }}
+                onBlur={() => {
+                  setDockFocused(false);
+                  if (
+                    isDock &&
+                    !promptNeedsExpandedDock &&
+                    uploadPreviews.length === 0 &&
+                    selectedRefs.length === 0 &&
+                    mentionedAssetIds.length === 0 &&
+                    mentionedMasks.length === 0 &&
+                    !focusEdit
+                  ) {
+                    window.setTimeout(() => setDockExpanded(false), 120);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (
                     e.key === "Enter" &&
@@ -1803,14 +1824,14 @@ export function CreationPanel({
             <CreationDockToolbar
               creationLane={creationLane}
               onCreationLaneChange={handleCreationLaneChange}
-              agentAvailable={agentEnabled}
+              agentAvailable={agentLaneAvailable}
               disabled={readOnly || pending || streamBusy}
               outputPrefMode={outputPrefMode}
               onOutputPrefModeChange={handleOutputPrefModeChange}
               dockSkillOptions={dockSkillOptions}
               dockSkillId={dockSkillId}
               onDockSkillChange={handleDockSkillChange}
-              skillTriggerLabel={isStudioDock ? "创意设计" : "使用技能"}
+              skillTriggerLabel="创意设计"
               onInspirationClick={onInspirationClick}
               inspirationActive={inspirationActive}
               models={models}
@@ -1889,8 +1910,8 @@ export function CreationPanel({
   );
 
   if (isDock) {
-    const panel = isStudioDock ? (
-      <div className="relative w-full overflow-visible rounded-[1.35rem] border border-white/[0.12] bg-gradient-to-b from-white/[0.07] via-zinc-950/72 to-zinc-950/88 shadow-[0_12px_48px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)_inset,0_-24px_48px_rgba(249,115,22,0.07),0_16px_64px_rgba(139,92,246,0.06)] backdrop-blur-2xl backdrop-saturate-150 sm:rounded-[1.5rem]">
+    const panel = (
+      <div className="relative w-full overflow-visible rounded-[1.5rem] border border-white/[0.12] bg-gradient-to-b from-white/[0.07] via-zinc-950/76 to-zinc-950/92 shadow-[0_12px_48px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)_inset,0_-18px_42px_rgba(249,115,22,0.06),0_12px_48px_rgba(139,92,246,0.05)] backdrop-blur-2xl backdrop-saturate-150">
         <div
           className="pointer-events-none absolute -left-10 top-0 h-28 w-28 rounded-full bg-orange-500/[0.08] blur-3xl"
           aria-hidden
@@ -1908,8 +1929,6 @@ export function CreationPanel({
         ) : null}
         {body}
       </div>
-    ) : (
-      <div className="w-full">{body}</div>
     );
     return (
       <>

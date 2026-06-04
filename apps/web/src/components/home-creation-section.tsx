@@ -60,6 +60,8 @@ export function HomeCreationSection({
           onInspirationClick={onOpenInspiration}
           inspirationCoverUrl={inspirationCoverUrl}
           inspirationActive={inspirationOpen}
+          agentOrchestration
+          agentSkills
         />
       </div>
       <ScenarioQuickBar className="pointer-events-auto mx-auto mt-3 max-w-3xl" compact />

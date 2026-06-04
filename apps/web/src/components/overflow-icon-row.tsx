@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { MoreHorizontal, type LucideIcon } from "lucide-react";
 
 export interface OverflowIconAction {
@@ -15,13 +15,13 @@ export interface OverflowIconAction {
 
 const TONE_CLASS: Record<NonNullable<OverflowIconAction["tone"]>, string> = {
   default:
-    "bg-white/10 text-zinc-300 hover:bg-white/20 hover:text-white",
+    "border-white/10 bg-black/[0.55] text-zinc-200 hover:border-white/20 hover:bg-white/[0.18] hover:text-white",
   orange:
-    "bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 hover:text-orange-100",
-  blue: "bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 hover:text-blue-100",
-  red: "bg-red-500/20 text-red-300 hover:bg-red-500/30 hover:text-red-100",
+    "border-orange-400/25 bg-black/[0.55] text-orange-200 hover:border-orange-300/45 hover:bg-orange-500/25 hover:text-orange-100",
+  blue: "border-blue-400/25 bg-black/[0.55] text-blue-200 hover:border-blue-300/45 hover:bg-blue-500/25 hover:text-blue-100",
+  red: "border-red-400/25 bg-black/[0.55] text-red-200 hover:border-red-300/45 hover:bg-red-500/25 hover:text-red-100",
   purple:
-    "bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 hover:text-purple-100",
+    "border-purple-400/25 bg-black/[0.55] text-purple-200 hover:border-purple-300/45 hover:bg-purple-500/25 hover:text-purple-100",
 };
 
 function IconButton({
@@ -44,7 +44,7 @@ function IconButton({
         e.stopPropagation();
         action.onClick();
       }}
-      className={`flex ${dim} shrink-0 items-center justify-center rounded-md transition disabled:opacity-40 ${TONE_CLASS[action.tone ?? "default"]}`}
+      className={`flex ${dim} shrink-0 items-center justify-center rounded-full border shadow-[0_6px_18px_rgba(0,0,0,0.35)] backdrop-blur-md transition disabled:opacity-40 ${TONE_CLASS[action.tone ?? "default"]}`}
     >
       <Icon
         className={`${iconDim} ${action.spinning ? "animate-spin" : ""}`}
@@ -70,6 +70,12 @@ export function OverflowIconRow({
   className = "",
 }: OverflowIconRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number;
+    right: number;
+    placement: "above" | "below";
+  } | null>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
   const visible = actions.slice(0, maxVisible);
   const overflow = actions.slice(maxVisible);
 
@@ -91,11 +97,21 @@ export function OverflowIconRow({
       {overflow.length > 0 ? (
         <div className="relative">
           <button
+            ref={moreButtonRef}
             type="button"
             title="更多"
-            className={`flex ${size === "sm" ? "size-6" : "size-7"} items-center justify-center rounded-md bg-white/10 text-zinc-300 transition hover:bg-white/20 hover:text-white`}
+            className={`flex ${size === "sm" ? "size-6" : "size-7"} items-center justify-center rounded-full border border-white/10 bg-black/[0.55] text-zinc-200 shadow-[0_6px_18px_rgba(0,0,0,0.35)] backdrop-blur-md transition hover:border-white/20 hover:bg-white/[0.18] hover:text-white`}
             onClick={(e) => {
               e.stopPropagation();
+              const rect = moreButtonRef.current?.getBoundingClientRect();
+              if (rect) {
+                const placement = rect.top < 140 ? "below" : "above";
+                setMenuPosition({
+                  top: placement === "below" ? rect.bottom + 6 : rect.top - 6,
+                  right: window.innerWidth - rect.right,
+                  placement,
+                });
+              }
               setMenuOpen((v) => !v);
             }}
           >
@@ -109,7 +125,17 @@ export function OverflowIconRow({
                 aria-label="关闭菜单"
                 onClick={() => setMenuOpen(false)}
               />
-              <div className="absolute bottom-full right-0 z-50 mb-1 min-w-[8rem] rounded-lg border border-white/10 bg-[#1a1a1a]/95 py-1 shadow-xl backdrop-blur-sm">
+              <div
+                className="fixed z-50 min-w-[8rem] rounded-xl border border-white/10 bg-[#151515]/95 py-1 shadow-2xl backdrop-blur-xl"
+                style={{
+                  top: menuPosition?.top ?? 0,
+                  right: menuPosition?.right ?? 0,
+                  transform:
+                    menuPosition?.placement === "above"
+                      ? "translateY(-100%)"
+                      : undefined,
+                }}
+              >
                 {overflow.map((action) => {
                   const Icon = action.icon;
                   return (
