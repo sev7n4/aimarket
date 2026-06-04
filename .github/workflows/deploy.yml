@@ -96,7 +96,7 @@ jobs:
             ${{ env.TCR_REGISTRY }}/${{ env.TCR_NAMESPACE }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}
             ${{ env.TCR_REGISTRY }}/${{ env.TCR_NAMESPACE }}/${{ matrix.image }}:latest
           cache-from: type=gha,scope=aimarket-${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=aimarket-${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=aimarket-${{ matrix.image }},ignore-error=true
 
       - name: Build timing
         if: always()
