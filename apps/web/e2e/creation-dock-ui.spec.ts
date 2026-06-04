@@ -40,15 +40,16 @@ test.describe("creation dock UI", () => {
     const textarea = homeDock.locator("textarea").first();
     await expect(textarea).toBeVisible();
     await expect(textarea).toHaveAttribute("rows", "1");
-    await expect(homeDock.getByRole("button", { name: "选择创作方式" })).toContainText(
-      "Agent 模式",
-    );
+    const homeLanePicker = homeDock.getByRole("button", { name: "选择创作方式" });
+    await expect(homeLanePicker).toContainText("图片生成");
 
     const collapsedHeight = await textarea.boundingBox().then((box) => box?.height ?? 0);
     await textarea.click();
     await expect
       .poll(async () => (await textarea.boundingBox())?.height ?? 0)
       .toBeGreaterThan(collapsedHeight + 12);
+
+    await expect(homeLanePicker).toContainText("图片生成");
   });
 
   test("Studio 创作台与首页保持同款单行/Agent 布局", async ({ page }) => {
@@ -59,9 +60,10 @@ test.describe("creation dock UI", () => {
     const textarea = studioDock.locator("textarea").first();
     await expect(textarea).toBeVisible();
     await expect(textarea).toHaveAttribute("rows", "1");
-    await expect(studioDock.getByRole("button", { name: "选择创作方式" })).toContainText(
-      "Agent 模式",
-    );
+    const studioLanePicker = studioDock.getByRole("button", {
+      name: "选择创作方式",
+    });
+    await expect(studioLanePicker).toContainText("Agent 模式");
 
     const collapsedHeight = await textarea.boundingBox().then((box) => box?.height ?? 0);
     await textarea.click();

@@ -351,11 +351,13 @@ export function CreationPanel({
     Boolean(sessionId) &&
     isDock &&
     !readOnly;
+  const agentLaneAvailable = agentOrchestration && isDock;
 
   const skillsEnabled = agentSkills && agentEnabled;
 
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
-  const defaultCreationLane: CreationLane = agentOrchestration ? "agent" : "image";
+  const defaultCreationLane: CreationLane =
+    agentOrchestration && isStudioDock ? "agent" : "image";
   const [creationLane, setCreationLane] = useState<CreationLane>(() =>
     readStoredCreationLane(defaultCreationLane),
   );
@@ -469,10 +471,10 @@ export function CreationPanel({
   }
 
   useEffect(() => {
-    if (!agentEnabled && creationLane === "agent") {
+    if (!agentLaneAvailable && creationLane === "agent") {
       setCreationLane("image");
     }
-  }, [agentEnabled, creationLane]);
+  }, [agentLaneAvailable, creationLane]);
 
   useEffect(() => {
     if (!isDock || outputPrefMode !== "auto") return;
@@ -1278,6 +1280,12 @@ export function CreationPanel({
         else if (res.byokActive) setRouteHint("BYOK 已启用 · 将使用您的 OpenAI Key");
         if (res.modelId && useAuto) setModelId(res.modelId);
       }
+      if (homeDirectSubmit) {
+        setNavigating(true);
+        router.replace(
+          `/studio?sessionId=${sessionId}&mode=${mode}&jobId=${jobId}`,
+        );
+      }
       setPrompt("");
       setAssetIds([]);
       setUploadPreviews([]);
@@ -1292,12 +1300,6 @@ export function CreationPanel({
       if (sessionId) {
         const refs = await fetchReferences(sessionId);
         setReferences(refs);
-      }
-      if (homeDirectSubmit) {
-        setNavigating(true);
-        router.replace(
-          `/studio?sessionId=${sessionId}&mode=${mode}&jobId=${jobId}`,
-        );
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : "提交失败");
@@ -1822,7 +1824,7 @@ export function CreationPanel({
             <CreationDockToolbar
               creationLane={creationLane}
               onCreationLaneChange={handleCreationLaneChange}
-              agentAvailable={agentEnabled}
+              agentAvailable={agentLaneAvailable}
               disabled={readOnly || pending || streamBusy}
               outputPrefMode={outputPrefMode}
               onOutputPrefModeChange={handleOutputPrefModeChange}
