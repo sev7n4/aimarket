@@ -70,5 +70,7 @@ test.describe("creation dock UI", () => {
     await expect
       .poll(async () => (await textarea.boundingBox())?.height ?? 0)
       .toBeGreaterThan(collapsedHeight + 12);
+
+    await expect(studioLanePicker).toContainText("Agent 模式");
   });
 });

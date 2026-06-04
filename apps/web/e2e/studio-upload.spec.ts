@@ -1,24 +1,46 @@
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { registerViaEmail } from "./helpers/auth";
 import { skipStudioCoach, studioWorkstation } from "./helpers/studio";
 
 const tinyImage = path.join(__dirname, "fixtures", "tiny.png");
 
 test.describe("studio upload references", () => {
-  test("上传图片后展示在创作台、素材区和 @ 引用列表", async ({ page }) => {
+  test("上传图片后展示在创作台、素材区和 @ 引用列表", async ({ page, request }) => {
     test.setTimeout(90_000);
     await skipStudioCoach(page);
-    await registerViaEmail(page, { emailPrefix: "e2e_studio_upload" });
+    const apiBase = process.env.E2E_API_URL ?? "http://127.0.0.1:4000";
+    const email = `e2e_studio_upload_${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2, 8)}@test.local`;
+    const register = await request.post(`${apiBase}/api/v1/auth/register`, {
+      data: { email, password: "testpass123" },
+    });
+    expect(register.ok()).toBeTruthy();
+    const body = (await register.json()) as { data?: { token?: string } };
+    expect(body.data?.token).toBeTruthy();
+    await page.route("**/api/v1/user/getInfo", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            id: "e2e-studio-upload-user",
+            email,
+            credits: 10000,
+            created_at: "2024-01-01T00:00:00.000Z",
+          },
+        }),
+      }),
+    );
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.evaluate((token) => {
+      localStorage.setItem("aimarket_token", token);
+    }, body.data!.token!);
 
     await page.goto("/studio");
     await expect(page).toHaveURL(/\/studio/, { timeout: 15_000 });
 
     const station = studioWorkstation(page);
     await expect(station.locator("textarea").first()).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(page.getByRole("button", { name: /积分/ })).toBeVisible({
       timeout: 15_000,
     });
 
@@ -28,10 +50,7 @@ test.describe("studio upload references", () => {
         res.request().method() === "POST",
       { timeout: 20_000 },
     );
-    const fileChooserPromise = page.waitForEvent("filechooser");
-    await station.getByRole("button", { name: "上传图片" }).click();
-    const fileChooser = await fileChooserPromise;
-    await fileChooser.setFiles(tinyImage);
+    await station.locator('input[type="file"]').setInputFiles(tinyImage);
     expect((await uploadResponse).ok()).toBeTruthy();
 
     const previewCard = station.getByTestId("upload-preview-card-0");
@@ -53,6 +72,14 @@ test.describe("studio upload references", () => {
       { timeout: 20_000 },
     );
 
+    await uploadedCanvasItem.first().hover();
+    await expect(
+      uploadedCanvasItem.first().getByTestId("canvas-item-quick-mention"),
+    ).toBeVisible({ timeout: 10_000 });
+    await uploadedCanvasItem.first().getByTestId("canvas-item-quick-mention").click();
+    await expect(page.getByText(/@ 引用了 1 张素材图/)).toBeVisible({
+      timeout: 10_000,
+    });
     await uploadedCanvasItem.first().hover();
     await expect(uploadedCanvasItem.first().getByTitle("更多").first()).toBeVisible({
       timeout: 10_000,

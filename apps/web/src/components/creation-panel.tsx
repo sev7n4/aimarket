@@ -80,6 +80,7 @@ import { useStudioOrchestrationOptional } from "@/components/studio-orchestratio
 import { StudioDockFocusButton } from "@/components/studio-dock-controls";
 import {
   CreationDockToolbar,
+  CreationLanePicker,
   buildDockSkillOptions,
   ECOMMERCE_SET_SKILL_ID,
   normalizeDockSkillId,
@@ -628,6 +629,7 @@ export function CreationPanel({
     mentionedAssetIds.length > 0 ||
     mentionedMasks.length > 0 ||
     Boolean(focusEdit);
+  const dockCompactLine = isDock && !dockShouldExpand;
   const dockIconBtn =
     "flex shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-white/5 hover:text-zinc-200";
   const dockIconBtnClass = isDock
@@ -637,6 +639,7 @@ export function CreationPanel({
     ? `${dockIconBtn} size-8`
     : "flex size-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10";
   const showStackUpload = effectiveMode !== "ecommerce";
+  const showInlineUploadStack = showStackUpload && !dockCompactLine;
 
   useEffect(() => {
     if (!user) {
@@ -677,6 +680,22 @@ export function CreationPanel({
     window.addEventListener("aimarket:creation-dock-expand", onDockExpand);
     return () =>
       window.removeEventListener("aimarket:creation-dock-expand", onDockExpand);
+  }, [isDock]);
+
+  useEffect(() => {
+    if (!isDock) return;
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const expand = () => {
+      setDockFocused(true);
+      setDockExpanded(true);
+    };
+    textarea.addEventListener("focus", expand);
+    textarea.addEventListener("pointerdown", expand);
+    return () => {
+      textarea.removeEventListener("focus", expand);
+      textarea.removeEventListener("pointerdown", expand);
+    };
   }, [isDock]);
 
   useEffect(() => {
@@ -1459,12 +1478,46 @@ export function CreationPanel({
         <div
           className={
             isDock
-              ? "px-3 pb-2.5 pt-2.5 sm:px-3.5"
+              ? dockCompactLine
+                ? "px-2.5 py-1.5 sm:px-3"
+                : "px-3 pb-2.5 pt-2.5 sm:px-3.5"
               : ""
           }
+          onFocusCapture={() => {
+            if (!isDock) return;
+            setDockFocused(true);
+            setDockExpanded(true);
+          }}
         >
-          <div className="relative flex min-w-0 items-start gap-2">
-            {showStackUpload ? (
+          <div
+            className={`relative flex min-w-0 gap-2 ${dockCompactLine ? "items-center" : "items-start"}`}
+          >
+            {dockCompactLine ? (
+              <button
+                type="button"
+                onClick={() => openUpload("general")}
+                className={dockIconBtnClassSm}
+                aria-label="上传图片"
+                title="上传图片"
+              >
+                {uploading ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <ImagePlus className="size-3.5" />
+                )}
+              </button>
+            ) : null}
+            {dockCompactLine ? (
+              <div className="min-w-0 shrink-0 scale-90">
+                <CreationLanePicker
+                  value={creationLane}
+                  onChange={handleCreationLaneChange}
+                  agentAvailable={agentLaneAvailable}
+                  disabled={readOnly || pending || streamBusy}
+                />
+              </div>
+            ) : null}
+            {showInlineUploadStack ? (
               <UploadPreviewStack
                 items={uploadPreviews}
                 uploading={uploading}
@@ -1547,7 +1600,7 @@ export function CreationPanel({
                   readOnly ? "cursor-not-allowed opacity-60" : ""
                 } ${
                   isDock
-                    ? `${dockShouldExpand ? "min-h-[52px]" : "min-h-[28px] focus:min-h-[52px]"} pr-9 leading-7 text-zinc-100 transition-[min-height] duration-200`
+                    ? `${dockShouldExpand ? "min-h-[52px] leading-7" : "min-h-[24px] leading-6 focus:min-h-[52px] focus:leading-7"} pr-9 text-zinc-100 transition-[min-height] duration-200`
                     : "rounded-2xl border border-white/10 bg-black/40 px-4 py-3 focus:border-purple-500/40"
                 }`}
                 onFocus={() => {
@@ -1562,17 +1615,6 @@ export function CreationPanel({
                 }}
                 onBlur={() => {
                   setDockFocused(false);
-                  if (
-                    isDock &&
-                    !promptNeedsExpandedDock &&
-                    uploadPreviews.length === 0 &&
-                    selectedRefs.length === 0 &&
-                    mentionedAssetIds.length === 0 &&
-                    mentionedMasks.length === 0 &&
-                    !focusEdit
-                  ) {
-                    window.setTimeout(() => setDockExpanded(false), 120);
-                  }
                 }}
                 onKeyDown={(e) => {
                   if (
@@ -1616,13 +1658,28 @@ export function CreationPanel({
               ) : null}
               </div>
             </div>
+            {dockCompactLine ? (
+              <Button
+                variant="primary"
+                className="size-8 shrink-0 rounded-full p-0"
+                onClick={handleSubmitAttempt}
+                disabled={readOnly || pending || streamBusy}
+                aria-label={submitAriaLabel}
+              >
+                {pending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <ArrowUp className="size-4" />
+                )}
+              </Button>
+            ) : null}
           </div>
-        {selectedRefs.length > 0 ? (
+        {!dockCompactLine && selectedRefs.length > 0 ? (
           <p className="mt-1 text-xs text-purple-400">
             @ 引用了 {selectedRefs.length} 张生成图
           </p>
         ) : null}
-        {mentionedAssetIds.length > 0 ? (
+        {!dockCompactLine && mentionedAssetIds.length > 0 ? (
           <div className="mt-1 flex items-center gap-1.5 text-xs text-purple-400">
             <span>@ 引用了 {mentionedAssetIds.length} 张素材图</span>
             <span className="flex -space-x-1">
@@ -1638,12 +1695,12 @@ export function CreationPanel({
             </span>
           </div>
         ) : null}
-        {mentionedMasks.length > 0 ? (
+        {!dockCompactLine && mentionedMasks.length > 0 ? (
           <p className="mt-1 text-xs text-amber-300">
             已圈选 {mentionedMasks.length} 个局部区域，将随提示词一起提交
           </p>
         ) : null}
-        {focusEdit ? (
+        {!dockCompactLine && focusEdit ? (
           <FocusEditChips
             points={focusEdit.points}
             intent={focusEdit.intent}
@@ -1660,16 +1717,16 @@ export function CreationPanel({
             onCancel={focusEdit.onCancel}
           />
         ) : null}
-        {assetIds.length > 0 && !(isDock && isStudioDock) ? (
+        {!dockCompactLine && assetIds.length > 0 && !(isDock && isStudioDock) ? (
           <p className="mt-1 text-xs text-zinc-500">
             已上传 {assetIds.length} 张附件
           </p>
         ) : null}
-        {routeHint && !(isDock && isStudioDock) ? (
+        {!dockCompactLine && routeHint && !(isDock && isStudioDock) ? (
           <p className="mt-1 text-xs text-orange-400/80">路由：{routeHint}</p>
         ) : null}
 
-        {skillsEnabled && !isDock && !effectiveCollapsed && !focusEdit ? (
+        {skillsEnabled && !isDock && !effectiveCollapsed && !dockCompactLine && !focusEdit ? (
           <SkillPackagePicker
             skills={skillPackages}
             selectedId={selectedSkillId}
@@ -1683,6 +1740,7 @@ export function CreationPanel({
         {skillsEnabled &&
         activeSkillId &&
         !effectiveCollapsed &&
+        !dockCompactLine &&
         !isStudioDock ? (
           <SkillRunPanel
             skill={selectedSkill}
@@ -1697,6 +1755,7 @@ export function CreationPanel({
         !activeSkillId &&
         (!isDock || creationLane === "agent") &&
         !effectiveCollapsed &&
+        !dockCompactLine &&
         !isStudioDock ? (
           <AgentRunPanel
             prompt={prompt}
@@ -1709,7 +1768,7 @@ export function CreationPanel({
           />
         ) : null}
 
-          {effectiveCollapsed ? (
+          {dockCompactLine ? null : effectiveCollapsed ? (
             <div className="mt-2 flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-1.5">
                 {!showStackUpload ? (
