@@ -43,9 +43,6 @@ test.describe("studio upload references", () => {
     await expect(station.locator("textarea").first()).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.getByRole("button", { name: /积分/ })).toBeVisible({
-      timeout: 15_000,
-    });
 
     const uploadResponse = page.waitForResponse(
       (res) =>

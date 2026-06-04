@@ -37,7 +37,7 @@ test.describe("studio coach mark", () => {
     await expect(dock.locator("textarea").first()).toBeVisible();
     await expect(page.getByText("快速上手")).toHaveCount(0);
 
-    const uploadButton = dock.getByTestId("upload-preview-add");
+    const uploadButton = dock.getByRole("button", { name: "上传图片" });
     await expect(uploadButton).toBeVisible();
     await expect(
       uploadButton.evaluate((button) => {
@@ -46,7 +46,7 @@ test.describe("studio coach mark", () => {
           rect.left + rect.width / 2,
           rect.top + rect.height / 2,
         );
-        return Boolean(top?.closest('[data-testid="upload-preview-add"]'));
+        return Boolean(top?.closest('button[aria-label="上传图片"]'));
       }),
     ).resolves.toBe(true);
   });
