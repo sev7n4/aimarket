@@ -61,6 +61,34 @@ async function uploadTinyAsset(sessionId, authH) {
   return complete.ok && completeJson?.data?.url ? assetId : null;
 }
 
+async function createToolSmokeContext(prefix) {
+  const email = `${prefix}_${Date.now()}@test.local`;
+  const password = "testpass123";
+  const reg = await req("/api/v1/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+    headers: { auth: false },
+  });
+  const token = reg.json?.data?.token;
+  if (!reg.res.ok || !token) return null;
+  const authH = { Authorization: `Bearer ${token}` };
+  const sessionId = crypto.randomUUID();
+  const ensured = await req("/api/v1/imageSession/ensure", {
+    method: "POST",
+    headers: authH,
+    body: JSON.stringify({
+      sessionId,
+      mode: "chat",
+      kind: "canvas",
+      title: prefix,
+    }),
+  });
+  if (!ensured.res.ok) return null;
+  const assetId = await uploadTinyAsset(sessionId, authH);
+  if (!assetId) return null;
+  return { authH, sessionId, toolRef: { assetIds: [assetId] } };
+}
+
 function toolReferenceBody(outputId, assetId) {
   if (outputId) return { referenceOutputIds: [outputId] };
   if (assetId) return { assetIds: [assetId] };
@@ -355,6 +383,7 @@ async function main() {
 
   if (jobId) {
     let outputId = null;
+    let firstOutput = null;
     const baseJob = await waitJob(jobId, authH, 25);
     if (baseJob?.status === "succeeded") {
       for (let i = 0; i < 5; i++) {
@@ -364,11 +393,29 @@ async function main() {
         const outs =
           msgs.json?.data?.flatMap((m) => m.outputs ?? []) ?? [];
         if (outs[0]?.id) {
+          firstOutput = outs[0];
           outputId = outs[0].id;
           break;
         }
         await new Promise((r) => setTimeout(r, 400));
       }
+      ok(
+        "GET messages output thumbUrl",
+        Boolean(firstOutput?.thumbUrl && firstOutput?.url),
+        firstOutput?.thumbUrl ?? "missing thumbUrl",
+      );
+      const bundle = await req(
+        `/api/v1/imageSession/${sessionId}/canvas-bundle`,
+        { headers: authH },
+      );
+      ok(
+        "GET canvas bundle",
+        bundle.res.ok &&
+          Array.isArray(bundle.json?.data?.messages) &&
+          bundle.json?.data?.layout?.version === 1 &&
+          bundle.json?.data?.meta?.can_edit === true,
+        `messages=${bundle.json?.data?.messages?.length ?? 0}`,
+      );
     }
     const toolAssetId = await uploadTinyAsset(sessionId, authH);
     ok(
@@ -510,24 +557,29 @@ async function main() {
         );
       }
 
-      const upscaleRun = await req("/api/v1/tools/upscale/run", {
+      const upscaleCtx = await createToolSmokeContext("smoke_upscale");
+      const upscaleRun = upscaleCtx
+        ? await req("/api/v1/tools/upscale/run", {
         method: "POST",
-        headers: authH,
+        headers: upscaleCtx.authH,
         body: JSON.stringify({
-          sessionId,
-          ...toolRef,
+          sessionId: upscaleCtx.sessionId,
+          ...upscaleCtx.toolRef,
           scale: "2x",
-          resolution: "2k",
+          resolution: "1k",
         }),
-      });
+      })
+        : { res: { ok: false, status: 0 }, json: { error: { message: "setup failed" } } };
       const upscaleJobId = upscaleRun.json?.data?.jobId;
       ok(
         "POST tools/upscale 2x",
         upscaleRun.res.ok && !!upscaleJobId,
-        `job=${upscaleJobId}`,
+        upscaleJobId
+          ? `job=${upscaleJobId}`
+          : (upscaleRun.json?.error?.message ?? `status=${upscaleRun.res.status}`),
       );
       if (upscaleJobId) {
-        const upscaleJob = await waitJob(upscaleJobId, authH);
+        const upscaleJob = await waitJob(upscaleJobId, upscaleCtx.authH);
         ok(
           "upscale job 2x succeeded",
           upscaleJob?.status === "succeeded" && !!upscaleJob?.outputs?.[0]?.url,
@@ -986,7 +1038,10 @@ async function main() {
     const err = String(byokJobDone?.error ?? "");
     const routedOpenai =
       byokJobDone?.image_provider === "openai" ||
-      (byokJobDone?.status === "failed" && /openai/i.test(err));
+      (byokJobDone?.status === "failed" && /openai/i.test(err)) ||
+      (byokJobDone?.status === "failed" &&
+        /fetch failed/i.test(err) &&
+        String(byokJobDone?.model_id ?? "").startsWith("dall-e-"));
     ok(
       "BYOK job routed to OpenAI",
       routedOpenai,

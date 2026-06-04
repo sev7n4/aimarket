@@ -11,6 +11,7 @@ import { AppError } from "./errors.js";
 import { getObjectStorage } from "./object-storage/index.js";
 import { saveUpload } from "./storage.js";
 import { getApiPublicBase } from "./public-url.js";
+import { ensureThumbnail } from "./thumbnails.js";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const PRESIGN_TTL_SEC = 900;
@@ -201,12 +202,13 @@ export async function confirmAssetUpload(userId: string, assetId: string) {
     const sizeBytes = Number(head.ContentLength ?? row.size_bytes);
 
     db.prepare(
-      `UPDATE assets SET url = ?, size_bytes = ? WHERE id = ? AND user_id = ?`,
-    ).run(url, sizeBytes, assetId, userId);
+      `UPDATE assets SET url = ?, thumb_url = ?, size_bytes = ? WHERE id = ? AND user_id = ?`,
+    ).run(url, url, sizeBytes, assetId, userId);
 
     return {
       id: assetId,
       url,
+      thumbUrl: url,
       mimeType: row.mime_type,
       sizeBytes,
     };
@@ -241,11 +243,14 @@ export async function completeLocalAssetUpload(
     throw new AppError(500, "UPLOAD_FAILED", "上传失败");
   }
 
+  const thumbUrl = await ensureThumbnail(saved.url);
+
   db.prepare(
-    `UPDATE assets SET filename = ?, url = ?, mime_type = ?, size_bytes = ? WHERE id = ? AND user_id = ?`,
+    `UPDATE assets SET filename = ?, url = ?, thumb_url = ?, mime_type = ?, size_bytes = ? WHERE id = ? AND user_id = ?`,
   ).run(
     saved.filename,
     saved.url,
+    thumbUrl,
     file.type,
     saved.sizeBytes,
     assetId,
@@ -255,6 +260,7 @@ export async function completeLocalAssetUpload(
   return {
     id: assetId,
     url: saved.url,
+    thumbUrl,
     mimeType: file.type,
     sizeBytes: saved.sizeBytes,
   };

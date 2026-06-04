@@ -47,6 +47,11 @@ test.describe("studio upload references", () => {
     });
     const uploadedCanvasItem = page.locator('[data-testid^="canvas-item-upload-"]');
     await expect(uploadedCanvasItem).toHaveCount(1, { timeout: 20_000 });
+    await expect(uploadedCanvasItem.first().locator("img")).toHaveAttribute(
+      "src",
+      /\/uploads\/thumbs\//,
+      { timeout: 20_000 },
+    );
 
     await uploadedCanvasItem.first().hover();
     await expect(uploadedCanvasItem.first().getByTitle("更多").first()).toBeVisible({

@@ -73,6 +73,7 @@ database.exec(`
     id TEXT PRIMARY KEY,
     message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
     url TEXT NOT NULL,
+    thumb_url TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0
   );
 
@@ -82,6 +83,7 @@ database.exec(`
     session_id TEXT REFERENCES image_sessions(id) ON DELETE SET NULL,
     filename TEXT NOT NULL,
     url TEXT NOT NULL,
+    thumb_url TEXT,
     mime_type TEXT NOT NULL,
     size_bytes INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -107,6 +109,7 @@ database.exec(`
     id TEXT PRIMARY KEY,
     job_id TEXT NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
     url TEXT NOT NULL,
+    thumb_url TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0
   );
 
@@ -406,6 +409,9 @@ const productMigrations = [
   `ALTER TABLE image_sessions ADD COLUMN template_variables_json TEXT`,
   `ALTER TABLE message_outputs ADD COLUMN label TEXT`,
   `ALTER TABLE job_outputs ADD COLUMN label TEXT`,
+  `ALTER TABLE message_outputs ADD COLUMN thumb_url TEXT`,
+  `ALTER TABLE job_outputs ADD COLUMN thumb_url TEXT`,
+  `ALTER TABLE assets ADD COLUMN thumb_url TEXT`,
 ];
 
 for (const sql of productMigrations) {

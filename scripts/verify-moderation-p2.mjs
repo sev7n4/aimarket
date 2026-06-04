@@ -25,17 +25,17 @@ async function main() {
   const health = await req("/health");
   if (!ok("API 健康", health.ok, health.json?.version)) failed++;
 
-  const ts = Date.now();
+  const uid = crypto.randomUUID();
   const reg = await req("/api/v1/auth/register", {
     method: "POST",
     body: JSON.stringify({
-      email: `p2_${ts}@test.local`,
+      email: `p2.${uid}@test.local`,
       password: "testpass123",
     }),
   });
   const token = reg.json?.data?.token;
   const H = { Authorization: `Bearer ${token}` };
-  if (!ok("注册", !!token)) {
+  if (!ok("注册", !!token, reg.json?.error?.message ?? "")) {
     process.exit(1);
   }
 

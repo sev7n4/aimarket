@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "../db/index.js";
 import type { AuthVariables } from "../middleware/auth.js";
 import { saveUpload } from "../lib/storage.js";
+import { ensureThumbnail } from "../lib/thumbnails.js";
 import { AppError } from "../lib/errors.js";
 import { getSessionById } from "../lib/session-access.js";
 import {
@@ -92,15 +93,18 @@ assets.post("/upload", async (c) => {
   }
 
   const id = randomUUID();
+  const thumbUrl = await ensureThumbnail(saved.url);
+
   db.prepare(
-    `INSERT INTO assets (id, user_id, session_id, filename, url, mime_type, size_bytes)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO assets (id, user_id, session_id, filename, url, thumb_url, mime_type, size_bytes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     userId,
     boundSessionId,
     saved.filename,
     saved.url,
+    thumbUrl,
     file.type,
     saved.sizeBytes,
   );
@@ -109,6 +113,7 @@ assets.post("/upload", async (c) => {
     data: {
       id,
       url: saved.url,
+      thumbUrl,
       mimeType: file.type,
       sizeBytes: saved.sizeBytes,
     },
@@ -129,13 +134,14 @@ assets.post("/register-url", async (c) => {
   const id = randomUUID();
   const filename = body.fileName ?? `ref-${id.slice(0, 8)}.jpg`;
   db.prepare(
-    `INSERT INTO assets (id, user_id, session_id, filename, url, mime_type, size_bytes)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO assets (id, user_id, session_id, filename, url, thumb_url, mime_type, size_bytes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     userId,
     body.sessionId,
     filename,
+    body.url,
     body.url,
     "image/jpeg",
     0,
@@ -145,6 +151,7 @@ assets.post("/register-url", async (c) => {
     data: {
       id,
       url: body.url,
+      thumbUrl: body.url,
       mimeType: "image/jpeg",
       sizeBytes: 0,
     },

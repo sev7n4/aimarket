@@ -36,7 +36,7 @@ interface StudioCreationDockProps {
     promptSuffix?: string;
     maskSelection?: CanvasMaskSelection;
   } | null;
-  onUploadToCanvas: (assetId: string, url: string) => void;
+  onUploadToCanvas: (assetId: string, url: string, thumbUrl?: string) => void;
   onDockModeChange: (mode: StudioDockMode) => void;
   focusEdit: {
     points: FocusPointChip[];

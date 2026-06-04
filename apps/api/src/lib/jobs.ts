@@ -26,6 +26,7 @@ import { enqueueJob } from "./queue/index.js";
 import type { JobQueuePayload } from "./queue/types.js";
 import { notifyAgentJobCompleted } from "./agent/job-events.js";
 import { assertEmailVerifiedForSpend } from "./email-verification.js";
+import { ensureThumbnail, ensureThumbnails } from "./thumbnails.js";
 
 const delayMs = Number(process.env.MOCK_GENERATION_DELAY_MS ?? 2500);
 
@@ -286,14 +287,15 @@ export async function processGenerationJob({
         const url = part.urls[0];
         imageProvider = part.provider;
         urls.push(url);
+        const thumbUrl = await ensureThumbnail(url);
 
         db.transaction(() => {
           db.prepare(
-            `INSERT INTO job_outputs (id, job_id, url, sort_order, label) VALUES (?, ?, ?, ?, ?)`,
-          ).run(randomUUID(), jobId, url, li, label);
+            `INSERT INTO job_outputs (id, job_id, url, thumb_url, sort_order, label) VALUES (?, ?, ?, ?, ?, ?)`,
+          ).run(randomUUID(), jobId, url, thumbUrl, li, label);
           db.prepare(
-            `INSERT INTO message_outputs (id, message_id, url, sort_order, label) VALUES (?, ?, ?, ?, ?)`,
-          ).run(randomUUID(), assistantMessageId, url, li, label);
+            `INSERT INTO message_outputs (id, message_id, url, thumb_url, sort_order, label) VALUES (?, ?, ?, ?, ?, ?)`,
+          ).run(randomUUID(), assistantMessageId, url, thumbUrl, li, label);
           db.prepare(
             `UPDATE image_sessions SET updated_at = datetime('now') WHERE id = ?`,
           ).run(job.session_id);
@@ -328,9 +330,11 @@ export async function processGenerationJob({
     }
 
     await assertOutputsAllowed(urls);
+    const thumbUrls = await ensureThumbnails(urls);
 
     const outputs = urls.map((url, i) => ({
       url,
+      thumbUrl: thumbUrls[i] ?? url,
       label: labels?.[i],
     }));
 
@@ -368,8 +372,15 @@ export async function processGenerationJob({
     db.transaction(() => {
       for (let i = 0; i < outputs.length; i++) {
         db.prepare(
-          `INSERT INTO job_outputs (id, job_id, url, sort_order, label) VALUES (?, ?, ?, ?, ?)`,
-        ).run(randomUUID(), jobId, outputs[i].url, i, outputs[i].label ?? null);
+          `INSERT INTO job_outputs (id, job_id, url, thumb_url, sort_order, label) VALUES (?, ?, ?, ?, ?, ?)`,
+        ).run(
+          randomUUID(),
+          jobId,
+          outputs[i].url,
+          outputs[i].thumbUrl,
+          i,
+          outputs[i].label ?? null,
+        );
       }
 
       db.prepare(
@@ -379,11 +390,12 @@ export async function processGenerationJob({
 
       for (let i = 0; i < outputs.length; i++) {
         db.prepare(
-          `INSERT INTO message_outputs (id, message_id, url, sort_order, label) VALUES (?, ?, ?, ?, ?)`,
+          `INSERT INTO message_outputs (id, message_id, url, thumb_url, sort_order, label) VALUES (?, ?, ?, ?, ?, ?)`,
         ).run(
           randomUUID(),
           assistantMessageId,
           outputs[i].url,
+          outputs[i].thumbUrl,
           i,
           outputs[i].label ?? null,
         );
@@ -443,7 +455,7 @@ export async function processGenerationJob({
 export type JobDetail = Record<string, unknown> & {
   status: string;
   error: string | null;
-  outputs: { url: string; sort_order: number }[];
+  outputs: { url: string; thumb_url?: string | null; sort_order: number }[];
   outputType: "image" | "video";
   queue_ahead?: number | null;
 };
@@ -481,9 +493,9 @@ export function getJob(jobId: string, userId?: string): JobDetail {
 
   const outputs = db
     .prepare(
-      `SELECT url, sort_order FROM job_outputs WHERE job_id = ? ORDER BY sort_order ASC`,
+      `SELECT url, thumb_url, sort_order FROM job_outputs WHERE job_id = ? ORDER BY sort_order ASC`,
     )
-    .all(jobId) as { url: string; sort_order: number }[];
+    .all(jobId) as { url: string; thumb_url: string | null; sort_order: number }[];
 
   const model = getModel(job.model_id as string);
 

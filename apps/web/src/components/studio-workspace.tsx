@@ -78,7 +78,10 @@ import {
   importInspirationReferencesToCanvas,
   type StudioInspirationApply,
 } from "@/lib/inspiration-studio";
-import { useSessionCanvas } from "@/hooks/use-session-canvas";
+import {
+  prefetchSessionCanvasBundle,
+  useSessionCanvas,
+} from "@/hooks/use-session-canvas";
 import { watchJob } from "@/lib/job-stream";
 import { consumePendingAssets, type PendingAsset } from "@/lib/pending-assets";
 import { consumePendingInspiration } from "@/lib/pending-inspiration";
@@ -169,7 +172,7 @@ export function StudioWorkspace({
   const prevItemCountRef = useRef(0);
   const canvasItemsRef = useRef<CanvasItem[]>([]);
   const loadCanvasRef = useRef<
-    () => Promise<void>
+    (opts?: { force?: boolean }) => Promise<void>
   >(async () => {});
   const handleJobCompleteRef = useRef<
     (completedJobId?: string) => Promise<void>
@@ -231,7 +234,7 @@ export function StudioWorkspace({
     registerBatchLineage,
     canEdit: canvasCanEdit,
     setCanEdit,
-  } = useSessionCanvas(sessionId, Boolean(user));
+  } = useSessionCanvas(sessionId, Boolean(user), { autoLoad: false });
   loadCanvasRef.current = loadCanvas;
   canvasItemsRef.current = canvasItems;
   const [sessions, setSessions] = useState<ImageSession[]>([]);
@@ -294,6 +297,13 @@ export function StudioWorkspace({
       setSessions,
     );
   }, []);
+
+  useEffect(() => {
+    if (!user || sessions.length === 0) return;
+    for (const s of sessions.slice(0, 8)) {
+      if (s.id !== sessionId) prefetchSessionCanvasBundle(s.id);
+    }
+  }, [sessions, sessionId, user]);
 
   const handleWorkspaceDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -375,6 +385,13 @@ export function StudioWorkspace({
         applyKey: 1,
       });
     }
+    const listPromise = listSessions(
+      STUDIO_SIDEBAR_SESSION_LIMIT,
+      undefined,
+      wsId,
+    );
+    const toolsPromise = fetchTools().catch(() => []);
+
     await loadCanvas();
     if (pendingInspiration?.referenceUrls.length) {
       const refItems = await importInspirationReferencesToCanvas(
@@ -384,13 +401,10 @@ export function StudioWorkspace({
       setCanvasItems((prev) => [...prev, ...refItems]);
       if (refItems[0]) setSelectedCanvasId(refItems[0].id);
     }
-    const [list, toolList] = await Promise.all([
-      listSessions(STUDIO_SIDEBAR_SESSION_LIMIT, undefined, wsId),
-      fetchTools().catch(() => []),
-    ]);
+    setReady(true);
+    const [list, toolList] = await Promise.all([listPromise, toolsPromise]);
     setSessions(list);
     setTools(toolList);
-    setReady(true);
   }, [
     user,
     sessionId,
@@ -424,7 +438,7 @@ export function StudioWorkspace({
         if (job.status === "succeeded" || job.status === "failed") {
           setPollingJobId(null);
           setJobStreamStatus(null);
-          void loadCanvasRef.current();
+          void loadCanvasRef.current({ force: true });
           if (job.status === "failed") setJobFailed(true);
           router.replace(
             `/studio?sessionId=${encodeURIComponent(sessionId)}&mode=${mode}`,
@@ -529,7 +543,7 @@ export function StudioWorkspace({
         /* 忽略 provider 展示失败 */
       }
     }
-    await loadCanvas();
+    await loadCanvas({ force: true });
     await refreshUser();
     setSessions(
       await listSessions(
@@ -598,7 +612,7 @@ export function StudioWorkspace({
             ev.completed > lastOutputCountRef.current
           ) {
             lastOutputCountRef.current = ev.completed;
-            void loadCanvasRef.current();
+            void loadCanvasRef.current({ force: true });
           }
         }
         if (ev.status === "failed") setJobFailed(true);
@@ -923,10 +937,14 @@ export function StudioWorkspace({
     if (!file || !user || readOnly) return;
     try {
       await ensureSession(sessionId, mode);
-      const { id, url } = await uploadAsset(file, sessionId);
+      const { id, url, thumbUrl } = await uploadAsset(file, sessionId);
       setCanvasItems((prev) => [
         ...prev,
-        createUploadCanvasItem(url, prev, { assetId: id, role: "product" }),
+        createUploadCanvasItem(url, prev, {
+          assetId: id,
+          role: "product",
+          thumbUrl,
+        }),
       ]);
       hapticLight();
     } catch (err) {
@@ -936,11 +954,11 @@ export function StudioWorkspace({
     }
   }
 
-  function handleUploadToCanvas(assetId: string, url: string) {
+  function handleUploadToCanvas(assetId: string, url: string, thumbUrl?: string) {
     if (readOnly) return;
     setCanvasItems((prev) => [
       ...prev,
-      createUploadCanvasItem(url, prev, { assetId, role: "product" }),
+      createUploadCanvasItem(url, prev, { assetId, role: "product", thumbUrl }),
     ]);
     hapticLight();
   }
@@ -1020,7 +1038,7 @@ export function StudioWorkspace({
       setQueueAhead(null);
       setSelectSourceBanner(`任务已取消，积分已退回（${result.refundedPoints}积分）`);
       await refreshUser();
-      await loadCanvas();
+      await loadCanvas({ force: true });
     } catch (err) {
       setSelectSourceBanner(
         err instanceof Error ? err.message : "取消任务失败",
@@ -1274,6 +1292,8 @@ export function StudioWorkspace({
                     mode: s.mode,
                     kind: s.kind,
                   })}
+                  onMouseEnter={() => prefetchSessionCanvasBundle(s.id)}
+                  onFocus={() => prefetchSessionCanvasBundle(s.id)}
                   onClick={() => setSidebarOpen(false)}
                   className={`block rounded-lg px-3 py-2 text-sm transition ${
                     s.id === sessionId
@@ -1342,7 +1362,7 @@ export function StudioWorkspace({
             onJobStarted={handleJobStarted}
             onClearPrompt={() => setStudioPrompt("")}
             onRunSettled={() => {
-              void loadCanvas();
+              void loadCanvas({ force: true });
               void refreshUser();
             }}
           >

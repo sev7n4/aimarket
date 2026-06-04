@@ -53,6 +53,7 @@ export interface SessionAccessMeta {
 export interface MessageOutput {
   id?: string;
   url: string;
+  thumbUrl?: string;
   sort_order: number;
   label?: string;
 }
@@ -66,6 +67,16 @@ export interface ChatMessage {
   parent_job_id?: string;
   source_output_id?: string;
   outputs: MessageOutput[];
+  generation_params?: {
+    prompt: string;
+    modelId?: string;
+    resolution?: string;
+    aspectRatio?: string;
+    count?: number;
+    toolType?: string;
+    imageProvider?: string;
+    toolContext?: unknown;
+  };
 }
 
 export interface ImageModel {

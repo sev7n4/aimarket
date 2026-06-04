@@ -213,7 +213,7 @@ interface CreationPanelProps {
     item: CanvasItem;
   }) => Promise<string>;
   /** 上传完成后把图片添加到画布素材区 */
-  onUploadToCanvas?: (assetId: string, url: string) => void;
+  onUploadToCanvas?: (assetId: string, url: string, thumbUrl?: string) => void;
   /** Studio：走 Agent Run 编排（/agent/runs） */
   agentOrchestration?: boolean;
   /** Studio：展示长 Skill 套餐（/agent/skills） */
@@ -842,14 +842,14 @@ export function CreationPanel({
           ].slice(0, 4),
         );
         if (onUploadToCanvas) {
-          onUploadToCanvas(asset.id, asset.url);
+          onUploadToCanvas(asset.id, asset.url, asset.thumbUrl);
         }
       }
       const extraFiles = selectedFiles.slice(remaining);
       for (const file of extraFiles) {
         const asset = await uploadAsset(file, sessionId);
         if (onUploadToCanvas) {
-          onUploadToCanvas(asset.id, asset.url);
+          onUploadToCanvas(asset.id, asset.url, asset.thumbUrl);
         }
       }
     } catch (err) {
