@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 const STORAGE_KEY = "aimarket_studio_coach_v2";
+const NEW_USER_COACH_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const STEPS = [
   {
@@ -21,13 +23,35 @@ const STEPS = [
 ];
 
 export function StudioCoach({ onDone }: { onDone?: () => void }) {
+  const { user, loading } = useAuth();
   const [step, setStep] = useState(0);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (localStorage.getItem(STORAGE_KEY)) return;
+    if (loading) return;
+
+    const storageKey = user ? `${STORAGE_KEY}:${user.id}` : STORAGE_KEY;
+    if (localStorage.getItem(storageKey)) return;
+
+    if (user && localStorage.getItem(STORAGE_KEY)) {
+      localStorage.setItem(storageKey, "1");
+      return;
+    }
+
+    if (user) {
+      const createdAt = user.created_at ? new Date(user.created_at).getTime() : 0;
+      const isNewUser =
+        Number.isFinite(createdAt) &&
+        Date.now() - createdAt <= NEW_USER_COACH_WINDOW_MS;
+
+      if (!isNewUser) {
+        localStorage.setItem(storageKey, "1");
+        return;
+      }
+    }
+
     setVisible(true);
-  }, []);
+  }, [loading, user]);
 
   if (!visible) return null;
 
@@ -35,14 +59,14 @@ export function StudioCoach({ onDone }: { onDone?: () => void }) {
   const isLast = step >= STEPS.length - 1;
 
   function finish() {
-    localStorage.setItem(STORAGE_KEY, "1");
+    localStorage.setItem(user ? `${STORAGE_KEY}:${user.id}` : STORAGE_KEY, "1");
     setVisible(false);
     onDone?.();
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 pb-[max(5rem,env(safe-area-inset-bottom))] sm:items-center sm:pb-4">
-      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#121212] p-4 shadow-2xl">
+    <div className="pointer-events-none fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 pb-[max(5rem,env(safe-area-inset-bottom))] sm:items-center sm:pb-4">
+      <div className="pointer-events-auto w-full max-w-sm rounded-2xl border border-white/10 bg-[#121212] p-4 shadow-2xl">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-[10px] uppercase tracking-wider text-zinc-500">
             快速上手 {step + 1}/{STEPS.length}
