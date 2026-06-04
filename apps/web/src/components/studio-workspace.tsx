@@ -16,7 +16,7 @@ import {
   DesignCanvas,
   type DesignCanvasHandle,
 } from "@/components/design-canvas";
-import { CreationPanel } from "@/components/creation-panel";
+import { StudioCreationDock } from "@/components/studio-creation-dock";
 import { CanvasSelectionToolbar } from "@/components/canvas-selection-toolbar";
 import { StudioDock, studioDockScrollInset } from "@/components/studio-dock";
 import { StudioCoach } from "@/components/studio-coach";
@@ -1106,175 +1106,6 @@ export function StudioWorkspace({
   /** 桌面端侧栏展开时隐藏顶栏，把画布纵向空间还给创作区 */
   const showTopBar = mobile || workspaceCollapsed;
 
-  const dockPanel = (
-    <>
-      {!user || !ready ? (
-        <button
-          type="button"
-          onClick={() => setLoginOpen(true)}
-          className="mb-2 w-full text-center text-xs text-orange-400"
-        >
-          登录后开始创作
-        </button>
-      ) : null}
-      {readOnly ? (
-        <p className="mb-2 text-center text-xs text-amber-400/90">
-          只读会话：无法在此生成或编辑
-        </p>
-      ) : null}
-      <CreationPanel
-        variant="dock"
-        embeddedInDock
-        onDockModeChange={setDockMode}
-        showModeTabs={false}
-        rotatingPlaceholder
-        enablePolish
-        mode={mode}
-        sessionId={sessionId}
-        initialPrompt={initialPrompt}
-        prompt={studioPrompt}
-        onPromptChange={setStudioPrompt}
-        restoredAssets={restoredAssets}
-        inspirationApply={inspirationApply}
-        onAuthRequired={() => setLoginOpen(true)}
-        onJobStarted={handleJobStarted}
-        jobStreamStatus={jobStreamStatus}
-        pollingJobId={pollingJobId}
-        onCancelJob={handleCancelJob}
-        jobElapsedMs={jobElapsedMs}
-        queueAhead={queueAhead}
-        readOnly={readOnly}
-        canvasItems={canvasItems}
-        mentionItemRequest={mentionItemRequest}
-        onUploadToCanvas={handleUploadToCanvas}
-        focusEdit={
-          focusEditSession
-            ? {
-                points: focusEditSession.points,
-                intent: focusEditSession.intent,
-                cropSize: focusEditSession.cropSize,
-                recognizing: focusRecognizing,
-                onIntentChange: (intent) =>
-                  setFocusEditSession((prev) =>
-                    prev ? { ...prev, intent } : prev,
-                  ),
-                onRemovePoint: (pointId) =>
-                  setFocusEditSession((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          points: prev.points.filter((p) => p.pointId !== pointId),
-                        }
-                      : prev,
-                  ),
-                onEditPoint: (pointId, newName) =>
-                  setFocusEditSession((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          points: prev.points.map((p) =>
-                            p.pointId === pointId ? { ...p, objectName: newName } : p,
-                          ),
-                        }
-                      : prev,
-                  ),
-                onChipPromptChange: (pointId, chipPrompt) =>
-                  setFocusEditSession((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          points: prev.points.map((p) =>
-                            p.pointId === pointId ? { ...p, chipPrompt } : p,
-                          ),
-                        }
-                      : prev,
-                  ),
-                onReplaceImage: (pointId, assetId, url) =>
-                  setFocusEditSession((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          points: prev.points.map((p) =>
-                            p.pointId === pointId
-                              ? {
-                                  ...p,
-                                  replaceAssetId: assetId,
-                                  replaceAssetUrl: url,
-                                }
-                              : p,
-                          ),
-                        }
-                      : prev,
-                  ),
-                onClearAll: () =>
-                  setFocusEditSession((prev) =>
-                    prev ? { ...prev, points: [] } : prev,
-                  ),
-                onCropSizeChange: (size) =>
-                  setFocusEditSession((prev) =>
-                    prev ? { ...prev, cropSize: size } : prev,
-                  ),
-                onCancel: exitFocusEditMode,
-              }
-            : null
-        }
-        agentOrchestration
-        agentSkills
-        onAgentRunComplete={() => {
-          void loadCanvas();
-          void refreshUser();
-        }}
-        onFocusEditSubmit={async ({ prompt, intent, points, item }) => {
-          const referenceOutputIds = item.outputId ? [item.outputId] : undefined;
-          const replaceAssets = points
-            .map((p) => p.replaceAssetId)
-            .filter((id): id is string => Boolean(id));
-          const assetIds = [
-            ...(!referenceOutputIds && item.assetId ? [item.assetId] : []),
-            ...replaceAssets,
-          ];
-          const chipLines = points
-            .map((p, i) => {
-              const chip = p.chipPrompt?.trim();
-              if (!chip) return null;
-              return `${focusIndexLabel(i)}${p.objectName}：${chip}`;
-            })
-            .filter((line): line is string => Boolean(line));
-          const mergedPrompt = [chipLines.join("；"), prompt.trim()]
-            .filter(Boolean)
-            .join("\n");
-          const { jobId } = await runTool("focus-edit", {
-            sessionId,
-            prompt: mergedPrompt || "按焦点区域进行局部编辑",
-            referenceOutputIds,
-            assetIds: assetIds.length ? assetIds : undefined,
-            resolution: resolveToolResolution("focus-edit"),
-            intent,
-            focusPoints: points.map((p) => ({
-              pointId: p.pointId,
-              objectName: p.objectName,
-              x: p.x,
-              y: p.y,
-            })),
-          });
-          void trackEvent("tool_run", {
-            tool_id: "focus-edit",
-            job_id: jobId,
-            intent,
-            focus_count: points.length,
-          });
-          registerToolBatchLineage(jobId, item, "焦点编辑");
-          exitFocusEditMode();
-          if (canvasRef.current?.isInRefineMode()) {
-            canvasRef.current.beginRefineJob();
-          }
-          setPollingJobId(jobId);
-          return jobId;
-        }}
-      />
-    </>
-  );
-
   return (
     <WorkspaceProvider onWorkspaceChange={handleWorkspaceChange}>
       {showTopBar ? (
@@ -1509,6 +1340,7 @@ export function StudioWorkspace({
             mode={mode}
             readOnly={readOnly}
             onJobStarted={handleJobStarted}
+            onClearPrompt={() => setStudioPrompt("")}
             onRunSettled={() => {
               void loadCanvas();
               void refreshUser();
@@ -1661,7 +1493,157 @@ export function StudioWorkspace({
             />
 
             <StudioDock mode={dockMode} onModeChange={setDockMode}>
-              {dockPanel}
+              <StudioCreationDock
+                user={user}
+                ready={ready}
+                readOnly={readOnly}
+                mode={mode}
+                sessionId={sessionId}
+                initialPrompt={initialPrompt}
+                prompt={studioPrompt}
+                onPromptChange={setStudioPrompt}
+                restoredAssets={restoredAssets}
+                inspirationApply={inspirationApply}
+                onLogin={() => setLoginOpen(true)}
+                onJobStarted={handleJobStarted}
+                jobStreamStatus={jobStreamStatus}
+                pollingJobId={pollingJobId}
+                onCancelJob={handleCancelJob}
+                jobElapsedMs={jobElapsedMs}
+                queueAhead={queueAhead}
+                canvasItems={canvasItems}
+                mentionItemRequest={mentionItemRequest}
+                onUploadToCanvas={handleUploadToCanvas}
+                onDockModeChange={setDockMode}
+                focusEdit={
+                  focusEditSession
+                    ? {
+                        points: focusEditSession.points,
+                        intent: focusEditSession.intent,
+                        cropSize: focusEditSession.cropSize,
+                        recognizing: focusRecognizing,
+                        onIntentChange: (intent) =>
+                          setFocusEditSession((prev) =>
+                            prev ? { ...prev, intent } : prev,
+                          ),
+                        onRemovePoint: (pointId) =>
+                          setFocusEditSession((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  points: prev.points.filter(
+                                    (p) => p.pointId !== pointId,
+                                  ),
+                                }
+                              : prev,
+                          ),
+                        onEditPoint: (pointId, newName) =>
+                          setFocusEditSession((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  points: prev.points.map((p) =>
+                                    p.pointId === pointId
+                                      ? { ...p, objectName: newName }
+                                      : p,
+                                  ),
+                                }
+                              : prev,
+                          ),
+                        onChipPromptChange: (pointId, chipPrompt) =>
+                          setFocusEditSession((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  points: prev.points.map((p) =>
+                                    p.pointId === pointId
+                                      ? { ...p, chipPrompt }
+                                      : p,
+                                  ),
+                                }
+                              : prev,
+                          ),
+                        onReplaceImage: (pointId, assetId, url) =>
+                          setFocusEditSession((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  points: prev.points.map((p) =>
+                                    p.pointId === pointId
+                                      ? {
+                                          ...p,
+                                          replaceAssetId: assetId,
+                                          replaceAssetUrl: url,
+                                        }
+                                      : p,
+                                  ),
+                                }
+                              : prev,
+                          ),
+                        onClearAll: () =>
+                          setFocusEditSession((prev) =>
+                            prev ? { ...prev, points: [] } : prev,
+                          ),
+                        onCropSizeChange: (size) =>
+                          setFocusEditSession((prev) =>
+                            prev ? { ...prev, cropSize: size } : prev,
+                          ),
+                        onCancel: exitFocusEditMode,
+                      }
+                    : null
+                }
+                onFocusEditSubmit={async ({ prompt, intent, points, item }) => {
+                  const referenceOutputIds = item.outputId
+                    ? [item.outputId]
+                    : undefined;
+                  const replaceAssets = points
+                    .map((p) => p.replaceAssetId)
+                    .filter((id): id is string => Boolean(id));
+                  const assetIds = [
+                    ...(!referenceOutputIds && item.assetId
+                      ? [item.assetId]
+                      : []),
+                    ...replaceAssets,
+                  ];
+                  const chipLines = points
+                    .map((p, i) => {
+                      const chip = p.chipPrompt?.trim();
+                      if (!chip) return null;
+                      return `${focusIndexLabel(i)}${p.objectName}：${chip}`;
+                    })
+                    .filter((line): line is string => Boolean(line));
+                  const mergedPrompt = [chipLines.join("；"), prompt.trim()]
+                    .filter(Boolean)
+                    .join("\n");
+                  const { jobId } = await runTool("focus-edit", {
+                    sessionId,
+                    prompt: mergedPrompt || "按焦点区域进行局部编辑",
+                    referenceOutputIds,
+                    assetIds: assetIds.length ? assetIds : undefined,
+                    resolution: resolveToolResolution("focus-edit"),
+                    intent,
+                    focusPoints: points.map((p) => ({
+                      pointId: p.pointId,
+                      objectName: p.objectName,
+                      x: p.x,
+                      y: p.y,
+                    })),
+                  });
+                  void trackEvent("tool_run", {
+                    tool_id: "focus-edit",
+                    job_id: jobId,
+                    intent,
+                    focus_count: points.length,
+                  });
+                  registerToolBatchLineage(jobId, item, "焦点编辑");
+                  exitFocusEditMode();
+                  if (canvasRef.current?.isInRefineMode()) {
+                    canvasRef.current.beginRefineJob();
+                  }
+                  setPollingJobId(jobId);
+                  return jobId;
+                }}
+              />
             </StudioDock>
           </div>
           </StudioOrchestrationProvider>

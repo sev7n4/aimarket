@@ -124,7 +124,7 @@ interface CreationPanelProps {
   initialMode?: CreationMode;
   initialPrompt?: string;
   compact?: boolean;
-  variant?: "default" | "dock";
+  variant?: "default" | "dock" | "studio-dock";
   mode?: CreationMode;
   onModeChange?: (mode: CreationMode) => void;
   showModeTabs?: boolean;
@@ -173,9 +173,7 @@ interface CreationPanelProps {
    * 隐藏模型/数量/分辨率/Agent 计划预览等高级控件，把 dock 高度收缩到 ~56px。
    */
   collapsed?: boolean;
-  /** Studio Dock 内嵌：单一卡片容器 + 内嵌三态控件 */
-  embeddedInDock?: boolean;
-  /** Studio Dock 三态（embeddedInDock 时由父级传入，仅用于专注画布按钮） */
+  /** Studio Dock 三态（studio-dock variant，专注画布按钮） */
   onDockModeChange?: (mode: StudioDockMode) => void;
   /**
    * 画布上的图片（用于 @ 上下文引用候选项）。
@@ -254,7 +252,6 @@ export function CreationPanel({
   inspirationCoverUrl,
   inspirationActive = false,
   collapsed = false,
-  embeddedInDock = false,
   onDockModeChange,
   canvasItems = [],
   mentionItemRequest = null,
@@ -268,8 +265,8 @@ export function CreationPanel({
   onAgentRunComplete,
 }: CreationPanelProps) {
   const studioOrch = useStudioOrchestrationOptional();
-  const studioOrchestrationActive =
-    embeddedInDock && studioOrch != null;
+  const isStudioDock = variant === "studio-dock";
+  const studioOrchestrationActive = isStudioDock && studioOrch != null;
   const shouldNavigateOnSubmit =
     navigateOnSubmit ?? (!sessionId && !homeDirectSubmit);
   const router = useRouter();
@@ -338,7 +335,7 @@ export function CreationPanel({
     mode,
     !rotatingPlaceholder || prompt.trim().length > 0,
   );
-  const isDock = variant === "dock";
+  const isDock = variant === "dock" || isStudioDock;
   /**
    * dock 模式（首页 + Studio 工作台）下统一走简洁对话流程，
    * 不再渲染电商 Agent 表单 / 走电商套图提交分支。
@@ -350,7 +347,7 @@ export function CreationPanel({
   const agentEnabled =
     agentOrchestration &&
     Boolean(sessionId) &&
-    embeddedInDock &&
+    isStudioDock &&
     !readOnly;
 
   const skillsEnabled = agentSkills && agentEnabled;
@@ -532,18 +529,6 @@ export function CreationPanel({
   const orchAgentBusy = studioOrchestrationActive
     ? studioOrch!.agentBusy
     : agentBusy;
-  const orchStartSkillRun = studioOrchestrationActive
-    ? studioOrch!.startSkillRun
-    : startSkillRun;
-  const orchStartAgentRun = studioOrchestrationActive
-    ? studioOrch!.startAgentRun
-    : startAgentRun;
-  const orchConfirmOrchestration = studioOrchestrationActive
-    ? () => studioOrch!.confirmOrchestration()
-    : null;
-  const orchCancelOrchestration = studioOrchestrationActive
-    ? () => studioOrch!.cancelOrchestration()
-    : null;
 
   useEffect(() => {
     sessionEnsuredRef.current = false;
@@ -574,9 +559,12 @@ export function CreationPanel({
     focusEdit,
   ]);
 
+  const orchestrationResetTick = studioOrch?.orchestrationResetTick ?? 0;
+  const lastOrchestrationResetRef = useRef(0);
   useEffect(() => {
     if (!studioOrchestrationActive) return;
-    if (orchSkillRun?.status !== "completed") return;
+    if (orchestrationResetTick <= lastOrchestrationResetRef.current) return;
+    lastOrchestrationResetRef.current = orchestrationResetTick;
     setPrompt("");
     setAssetIds([]);
     setUploadPreviews([]);
@@ -588,19 +576,7 @@ export function CreationPanel({
     setMentionedMasks([]);
     setSelectedSkillId(null);
     setDockSkillId(null);
-  }, [studioOrchestrationActive, orchSkillRun?.status]);
-
-  useEffect(() => {
-    if (!studioOrchestrationActive) return;
-    if (orchAgentRun?.status !== "completed") return;
-    setPrompt("");
-    setAssetIds([]);
-    setUploadPreviews([]);
-    setSelectedRefs([]);
-    setMentionedAssetIds([]);
-    setMentionedAssetPreviews([]);
-    setMentionedMasks([]);
-  }, [studioOrchestrationActive, orchAgentRun?.status]);
+  }, [studioOrchestrationActive, orchestrationResetTick, setPrompt]);
 
   const skillAwaitingConfirm = orchSkillRun?.status === "waiting_confirm";
   const skillInFlight = Boolean(
@@ -635,7 +611,7 @@ export function CreationPanel({
           ? "开始套餐"
           : "开始生成";
 
-  const effectiveCollapsed = embeddedInDock ? false : collapsed;
+  const effectiveCollapsed = isStudioDock ? false : collapsed;
   const dockIconBtn =
     "flex shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-white/5 hover:text-zinc-200";
   const dockIconBtnClass = isDock
@@ -1060,7 +1036,30 @@ export function CreationPanel({
     }
     if (!sessionId) return;
 
+    if (studioOrchestrationActive && studioOrch) {
+      setPending(true);
+      try {
+        const handled = await studioOrch.dispatchSubmit({
+          prompt,
+          creationLane,
+          activeSkillId,
+          effectiveMode,
+          focusEditActive: Boolean(focusEdit?.points.length),
+          mentionedMasksCount: mentionedMasks.length,
+          submitVideo,
+          productAssetId: resolveProductAssetId(),
+          referenceAssetId: referenceAssetId ?? undefined,
+        });
+        if (handled) return;
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "提交失败");
+      } finally {
+        setPending(false);
+      }
+    }
+
     const useSkillSubmit =
+      !studioOrchestrationActive &&
       skillsEnabled &&
       Boolean(activeSkillId) &&
       !focusEdit?.points.length &&
@@ -1072,11 +1071,7 @@ export function CreationPanel({
         setPending(true);
         try {
           await ensureSession(sessionId, mode);
-          if (orchConfirmOrchestration) {
-            await orchConfirmOrchestration();
-          } else {
-            await confirmSkillRunAction();
-          }
+          await confirmSkillRunAction();
         } catch (err) {
           alert(err instanceof Error ? err.message : "确认失败");
         } finally {
@@ -1089,7 +1084,7 @@ export function CreationPanel({
       setPending(true);
       try {
         await ensureSession(sessionId, mode);
-        await orchStartSkillRun(activeSkillId, {
+        await startSkillRun(activeSkillId, {
           prompt,
           productAssetId: resolveProductAssetId(),
           referenceAssetId: referenceAssetId ?? undefined,
@@ -1107,6 +1102,7 @@ export function CreationPanel({
     }
 
     const useAgentSubmit =
+      !studioOrchestrationActive &&
       agentEnabled &&
       (isDock ? creationLane === "agent" : true) &&
       !activeSkillId &&
@@ -1120,11 +1116,7 @@ export function CreationPanel({
         setPending(true);
         try {
           await ensureSession(sessionId, mode);
-          if (orchConfirmOrchestration) {
-            await orchConfirmOrchestration();
-          } else {
-            await confirmAgentRunAction();
-          }
+          await confirmAgentRunAction();
         } catch (err) {
           alert(err instanceof Error ? err.message : "确认失败");
         } finally {
@@ -1137,7 +1129,7 @@ export function CreationPanel({
       setPending(true);
       try {
         await ensureSession(sessionId, mode);
-        await orchStartAgentRun(prompt);
+        await startAgentRun(prompt);
         void trackEvent("agent_run_start", { sessionId: sessionId ?? "", mode });
       } catch (err) {
         alert(err instanceof Error ? err.message : "Agent 提交失败");
@@ -1440,14 +1432,14 @@ export function CreationPanel({
         />
         <div
           className={
-            isDock && !embeddedInDock
+            isDock && !isStudioDock
               ? "rounded-2xl border border-white/10 bg-[#141414] px-3 pb-3 pt-3 sm:px-4 sm:pt-4"
-              : isDock && embeddedInDock
+              : isDock && isStudioDock
                 ? "px-3.5 pb-2.5 pt-2.5 sm:px-4 sm:pt-3"
                 : ""
           }
         >
-          {isDock && embeddedInDock && showStackUpload ? (
+          {isDock && isStudioDock && showStackUpload ? (
             <div className="mb-2.5">
               <UploadPreviewStack
                 items={uploadPreviews}
@@ -1462,7 +1454,7 @@ export function CreationPanel({
             </div>
           ) : null}
           <div className="relative flex min-w-0 gap-3">
-            {onInspirationClick && !(isDock && embeddedInDock) ? (
+            {onInspirationClick && !(isDock && isStudioDock) ? (
               <button
                 type="button"
                 onClick={onInspirationClick}
@@ -1491,7 +1483,7 @@ export function CreationPanel({
                 </span>
               </button>
             ) : null}
-            {showStackUpload && !(isDock && embeddedInDock) ? (
+            {showStackUpload && !(isDock && isStudioDock) ? (
               <UploadPreviewStack
                 items={uploadPreviews}
                 uploading={uploading}
@@ -1504,9 +1496,9 @@ export function CreationPanel({
               />
             ) : null}
             <div
-              className={`relative flex min-w-0 flex-1 gap-2 ${isDock && embeddedInDock ? "pr-9 sm:pr-10" : ""}`}
+              className={`relative flex min-w-0 flex-1 gap-2 ${isDock && isStudioDock ? "pr-9 sm:pr-10" : ""}`}
             >
-              {isDock && embeddedInDock ? (
+              {isDock && isStudioDock ? (
                 <div
                   className="pointer-events-none mt-2 shrink-0 self-start text-zinc-500"
                   aria-hidden
@@ -1648,12 +1640,12 @@ export function CreationPanel({
             onCancel={focusEdit.onCancel}
           />
         ) : null}
-        {assetIds.length > 0 && !(isDock && embeddedInDock) ? (
+        {assetIds.length > 0 && !(isDock && isStudioDock) ? (
           <p className="mt-1 text-xs text-zinc-500">
             已上传 {assetIds.length} 张附件
           </p>
         ) : null}
-        {routeHint && !(isDock && embeddedInDock) ? (
+        {routeHint && !(isDock && isStudioDock) ? (
           <p className="mt-1 text-xs text-orange-400/80">路由：{routeHint}</p>
         ) : null}
 
@@ -1671,7 +1663,7 @@ export function CreationPanel({
         {skillsEnabled &&
         activeSkillId &&
         !effectiveCollapsed &&
-        !embeddedInDock ? (
+        !isStudioDock ? (
           <SkillRunPanel
             skill={selectedSkill}
             run={skillRun}
@@ -1685,7 +1677,7 @@ export function CreationPanel({
         !activeSkillId &&
         (!isDock || creationLane === "agent") &&
         !effectiveCollapsed &&
-        !embeddedInDock ? (
+        !isStudioDock ? (
           <AgentRunPanel
             prompt={prompt}
             mode={effectiveMode}
@@ -1750,7 +1742,7 @@ export function CreationPanel({
           ) : (
           <div
             className={`flex items-center justify-between gap-2 ${isDock ? "mt-3" : "mt-3"} ${
-              isDock && embeddedInDock
+              isDock && isStudioDock
                 ? "-mx-1 border-t border-white/[0.06] px-1 pt-2.5 sm:-mx-1.5 sm:px-1.5"
                 : ""
             }`}
@@ -1819,7 +1811,7 @@ export function CreationPanel({
               dockSkillOptions={dockSkillOptions}
               dockSkillId={dockSkillId}
               onDockSkillChange={handleDockSkillChange}
-              skillTriggerLabel={embeddedInDock ? "创意设计" : "使用技能"}
+              skillTriggerLabel={isStudioDock ? "创意设计" : "使用技能"}
               onInspirationClick={onInspirationClick}
               inspirationActive={inspirationActive}
               models={models}
@@ -1875,7 +1867,7 @@ export function CreationPanel({
           <Button
             variant="primary"
             className={`size-9 shrink-0 rounded-full p-0 sm:size-10 ${
-              isDock && embeddedInDock
+              isDock && isStudioDock
                 ? "shadow-[0_0_22px_rgba(249,115,22,0.35)] transition-shadow hover:shadow-[0_0_28px_rgba(249,115,22,0.45)]"
                 : ""
             }`}
@@ -1898,7 +1890,7 @@ export function CreationPanel({
   );
 
   if (isDock) {
-    const panel = embeddedInDock ? (
+    const panel = isStudioDock ? (
       <div className="relative w-full overflow-visible rounded-[1.35rem] border border-white/[0.12] bg-gradient-to-b from-white/[0.07] via-zinc-950/72 to-zinc-950/88 shadow-[0_12px_48px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)_inset,0_-24px_48px_rgba(249,115,22,0.07),0_16px_64px_rgba(139,92,246,0.06)] backdrop-blur-2xl backdrop-saturate-150 sm:rounded-[1.5rem]">
         <div
           className="pointer-events-none absolute -left-10 top-0 h-28 w-28 rounded-full bg-orange-500/[0.08] blur-3xl"
