@@ -33,6 +33,11 @@ export function UploadPreviewStack({
     if (!expanded || items.length <= 1) return 6;
     return 42;
   }, [expanded, items.length]);
+  const addButtonOffset = items.length
+    ? expanded
+      ? ((items.length - 1) / 2 + 1) * spread
+      : 48 + (items.length - 1) * spread
+    : 0;
 
   return (
     <div
@@ -50,12 +55,13 @@ export function UploadPreviewStack({
                 ? (i - (items.length - 1) / 2) * spread
                 : i * spread
             }px)`,
-            zIndex: expanded ? i + 10 : i + 1,
+            zIndex: expanded ? i + 20 : i + 10,
           }}
         >
           <button
             type="button"
             onClick={() => onPreview?.(i)}
+            data-testid={`upload-preview-card-${i}`}
             className="group relative block size-14 overflow-hidden rounded-lg border border-white/20 bg-zinc-900 shadow-lg shadow-black/50"
             title="预览图片"
           >
@@ -89,8 +95,13 @@ export function UploadPreviewStack({
           type="button"
           onClick={onAdd}
           disabled={uploading}
-          className="relative z-10 flex size-14 flex-col items-center justify-center gap-0.5 rounded-xl border border-dashed border-white/25 bg-black/40 text-[10px] text-zinc-500 transition hover:border-orange-500/50 hover:text-zinc-300"
-          style={{ transform: "rotate(-15deg)" }}
+          data-testid="upload-preview-add"
+          className="absolute left-1/2 top-1/2 z-[1] flex size-14 flex-col items-center justify-center gap-0.5 rounded-xl border border-dashed border-white/25 bg-black/40 text-[10px] text-zinc-500 transition hover:border-orange-500/50 hover:text-zinc-300"
+          style={{
+            transform:
+              `translate(-50%, -50%) rotate(${expanded ? 0 : -15}deg) ` +
+              `translateX(${addButtonOffset}px)`,
+          }}
           aria-label="上传图片"
           title="上传图片"
         >
