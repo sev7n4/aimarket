@@ -85,17 +85,18 @@ docker login ccr.ccs.tencentyun.com --username=<你的账号ID>
 
 ## 六、合并代码并触发部署
 
-1. 合并含 TCR 双推的 PR（分支 `feature/deploy-tcr-mirror`）到 `main`。
-2. 或手动触发：
+1. **先**在专用 CVM 注册 self-hosted runner（标签 `aimarket-build`），见 [DEPLOY_CI.md](./DEPLOY_CI.md) 与 `deploy/bootstrap-github-runner.sh`。
+2. 合并到 `main` 后自动 Deploy，或手动：
 
 ```bash
 gh workflow run "Deploy to Tencent Cloud (AIMarket)" -f branch=main
 ```
 
 3. 在 Actions 日志中确认：
-   - `Build and push` 含 TCR tag 且无 push 失败
-   - `Deploy on server` 出现 `Pull images from TCR (ccr.ccs.tencentyun.com/aimarket)`
+   - `Build and push (TCR only)` 在 runner `aimarket-build` 上成功
+   - `Deploy on server` 出现 `Pull images from TCR` 且 `Pull elapsed` 通常 &lt;120s
    - `Verify deployment` 通过
+4. 合并节奏见 [DEPLOY_MERGE_POLICY.md](./DEPLOY_MERGE_POLICY.md)。
 
 ## 七、镜像地址对照
 
@@ -103,7 +104,7 @@ gh workflow run "Deploy to Tencent Cloud (AIMarket)" -f branch=main
 |------|------|
 | 生产拉取 | `ccr.ccs.tencentyun.com/aimarket/aimarket-api:<git-sha>` |
 | 生产拉取 | `ccr.ccs.tencentyun.com/aimarket/aimarket-web:<git-sha>` |
-| GHCR 备份 | `ghcr.io/sev7n4/aimarket-api:<git-sha>`（仅 CI 推送，服务器不拉） |
+| GHCR 备份 | 手动运行 `ghcr-backup.yml`，从 TCR 复制到 `ghcr.io/...`（服务器不拉） |
 
 ## 八、常见问题
 
