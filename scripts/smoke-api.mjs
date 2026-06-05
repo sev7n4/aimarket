@@ -178,6 +178,7 @@ async function main() {
   ok("POST /auth/login", login.res.ok);
 
   const sessionId = crypto.randomUUID();
+  let publishCanvasRef = null;
   const ensureCanvas = await req("/api/v1/imageSession/ensure", {
     method: "POST",
     headers: authH,
@@ -425,6 +426,11 @@ async function main() {
         if (outs[0]?.id) {
           firstOutput = outs[0];
           outputId = outs[0].id;
+          publishCanvasRef = {
+            outputId: outs[0].id,
+            coverUrl: outs[0].url,
+            prompt: "冒烟测试生成一只猫",
+          };
           break;
         }
         await new Promise((r) => setTimeout(r, 400));
@@ -917,6 +923,31 @@ async function main() {
       forkProject.res.status === 201 &&
         forkProject.json?.data?.session?.kind === "project",
       `session=${forkProject.json?.data?.session?.id}`,
+    );
+  }
+
+  if (publishCanvasRef) {
+    const coverUrl = publishCanvasRef.coverUrl.startsWith("http")
+      ? publishCanvasRef.coverUrl
+      : `${API}${publishCanvasRef.coverUrl.startsWith("/") ? "" : "/"}${publishCanvasRef.coverUrl}`;
+    const publishInsp = await req("/api/v1/inspiration/publish", {
+      method: "POST",
+      headers: authH,
+      body: JSON.stringify({
+        outputId: publishCanvasRef.outputId,
+        coverUrl,
+        prompt: publishCanvasRef.prompt,
+        modelId: "seedream-5",
+        aspectRatio: "1:1",
+        resolution: "1k",
+      }),
+    });
+    ok(
+      "POST inspiration/publish",
+      publishInsp.res.status === 201 &&
+        publishInsp.json?.data?.promptTemplate === publishCanvasRef.prompt &&
+        publishInsp.json?.data?.status === "published",
+      `id=${publishInsp.json?.data?.id}`,
     );
   }
 

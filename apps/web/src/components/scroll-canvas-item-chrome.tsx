@@ -6,6 +6,7 @@ import {
   Plus,
   RotateCcw,
   Share2,
+  Sparkles,
   Trash2,
   Wand2,
 } from "lucide-react";
@@ -26,6 +27,8 @@ interface ScrollCanvasItemChromeProps {
   onDelete: () => void;
   onDownload?: () => void;
   onShare?: () => void;
+  onPublish?: () => void;
+  publishDisabled?: boolean;
   onRunTool?: (tool: StudioTool, item: CanvasItem) => void;
   onMentionItem?: (item: CanvasItem) => void;
 }
@@ -42,6 +45,8 @@ export function ScrollCanvasItemChrome({
   onDelete,
   onDownload,
   onShare,
+  onPublish,
+  publishDisabled = false,
   onRunTool,
   onMentionItem,
 }: ScrollCanvasItemChromeProps) {
@@ -53,50 +58,62 @@ export function ScrollCanvasItemChrome({
 
   const topActions: OverflowIconAction[] = [
     {
-      id: "preview",
+      id: "canvas-preview",
       icon: Eye,
       title: "预览",
       onClick: onPreview,
     },
     {
-      id: "refine",
+      id: "canvas-refine",
       icon: Wand2,
       title: "精修",
       tone: "orange",
       onClick: onRefine,
     },
     {
-      id: "delete",
+      id: "canvas-delete",
       icon: Trash2,
       title: "删除",
       tone: "red",
       onClick: onDelete,
     },
-    {
-      id: "rerun",
-      icon: RotateCcw,
-      title: "重做",
-      tone: "blue",
-      disabled: !item.generationParams,
-      onClick: onRerun,
-    },
     ...(onDownload
       ? [
           {
-            id: "download",
+            id: "canvas-download",
             icon: Download,
             title: "下载",
             onClick: onDownload,
           } satisfies OverflowIconAction,
         ]
       : []),
+    {
+      id: "canvas-rerun",
+      icon: RotateCcw,
+      title: "重做",
+      tone: "blue",
+      disabled: !item.generationParams,
+      onClick: onRerun,
+    },
     ...(onShare
       ? [
           {
-            id: "share",
+            id: "canvas-share",
             icon: Share2,
             title: "分享",
             onClick: onShare,
+          } satisfies OverflowIconAction,
+        ]
+      : []),
+    ...(onPublish
+      ? [
+          {
+            id: "canvas-publish",
+            icon: Sparkles,
+            title: "发布到灵感发现",
+            tone: "purple",
+            disabled: publishDisabled,
+            onClick: onPublish,
           } satisfies OverflowIconAction,
         ]
       : []),
@@ -117,7 +134,7 @@ export function ScrollCanvasItemChrome({
         className={`pointer-events-none absolute inset-x-0 top-0 z-50 bg-gradient-to-b from-black/80 via-black/35 to-transparent px-1.5 pb-7 pt-1.5 transition-opacity ${show}`}
       >
         <div className="pointer-events-auto">
-          <OverflowIconRow actions={topActions} maxVisible={3} size="sm" />
+          <OverflowIconRow actions={topActions} maxVisible={4} size="sm" />
         </div>
       </div>
       {onMentionItem && (item.outputId || item.assetId) ? (

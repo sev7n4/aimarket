@@ -1,7 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { db } from "../db/index.js";
 import { getModel } from "./models.js";
 import { AppError } from "./errors.js";
+import { toPublicAssetUrl } from "./public-url.js";
 
 export const inspirationVariableSchema = z.object({
   key: z.string().min(1),
@@ -220,6 +222,127 @@ export function mergeVariableValues(
     ...v,
     default: overrides[v.key]?.trim() || v.default,
   }));
+}
+
+function truncateTitle(text: string, max = 60) {
+  const trimmed = text.trim();
+  if (!trimmed) return "创作者灵感";
+  return trimmed.length > max ? `${trimmed.slice(0, max)}…` : trimmed;
+}
+
+function assertUserOwnsCanvasSource(
+  userId: string,
+  source: { outputId?: string; assetId?: string },
+) {
+  if (source.outputId) {
+    const row = db
+      .prepare(
+        `SELECT j.user_id FROM job_outputs o
+         JOIN generation_jobs j ON j.id = o.job_id
+         WHERE o.id = ?`,
+      )
+      .get(source.outputId) as { user_id: string } | undefined;
+    if (!row || row.user_id !== userId) {
+      throw new AppError(403, "FORBIDDEN", "无权发布该图片");
+    }
+    return;
+  }
+  if (source.assetId) {
+    const row = db
+      .prepare("SELECT user_id FROM assets WHERE id = ?")
+      .get(source.assetId) as { user_id: string } | undefined;
+    if (!row || row.user_id !== userId) {
+      throw new AppError(403, "FORBIDDEN", "无权发布该图片");
+    }
+  }
+}
+
+/** 用户从画布发布到灵感发现（prompt 写入模板，供「制作同款」灌入工作台） */
+export function createUserPublishedInspiration(
+  userId: string,
+  input: {
+    coverUrl: string;
+    prompt: string;
+    title?: string;
+    modelId?: string;
+    aspectRatio?: string;
+    resolution?: string;
+    referenceUrls?: string[];
+    outputId?: string;
+    assetId?: string;
+  },
+) {
+  const prompt = input.prompt.trim();
+  if (!prompt) {
+    throw new AppError(400, "VALIDATION_ERROR", "提示词不能为空");
+  }
+
+  if (!input.outputId && !input.assetId) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "请提供 outputId 或 assetId 以校验发布权限",
+    );
+  }
+  assertUserOwnsCanvasSource(userId, {
+    outputId: input.outputId,
+    assetId: input.assetId,
+  });
+
+  const coverUrl = toPublicAssetUrl(input.coverUrl);
+  if (!/^https?:\/\//i.test(coverUrl)) {
+    throw new AppError(400, "VALIDATION_ERROR", "封面图地址无效");
+  }
+
+  const modelId = input.modelId?.trim() || "seedream-5";
+  assertValidModelId(modelId);
+
+  const aspectRatio = input.aspectRatio?.trim() || "auto";
+  const resolution =
+    input.resolution === "2k" || input.resolution === "4k"
+      ? input.resolution
+      : "1k";
+
+  const refs = JSON.stringify(
+    (input.referenceUrls ?? [])
+      .map((url) => ({ url: toPublicAssetUrl(url) }))
+      .filter((item) => /^https?:\/\//i.test(item.url)),
+  );
+
+  const id = randomUUID();
+  const maxLegacy = db
+    .prepare("SELECT COALESCE(MAX(legacy_id), 0) as m FROM inspiration_templates")
+    .get() as { m: number };
+  const legacyId = maxLegacy.m + 1;
+  const title = truncateTitle(input.title ?? prompt);
+  const sortOrder = -legacyId;
+
+  db.prepare(
+    `INSERT INTO inspiration_templates (
+      id, legacy_id, title, category, prompt_template, variables_json,
+      model_id, aspect_ratio, resolution, cover_url, reference_assets_json,
+      status, sort_order
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    legacyId,
+    title,
+    "创意",
+    prompt,
+    null,
+    modelId,
+    aspectRatio,
+    resolution,
+    coverUrl,
+    refs === "[]" ? JSON.stringify([{ url: coverUrl }]) : refs,
+    "published",
+    sortOrder,
+  );
+
+  const row = db
+    .prepare("SELECT * FROM inspiration_templates WHERE id = ?")
+    .get(id);
+  return rowToCanonical(row as unknown as InspirationRow);
 }
 
 export function renderInspirationWithVariables(

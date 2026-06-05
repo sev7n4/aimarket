@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import {
+  createUserPublishedInspiration,
   getPublishedInspirationById,
   getPublishedInspirationByLegacyId,
   listPublishedInspirations,
@@ -108,6 +109,29 @@ keyword.get("/detail/:id", (c) => {
 });
 
 export const inspirationAuthed = new Hono<{ Variables: AuthVariables }>();
+
+const publishBody = z.object({
+  coverUrl: z.string().min(1),
+  prompt: z.string().min(1).max(8000),
+  title: z.string().min(1).max(120).optional(),
+  modelId: z.string().min(1).optional(),
+  aspectRatio: z.string().min(1).max(16).optional(),
+  resolution: z.enum(["1k", "2k", "4k"]).optional(),
+  referenceUrls: z.array(z.string().min(1)).max(12).optional(),
+  outputId: z.string().min(1).optional(),
+  assetId: z.string().min(1).optional(),
+});
+
+inspirationAuthed.post("/publish", async (c) => {
+  const userId = c.get("userId");
+  const body = publishBody.parse(await c.req.json());
+  const data = createUserPublishedInspiration(userId, body);
+  void recordAnalyticsEvent(userId, "inspiration.publish", {
+    inspirationId: data.id,
+    modelId: data.modelId,
+  });
+  return c.json({ data }, 201);
+});
 
 inspirationAuthed.post("/:id/fork-project", async (c) => {
   const userId = c.get("userId");
