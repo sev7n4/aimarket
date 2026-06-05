@@ -947,7 +947,9 @@ async function main() {
       publishInsp.res.status === 201 &&
         publishInsp.json?.data?.promptTemplate === publishCanvasRef.prompt &&
         publishInsp.json?.data?.status === "published",
-      `id=${publishInsp.json?.data?.id}`,
+      publishInsp.res.ok
+        ? `id=${publishInsp.json?.data?.id}`
+        : (publishInsp.json?.error?.message ?? `status=${publishInsp.res.status}`),
     );
   }
 

@@ -235,17 +235,26 @@ function assertUserOwnsCanvasSource(
   source: { outputId?: string; assetId?: string },
 ) {
   if (source.outputId) {
-    const row = db
+    const fromJob = db
       .prepare(
         `SELECT j.user_id FROM job_outputs o
          JOIN generation_jobs j ON j.id = o.job_id
          WHERE o.id = ?`,
       )
       .get(source.outputId) as { user_id: string } | undefined;
-    if (!row || row.user_id !== userId) {
-      throw new AppError(403, "FORBIDDEN", "无权发布该图片");
-    }
-    return;
+    if (fromJob?.user_id === userId) return;
+
+    const fromMessage = db
+      .prepare(
+        `SELECT s.user_id FROM message_outputs mo
+         JOIN messages m ON m.id = mo.message_id
+         JOIN image_sessions s ON s.id = m.session_id
+         WHERE mo.id = ?`,
+      )
+      .get(source.outputId) as { user_id: string } | undefined;
+    if (fromMessage?.user_id === userId) return;
+
+    throw new AppError(403, "FORBIDDEN", "无权发布该图片");
   }
   if (source.assetId) {
     const row = db
