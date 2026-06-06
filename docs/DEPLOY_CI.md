@@ -14,7 +14,7 @@
 | **Environment** | `production` | `production` ✅ 可共用 Secrets |
 | **SSH Secrets** | `TENCENT_CLOUD_*` | 优先读 `TENCENT_CLOUD_*`，兼容 `DEPLOY_*` |
 | **部署目录** | `TENCENT_CLOUD_PROJECT_DIR` → `/opt/pintuotuo` | 固定 `/opt/aimarket`（勿混用） |
-| **镜像交付** | 推 GHCR，`sha` tag，服务器 `pull` | 自建 runner **仅推 TCR**；服务器 **仅拉 TCR**；GHCR 手动镜像 ✅ |
+| **镜像交付** | 推 GHCR，`sha` tag，服务器 `pull` | **同地域 self-hosted runner 推 TCR**；服务器 **仅拉 TCR**；GHCR 手动镜像 ✅ |
 | **部署后验证** | `/api/v1/health` + catalog | `/health` + Web 200 |
 | **通知** | Summary + 邮件（SMTP） | 同（邮件可选） |
 
@@ -72,7 +72,7 @@ on:
 | `TCR_REGISTRY` | `ccr.ccs.tencentyun.com` | 个人版 TCR；企业版填 `*.tencentcloudcr.com` |
 | `TCR_NAMESPACE` | `aimarket` | TCR 命名空间，须与控制台一致 |
 
-**自建 runner（可选）**：默认 Deploy 在 `ubuntu-latest` 构建并推 TCR；若有同地域专用 CVM，可注册标签 `aimarket-build` 以缩短跨境 push（见下文「构建机」）。
+**自建 runner（必填）**：Deploy 在标签 `aimarket-build` 的 self-hosted runner 上构建并推 TCR（同地域，避免跨境 push 30–90 分钟）。一次性安装见下文「构建机」。
 
 可选 **Repository variable**（仿 pintuotuo `DEPLOY_VERIFY_*`）：
 
@@ -89,11 +89,11 @@ on:
 - 生产拉取：`ccr.ccs.tencentyun.com/aimarket/aimarket-api:<sha>`
 - GHCR 备份：`ghcr.io/sev7n4/aimarket-api:<sha>`（**手动** workflow `ghcr-backup.yml`，从 TCR 复制 manifest）
 
-## 构建机（可选 self-hosted `aimarket-build`）
+## 构建机（self-hosted `aimarket-build`）
 
-当前 **默认** `deploy.yml` 的 `build-push` 为 `runs-on: ubuntu-latest`（无需额外机器）。跨境推 TCR 可能较慢（API 镜像曾达 60+ 分钟）。
+`deploy.yml` 的 `build-push` 与 `deploy` 均在 `runs-on: [self-hosted, aimarket-build]` 执行。Workflow 会先跑 **Check build runner**，无在线 runner 时立即失败（避免任务无限排队）。
 
-若后续有与 TCR 同地域的专用 CVM（建议 4C8G+、50GB+ 盘，与生产机分离），可注册 runner 并自行将 workflow 改为 `runs-on: [self-hosted, aimarket-build]`：
+在**与 TCR 同地域**的 CVM 上一次性安装（建议 4C8G+、50GB+ 盘，与生产机分离）：
 
 ```bash
 # GitHub → Settings → Actions → Runners → New self-hosted runner → 复制 token
@@ -103,7 +103,18 @@ export RUNNER_NAME="aimarket-build-1"
 sudo -E bash deploy/bootstrap-github-runner.sh
 ```
 
-脚本：`deploy/bootstrap-github-runner.sh`。
+若只能与生产同机（`/opt/aimarket` 已存在），须显式确认：
+
+```bash
+export ALLOW_SAME_HOST_AS_PRODUCTION=1
+sudo -E bash deploy/bootstrap-github-runner.sh
+```
+
+脚本：`deploy/bootstrap-github-runner.sh`（含 buildx、磁盘 cron）。手动清理：`sudo bash deploy/prune-build-runner.sh`。
+
+**构建缓存**：Docker layer cache 存于 TCR `*:buildcache` tag（同地域读写），辅以 GHA cache 作冷启动回退。
+
+**预期耗时**：单次 Deploy 约 **5–15 分钟**（构建 2–5 分钟 + TCR push 1–3 分钟 + 服务器 pull/验证 ~1 分钟）。旧方案（`ubuntu-latest` 跨境推 TCR）曾达 30–90 分钟。
 
 ## main 合并节奏
 
@@ -182,7 +193,7 @@ Agent/开发者 PR 全流程见 **[PR_WORKFLOW.md](./PR_WORKFLOW.md)**（`mydev-
 | `CI` | PR + push main | typecheck、build、Docker 构建校验 |
 | `Integration Tests` | PR + manual | `smoke-api`、工作区脚本、`verify-moderation-p2` |
 | `E2E Tests` | PR + cron + manual | Playwright 冒烟（`apps/web/e2e/smoke.spec.ts`） |
-| `Deploy` | push main（非仅 docs）+ manual | 自建 runner 仅推 TCR、scp、服务器 **TCR pull**、验证 |
+| `Deploy` | push main（非仅 docs）+ manual | self-hosted `aimarket-build` 构建推 TCR、scp、服务器 **TCR pull**、验证 |
 | `Mirror TCR → GHCR` | manual | `ghcr-backup.yml`，按 `image_tag` 备份 |
 
 本地：
