@@ -127,6 +127,7 @@ interface DesignCanvasProps {
   };
   onDownloadItem?: (item: CanvasItem) => void;
   onShareItem?: (item: CanvasItem) => void;
+  onPublishItem?: (item: CanvasItem) => void;
 }
 
 export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
@@ -173,6 +174,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       batchTools,
       onDownloadItem,
       onShareItem,
+      onPublishItem,
     },
     ref,
   ) {
@@ -857,6 +859,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 ((item) => window.open(assetUrl(item.url), "_blank"))
               }
               onShareItem={onShareItem}
+              onPublishItem={onPublishItem}
             />
           )}
 

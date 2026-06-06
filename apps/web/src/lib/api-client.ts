@@ -1010,6 +1010,27 @@ export async function renderInspiration(
   return res.data;
 }
 
+export async function publishCanvasToInspiration(body: {
+  coverUrl: string;
+  prompt: string;
+  title?: string;
+  modelId?: string;
+  aspectRatio?: string;
+  resolution?: string;
+  referenceUrls?: string[];
+  outputId?: string;
+  assetId?: string;
+}) {
+  const res = await request<{ data: InspirationDetail }>(
+    "/api/v1/inspiration/publish",
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+  return res.data;
+}
+
 export async function forkInspirationProject(
   id: string,
   body?: {
