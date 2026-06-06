@@ -86,7 +86,8 @@ jobs:
       - name: Setup buildx and login to TCR
         run: |
           set -euo pipefail
-          docker buildx create --name aimarket --use 2>/dev/null || docker buildx use aimarket
+          docker buildx rm aimarket 2>/dev/null || true
+          docker buildx create --name aimarket --driver docker --use
           echo "${{ secrets.TCR_PASSWORD }}" | docker login "${{ env.TCR_REGISTRY }}" \
             -u "${{ secrets.TCR_USERNAME }}" --password-stdin
 
