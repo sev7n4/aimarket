@@ -19,7 +19,6 @@ on:
 
 permissions:
   contents: read
-  actions: read
 
 concurrency:
   group: aimarket-deploy-production
@@ -33,22 +32,16 @@ env:
 jobs:
   preflight:
     name: Check build runner
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, aimarket-build]
+    timeout-minutes: 5
     steps:
-      - name: Ensure aimarket-build runner is online
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Verify runner and Docker
         run: |
           set -euo pipefail
-          online=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runners" \
-            --jq '[.runners[] | select(.status == "online" and ([.labels[].name] | index("aimarket-build")))] | length')
-          if [[ "$online" -lt 1 ]]; then
-            echo "::error::No online self-hosted runner with label aimarket-build."
-            echo "Install on a same-region CVM: sudo -E bash deploy/bootstrap-github-runner.sh"
-            echo "See docs/DEPLOY_CI.md#构建机"
-            exit 1
-          fi
-          echo "Build runner(s) online: $online"
+          echo "Runner: ${{ runner.name }} (${{ runner.os }})"
+          docker version
+          docker buildx version
+          df -h / /var/lib/docker 2>/dev/null || df -h /
 
   build-push:
     name: Build ${{ matrix.image }}
