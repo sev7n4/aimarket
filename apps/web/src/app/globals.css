@@ -24,11 +24,6 @@ body {
   }
 }
 
-/** 首页移动端底部固定创作 dock 高度（CreationPanel + QuickBar + safe-area） */
-:root {
-  --home-mobile-dock-h: calc(14rem + env(safe-area-inset-bottom, 0px));
-}
-
 ::selection {
   background: rgba(168, 85, 247, 0.35);
 }

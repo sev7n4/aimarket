@@ -1011,8 +1011,8 @@ export async function renderInspiration(
 }
 
 export async function publishCanvasToInspiration(body: {
-  coverUrl: string;
-  prompt: string;
+  coverUrl?: string;
+  prompt?: string;
   title?: string;
   modelId?: string;
   aspectRatio?: string;

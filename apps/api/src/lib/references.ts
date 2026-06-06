@@ -61,3 +61,43 @@ export function buildReferenceAwarePrompt(
   if (!referenceUrls.length) return prompt;
   return `${I2I_INSTRUCTION}\n\n${enrichPromptWithReferences(prompt, referenceUrls)}`;
 }
+
+const PUBLISH_PROMPT_CUT_MARKERS = [
+  "\n\n[引用图",
+  "\n[引用图",
+  "\n【局部编辑区域】",
+  "\n【焦点位置】",
+  "\n【画面】",
+] as const;
+
+/** 从入库 prompt 还原用户可复用的创作提示词（去掉引用 URL、工具/蒙版等系统拼接） */
+export function extractPublishablePrompt(stored: string): {
+  prompt: string;
+  referenceUrls: string[];
+} {
+  let text = stored.trim();
+  const referenceUrls: string[] = [];
+  if (!text) return { prompt: "", referenceUrls };
+
+  const refLineRe = /\[引用图\d+:\s*([^\]]+)\]/g;
+  for (const match of text.matchAll(refLineRe)) {
+    const url = match[1]?.trim();
+    if (url) referenceUrls.push(url);
+  }
+
+  text = text.replace(/^【图生图约束】[^\n]*\n\n?/, "");
+  text = text.replace(/^【[^】]{1,24}】/, "");
+
+  for (const marker of PUBLISH_PROMPT_CUT_MARKERS) {
+    const idx = text.indexOf(marker);
+    if (idx > 0) text = text.slice(0, idx);
+  }
+
+  text = text.replace(/\n\[引用图\d+:[^\]]+\]/g, "");
+  text = text.replace(/（\d+x 放大）\s*$/, "");
+
+  return {
+    prompt: text.trim(),
+    referenceUrls: [...new Set(referenceUrls)],
+  };
+}

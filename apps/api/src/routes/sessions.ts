@@ -4,7 +4,10 @@ import { z } from "zod";
 import { db } from "../db/index.js";
 import type { AuthVariables } from "../middleware/auth.js";
 import { AppError } from "../lib/errors.js";
-import { listSessionReferences } from "../lib/references.js";
+import {
+  extractPublishablePrompt,
+  listSessionReferences,
+} from "../lib/references.js";
 import {
   canvasLayoutSchema,
   parseCanvasLayout,
@@ -157,7 +160,7 @@ function loadSessionMessages(sessionId: string) {
       })),
       generation_params: m.job_id
         ? {
-            prompt: m.prompt ?? "",
+            prompt: extractPublishablePrompt(m.prompt ?? "").prompt,
             modelId: m.model_id ?? undefined,
             resolution: m.resolution ?? undefined,
             aspectRatio: m.aspect_ratio ?? undefined,

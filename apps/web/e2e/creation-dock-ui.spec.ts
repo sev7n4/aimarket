@@ -32,24 +32,30 @@ async function mockSignedInStudio(page: Page) {
 }
 
 test.describe("creation dock UI", () => {
-  test("首页创作台默认单行且包含 Agent 模式", async ({ page }) => {
+  test("首页创作台默认展开，滚出视口后底部单行常驻", async ({ page }) => {
     await page.addInitScript(() => localStorage.removeItem("aimarket.creationDock.lane"));
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
     const homeDock = page.locator("#home-creation");
     const textarea = homeDock.locator("textarea").first();
     await expect(textarea).toBeVisible();
-    await expect(textarea).toHaveAttribute("rows", "1");
+    await expect(textarea).toHaveAttribute("rows", "2");
     const homeLanePicker = homeDock.getByRole("button", { name: "选择创作方式" });
     await expect(homeLanePicker).toContainText("图片生成");
 
-    const collapsedHeight = await textarea.boundingBox().then((box) => box?.height ?? 0);
-    await textarea.click();
-    await expect
-      .poll(async () => (await textarea.boundingBox())?.height ?? 0)
-      .toBeGreaterThan(collapsedHeight + 12);
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    const floatingDock = page.locator('[data-home-floating-dock="true"]');
+    await expect(floatingDock).toBeVisible();
+    const floatingTextarea = floatingDock.locator("textarea").first();
+    await expect(floatingTextarea).toHaveAttribute("rows", "1");
 
-    await expect(homeLanePicker).toContainText("图片生成");
+    const compactHeight = await floatingTextarea
+      .boundingBox()
+      .then((box) => box?.height ?? 0);
+    await floatingTextarea.click();
+    await expect
+      .poll(async () => (await floatingTextarea.boundingBox())?.height ?? 0)
+      .toBeGreaterThan(compactHeight + 12);
   });
 
   test("Studio 创作台与首页保持同款单行/Agent 布局", async ({ page }) => {

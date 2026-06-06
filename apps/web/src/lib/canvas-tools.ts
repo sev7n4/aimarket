@@ -482,7 +482,7 @@ export function mergeCanvasItems(
       batchSubtitle: item.batchSubtitle ?? match.batchSubtitle,
       parentBatchId: match.parentBatchId ?? item.parentBatchId,
       sourceItemId: match.sourceItemId ?? item.sourceItemId,
-      generationParams: item.generationParams ?? match.generationParams,
+      generationParams: match.generationParams ?? item.generationParams,
       ...(missingBatch
         ? { x: match.x, y: match.y, width: match.width, height: match.height }
         : {}),

@@ -1492,27 +1492,13 @@ export function StudioWorkspace({
                 }
               }}
               onPublishItem={async (item) => {
-                const params = item.generationParams;
-                const prompt =
-                  params?.prompt?.trim() || item.batchTitle?.trim() || "";
-                if (!prompt) {
-                  setSelectSourceBanner("缺少提示词，无法发布到灵感发现");
+                if (!item.outputId) {
+                  setSelectSourceBanner("仅支持发布已生成的图片");
                   return;
                 }
                 try {
                   await publishCanvasToInspiration({
                     outputId: item.outputId,
-                    assetId: item.assetId,
-                    coverUrl: assetUrl(item.url),
-                    prompt,
-                    title: prompt.slice(0, 60),
-                    modelId: params?.modelId,
-                    aspectRatio: params?.aspectRatio,
-                    resolution: params?.resolution as
-                      | "1k"
-                      | "2k"
-                      | "4k"
-                      | undefined,
                   });
                   setSelectSourceBanner(
                     "已发布到灵感发现 · 他人可制作同款并注入提示词",
