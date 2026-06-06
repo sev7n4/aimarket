@@ -110,17 +110,38 @@ keyword.get("/detail/:id", (c) => {
 
 export const inspirationAuthed = new Hono<{ Variables: AuthVariables }>();
 
-const publishBody = z.object({
-  coverUrl: z.string().min(1),
-  prompt: z.string().min(1).max(8000),
-  title: z.string().min(1).max(120).optional(),
-  modelId: z.string().min(1).optional(),
-  aspectRatio: z.string().min(1).max(16).optional(),
-  resolution: z.enum(["1k", "2k", "4k"]).optional(),
-  referenceUrls: z.array(z.string().min(1)).max(12).optional(),
-  outputId: z.string().min(1).optional(),
-  assetId: z.string().min(1).optional(),
-});
+const publishBody = z
+  .object({
+    coverUrl: z.string().min(1).optional(),
+    prompt: z.string().min(1).max(8000).optional(),
+    title: z.string().min(1).max(120).optional(),
+    modelId: z.string().min(1).optional(),
+    aspectRatio: z.string().min(1).max(16).optional(),
+    resolution: z.enum(["1k", "2k", "4k"]).optional(),
+    referenceUrls: z.array(z.string().min(1)).max(12).optional(),
+    outputId: z.string().min(1).optional(),
+    assetId: z.string().min(1).optional(),
+  })
+  .superRefine((body, ctx) => {
+    if (!body.outputId && !body.assetId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "请提供 outputId 或 assetId",
+      });
+    }
+    if (!body.outputId && !body.prompt?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "缺少 outputId 时必须提供 prompt",
+      });
+    }
+    if (!body.outputId && !body.coverUrl?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "缺少 outputId 时必须提供 coverUrl",
+      });
+    }
+  });
 
 inspirationAuthed.post("/publish", async (c) => {
   const userId = c.get("userId");

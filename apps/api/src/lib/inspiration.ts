@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "../db/index.js";
 import { getModel } from "./models.js";
 import { AppError } from "./errors.js";
+import { extractPublishablePrompt } from "./references.js";
 import { toPublicAssetUrl } from "./public-url.js";
 
 export const inspirationVariableSchema = z.object({
@@ -266,12 +267,128 @@ function assertUserOwnsCanvasSource(
   }
 }
 
+type PublishJobContext = {
+  referenceUrls?: string[];
+};
+
+function parseJobToolContext(raw: string | null): PublishJobContext | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as PublishJobContext & {
+      referenceUrls?: unknown;
+    };
+    const urls = Array.isArray(parsed.referenceUrls)
+      ? parsed.referenceUrls.filter(
+          (url): url is string => typeof url === "string" && url.length > 0,
+        )
+      : [];
+    return urls.length ? { referenceUrls: urls } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 从画布 outputId 解析真实生成参数（不信任前端 batchTitle / 拼接 prompt） */
+export function resolveCanvasOutputPublishMeta(
+  userId: string,
+  outputId: string,
+) {
+  const fromMessage = db
+    .prepare(
+      `SELECT mo.url, j.prompt AS job_prompt, j.model_id, j.resolution,
+              j.aspect_ratio, j.tool_context, u.content AS user_prompt
+       FROM message_outputs mo
+       JOIN messages a ON a.id = mo.message_id
+       JOIN generation_jobs j ON j.id = a.job_id
+       JOIN image_sessions s ON s.id = a.session_id
+       LEFT JOIN messages u ON u.job_id = j.id AND u.role = 'user'
+       WHERE mo.id = ? AND s.user_id = ?`,
+    )
+    .get(outputId, userId) as
+    | {
+        url: string;
+        job_prompt: string | null;
+        model_id: string | null;
+        resolution: string | null;
+        aspect_ratio: string | null;
+        tool_context: string | null;
+        user_prompt: string | null;
+      }
+    | undefined;
+
+  if (fromMessage) {
+    const stored = fromMessage.user_prompt ?? fromMessage.job_prompt ?? "";
+    const extracted = extractPublishablePrompt(stored);
+    const toolRefs =
+      parseJobToolContext(fromMessage.tool_context)?.referenceUrls ?? [];
+    const referenceUrls = [
+      ...new Set([...extracted.referenceUrls, ...toolRefs]),
+    ].map(toPublicAssetUrl);
+
+    return {
+      prompt: extracted.prompt,
+      modelId: fromMessage.model_id ?? "seedream-5",
+      aspectRatio: fromMessage.aspect_ratio ?? "auto",
+      resolution:
+        fromMessage.resolution === "2k" || fromMessage.resolution === "4k"
+          ? fromMessage.resolution
+          : ("1k" as const),
+      coverUrl: toPublicAssetUrl(fromMessage.url),
+      referenceUrls,
+    };
+  }
+
+  const fromJobOutput = db
+    .prepare(
+      `SELECT o.url, j.prompt AS job_prompt, j.model_id, j.resolution,
+              j.aspect_ratio, j.tool_context, u.content AS user_prompt
+       FROM job_outputs o
+       JOIN generation_jobs j ON j.id = o.job_id
+       LEFT JOIN messages u ON u.job_id = j.id AND u.role = 'user'
+       WHERE o.id = ? AND j.user_id = ?`,
+    )
+    .get(outputId, userId) as
+    | {
+        url: string;
+        job_prompt: string | null;
+        model_id: string | null;
+        resolution: string | null;
+        aspect_ratio: string | null;
+        tool_context: string | null;
+        user_prompt: string | null;
+      }
+    | undefined;
+
+  if (!fromJobOutput) {
+    throw new AppError(404, "NOT_FOUND", "找不到该图片的生成记录");
+  }
+
+  const stored = fromJobOutput.user_prompt ?? fromJobOutput.job_prompt ?? "";
+  const extracted = extractPublishablePrompt(stored);
+  const toolRefs =
+    parseJobToolContext(fromJobOutput.tool_context)?.referenceUrls ?? [];
+
+  return {
+    prompt: extracted.prompt,
+    modelId: fromJobOutput.model_id ?? "seedream-5",
+    aspectRatio: fromJobOutput.aspect_ratio ?? "auto",
+    resolution:
+      fromJobOutput.resolution === "2k" || fromJobOutput.resolution === "4k"
+        ? fromJobOutput.resolution
+        : ("1k" as const),
+    coverUrl: toPublicAssetUrl(fromJobOutput.url),
+    referenceUrls: [
+      ...new Set([...extracted.referenceUrls, ...toolRefs]),
+    ].map(toPublicAssetUrl),
+  };
+}
+
 /** 用户从画布发布到灵感发现（prompt 写入模板，供「制作同款」灌入工作台） */
 export function createUserPublishedInspiration(
   userId: string,
   input: {
-    coverUrl: string;
-    prompt: string;
+    coverUrl?: string;
+    prompt?: string;
     title?: string;
     modelId?: string;
     aspectRatio?: string;
@@ -281,11 +398,6 @@ export function createUserPublishedInspiration(
     assetId?: string;
   },
 ) {
-  const prompt = input.prompt.trim();
-  if (!prompt) {
-    throw new AppError(400, "VALIDATION_ERROR", "提示词不能为空");
-  }
-
   if (!input.outputId && !input.assetId) {
     throw new AppError(
       400,
@@ -298,22 +410,45 @@ export function createUserPublishedInspiration(
     assetId: input.assetId,
   });
 
-  const coverUrl = toPublicAssetUrl(input.coverUrl);
+  const resolved = input.outputId
+    ? resolveCanvasOutputPublishMeta(userId, input.outputId)
+    : null;
+
+  const prompt = (
+    resolved?.prompt ||
+    input.prompt?.trim() ||
+    ""
+  ).trim();
+  if (!prompt) {
+    throw new AppError(400, "VALIDATION_ERROR", "提示词不能为空");
+  }
+
+  const coverUrl = toPublicAssetUrl(
+    input.coverUrl?.trim() || resolved?.coverUrl || "",
+  );
   if (!/^https?:\/\//i.test(coverUrl)) {
     throw new AppError(400, "VALIDATION_ERROR", "封面图地址无效");
   }
 
-  const modelId = input.modelId?.trim() || "seedream-5";
+  const modelId = resolved?.modelId || input.modelId?.trim() || "seedream-5";
   assertValidModelId(modelId);
 
-  const aspectRatio = input.aspectRatio?.trim() || "auto";
+  const aspectRatio =
+    resolved?.aspectRatio || input.aspectRatio?.trim() || "auto";
   const resolution =
-    input.resolution === "2k" || input.resolution === "4k"
+    resolved?.resolution ||
+    (input.resolution === "2k" || input.resolution === "4k"
       ? input.resolution
-      : "1k";
+      : "1k");
 
+  const mergedRefs = [
+    ...new Set([
+      ...(resolved?.referenceUrls ?? []),
+      ...(input.referenceUrls ?? []),
+    ]),
+  ];
   const refs = JSON.stringify(
-    (input.referenceUrls ?? [])
+    mergedRefs
       .map((url) => ({ url: toPublicAssetUrl(url) }))
       .filter((item) => /^https?:\/\//i.test(item.url)),
   );

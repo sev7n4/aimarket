@@ -174,6 +174,10 @@ interface CreationPanelProps {
    * 隐藏模型/数量/分辨率/Agent 计划预览等高级控件，把 dock 高度收缩到 ~56px。
    */
   collapsed?: boolean;
+  /** 首页原位：默认展开创作台（多行 + 工具栏） */
+  initialDockExpanded?: boolean;
+  /** 首页滚出视口后：强制单行收缩（点击/聚焦可再展开） */
+  dockLineOnly?: boolean;
   /** Studio Dock 三态（studio-dock variant，专注画布按钮） */
   onDockModeChange?: (mode: StudioDockMode) => void;
   /**
@@ -253,6 +257,8 @@ export function CreationPanel({
   inspirationCoverUrl,
   inspirationActive = false,
   collapsed = false,
+  initialDockExpanded = false,
+  dockLineOnly = false,
   onDockModeChange,
   canvasItems = [],
   mentionItemRequest = null,
@@ -327,7 +333,9 @@ export function CreationPanel({
     [],
   );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [dockExpanded, setDockExpanded] = useState(false);
+  const [dockExpanded, setDockExpanded] = useState(
+    () => initialDockExpanded && !dockLineOnly,
+  );
   const [dockFocused, setDockFocused] = useState(false);
   const [navigating, setNavigating] = useState(false);
   const [uploadPreviews, setUploadPreviews] = useState<UploadPreviewItem[]>([]);
@@ -629,7 +637,18 @@ export function CreationPanel({
     mentionedAssetIds.length > 0 ||
     mentionedMasks.length > 0 ||
     Boolean(focusEdit);
-  const dockCompactLine = isDock && !dockShouldExpand;
+  const dockCompactLine =
+    isDock &&
+    (dockLineOnly
+      ? !dockFocused &&
+        !dockExpanded &&
+        !promptNeedsExpandedDock &&
+        uploadPreviews.length === 0 &&
+        selectedRefs.length === 0 &&
+        mentionedAssetIds.length === 0 &&
+        mentionedMasks.length === 0 &&
+        !focusEdit
+      : !dockShouldExpand);
   const dockIconBtn =
     "flex shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-white/5 hover:text-zinc-200";
   const dockIconBtnClass = isDock
@@ -670,6 +689,16 @@ export function CreationPanel({
         })),
     );
   }, [restoredAssets, sessionId]);
+
+  useEffect(() => {
+    if (!isDock) return;
+    if (dockLineOnly) {
+      setDockExpanded(false);
+      setDockFocused(false);
+    } else if (initialDockExpanded) {
+      setDockExpanded(true);
+    }
+  }, [dockLineOnly, initialDockExpanded, isDock]);
 
   useEffect(() => {
     if (!isDock) return;

@@ -529,12 +529,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                                       ? () => onPublishItem(item)
                                       : undefined
                                   }
-                                  publishDisabled={
-                                    !(
-                                      item.generationParams?.prompt?.trim() ||
-                                      item.batchTitle?.trim()
-                                    )
-                                  }
+                                  publishDisabled={!item.outputId}
                                   onRunTool={batchTools?.onRunTool}
                                   onMentionItem={batchTools?.onMentionItem}
                                 />

@@ -935,11 +935,6 @@ async function main() {
       headers: authH,
       body: JSON.stringify({
         outputId: publishCanvasRef.outputId,
-        coverUrl,
-        prompt: publishCanvasRef.prompt,
-        modelId: "seedream-5",
-        aspectRatio: "1:1",
-        resolution: "1k",
       }),
     });
     ok(

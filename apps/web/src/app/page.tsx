@@ -6,11 +6,11 @@ import { HomePageTracker } from "@/components/home-page-tracker";
 
 export default function HomePage() {
   return (
-    <div className="min-h-dvh max-lg:pb-[var(--home-mobile-dock-h)]">
+    <div className="min-h-dvh">
       <HomePageTracker />
       <PromoBanner />
       <SiteHeader />
-      <main className="relative">
+      <main className="relative pb-28 sm:pb-32">
         <HomeMain />
       </main>
       <SiteFooter />
