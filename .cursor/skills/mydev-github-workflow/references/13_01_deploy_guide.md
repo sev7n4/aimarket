@@ -27,7 +27,7 @@ Workflow 内 **Verify deployment** 通过：
 - `TENCENT_CLOUD_IP` / `TENCENT_CLOUD_USER` / `TENCENT_CLOUD_SSH_KEY`
 - `TCR_USERNAME` / `TCR_PASSWORD`（服务器从 TCR 拉镜像，必填）
 - Variables（可选）：`TCR_REGISTRY`（默认 `ccr.ccs.tencentyun.com`）、`TCR_NAMESPACE`（默认 `aimarket`）
-- **Self-hosted runner**（可选，`aimarket-build`，`deploy/bootstrap-github-runner.sh`；默认 `ubuntu-latest`）
+- **Self-hosted runner**（必填，`aimarket-build`，`deploy/bootstrap-github-runner.sh`；无 runner 时 preflight 立即失败）
 - 勿使用 `TENCENT_CLOUD_PROJECT_DIR`（拼兔兔专用）
 
 ## 合并节奏

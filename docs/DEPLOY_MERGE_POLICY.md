@@ -28,4 +28,4 @@ Deploy workflow（`.github/workflows/deploy.yml`）在每次 **push main**（非
 
 ## 构建耗时
 
-默认在 GitHub 托管 runner 推 TCR，单次 Deploy 可能 30–90 分钟（以 API 镜像 push 为主）。合并间隔见上文，避免连续 merge 浪费已进行的 push。
+在 **同地域 self-hosted runner**（`aimarket-build`）推 TCR，单次 Deploy 通常 **5–15 分钟**。合并前须确保 runner 已安装（见 [DEPLOY_CI.md](./DEPLOY_CI.md#构建机self-hosted-aimarket-build)）。合并间隔见上文，避免连续 merge 浪费已进行的 push。

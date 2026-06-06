@@ -1,5 +1,5 @@
-# GHA 在 GitHub 托管 runner 构建并仅推 TCR；生产 CVM 只从 TCR pull。
-# 可选：同地域 self-hosted runner（aimarket-build）见 docs/DEPLOY_CI.md。
+# 同地域 self-hosted runner（aimarket-build）构建并推 TCR；生产 CVM 只从 TCR pull。
+# 一次性安装：deploy/bootstrap-github-runner.sh（见 docs/DEPLOY_CI.md）。
 # GHCR 备份见 workflow_dispatch：Mirror TCR images to GHCR。
 # 合并节奏见 docs/DEPLOY_MERGE_POLICY.md（保留 cancel-in-progress，避免连续 merge 浪费 push）。
 name: Deploy to Tencent Cloud (AIMarket)
@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: aimarket-deploy-production
@@ -30,9 +31,30 @@ env:
   TCR_NAMESPACE: ${{ vars.TCR_NAMESPACE || 'aimarket' }}
 
 jobs:
+  preflight:
+    name: Check build runner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure aimarket-build runner is online
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          online=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runners" \
+            --jq '[.runners[] | select(.status == "online" and ([.labels[].name] | index("aimarket-build")))] | length')
+          if [[ "$online" -lt 1 ]]; then
+            echo "::error::No online self-hosted runner with label aimarket-build."
+            echo "Install on a same-region CVM: sudo -E bash deploy/bootstrap-github-runner.sh"
+            echo "See docs/DEPLOY_CI.md#构建机"
+            exit 1
+          fi
+          echo "Build runner(s) online: $online"
+
   build-push:
     name: Build ${{ matrix.image }}
-    runs-on: ubuntu-latest
+    needs: preflight
+    runs-on: [self-hosted, aimarket-build]
+    timeout-minutes: 25
     environment: production
     env:
       PUBLIC_API_URL: http://${{ secrets.TENCENT_CLOUD_IP || secrets.DEPLOY_HOST }}:4100
@@ -89,8 +111,10 @@ jobs:
           tags: |
             ${{ env.TCR_REGISTRY }}/${{ env.TCR_NAMESPACE }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}
             ${{ env.TCR_REGISTRY }}/${{ env.TCR_NAMESPACE }}/${{ matrix.image }}:latest
-          cache-from: type=gha,scope=aimarket-${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=aimarket-${{ matrix.image }},ignore-error=true
+          cache-from: |
+            type=registry,ref=${{ env.TCR_REGISTRY }}/${{ env.TCR_NAMESPACE }}/${{ matrix.image }}:buildcache
+            type=gha,scope=aimarket-${{ matrix.image }}
+          cache-to: type=registry,ref=${{ env.TCR_REGISTRY }}/${{ env.TCR_NAMESPACE }}/${{ matrix.image }}:buildcache,mode=max,ignore-error=true
 
       - name: Build timing
         if: always()
@@ -100,7 +124,8 @@ jobs:
   deploy:
     name: Deploy AIMarket
     needs: build-push
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, aimarket-build]
+    timeout-minutes: 15
     environment: production
     env:
       SSH_HOST: ${{ secrets.TENCENT_CLOUD_IP || secrets.DEPLOY_HOST }}
@@ -250,7 +275,7 @@ jobs:
             echo "| Branch | ${{ env.DEPLOY_BRANCH }} |"
             echo "| Image tag | \`${{ env.IMAGE_TAG }}\` |"
             echo "| Registry | \`${{ env.TCR_REGISTRY }}/${{ env.TCR_NAMESPACE }}\` |"
-            echo "| Build | \`ubuntu-latest\` (TCR push; optional [self-hosted](../docs/DEPLOY_CI.md)) |"
+            echo "| Build | \`self-hosted / aimarket-build\` (同地域 TCR push) |"
             echo "| GHCR backup | manual workflow \`ghcr-backup.yml\` |"
             echo "| Server | ${{ env.SSH_HOST }} |"
             echo "| Web | ${{ env.PUBLIC_WEB_URL }} |"
