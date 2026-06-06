@@ -73,7 +73,34 @@ sudo -u "$RUNNER_USER" ./config.sh \
 ./svc.sh start
 ./svc.sh status || true
 
+# 同机 deploy 时 runner 需 sudo 执行 deploy-remote.sh（workflow: sudo -E + IMAGE_TAG 等环境变量）
 AIMARKET_DEPLOY_DIR="${AIMARKET_DEPLOY_DIR:-/opt/aimarket/deploy}"
+DEPLOY_REMOTE_SCRIPT="${AIMARKET_DEPLOY_DIR}/deploy-remote.sh"
+if [[ -x "$DEPLOY_REMOTE_SCRIPT" ]]; then
+  cat > /etc/sudoers.d/aimarket-runner-deploy <<EOF
+runner ALL=(ALL) NOPASSWD:SETENV: ${DEPLOY_REMOTE_SCRIPT}
+runner ALL=(ALL) NOPASSWD: /bin/cp
+runner ALL=(ALL) NOPASSWD: /usr/bin/docker
+runner ALL=(ALL) NOPASSWD: /usr/bin/sed
+EOF
+  chmod 440 /etc/sudoers.d/aimarket-runner-deploy
+  echo "sudoers: ${DEPLOY_REMOTE_SCRIPT} (SETENV)"
+fi
+
+# 避免 runner 自动升级时从 GitHub 拉包失败（国内网络）
+RUNNER_SERVICE="$(systemctl list-units --type=service --all 'actions.runner.*.service' --no-legend 2>/dev/null | awk '{print $1}' | head -1)"
+if [[ -n "$RUNNER_SERVICE" ]]; then
+  OVERRIDE_DIR="/etc/systemd/system/${RUNNER_SERVICE}.d"
+  mkdir -p "$OVERRIDE_DIR"
+  cat > "${OVERRIDE_DIR}/override.conf" <<'EOF'
+[Service]
+Environment=ACTIONS_RUNNER_DISABLE_AUTO_UPDATE=true
+EOF
+  systemctl daemon-reload
+  systemctl restart "$RUNNER_SERVICE"
+  echo "runner auto-update disabled: $RUNNER_SERVICE"
+fi
+
 PRUNE_SCRIPT="/usr/local/bin/aimarket-build-prune.sh"
 if [[ -x "$AIMARKET_DEPLOY_DIR/prune-build-runner.sh" ]]; then
   ln -sf "$AIMARKET_DEPLOY_DIR/prune-build-runner.sh" "$PRUNE_SCRIPT"
