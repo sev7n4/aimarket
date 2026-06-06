@@ -115,7 +115,6 @@ jobs:
             --tag "${IMAGE}:${{ env.IMAGE_TAG }}" \
             --tag "${IMAGE}:latest" \
             --cache-from "type=registry,ref=${IMAGE}:buildcache" \
-            --cache-to "type=registry,ref=${IMAGE}:buildcache,mode=max" \
             .
 
       - name: Build timing
