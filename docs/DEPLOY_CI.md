@@ -110,7 +110,7 @@ export ALLOW_SAME_HOST_AS_PRODUCTION=1
 sudo -E bash deploy/bootstrap-github-runner.sh
 ```
 
-脚本：`deploy/bootstrap-github-runner.sh`（含 buildx、磁盘 cron）。手动清理：`sudo bash deploy/prune-build-runner.sh`。
+脚本：`deploy/bootstrap-github-runner.sh`（含 buildx、sudoers SETENV、禁用 runner 自动升级、磁盘 cron）。手动清理：`sudo bash deploy/prune-build-runner.sh`。
 
 **构建缓存**：Docker layer cache 存于 TCR `*:buildcache` tag（同地域读写），辅以 GHA cache 作冷启动回退。
 
