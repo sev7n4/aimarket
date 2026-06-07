@@ -37,8 +37,24 @@ async function submitSecondGenerationInStudio(
   const station = studioWorkstation(page);
   const textarea = station.locator("textarea").first();
   await expect(textarea).toBeVisible({ timeout: 15_000 });
+  await expect(station.getByRole("button", { name: "开始生成" })).toBeEnabled({
+    timeout: 15_000,
+  });
+
+  const overlay = page.locator('[role="status"][aria-live="polite"]');
+  await expect(overlay).toBeHidden({ timeout: 120_000 });
+
   await textarea.fill(prompt);
+  const generateResponse = page.waitForResponse(
+    (res) =>
+      res.url().includes("/api/v1/ai/generate") &&
+      res.request().method() === "POST",
+    { timeout: 30_000 },
+  );
   await station.getByRole("button", { name: "开始生成" }).click();
+  const res = await generateResponse;
+  expect(res.ok()).toBeTruthy();
+  await expect(overlay).toBeVisible({ timeout: 30_000 });
 }
 
 test.describe("canvas batch stream", () => {

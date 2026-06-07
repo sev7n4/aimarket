@@ -1,6 +1,6 @@
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { skipStudioCoach, studioWorkstation } from "./helpers/studio";
+import { skipStudioCoach, studioWorkstation, waitForStudioReady } from "./helpers/studio";
 
 const tinyImage = path.join(__dirname, "fixtures", "tiny.png");
 
@@ -40,12 +40,7 @@ test.describe("studio upload references", () => {
     await expect(page).toHaveURL(/\/studio/, { timeout: 15_000 });
 
     const station = studioWorkstation(page);
-    await expect(station.locator("textarea").first()).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(station.getByRole("button", { name: "开始生成" })).toBeEnabled({
-      timeout: 15_000,
-    });
+    await waitForStudioReady(page);
 
     const uploadResponse = page.waitForResponse(
       (res) =>
