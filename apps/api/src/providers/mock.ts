@@ -1,22 +1,20 @@
 import type { GenerateParams, GenerateResult, ImageProvider } from "./types.js";
-import { resolveImageDimensions } from "../lib/image-size.js";
+import { saveGeneratedImage } from "../lib/storage.js";
 
-function placeholderUrl(seed: string, index: number, w: number, h: number) {
-  const s = encodeURIComponent(seed.slice(0, 48) || "aimarket");
-  return `https://picsum.photos/seed/${s}-${index}/${w}/${h}`;
-}
+/** 1×1 PNG，避免 CI mock 走 picsum 外网导致第二次生成失败 */
+const TINY_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
 
 export const mockProvider: ImageProvider = {
   name: "mock",
   supports: () => true,
   async generate(params: GenerateParams): Promise<GenerateResult> {
-    const [w, h] = resolveImageDimensions(
-      params.resolution,
-      params.aspectRatio ?? "1:1",
-    );
     const urls: string[] = [];
     for (let i = 0; i < params.count; i++) {
-      urls.push(placeholderUrl(`${params.prompt}-${params.modelId}`, i, w, h));
+      const saved = await saveGeneratedImage(TINY_PNG, "image/png");
+      urls.push(saved.url);
     }
     return { urls, provider: "mock" };
   },

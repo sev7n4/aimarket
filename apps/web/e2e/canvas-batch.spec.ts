@@ -47,8 +47,16 @@ async function submitSecondGenerationInStudio(
   await expect(station.getByRole("button", { name: "开始生成" })).toBeEnabled({
     timeout: 120_000,
   });
+  const generateDone = page.waitForResponse(
+    (r) =>
+      r.url().includes("/api/v1/ai/generate") &&
+      r.request().method() === "POST" &&
+      r.ok(),
+    { timeout: 30_000 },
+  );
   await textarea.fill(prompt);
   await station.getByRole("button", { name: "开始生成" }).click();
+  await generateDone;
 }
 
 test.describe("canvas batch stream", () => {
