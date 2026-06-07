@@ -27,6 +27,8 @@ import type { JobQueuePayload } from "./queue/types.js";
 import { notifyAgentJobCompleted } from "./agent/job-events.js";
 import { assertEmailVerifiedForSpend } from "./email-verification.js";
 import { ensureThumbnail, ensureThumbnails } from "./thumbnails.js";
+import type { SourceLane } from "./source-lane.js";
+import { inferSourceLane } from "./source-lane.js";
 
 const delayMs = Number(process.env.MOCK_GENERATION_DELAY_MS ?? 2500);
 
@@ -63,6 +65,8 @@ export interface CreateJobInput {
   parentJobId?: string | null;
   sourceOutputId?: string | null;
   referenceUrls?: string[];
+  /** 创作 Dock 车道溯源（agent / image / video） */
+  sourceLane?: SourceLane | null;
 }
 
 export function createGenerationJob(input: CreateJobInput) {
@@ -101,6 +105,10 @@ export function createGenerationJob(input: CreateJobInput) {
 
   const jobId = randomUUID();
   const userMessageId = randomUUID();
+  const sourceLane = inferSourceLane({
+    sourceLane: input.sourceLane,
+    toolType: input.toolType,
+  });
 
   let effectiveToolContext: (Partial<ToolContext> & { referenceUrls?: string[] }) | undefined;
   if (input.toolContext || input.referenceUrls?.length) {
@@ -117,8 +125,8 @@ export function createGenerationJob(input: CreateJobInput) {
 
     db.prepare(
       `INSERT INTO generation_jobs
-       (id, session_id, user_id, model_id, prompt, mode, count, resolution, aspect_ratio, status, points_cost, tool_type, tool_context, parent_job_id, source_output_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?)`,
+       (id, session_id, user_id, model_id, prompt, mode, count, resolution, aspect_ratio, status, points_cost, tool_type, tool_context, parent_job_id, source_output_id, source_lane)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?)`,
     ).run(
       jobId,
       input.sessionId,
@@ -134,6 +142,7 @@ export function createGenerationJob(input: CreateJobInput) {
       effectiveToolContext ? JSON.stringify(effectiveToolContext) : null,
       input.parentJobId ?? null,
       input.sourceOutputId ?? null,
+      sourceLane,
     );
 
     db.prepare(
@@ -488,7 +497,8 @@ export function getJob(jobId: string, userId?: string): JobDetail {
   const job = db
     .prepare(
       `SELECT id, session_id, user_id, model_id, prompt, mode, count, resolution,
-              status, points_cost, error, tool_type, image_provider, created_at, completed_at
+              status, points_cost, error, tool_type, image_provider, source_lane,
+              created_at, completed_at
        FROM generation_jobs WHERE id = ?`,
     )
     .get(jobId) as Record<string, unknown> | undefined;

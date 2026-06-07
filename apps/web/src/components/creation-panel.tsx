@@ -1310,6 +1310,7 @@ export function CreationPanel({
           referenceOutputIds: normalizeReferenceOutputIds(
             videoRefs.selectedRefIds,
           ),
+          sourceLane: "video",
           ...lineageApi,
         });
         jobId = res.jobId;
@@ -1350,6 +1351,7 @@ export function CreationPanel({
             imageRefs.selectedRefIds,
           ),
           autoRoute: useAuto,
+          sourceLane: creationLane === "video" ? "video" : "image",
           toolContext: mentionedMasks.length
             ? {
                 toolId: mentionedMasks[mentionedMasks.length - 1].toolId,

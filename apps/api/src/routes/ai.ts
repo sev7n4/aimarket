@@ -129,6 +129,7 @@ ai.post("/generate", async (c) => {
       toolContext: toolContextSchema.optional(),
       parentJobId: z.string().uuid().optional(),
       sourceOutputId: z.string().uuid().optional(),
+      sourceLane: z.enum(["agent", "image", "video"]).optional().default("image"),
     })
     .parse(await c.req.json());
 
@@ -218,6 +219,7 @@ ai.post("/generate", async (c) => {
     parentJobId: lineage.parentJobId,
     sourceOutputId: lineage.sourceOutputId,
     referenceUrls: allReferenceUrls.length > 0 ? allReferenceUrls : undefined,
+    sourceLane: body.sourceLane,
   });
 
   const byokActive = userHasByokOpenAi(userId);
@@ -370,6 +372,7 @@ ai.post("/generate/video", async (c) => {
     parentJobId: lineage.parentJobId,
     sourceOutputId: lineage.sourceOutputId,
     referenceUrls: mergedReferenceUrls.length ? mergedReferenceUrls : undefined,
+    sourceLane: "video",
   });
 
   return c.json({

@@ -173,6 +173,7 @@ agent.post("/execute", async (c) => {
       resolution: plan.resolution,
       aspectRatio: plan.aspectRatio,
       toolType: toolId,
+      sourceLane: "agent",
     });
     return c.json({
       data: {
@@ -200,6 +201,7 @@ agent.post("/execute", async (c) => {
     aspectRatio: plan.aspectRatio,
     toolType: plan.mode === "ecommerce" ? "ecommerce-set" : undefined,
     slideLabels,
+    sourceLane: "agent",
   });
 
   return c.json({

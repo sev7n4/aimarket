@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { randomUUID } from "@/lib/uuid";
+import { CREATION_LANE_LABELS, type CreationLane } from "@/lib/creation-dock-prefs";
 import { TOOL_DISPLAY_NAMES, formatToolProviderLabel } from "@/lib/studio-tool-meta";
 import {
   Download,
@@ -96,6 +97,7 @@ export interface CanvasItem {
     count?: number;
     toolType?: string;
     toolContext?: unknown;
+    sourceLane?: "agent" | "image" | "video";
   };
 }
 
@@ -335,10 +337,16 @@ function resolveBatchTitle(
   return truncateBatchTitle("", `批次 ${batchIndex + 1}`);
 }
 
+function formatSourceLaneLabel(sourceLane?: CreationLane): string | null {
+  if (!sourceLane) return null;
+  return CREATION_LANE_LABELS[sourceLane] ?? null;
+}
+
 function formatBatchSubtitle(
   createdAt?: string,
   count?: number,
   imageProvider?: string,
+  sourceLane?: CreationLane,
 ) {
   const pieces: string[] = [];
   if (createdAt) {
@@ -354,6 +362,8 @@ function formatBatchSubtitle(
       );
     }
   }
+  const laneLabel = formatSourceLaneLabel(sourceLane);
+  if (laneLabel) pieces.push(laneLabel);
   if (count) pieces.push(`${count} 张结果`);
   const providerLabel = formatToolProviderLabel(imageProvider);
   if (providerLabel) pieces.push(providerLabel);
@@ -401,6 +411,7 @@ export function buildCanvasItemsFromMessages(
       toolType?: string;
       count?: number;
       imageProvider?: string;
+      sourceLane?: CreationLane;
     };
   }[],
 ): CanvasItem[] {
@@ -420,6 +431,7 @@ export function buildCanvasItemsFromMessages(
       msg.created_at,
       msg.outputs.length,
       msg.generation_params?.imageProvider,
+      msg.generation_params?.sourceLane,
     );
     const rows = Math.ceil(msg.outputs.length / BATCH_COLS);
 

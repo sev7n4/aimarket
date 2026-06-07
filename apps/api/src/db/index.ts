@@ -159,6 +159,13 @@ try {
   /* column exists */
 }
 try {
+  database.exec(
+    `ALTER TABLE generation_jobs ADD COLUMN source_lane TEXT`,
+  );
+} catch {
+  /* column exists */
+}
+try {
   database.exec(`ALTER TABLE image_sessions ADD COLUMN canvas_layout TEXT`);
 } catch {
   /* column exists */

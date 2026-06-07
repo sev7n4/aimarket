@@ -28,6 +28,7 @@ export function executeAgentPlanStep(
       resolution: plan.resolution,
       aspectRatio: plan.aspectRatio,
       toolType: step.toolId,
+      sourceLane: "agent",
     });
     linkAgentRunJob(state.runId, jobId, stepIndex);
     return { jobId, pointsCost };
@@ -53,6 +54,7 @@ export function executeAgentPlanStep(
     toolType:
       plan.mode === "ecommerce" && slideLabels ? "ecommerce-set" : undefined,
     slideLabels,
+    sourceLane: "agent",
   });
   linkAgentRunJob(state.runId, jobId, stepIndex);
   return { jobId, pointsCost };
