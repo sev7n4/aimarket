@@ -71,11 +71,10 @@ test.describe("canvas batch stream", () => {
     );
     await waitForGenerationSettled(page);
 
+    const batchSections = page.locator('[data-testid^="canvas-batch-section-"]');
+    await expect(batchSections).toHaveCount(2, { timeout: 120_000 });
     await expect(page.getByText(/批次\s*2/).first()).toBeVisible({
-      timeout: 120_000,
+      timeout: 30_000,
     });
-    await expect(
-      page.locator('[data-testid^="canvas-batch-section-"]'),
-    ).toHaveCount(2, { timeout: 30_000 });
   });
 });

@@ -43,6 +43,9 @@ test.describe("studio upload references", () => {
     await expect(station.locator("textarea").first()).toBeVisible({
       timeout: 15_000,
     });
+    await expect(station.getByRole("button", { name: "开始生成" })).toBeEnabled({
+      timeout: 15_000,
+    });
 
     const uploadResponse = page.waitForResponse(
       (res) =>
