@@ -4,6 +4,8 @@ async function mockSignedInStudio(page: Page) {
   await page.addInitScript(() => {
     localStorage.setItem("aimarket_token", "e2e-dock-user-token");
     localStorage.setItem("aimarket_studio_dock_mode_v1", "expanded");
+    localStorage.removeItem("aimarket.home.lane");
+    localStorage.removeItem("aimarket.studio.lane");
     localStorage.removeItem("aimarket.creationDock.lane");
   });
 
@@ -33,7 +35,11 @@ async function mockSignedInStudio(page: Page) {
 
 test.describe("creation dock UI", () => {
   test("首页创作台默认展开，滚出视口后底部单行常驻", async ({ page }) => {
-    await page.addInitScript(() => localStorage.removeItem("aimarket.creationDock.lane"));
+    await page.addInitScript(() => {
+      localStorage.removeItem("aimarket.home.lane");
+      localStorage.removeItem("aimarket.studio.lane");
+      localStorage.removeItem("aimarket.creationDock.lane");
+    });
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
     const homeDock = page.locator("#home-creation");
@@ -58,7 +64,7 @@ test.describe("creation dock UI", () => {
       .toBeGreaterThan(compactHeight + 12);
   });
 
-  test("Studio 创作台与首页保持同款单行/Agent 布局", async ({ page }) => {
+  test("Studio 创作台默认图片车道，与首页同款单行布局", async ({ page }) => {
     await mockSignedInStudio(page);
     await page.goto("/studio", { waitUntil: "domcontentloaded" });
 
@@ -69,7 +75,7 @@ test.describe("creation dock UI", () => {
     const studioLanePicker = studioDock.getByRole("button", {
       name: "选择创作方式",
     });
-    await expect(studioLanePicker).toContainText("Agent 模式");
+    await expect(studioLanePicker).toContainText("图片生成");
 
     const collapsedHeight = await textarea.boundingBox().then((box) => box?.height ?? 0);
     await textarea.click();
@@ -77,6 +83,24 @@ test.describe("creation dock UI", () => {
       .poll(async () => (await textarea.boundingBox())?.height ?? 0)
       .toBeGreaterThan(collapsedHeight + 12);
 
-    await expect(studioLanePicker).toContainText("Agent 模式");
+    await expect(studioLanePicker).toContainText("图片生成");
+  });
+
+  test("首页与 Studio 车道偏好互不影响", async ({ page }) => {
+    await mockSignedInStudio(page);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+
+    const homeDock = page.locator("#home-creation");
+    await homeDock.getByRole("button", { name: "选择创作方式" }).click();
+    await page.getByRole("button", { name: "Agent 模式", exact: true }).click();
+    await expect(homeDock.getByRole("button", { name: "选择创作方式" })).toContainText(
+      "Agent 模式",
+    );
+
+    await page.goto("/studio", { waitUntil: "domcontentloaded" });
+    const studioDock = page.locator('[aria-label="创作 Dock"]');
+    await expect(studioDock.getByRole("button", { name: "选择创作方式" })).toContainText(
+      "图片生成",
+    );
   });
 });

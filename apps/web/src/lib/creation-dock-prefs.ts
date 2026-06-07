@@ -1,6 +1,14 @@
 /** Studio / 首页 Dock 创作车道（对标即梦 Agent 模式下拉） */
 export type CreationLane = "agent" | "image" | "video";
 
+/** 创作 Dock 存储作用域：首页与 Studio 车道偏好独立 */
+export type CreationDockScope = "home" | "studio";
+
+/** 单车道 draft（Phase 2 起按 scope 隔离 lane；prompt/refs 仍由 CreationPanel 管理） */
+export interface LaneDraft {
+  lane: CreationLane;
+}
+
 /** 输出偏好：自动由路由决定，手动则使用下方模型/比例/张数 */
 export type OutputPreferenceMode = "auto" | "manual";
 
@@ -24,21 +32,60 @@ export type VideoDurationSec = 5 | 10;
 
 export const OUTPUT_PREF_AUTO_LABEL = "自动";
 
-const LANE_KEY = "aimarket.creationDock.lane";
+/** @deprecated 迁移至 {@link HOME_LANE_KEY} / {@link STUDIO_LANE_KEY} */
+export const LEGACY_LANE_KEY = "aimarket.creationDock.lane";
+export const HOME_LANE_KEY = "aimarket.home.lane";
+export const STUDIO_LANE_KEY = "aimarket.studio.lane";
+
 const OUTPUT_KEY = "aimarket.creationDock.outputMode";
 
-export function readStoredCreationLane(
-  fallback: CreationLane,
-): CreationLane {
-  if (typeof window === "undefined") return fallback;
-  const v = window.localStorage.getItem(LANE_KEY);
-  if (v === "agent" || v === "image" || v === "video") return v;
-  return fallback;
+let legacyLaneMigrated = false;
+
+function laneKeyForScope(scope: CreationDockScope): string {
+  return scope === "studio" ? STUDIO_LANE_KEY : HOME_LANE_KEY;
 }
 
-export function persistCreationLane(lane: CreationLane) {
+function parseCreationLane(value: string | null): CreationLane | null {
+  if (value === "agent" || value === "image" || value === "video") return value;
+  return null;
+}
+
+/** 将旧版共享 key 一次性复制到 home/studio（若对应 key 尚未设置） */
+export function migrateLegacyCreationLaneStorage() {
+  if (typeof window === "undefined" || legacyLaneMigrated) return;
+  legacyLaneMigrated = true;
+
+  const legacy = parseCreationLane(window.localStorage.getItem(LEGACY_LANE_KEY));
+  if (!legacy) return;
+
+  if (!parseCreationLane(window.localStorage.getItem(HOME_LANE_KEY))) {
+    window.localStorage.setItem(HOME_LANE_KEY, legacy);
+  }
+  if (!parseCreationLane(window.localStorage.getItem(STUDIO_LANE_KEY))) {
+    window.localStorage.setItem(STUDIO_LANE_KEY, legacy);
+  }
+  window.localStorage.removeItem(LEGACY_LANE_KEY);
+}
+
+export function defaultCreationLaneForScope(_scope: CreationDockScope): CreationLane {
+  return "image";
+}
+
+export function readStoredCreationLane(
+  scope: CreationDockScope,
+  fallback: CreationLane = defaultCreationLaneForScope(scope),
+): CreationLane {
+  if (typeof window === "undefined") return fallback;
+  migrateLegacyCreationLaneStorage();
+  const stored = parseCreationLane(
+    window.localStorage.getItem(laneKeyForScope(scope)),
+  );
+  return stored ?? fallback;
+}
+
+export function persistCreationLane(scope: CreationDockScope, lane: CreationLane) {
   try {
-    window.localStorage.setItem(LANE_KEY, lane);
+    window.localStorage.setItem(laneKeyForScope(scope), lane);
   } catch {
     /* ignore */
   }

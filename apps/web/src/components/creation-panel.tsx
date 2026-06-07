@@ -86,15 +86,15 @@ import {
   normalizeDockSkillId,
 } from "@/components/creation-dock-controls";
 import {
-  persistCreationLane,
   persistOutputMode,
-  readStoredCreationLane,
   readStoredOutputMode,
+  type CreationDockScope,
   type CreationLane,
   type OutputPreferenceMode,
   type VideoDurationSec,
   type VideoReferenceMode,
 } from "@/lib/creation-dock-prefs";
+import { useCreationLaneState } from "@/hooks/use-creation-lane-state";
 import {
   hasReferenceImages,
   normalizeReferenceOutputIds,
@@ -367,14 +367,14 @@ export function CreationPanel({
     isDock &&
     !readOnly;
   const agentLaneAvailable = agentOrchestration && isDock;
+  const creationDockScope: CreationDockScope = isStudioDock ? "studio" : "home";
 
   const skillsEnabled = agentSkills && agentEnabled;
 
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
-  const defaultCreationLane: CreationLane =
-    agentOrchestration && isStudioDock ? "agent" : "image";
-  const [creationLane, setCreationLane] = useState<CreationLane>(() =>
-    readStoredCreationLane(defaultCreationLane),
+  const { creationLane, setCreationLane } = useCreationLaneState(
+    creationDockScope,
+    { agentLaneAvailable },
   );
   const [outputPrefMode, setOutputPrefMode] = useState<OutputPreferenceMode>(
     () => readStoredOutputMode("auto"),
@@ -452,7 +452,6 @@ export function CreationPanel({
       lane = "image";
     }
     setCreationLane(lane);
-    persistCreationLane(lane);
     if (lane !== "agent") {
       setDockSkillId(null);
       setSelectedSkillId(null);
@@ -487,18 +486,11 @@ export function CreationPanel({
     setDockSkillId(normalized);
     if (normalized) {
       setCreationLane("agent");
-      persistCreationLane("agent");
       setSelectedSkillId(normalized);
       return;
     }
     setSelectedSkillId(null);
   }
-
-  useEffect(() => {
-    if (!agentLaneAvailable && creationLane === "agent") {
-      setCreationLane("image");
-    }
-  }, [agentLaneAvailable, creationLane]);
 
   useEffect(() => {
     if (!isDock || outputPrefMode !== "auto") return;
