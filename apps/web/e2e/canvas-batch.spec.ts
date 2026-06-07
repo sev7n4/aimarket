@@ -46,7 +46,7 @@ async function submitSecondGenerationViaApi(
     localStorage.getItem("aimarket_token"),
   );
   expect(token).toBeTruthy();
-  const apiBase = process.env.E2E_API_URL ?? "http://localhost:4000";
+  const apiBase = process.env.E2E_API_URL ?? "http://127.0.0.1:4000";
   const res = await page.request.post(`${apiBase}/api/v1/ai/generate`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -55,7 +55,9 @@ async function submitSecondGenerationViaApi(
     data: { sessionId, prompt, mode: "image", count: 1 },
   });
   expect(res.ok(), `second generate failed: ${await res.text()}`).toBeTruthy();
-  const { jobId } = (await res.json()) as { data: { jobId: string } };
+  const gen = (await res.json()) as { data: { jobId: string } };
+  const jobId = gen.data.jobId;
+  expect(jobId).toBeTruthy();
   await expect
     .poll(
       async () => {
@@ -63,7 +65,10 @@ async function submitSecondGenerationViaApi(
           `${apiBase}/api/v1/ai/jobs/${jobId}`,
           { headers: { Authorization: `Bearer ${token}` } },
         );
-        if (!jobRes.ok()) return "pending";
+        expect(
+          jobRes.ok(),
+          `job poll failed (${jobRes.status()}): ${await jobRes.text()}`,
+        ).toBeTruthy();
         const job = (await jobRes.json()) as {
           data: { status: string; error?: string };
         };
