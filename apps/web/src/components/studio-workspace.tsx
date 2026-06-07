@@ -82,6 +82,7 @@ import {
 } from "@/lib/inspiration-studio";
 import { persistCreationLane } from "@/lib/creation-dock-prefs";
 import {
+  invalidateSessionCanvasBundle,
   prefetchSessionCanvasBundle,
   useSessionCanvas,
 } from "@/hooks/use-session-canvas";
@@ -533,18 +534,7 @@ export function StudioWorkspace({
   );
 
   const handleJobComplete = useCallback(async (completedJobId?: string) => {
-    setJobFailed(false);
-    setJobError(null);
-    setPollingJobId(null);
-    setJobStreamStatus(null);
-    setJobProgressCompleted(0);
-    setJobProgressTotal(0);
-    setJobStartedAt(null);
-    setQueueAhead(null);
-    lastOutputCountRef.current = 0;
-    router.replace(
-      `/studio?sessionId=${encodeURIComponent(sessionId)}&mode=${mode}`,
-    );
+    invalidateSessionCanvasBundle(sessionId);
     let jobStatus: string | undefined;
     let toolType: string | undefined;
     if (completedJobId) {
@@ -574,6 +564,18 @@ export function StudioWorkspace({
         undefined,
         activeWorkspaceId ?? undefined,
       ),
+    );
+    setJobFailed(false);
+    setJobError(null);
+    setPollingJobId(null);
+    setJobStreamStatus(null);
+    setJobProgressCompleted(0);
+    setJobProgressTotal(0);
+    setJobStartedAt(null);
+    setQueueAhead(null);
+    lastOutputCountRef.current = 0;
+    router.replace(
+      `/studio?sessionId=${encodeURIComponent(sessionId)}&mode=${mode}`,
     );
     if (canvasRef.current?.isInRefineMode()) {
       if (jobStatus === "succeeded") {
