@@ -21,6 +21,13 @@ export const IMAGE_MODELS: ModelMeta[] = [
     type: "image",
     pointsFactor: 1,
   },
+  {
+    id: "agnes-image",
+    name: "Agnes Image 2.1",
+    description: "Agnes · agnes-image-2.1-flash",
+    type: "image",
+    pointsFactor: 1.2,
+  },
 ];
 
 export const VIDEO_MODELS: ModelMeta[] = [
@@ -37,6 +44,13 @@ export const VIDEO_MODELS: ModelMeta[] = [
     description: "Alibaba · Wanxiang 2.6",
     type: "video",
     pointsFactor: 2.5,
+  },
+  {
+    id: "agnes-video",
+    name: "Agnes Video 2.0",
+    description: "Agnes · agnes-video-v2.0",
+    type: "video",
+    pointsFactor: 3,
   },
 ];
 

@@ -2,6 +2,7 @@ import { getModel } from "../lib/models.js";
 import { persistOutputUrls } from "../lib/persist-output.js";
 import { AppError } from "../lib/errors.js";
 import { isRetriableI2iProviderError } from "../lib/image-provider-fallback.js";
+import { agnesImageConfigured } from "./agnes-image.js";
 import {
   aliyunWanI2iConfigured,
   listGenerateProviderCandidates,
@@ -107,6 +108,7 @@ export function getProviderStatus() {
   const openaiConfigured = Boolean(process.env.OPENAI_API_KEY?.trim());
   const aliyunWanConfigured = Boolean(process.env.DASHSCOPE_API_KEY?.trim());
   const seedreamConfigured = Boolean(process.env.ARK_API_KEY?.trim());
+  const agnesConfigured = agnesImageConfigured();
   const activeProvider = resolveProvider("omni-v2", "generate").name;
   const usingMock = activeProvider === "mock";
 
@@ -127,6 +129,8 @@ export function getProviderStatus() {
     hint = aliyunWanI2iConfigured()
       ? `真实出图：阿里百炼 ${process.env.ALIYUN_WAN_MODEL ?? "wan2.6-t2i"}（文生图）+ ${process.env.ALIYUN_WAN_I2I_MODEL}（图生图）`
       : `真实出图：阿里百炼 ${process.env.ALIYUN_WAN_MODEL ?? "wan2.6-t2i"}（文生图；图生图请配置 ALIYUN_WAN_I2I_MODEL 或 ARK_API_KEY）`;
+  } else if (activeProvider === "agnes-image") {
+    hint = `真实出图：Agnes ${process.env.AGNES_IMAGE_MODEL ?? "agnes-image-2.1-flash"}（文生图 + 图生图）`;
   } else {
     hint = "真实出图：OpenAI Images API（不支持图生图）";
   }
@@ -145,6 +149,10 @@ export function getProviderStatus() {
     seedreamBaseUrl:
       process.env.ARK_BASE_URL ?? "https://ark.cn-beijing.volces.com/api/v3",
     seedreamModel: process.env.SEEDREAM_MODEL ?? "doubao-seedream-5-0-260128",
+    agnesConfigured,
+    agnesBaseUrl:
+      process.env.AGNES_API_BASE_URL ?? "https://apihub.agnes-ai.com/v1",
+    agnesImageModel: process.env.AGNES_IMAGE_MODEL ?? "agnes-image-2.1-flash",
     activeProvider,
     usingMock,
     hint,

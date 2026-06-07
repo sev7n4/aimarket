@@ -5,6 +5,10 @@
  */
 import { AppError } from "./errors.js";
 import { userHasByokOpenAi } from "./user-provider-config.js";
+import {
+  agnesImageConfigured,
+  agnesImageProvider,
+} from "../providers/agnes-image.js";
 import { aliyunWanProvider } from "../providers/aliyun-wan.js";
 import { mockProvider } from "../providers/mock.js";
 import { openaiProvider } from "../providers/openai.js";
@@ -27,9 +31,12 @@ export const MODEL_GENERATE_BINDINGS: ReadonlyArray<{
 }> = [
   // Internal routing aliases kept for Auto mode and legacy job records
   { modelId: "omni-v2", providerName: "aliyun-wan", t2i: true, i2i: false },
+  { modelId: "omni-v2", providerName: "agnes-image", t2i: true, i2i: true },
   { modelId: "omni-v2", providerName: "seedream-image", t2i: true, i2i: true },
   { modelId: "latest-v2-pro", providerName: "aliyun-wan", t2i: true, i2i: false },
+  { modelId: "latest-v2-pro", providerName: "agnes-image", t2i: true, i2i: true },
   { modelId: "latest-v2-pro", providerName: "seedream-image", t2i: true, i2i: true },
+  { modelId: "agnes-image", providerName: "agnes-image", t2i: true, i2i: true },
   // User-facing real models
   { modelId: "seedream-5", providerName: "seedream-image", t2i: true, i2i: true },
   { modelId: "wanxiang-2.6", providerName: "aliyun-wan", t2i: true, i2i: false },
@@ -41,6 +48,7 @@ export const MODEL_GENERATE_BINDINGS: ReadonlyArray<{
 const ALL_PROVIDERS: ImageProvider[] = [
   seededitProvider,
   seedreamImageProvider,
+  agnesImageProvider,
   aliyunWanProvider,
   openaiProvider,
   mockProvider,
@@ -48,10 +56,14 @@ const ALL_PROVIDERS: ImageProvider[] = [
 
 function i2iFallbackOrder(): readonly string[] {
   const mode = process.env.IMAGE_PROVIDER ?? "auto";
+  const withAgnes = agnesImageConfigured() ? ["agnes-image"] : [];
   if (mode === "aliyun_wan" && aliyunWanI2iConfigured()) {
-    return ["aliyun-wan", "seedream-image"];
+    return ["aliyun-wan", ...withAgnes, "seedream-image"];
   }
-  return ["seedream-image", "aliyun-wan"];
+  if (mode === "agnes" && agnesImageConfigured()) {
+    return ["agnes-image", "aliyun-wan", "seedream-image"];
+  }
+  return ["seedream-image", "aliyun-wan", ...withAgnes];
 }
 
 function providerByName(name: string): ImageProvider | undefined {
@@ -73,6 +85,9 @@ function providerCanI2i(
   }
   if (provider.name === "aliyun-wan") {
     return aliyunWanI2iConfigured();
+  }
+  if (provider.name === "agnes-image") {
+    return agnesImageConfigured();
   }
   return false;
 }
@@ -142,6 +157,13 @@ function pickWithEnvMode(
     return openai?.supports(modelId, operation, context) ? openai : undefined;
   }
 
+  if (mode === "agnes") {
+    return (
+      candidates.find((p) => p.name === "agnes-image") ??
+      candidates.find((p) => p.name !== "mock")
+    );
+  }
+
   if (mode === "aliyun_wan") {
     // 文生图：优先万相；图生图 / 显式 Seedream 模型：允许回落到已配置的 i2i Provider
     if (modelId.startsWith("seedream")) {
@@ -192,7 +214,7 @@ export function resolveImageProvider(
 
     const detail =
       hasRefs ?
-        "当前无可用图生图 Provider（请配置 ARK_API_KEY 或 ALIYUN_WAN_I2I_MODEL）"
+        "当前无可用图生图 Provider（请配置 ALIYUN_WAN_I2I_MODEL、AGNES_API_KEY 或 ARK_API_KEY）"
       : "当前无可用文生图 Provider";
     throw new AppError(400, "MODEL_UNSUPPORTED", `模型 ${modelId}：${detail}`);
   }
