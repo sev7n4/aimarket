@@ -87,8 +87,6 @@ import {
 } from "@/components/creation-dock-controls";
 import {
   persistCreationLane,
-  persistOutputMode,
-  readStoredOutputMode,
   CREATION_LANE_PLACEHOLDERS,
   type CreationDockScope,
   type CreationLane,
@@ -96,7 +94,7 @@ import {
   type VideoDurationSec,
   type VideoReferenceMode,
 } from "@/lib/creation-dock-prefs";
-import { useCreationLaneState } from "@/hooks/use-creation-lane-state";
+import { useCreationLaneDrafts } from "@/hooks/use-creation-lane-drafts";
 import {
   canAutoBindCanvasItem,
   mergeReferenceSources,
@@ -329,11 +327,7 @@ export function CreationPanel({
   const market = "中国";
   const language = "中文";
   const designer = "Gloria";
-  const [modelId, setModelId] = useState(AUTO_MODEL_ID);
   const [models, setModels] = useState<ImageModel[]>([]);
-  const [count, setCount] = useState(1);
-  const [resolution, setResolution] = useState("1k");
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
   const [estimated, setEstimated] = useState<number | null>(null);
   const [routeHint, setRouteHint] = useState<string | null>(null);
   const [inspirationVars, setInspirationVars] = useState<
@@ -377,9 +371,6 @@ export function CreationPanel({
    * 不再渲染电商 Agent 表单 / 走电商套图提交分支。
    */
   const effectiveMode: CreationMode = isDock && mode === "ecommerce" ? "chat" : mode;
-  const selectedModel =
-    modelId === AUTO_MODEL_ID ? undefined : models.find((m) => m.id === modelId);
-  const isVideoModel = selectedModel?.type === "video";
   const agentEnabled =
     agentOrchestration &&
     Boolean(sessionId) &&
@@ -391,18 +382,35 @@ export function CreationPanel({
   const skillsEnabled = agentSkills && agentEnabled;
 
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
-  const { creationLane, setCreationLane } = useCreationLaneState(
-    creationDockScope,
-    { agentLaneAvailable },
-  );
-  const [outputPrefMode, setOutputPrefMode] = useState<OutputPreferenceMode>(
-    () => readStoredOutputMode("auto"),
-  );
+  const {
+    creationLane,
+    setCreationLane,
+    laneSettings,
+    setModelId,
+    setAspectRatio,
+    setCount,
+    setResolution,
+    setOutputPrefMode,
+    setVideoReferenceMode,
+    setVideoDurationSec,
+    patchSettings,
+  } = useCreationLaneDrafts(creationDockScope, {
+    agentLaneAvailable,
+  });
+  const {
+    modelId,
+    aspectRatio,
+    count,
+    resolution,
+    outputPrefMode,
+    videoReferenceMode,
+    videoDurationSec,
+  } = laneSettings;
+  const selectedModel =
+    modelId === AUTO_MODEL_ID ? undefined : models.find((m) => m.id === modelId);
+  const isVideoModel = selectedModel?.type === "video";
   const [dockSkillId, setDockSkillId] = useState<string | null>(null);
   const sessionEnsuredRef = useRef(false);
-  const [videoReferenceMode, setVideoReferenceMode] =
-    useState<VideoReferenceMode>("omni");
-  const [videoDurationSec, setVideoDurationSec] = useState<VideoDurationSec>(5);
   const normalizedDockSkillId = normalizeDockSkillId(dockSkillId);
   const activeSkillId = isDock ? normalizedDockSkillId : selectedSkillId;
   const submitEcommerce = !isDock && effectiveMode === "ecommerce";
@@ -484,25 +492,10 @@ export function CreationPanel({
       setDockSkillId(null);
       setSelectedSkillId(null);
     }
-    if (lane === "video") {
-      const vm = models.find((m) => m.type === "video");
-      if (vm) setModelId(vm.id);
-      setOutputPrefMode("manual");
-      persistOutputMode("manual");
-    } else if (lane === "image") {
-      const im = models.find((m) => m.type === "image");
-      setOutputPrefMode("manual");
-      persistOutputMode("manual");
-      setModelId(im?.id ?? AUTO_MODEL_ID);
-      setAspectRatio("auto");
-    } else {
-      handleOutputPrefModeChange("auto");
-    }
   }
 
   function handleOutputPrefModeChange(mode: OutputPreferenceMode) {
     setOutputPrefMode(mode);
-    persistOutputMode(mode);
     if (mode === "auto") {
       setModelId(AUTO_MODEL_ID);
       setAspectRatio("auto");
@@ -755,12 +748,16 @@ export function CreationPanel({
   useEffect(() => {
     if (!inspirationApply) return;
     setPrompt(inspirationApply.prompt);
-    setModelId(inspirationApply.modelId);
-    setAspectRatio(coerceAspectRatio(inspirationApply.aspectRatio));
-    setResolution(inspirationApply.resolution);
+    const inspirationSettings = {
+      modelId: inspirationApply.modelId,
+      aspectRatio: coerceAspectRatio(inspirationApply.aspectRatio),
+      resolution: inspirationApply.resolution,
+    };
     if (isStudioDock) {
-      setCreationLane(inspirationApply.creationLane);
+      setCreationLane(inspirationApply.creationLane, inspirationSettings);
       persistCreationLane("studio", inspirationApply.creationLane);
+    } else {
+      patchSettings(inspirationSettings);
     }
     const vars: Record<string, string> = {};
     for (const v of inspirationApply.variables ?? []) {

@@ -195,4 +195,5 @@ apps/web/e2e/creation-dock-ui.spec.ts
 | 2026-06-07 | 2 | 分 scope lane 存储、`useCreationLaneState`、Studio 默认图片车道（#144） |
 | 2026-06-07 | 3 | 视频 referenceMode API、画布自动参考绑定、车道占位文案（#145） |
 | 2026-06-07 | 4 | `generation_jobs.source_lane`、时间线车道标记、灵感做同款按类型选车道 |
-| 2026-06-07 | 5 | 启动 PR 5-1～5-3 排期；分支 `refactor/creation-lane-submit-unify` 开发中 |
+| 2026-06-07 | 5 | PR #147 合并并部署；提交路由单源化完成 |
+| 2026-06-07 | 6 | 分支 `refactor/creation-lane-draft-types`：LaneSettingsDraft + useCreationLaneDrafts |
