@@ -367,7 +367,7 @@ PostgreSQL：`apps/api/src/db/migrations/postgres.sql`
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/api/v1/agent/plan` | 预览计划；P0 起走 LLM+fallback |
-| POST | `/api/v1/agent/execute` | 单次执行（legacy）；逐步由 `/runs` 替代 |
+| POST | `/api/v1/agent/execute` | 单次执行（**已废弃**）；电商套图请用 `POST /agent/skills/:skillId/runs` |
 
 ### 6.2 P1 新增
 

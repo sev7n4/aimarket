@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import {
-  executeAgentPlan,
+  createSkillRun,
   ensureSession,
   exportSession,
   fetchProductSetInit,
+  fetchSkillRun,
   submitVideoGeneration,
   submitEcommerceGenerate,
   submitEcommerceRerunSlide,
 } from "@/lib/api-client";
+import type { SkillRun } from "@/lib/types";
 import { resolveApiBase } from "@/lib/api-base";
 import {
   pendingLineageToApiFields,
@@ -21,6 +23,23 @@ import {
 import { findCanvasItemByRole } from "@/lib/canvas-roles";
 import type { StudioInspirationApply } from "@/lib/inspiration-studio";
 import type { ProductSetInit } from "@/lib/types";
+
+const ECOMMERCE_SET_SKILL_ID = "ecommerce-set-v1";
+
+const SKILL_TERMINAL = new Set(["completed", "failed", "cancelled"]);
+
+async function waitSkillRunJobId(
+  runId: string,
+  maxAttempts = 30,
+): Promise<SkillRun | null> {
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise((r) => setTimeout(r, 500));
+    const run = await fetchSkillRun(runId);
+    if (run.pendingJobId) return run;
+    if (SKILL_TERMINAL.has(run.status)) return run;
+  }
+  return fetchSkillRun(runId).catch(() => null);
+}
 
 const ECOMMERCE_SLIDES: Array<{
   key: "main" | "selling" | "scene" | "detail";
@@ -184,18 +203,22 @@ export function InspirationSetGenerateBar({
         title: inspirationApply?.title,
         sourceInspirationId: inspirationApply?.id,
       });
-      const res = await executeAgentPlan({
+      const started = await createSkillRun(ECOMMERCE_SET_SKILL_ID, {
         sessionId,
         prompt: productInfo,
-        mode: "ecommerce",
-        resolution: inspirationApply?.resolution ?? "2k",
         confirmed: true,
         productAssetId: productItem.assetId,
         referenceAssetId: referenceItem?.assetId,
       });
-      onJobStarted(res.jobId);
+      const run = started.pendingJobId
+        ? started
+        : await waitSkillRunJobId(started.id);
+      if (!run?.pendingJobId) {
+        throw new Error(run?.error ?? "Skill 串联未能启动生成任务");
+      }
+      onJobStarted(run.pendingJobId);
       setHint(
-        `Agent 串联执行中 · ${res.plan.steps.length} 步 · 约 ${res.estimatedPoints} 积分`,
+        `Agent 串联执行中 · ${run.steps.length} 步 · 约 ${run.estimatedPoints} 积分`,
       );
     } catch (err) {
       setHint(err instanceof Error ? err.message : "Agent 串联执行失败");

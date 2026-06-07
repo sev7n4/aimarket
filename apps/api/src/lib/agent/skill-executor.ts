@@ -1,6 +1,7 @@
 import { loadSkill, type SkillDefinition, type SkillStep } from "@aimarket/agent-skills";
 import { ECOMMERCE_SLIDES } from "../ecommerce.js";
 import { createGenerationJob } from "../jobs.js";
+import { inferSkillStepSourceLane } from "../source-lane.js";
 import { enrichPromptWithReferences } from "../references.js";
 import { suggestModel } from "../router.js";
 import { db } from "../../db/index.js";
@@ -63,6 +64,8 @@ function startStepJob(
     enrichedPrompt = enrichPromptWithReferences(enrichedPrompt, assetUrls);
   }
 
+  const sourceLane = inferSkillStepSourceLane(step);
+
   if (step.type === "generate_set") {
     const { jobId } = createGenerationJob({
       sessionId: row.session_id,
@@ -74,6 +77,7 @@ function startStepJob(
       resolution: "2k",
       aspectRatio: "1:1",
       slideLabels: ECOMMERCE_SLIDES.map((s) => s.label),
+      sourceLane,
     });
     linkSkillRunJob(row.id, jobId, step.id);
     return jobId;
@@ -93,6 +97,7 @@ function startStepJob(
       aspectRatio: "1:1",
       toolType: step.toolId,
       sourceOutputId,
+      sourceLane,
     });
     linkSkillRunJob(row.id, jobId, step.id);
     return jobId;
@@ -111,6 +116,7 @@ function startStepJob(
       aspectRatio: step.aspectRatio,
       toolType: "video",
       sourceOutputId,
+      sourceLane,
     });
     linkSkillRunJob(row.id, jobId, step.id);
     return jobId;

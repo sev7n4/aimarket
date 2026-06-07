@@ -126,8 +126,10 @@ const executeBody = z.object({
   referenceAssetId: z.string().uuid().optional(),
 });
 
-/** @deprecated 优先使用 POST /agent/runs */
+/** @deprecated 优先使用 POST /agent/skills/:skillId/runs 或 POST /agent/runs */
 agent.post("/execute", async (c) => {
+  c.header("Deprecation", "true");
+  c.header("Link", '</api/v1/agent/runs>; rel="successor-version"');
   const userId = c.get("userId");
   const body = executeBody.parse(await c.req.json());
   assertSessionWrite(userId, body.sessionId);
