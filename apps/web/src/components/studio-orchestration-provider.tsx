@@ -20,6 +20,7 @@ import { useAgentRun } from "@/hooks/use-agent-run";
 import { useSkillRun } from "@/hooks/use-skill-run";
 import type { AgentPlan, AgentRun, SkillRun } from "@/lib/types";
 import type { CreationLane } from "@/lib/creation-dock-prefs";
+import { shouldOrchestrationHandleSubmit } from "@/lib/creation-lane-submit";
 import { useAuth } from "@/lib/auth-context";
 
 export interface StudioOrchestrationInput {
@@ -38,6 +39,7 @@ export interface StudioOrchestrationSubmitContext {
   focusEditActive: boolean;
   mentionedMasksCount: number;
   submitVideo: boolean;
+  hasReferenceImages: boolean;
   productAssetId?: string;
   referenceAssetId?: string;
 }
@@ -275,22 +277,27 @@ export function StudioOrchestrationProvider({
         focusEditActive,
         mentionedMasksCount,
         submitVideo,
+        hasReferenceImages,
         productAssetId,
         referenceAssetId,
       } = ctx;
 
-      const useSkillSubmit =
-        Boolean(activeSkillId) &&
-        !focusEditActive &&
-        mentionedMasksCount === 0 &&
-        !submitVideo;
+      if (
+        !shouldOrchestrationHandleSubmit({
+          creationLane,
+          activeSkillId,
+          focusEditActive,
+          mentionedMasksCount,
+          submitVideo,
+          hasReferenceImages,
+        })
+      ) {
+        return false;
+      }
 
+      const useSkillSubmit = Boolean(activeSkillId);
       const useAgentSubmit =
-        creationLane === "agent" &&
-        !activeSkillId &&
-        !focusEditActive &&
-        mentionedMasksCount === 0 &&
-        !submitVideo;
+        creationLane === "agent" && !activeSkillId;
 
       if (useSkillSubmit && activeSkillId) {
         if (prompt.trim().length < 10) {

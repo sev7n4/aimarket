@@ -95,6 +95,12 @@ import {
   type VideoDurationSec,
   type VideoReferenceMode,
 } from "@/lib/creation-dock-prefs";
+import {
+  hasReferenceImages,
+  normalizeReferenceOutputIds,
+  shouldUseAgentSubmit,
+  shouldUseSkillSubmit,
+} from "@/lib/creation-lane-submit";
 import type { StudioDockMode } from "@/lib/studio-dock-state";
 import type {
   FocusEditIntent,
@@ -436,6 +442,15 @@ export function CreationPanel({
   );
 
   function handleCreationLaneChange(lane: CreationLane) {
+    const refSources = {
+      assetIds,
+      mentionedAssetIds,
+      selectedRefIds: selectedRefs.map((r) => r.id),
+    };
+    if (lane === "agent" && hasReferenceImages(refSources)) {
+      onInteractionHint?.("Agent 模式暂不支持参考图，已切换到图片生成");
+      lane = "image";
+    }
     setCreationLane(lane);
     persistCreationLane(lane);
     if (lane !== "agent") {
@@ -1048,11 +1063,13 @@ export function CreationPanel({
       }
     }
 
-    const hasReferenceImages =
-      assetIds.length > 0 ||
-      mentionedAssetIds.length > 0 ||
-      selectedRefs.length > 0;
-    if (hasReferenceImages && modelId === AUTO_MODEL_ID) {
+    const referenceImageSources = {
+      assetIds,
+      mentionedAssetIds,
+      selectedRefIds: selectedRefs.map((r) => r.id),
+    };
+    const hasRefs = hasReferenceImages(referenceImageSources);
+    if (hasRefs && modelId === AUTO_MODEL_ID) {
       try {
         const providerStatus = await fetchProviderStatus();
         const i2iReady =
@@ -1118,6 +1135,7 @@ export function CreationPanel({
           focusEditActive: Boolean(focusEdit?.points.length),
           mentionedMasksCount: mentionedMasks.length,
           submitVideo,
+          hasReferenceImages: hasRefs,
           productAssetId: resolveProductAssetId(),
           referenceAssetId: referenceAssetId ?? undefined,
         });
@@ -1129,13 +1147,22 @@ export function CreationPanel({
       }
     }
 
+    const directSubmitContext = {
+      studioOrchestrationActive,
+      skillsEnabled,
+      agentEnabled,
+      isDock,
+      creationLane,
+      activeSkillId,
+      focusEditActive: Boolean(focusEdit?.points.length),
+      mentionedMasksCount: mentionedMasks.length,
+      submitVideo,
+      submitEcommerce,
+      hasReferenceImages: hasRefs,
+    };
+
     const useSkillSubmit =
-      !studioOrchestrationActive &&
-      skillsEnabled &&
-      Boolean(activeSkillId) &&
-      !focusEdit?.points.length &&
-      mentionedMasks.length === 0 &&
-      !submitVideo;
+      shouldUseSkillSubmit(directSubmitContext) && Boolean(activeSkillId);
 
     if (useSkillSubmit && activeSkillId) {
       if (skillAwaitingConfirm) {
@@ -1172,15 +1199,7 @@ export function CreationPanel({
       return;
     }
 
-    const useAgentSubmit =
-      !studioOrchestrationActive &&
-      agentEnabled &&
-      (isDock ? creationLane === "agent" : true) &&
-      !activeSkillId &&
-      !focusEdit?.points.length &&
-      mentionedMasks.length === 0 &&
-      !submitVideo &&
-      !submitEcommerce;
+    const useAgentSubmit = shouldUseAgentSubmit(directSubmitContext);
 
     if (useAgentSubmit) {
       if (agentAwaitingConfirm) {
@@ -1305,7 +1324,9 @@ export function CreationPanel({
           aspectRatio: coerceAspectRatio(aspectRatio),
           mode: effectiveMode === "ecommerce" ? "ecommerce" : "image",
           assetIds: mergedAssetIds.length ? mergedAssetIds : undefined,
-          referenceOutputIds: selectedRefs.map((r) => r.id),
+          referenceOutputIds: normalizeReferenceOutputIds(
+            selectedRefs.map((r) => r.id),
+          ),
           autoRoute: useAuto,
           toolContext: mentionedMasks.length
             ? {
