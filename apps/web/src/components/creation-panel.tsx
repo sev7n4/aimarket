@@ -86,6 +86,7 @@ import {
   normalizeDockSkillId,
 } from "@/components/creation-dock-controls";
 import {
+  persistCreationLane,
   persistOutputMode,
   readStoredOutputMode,
   CREATION_LANE_PLACEHOLDERS,
@@ -757,6 +758,10 @@ export function CreationPanel({
     setModelId(inspirationApply.modelId);
     setAspectRatio(coerceAspectRatio(inspirationApply.aspectRatio));
     setResolution(inspirationApply.resolution);
+    if (isStudioDock) {
+      setCreationLane(inspirationApply.creationLane);
+      persistCreationLane("studio", inspirationApply.creationLane);
+    }
     const vars: Record<string, string> = {};
     for (const v of inspirationApply.variables ?? []) {
       vars[v.key] =

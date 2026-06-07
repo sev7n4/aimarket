@@ -1,12 +1,33 @@
-import type { StudioInspirationApply } from "@/lib/inspiration-studio";
+import type { CreationLane } from "@/lib/creation-dock-prefs";
+import {
+  resolveInspirationCreationLane,
+  type StudioInspirationApply,
+} from "@/lib/inspiration-studio";
 
 const key = (sessionId: string) =>
   `aimarket_pending_inspiration_${sessionId}`;
 
 export type PendingInspirationPayload = Omit<
   StudioInspirationApply,
-  "applyKey"
->;
+  "applyKey" | "creationLane"
+> & {
+  /** 旧 sessionStorage 可能无此字段 */
+  creationLane?: CreationLane;
+};
+
+export function normalizePendingInspiration(
+  payload: PendingInspirationPayload,
+): Omit<StudioInspirationApply, "applyKey"> {
+  const creationLane =
+    payload.creationLane ??
+    resolveInspirationCreationLane({
+      modelId: payload.modelId,
+      mediaType: undefined,
+      coverUrl: payload.referenceUrls[0] ?? "",
+      referenceAssets: payload.referenceUrls.map((url) => ({ url })),
+    });
+  return { ...payload, creationLane };
+}
 
 export function storePendingInspiration(
   sessionId: string,

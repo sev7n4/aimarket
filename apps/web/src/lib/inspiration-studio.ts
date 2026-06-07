@@ -1,4 +1,6 @@
 import type { AspectRatio } from "@/components/generation-settings-popover";
+import type { CreationLane } from "@/lib/creation-dock-prefs";
+import { persistCreationLane } from "@/lib/creation-dock-prefs";
 import type { InspirationDetail } from "@/lib/types";
 import { registerAssetFromUrl } from "@/lib/api-client";
 import { buildStudioUrl } from "@/lib/studio-navigation";
@@ -32,6 +34,8 @@ export interface StudioInspirationApply {
   resolution: string;
   referenceUrls: string[];
   variableValues: Record<string, string>;
+  /** 做同款进入 Studio 时预选创作车道 */
+  creationLane: CreationLane;
   applyKey: number;
 }
 
@@ -55,11 +59,40 @@ export function coerceInspirationAspect(value: string): AspectRatio {
     : "1:1";
 }
 
-/** 灵感做同款统一进入电商套图 Project 工作流 */
+const VIDEO_COVER_RE = /\.(mp4|webm|mov)(\?|$)/i;
+
+/** 灵感素材类型 → Studio 创作车道（图片 / 视频） */
+export function resolveInspirationCreationLane(
+  detail: Pick<
+    InspirationDetail,
+    "modelId" | "mediaType" | "coverUrl" | "referenceAssets"
+  >,
+): CreationLane {
+  if (detail.mediaType === "video") return "video";
+  if (detail.mediaType === "image") return "image";
+  const cover = detail.coverUrl ?? detail.referenceAssets[0]?.url ?? "";
+  if (VIDEO_COVER_RE.test(cover)) return "video";
+  return "image";
+}
+
+/** 图片灵感走电商套图 Project；视频灵感走画布 + 视频车道 */
 export function buildInspirationStudioUrl(
-  detail: Pick<InspirationDetail, "id" | "title" | "prompt">,
+  detail: Pick<
+    InspirationDetail,
+    "id" | "title" | "prompt" | "modelId" | "mediaType" | "coverUrl" | "referenceAssets"
+  >,
   sessionId: string,
 ): string {
+  const lane = resolveInspirationCreationLane(detail);
+  if (lane === "video") {
+    return buildStudioUrl("canvas", {
+      sessionId,
+      mode: "image",
+      title: detail.title,
+      prompt: detail.prompt,
+      inspirationId: detail.id,
+    });
+  }
   return buildStudioUrl("project", {
     sessionId,
     mode: "ecommerce",
@@ -74,6 +107,7 @@ export function buildPendingInspirationPayload(
   variableValues: Record<string, string> = {},
 ): Omit<StudioInspirationApply, "applyKey"> {
   const referenceUrls = detail.referenceAssets.map((a) => a.url);
+  const creationLane = resolveInspirationCreationLane(detail);
   return {
     id: detail.id,
     title: detail.title,
@@ -88,6 +122,7 @@ export function buildPendingInspirationPayload(
     resolution: detail.resolution,
     referenceUrls,
     variableValues,
+    creationLane,
   };
 }
 
@@ -102,6 +137,7 @@ export function applyInspirationToStudio(
     detail,
     opts?.variableValues,
   );
+  persistCreationLane("studio", payload.creationLane);
   storePendingInspiration(sessionId, payload);
   if (payload.referenceUrls.length > 0) {
     storePendingAssets(

@@ -79,13 +79,14 @@ import {
   importInspirationReferencesToCanvas,
   type StudioInspirationApply,
 } from "@/lib/inspiration-studio";
+import { persistCreationLane } from "@/lib/creation-dock-prefs";
 import {
   prefetchSessionCanvasBundle,
   useSessionCanvas,
 } from "@/hooks/use-session-canvas";
 import { watchJob } from "@/lib/job-stream";
 import { consumePendingAssets, type PendingAsset } from "@/lib/pending-assets";
-import { consumePendingInspiration } from "@/lib/pending-inspiration";
+import { consumePendingInspiration, normalizePendingInspiration } from "@/lib/pending-inspiration";
 import { expandFromDirection } from "@/lib/expand-extend";
 import {
   paddingToExtend,
@@ -350,8 +351,12 @@ export function StudioWorkspace({
     const pending = consumePendingAssets(sessionId);
     if (pending.length) setRestoredAssets(pending);
 
-    const pendingInspiration = consumePendingInspiration(sessionId);
+    const pendingRaw = consumePendingInspiration(sessionId);
+    const pendingInspiration = pendingRaw
+      ? normalizePendingInspiration(pendingRaw)
+      : null;
     if (pendingInspiration) {
+      persistCreationLane("studio", pendingInspiration.creationLane);
       setInspirationApply({
         ...pendingInspiration,
         aspectRatio: coerceInspirationAspect(pendingInspiration.aspectRatio),
@@ -362,7 +367,12 @@ export function StudioWorkspace({
     const wsId = activeWorkspaceId ?? getActiveWorkspaceId() ?? undefined;
     const ensured = await ensureSession(sessionId, mode, {
       title: initialTitle ?? pendingInspiration?.title,
-      kind: pendingInspiration ? "project" : (initialKind ?? "canvas"),
+      kind:
+        pendingInspiration ?
+          pendingInspiration.creationLane === "video" ?
+            "canvas"
+          : "project"
+        : (initialKind ?? "canvas"),
       workspaceId: wsId,
       sourceInspirationId: pendingInspiration?.id,
     });
@@ -373,7 +383,7 @@ export function StudioWorkspace({
      */
     if (!pendingInspiration && ensured.sourceInspiration) {
       const src = ensured.sourceInspiration;
-      setInspirationApply({
+      const normalized = normalizePendingInspiration({
         id: src.id,
         title: src.title,
         prompt: src.prompt,
@@ -383,6 +393,12 @@ export function StudioWorkspace({
         variables: src.variables,
         variableValues: src.variableValues ?? {},
         referenceUrls: src.referenceUrls ?? [],
+        creationLane: src.mediaType === "video" ? "video" : undefined,
+      });
+      persistCreationLane("studio", normalized.creationLane);
+      setInspirationApply({
+        ...normalized,
+        aspectRatio: coerceInspirationAspect(normalized.aspectRatio),
         applyKey: 1,
       });
     }

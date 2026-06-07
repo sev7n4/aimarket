@@ -97,6 +97,7 @@ export function rowToCanonical(row: InspirationRow) {
     row.cover_url,
   );
   const prompt = renderPromptTemplate(row.prompt_template, variables);
+  const mediaType = getModel(row.model_id)?.type === "video" ? "video" : "image";
 
   return {
     id: row.id,
@@ -110,6 +111,7 @@ export function rowToCanonical(row: InspirationRow) {
     resolution: row.resolution,
     coverUrl: row.cover_url,
     referenceAssets,
+    mediaType,
     status: row.status,
     sortOrder: row.sort_order,
     createdAt: row.created_at,

@@ -242,6 +242,7 @@ export interface EnsureSessionSourceInspiration {
   variableValues: Record<string, string>;
   referenceUrls: string[];
   coverUrl?: string | null;
+  mediaType?: "image" | "video";
 }
 
 export async function ensureSession(

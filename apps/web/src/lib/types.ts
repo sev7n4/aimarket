@@ -20,6 +20,8 @@ export interface InspirationDetail {
   resolution: string;
   coverUrl: string;
   referenceAssets: Array<{ url: string; fileName?: string; assetId?: string }>;
+  /** 由 modelId 解析：图片灵感走图片车道，视频灵感走视频车道 */
+  mediaType?: "image" | "video";
 }
 
 export interface ApiUser {
