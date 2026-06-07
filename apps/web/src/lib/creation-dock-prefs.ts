@@ -4,7 +4,7 @@ export type CreationLane = "agent" | "image" | "video";
 /** 创作 Dock 存储作用域：首页与 Studio 车道偏好独立 */
 export type CreationDockScope = "home" | "studio";
 
-/** 单车道 draft（Phase 2 起按 scope 隔离 lane；prompt/refs 仍由 CreationPanel 管理） */
+/** 当前活跃车道（完整参数草稿见 {@link LaneSettingsDraft} / useCreationLaneDrafts） */
 export interface LaneDraft {
   lane: CreationLane;
 }
@@ -19,7 +19,7 @@ export const CREATION_LANE_LABELS: Record<CreationLane, string> = {
   video: "视频生成",
 };
 
-/** 视频参考方式（即梦「全能参考」等，UI 态；后续可接 API） */
+/** 视频参考方式（即梦「全能参考」等，已接 /ai/generate/video） */
 export type VideoReferenceMode = "omni" | "first-frame" | "first-last";
 
 export const VIDEO_REFERENCE_LABELS: Record<VideoReferenceMode, string> = {

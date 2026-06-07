@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { skipStudioCoach } from "./helpers/studio";
 
 async function mockSignedInStudio(page: Page) {
   await page.addInitScript(() => {
@@ -6,6 +7,8 @@ async function mockSignedInStudio(page: Page) {
     localStorage.setItem("aimarket_studio_dock_mode_v1", "expanded");
     localStorage.removeItem("aimarket.home.lane");
     localStorage.removeItem("aimarket.studio.lane");
+    localStorage.removeItem("aimarket.home.laneDrafts");
+    localStorage.removeItem("aimarket.studio.laneDrafts");
     localStorage.removeItem("aimarket.creationDock.lane");
   });
 
@@ -102,5 +105,42 @@ test.describe("creation dock UI", () => {
     await expect(studioDock.getByRole("button", { name: "选择创作方式" })).toContainText(
       "图片生成",
     );
+  });
+
+  test("Studio 图片车道比例切到视频再切回后仍保留", async ({ page }) => {
+    await skipStudioCoach(page);
+    await mockSignedInStudio(page);
+    await page.goto("/studio", { waitUntil: "domcontentloaded" });
+
+    const studioDock = page.locator('[aria-label="创作 Dock"]');
+    const textarea = studioDock.locator("textarea").first();
+    await expect(textarea).toBeVisible();
+    await textarea.click();
+
+    const aspectButton = studioDock.getByRole("button", {
+      name: "图片尺寸与分辨率",
+    });
+    await expect(aspectButton).toBeVisible({ timeout: 10_000 });
+    await aspectButton.click();
+    // CompactDockSheet 内容可能 portal 到 Dock 外
+    await page
+      .locator("button")
+      .filter({ has: page.locator("span", { hasText: /^16:9$/ }) })
+      .first()
+      .click();
+    await expect(aspectButton).toContainText("16:9");
+
+    await studioDock.getByRole("button", { name: "选择创作方式" }).click();
+    await page.getByRole("button", { name: "视频生成", exact: true }).click();
+    await expect(studioDock.getByRole("button", { name: "选择创作方式" })).toContainText(
+      "视频生成",
+    );
+
+    await studioDock.getByRole("button", { name: "选择创作方式" }).click();
+    await page.getByRole("button", { name: "图片生成", exact: true }).click();
+    await expect(studioDock.getByRole("button", { name: "选择创作方式" })).toContainText(
+      "图片生成",
+    );
+    await expect(aspectButton).toContainText("16:9");
   });
 });
