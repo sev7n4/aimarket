@@ -123,6 +123,7 @@ CREATE TABLE IF NOT EXISTS generation_jobs (
   tool_type TEXT,
   tool_context TEXT,
   image_provider TEXT,
+  source_lane TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   completed_at TIMESTAMPTZ
 );

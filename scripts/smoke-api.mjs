@@ -268,7 +268,7 @@ async function main() {
       listCanvas.json?.data?.every((s) => s.kind === "canvas"),
   );
 
-  const gen = await req("/api/v1/ai/generate", {
+    const gen = await req("/api/v1/ai/generate", {
     method: "POST",
     headers: authH,
     body: JSON.stringify({
@@ -277,6 +277,7 @@ async function main() {
       mode: "image",
       count: 1,
       resolution: "1k",
+      sourceLane: "image",
     }),
   });
   const jobId = gen.json?.data?.jobId;
@@ -299,6 +300,11 @@ async function main() {
       "GET job status",
       job.res.ok && ["succeeded", "failed", "running"].includes(job.json?.data?.status),
       job.json?.data?.status,
+    );
+    ok(
+      "GET job source_lane",
+      job.res.ok && job.json?.data?.source_lane === "image",
+      job.json?.data?.source_lane ?? "missing",
     );
     if (settledJob?.status === "succeeded") {
       const bundle = await req(`/api/v1/imageSession/${sessionId}/canvas-bundle`, {

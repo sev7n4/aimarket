@@ -77,7 +77,7 @@ export interface ChatMessage {
     count?: number;
     toolType?: string;
     imageProvider?: string;
-    toolContext?: unknown;
+    sourceLane?: "agent" | "image" | "video";
   };
 }
 

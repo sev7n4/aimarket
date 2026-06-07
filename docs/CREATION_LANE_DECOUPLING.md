@@ -1,6 +1,6 @@
 # 创作 Dock 三车道解耦计划
 
-> 状态：Phase 3 进行中；Phase 0–2 已合并（#143、#144）  
+> 状态：Phase 4 进行中；Phase 0–3 已合并（#143–#145）  
 > 关联问题：Studio 默认 Agent 车道 + 有参考图时走 Agent 提交，导致图生图不创建 `generation_jobs`  
 > 最后更新：2026-06-05
 
@@ -115,9 +115,11 @@ submitByLane(lane)
 
 **任务**：
 
-- [ ] `generation_jobs.source_lane` 字段
-- [ ] 时间线 / 历史按车道标记
-- [ ] 灵感「做同款」默认图片车道
+- [x] `generation_jobs.source_lane` 字段
+- [x] 时间线 / 历史按车道标记（批次 subtitle 展示车道名）
+- [x] 灵感「做同款」按素材类型选车道（#145，图片 / 视频）
+
+**验收**：生成 job 写入 source_lane；canvas-bundle 回传；时间线 subtitle 含车道文案。
 
 ---
 
@@ -158,4 +160,5 @@ apps/web/e2e/creation-dock-ui.spec.ts
 |------|-------|------|
 | 2026-06-05 | 0–1 | 提交路由守卫、`creation-lane-submit.ts`、E2E `creation-lane-submit.spec.ts`（#143） |
 | 2026-06-07 | 2 | 分 scope lane 存储、`useCreationLaneState`、Studio 默认图片车道（#144） |
-| 2026-06-07 | 3 | 视频 referenceMode API、画布自动参考绑定、车道占位文案 |
+| 2026-06-07 | 3 | 视频 referenceMode API、画布自动参考绑定、车道占位文案（#145） |
+| 2026-06-07 | 4 | `generation_jobs.source_lane`、时间线车道标记、灵感做同款按类型选车道 |

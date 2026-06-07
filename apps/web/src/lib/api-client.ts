@@ -481,6 +481,7 @@ export async function submitGeneration(body: {
   };
   parentJobId?: string;
   sourceOutputId?: string;
+  sourceLane?: "agent" | "image" | "video";
 }) {
   const res = await request<{
     data: {
@@ -613,6 +614,7 @@ export async function submitVideoGeneration(body: {
   durationSec?: import("./creation-dock-prefs").VideoDurationSec;
   assetIds?: string[];
   referenceOutputIds?: string[];
+  sourceLane?: import("./creation-dock-prefs").CreationLane;
 }) {
   const res = await request<{
     data: { jobId: string; estimatedPoints: number };
