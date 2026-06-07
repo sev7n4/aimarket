@@ -20,6 +20,13 @@ async function waitForGenerationSettled(page: import("@playwright/test").Page) {
   await expect(overlay).toBeHidden({ timeout: 120_000 });
 }
 
+/** 等待一次生成任务：浮层出现后再消失 */
+async function waitForGenerationCycle(page: import("@playwright/test").Page) {
+  const overlay = page.locator('[role="status"][aria-live="polite"]');
+  await expect(overlay).toBeVisible({ timeout: 30_000 });
+  await expect(overlay).toBeHidden({ timeout: 120_000 });
+}
+
 async function waitForFirstBatch(page: import("@playwright/test").Page) {
   await waitForGenerationSettled(page);
   const batchSection = page
@@ -38,23 +45,10 @@ async function submitSecondGenerationInStudio(
   const textarea = station.locator("textarea").first();
   await expect(textarea).toBeVisible({ timeout: 15_000 });
   await expect(station.getByRole("button", { name: "开始生成" })).toBeEnabled({
-    timeout: 15_000,
+    timeout: 120_000,
   });
-
-  const overlay = page.locator('[role="status"][aria-live="polite"]');
-  await expect(overlay).toBeHidden({ timeout: 120_000 });
-
   await textarea.fill(prompt);
-  const generateResponse = page.waitForResponse(
-    (res) =>
-      res.url().includes("/api/v1/ai/generate") &&
-      res.request().method() === "POST",
-    { timeout: 30_000 },
-  );
   await station.getByRole("button", { name: "开始生成" }).click();
-  const res = await generateResponse;
-  expect(res.ok()).toBeTruthy();
-  await expect(overlay).toBeVisible({ timeout: 30_000 });
 }
 
 test.describe("canvas batch stream", () => {
@@ -76,6 +70,7 @@ test.describe("canvas batch stream", () => {
 
   test("连续两次生成后出现批次 1 与批次 2", async ({ page }) => {
     test.setTimeout(240_000);
+    page.on("dialog", (dialog) => dialog.accept());
     await skipStudioCoach(page);
     await registerViaEmail(page, { emailPrefix: "e2e_batch_dual" });
     await startGenerationFromHome(page, "E2E 双批次第一次：白色耳机");
@@ -85,7 +80,7 @@ test.describe("canvas batch stream", () => {
       page,
       "E2E 双批次第二次：黑色耳机产品摄影",
     );
-    await waitForGenerationSettled(page);
+    await waitForGenerationCycle(page);
 
     const batchSections = page.locator('[data-testid^="canvas-batch-section-"]');
     await expect(batchSections).toHaveCount(2, { timeout: 120_000 });

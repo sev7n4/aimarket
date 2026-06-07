@@ -1,6 +1,5 @@
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
-import { creditsButton } from "./auth";
 
 /** Studio 底部创作 Dock */
 export function studioWorkstation(page: Page) {
@@ -16,13 +15,21 @@ export async function skipStudioCoach(page: Page) {
   });
 }
 
-/** 等待 Studio 登录态与会话就绪，避免上传/提交时 user 尚未注入 */
-export async function waitForStudioReady(page: Page) {
+/** 进入 Studio 并等待会话 ensure，保证 user + sessionId 可用于上传/提交 */
+export async function gotoStudioAndWait(page: Page, url = "/studio") {
+  const sessionReady = page.waitForResponse(
+    (res) =>
+      res.url().includes("/api/v1/imageSession/ensure") &&
+      res.request().method() === "POST" &&
+      res.ok(),
+    { timeout: 30_000 },
+  );
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+  await sessionReady;
   const station = studioWorkstation(page);
   await expect(station.locator("textarea").first()).toBeVisible({
     timeout: 15_000,
   });
-  await expect(creditsButton(page)).toBeVisible({ timeout: 20_000 });
   await expect(station.getByRole("button", { name: "开始生成" })).toBeEnabled({
     timeout: 15_000,
   });

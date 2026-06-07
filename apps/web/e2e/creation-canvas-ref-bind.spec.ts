@@ -1,6 +1,6 @@
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { skipStudioCoach, studioWorkstation, waitForStudioReady } from "./helpers/studio";
+import { gotoStudioAndWait, skipStudioCoach, studioWorkstation } from "./helpers/studio";
 
 const tinyImage = path.join(__dirname, "fixtures", "tiny.png");
 
@@ -28,9 +28,8 @@ test.describe("canvas reference auto-bind", () => {
       localStorage.setItem("aimarket.studio.lane", "image");
     }, body.data!.token!);
 
-    await page.goto("/studio", { waitUntil: "domcontentloaded" });
+    await gotoStudioAndWait(page);
     const station = studioWorkstation(page);
-    await waitForStudioReady(page);
 
     const uploadResponse = page.waitForResponse(
       (res) =>

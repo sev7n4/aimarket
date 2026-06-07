@@ -1,6 +1,6 @@
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { skipStudioCoach, studioWorkstation, waitForStudioReady } from "./helpers/studio";
+import { gotoStudioAndWait, skipStudioCoach, studioWorkstation } from "./helpers/studio";
 
 const tinyImage = path.join(__dirname, "fixtures", "tiny.png");
 
@@ -36,11 +36,9 @@ test.describe("studio upload references", () => {
       localStorage.setItem("aimarket_token", token);
     }, body.data!.token!);
 
-    await page.goto("/studio");
-    await expect(page).toHaveURL(/\/studio/, { timeout: 15_000 });
+    await gotoStudioAndWait(page);
 
     const station = studioWorkstation(page);
-    await waitForStudioReady(page);
 
     const uploadResponse = page.waitForResponse(
       (res) =>
