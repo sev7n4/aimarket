@@ -97,3 +97,74 @@ export function resolveSubmitPath(
   if (ctx.focusEditActive) return "focus-edit";
   return "image-or-video";
 }
+
+export interface BuildOrchestrationDispatchInput {
+  creationLane: CreationLane;
+  activeSkillId: string | null;
+  focusEditActive: boolean;
+  mentionedMasksCount: number;
+  submitVideo: boolean;
+  referenceImageSources: ReferenceImageSources;
+}
+
+export function buildOrchestrationDispatchContext(
+  input: BuildOrchestrationDispatchInput,
+): OrchestrationDispatchContext {
+  return {
+    creationLane: input.creationLane,
+    activeSkillId: input.activeSkillId,
+    focusEditActive: input.focusEditActive,
+    mentionedMasksCount: input.mentionedMasksCount,
+    submitVideo: input.submitVideo,
+    hasReferenceImages: hasReferenceImages(input.referenceImageSources),
+  };
+}
+
+export interface BuildDirectSubmitInput {
+  studioOrchestrationActive: boolean;
+  skillsEnabled: boolean;
+  agentEnabled: boolean;
+  isDock: boolean;
+  creationLane: CreationLane;
+  activeSkillId: string | null;
+  focusEditActive: boolean;
+  mentionedMasksCount: number;
+  submitVideo: boolean;
+  submitEcommerce: boolean;
+  referenceImageSources: ReferenceImageSources;
+}
+
+export function buildDirectSubmitContext(
+  input: BuildDirectSubmitInput,
+): DirectSubmitContext {
+  return {
+    studioOrchestrationActive: input.studioOrchestrationActive,
+    skillsEnabled: input.skillsEnabled,
+    agentEnabled: input.agentEnabled,
+    isDock: input.isDock,
+    creationLane: input.creationLane,
+    activeSkillId: input.activeSkillId,
+    focusEditActive: input.focusEditActive,
+    mentionedMasksCount: input.mentionedMasksCount,
+    submitVideo: input.submitVideo,
+    submitEcommerce: input.submitEcommerce,
+    hasReferenceImages: hasReferenceImages(input.referenceImageSources),
+  };
+}
+
+export interface ResolveCreationSubmitPathInput {
+  direct: DirectSubmitContext;
+  /** Studio Provider 存在且本次应由编排接管时为 true */
+  orchestrationDispatchWouldHandle: boolean;
+}
+
+/** 创作 Dock 提交路径唯一入口（CreationPanel / 测试共用） */
+export function resolveCreationSubmitPath(
+  input: ResolveCreationSubmitPathInput,
+): SubmitPath {
+  return resolveSubmitPath({
+    ...input.direct,
+    orchestrationDispatchWouldHandle: input.orchestrationDispatchWouldHandle,
+    focusEditActive: input.direct.focusEditActive,
+  });
+}
