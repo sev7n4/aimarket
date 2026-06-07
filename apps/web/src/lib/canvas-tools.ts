@@ -97,6 +97,8 @@ export interface CanvasItem {
     count?: number;
     toolType?: string;
     toolContext?: unknown;
+    imageProvider?: string;
+    autoRoute?: boolean;
     sourceLane?: "agent" | "image" | "video";
   };
 }
@@ -411,6 +413,7 @@ export function buildCanvasItemsFromMessages(
       toolType?: string;
       count?: number;
       imageProvider?: string;
+      autoRoute?: boolean;
       sourceLane?: CreationLane;
     };
   }[],

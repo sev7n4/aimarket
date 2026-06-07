@@ -10,7 +10,7 @@
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
-    "test:integration": "pnpm --filter @aimarket/api exec tsx ../../scripts/test-creation-lane-submit.ts && pnpm --filter @aimarket/api exec tsx ../../scripts/test-creation-lane-drafts.ts && pnpm --filter @aimarket/api exec tsx ../../scripts/test-source-lane.ts && pnpm --filter @aimarket/api exec tsx ../../scripts/test-image-provider-fallback.ts && pnpm --filter @aimarket/api exec tsx ../../scripts/test-job-error-message.ts && node scripts/smoke-api.mjs && node scripts/test-agent-orchestration.mjs && node scripts/test-agent-skill.mjs && node scripts/test-workspace-switch.mjs && node scripts/test-workspace-collab.mjs && node scripts/verify-moderation-p2.mjs && node scripts/test-agnes-smoke.mjs",
+    "test:integration": "pnpm --filter @aimarket/api exec tsx ../../scripts/test-creation-lane-submit.ts && pnpm --filter @aimarket/api exec tsx ../../scripts/test-creation-lane-drafts.ts && pnpm --filter @aimarket/api exec tsx ../../scripts/test-source-lane.ts && pnpm --filter @aimarket/api exec tsx ../../scripts/test-image-provider-fallback.ts && pnpm --filter @aimarket/api exec tsx ../../scripts/test-generation-display.ts && pnpm --filter @aimarket/api exec tsx ../../scripts/test-job-error-message.ts && node scripts/smoke-api.mjs && node scripts/test-agent-orchestration.mjs && node scripts/test-agent-skill.mjs && node scripts/test-workspace-switch.mjs && node scripts/test-workspace-collab.mjs && node scripts/verify-moderation-p2.mjs && node scripts/test-agnes-smoke.mjs",
     "test:e2e": "pnpm --filter @aimarket/web test:e2e"
   },
   "engines": {
