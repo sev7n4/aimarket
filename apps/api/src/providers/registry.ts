@@ -1,8 +1,11 @@
 import { getModel } from "../lib/models.js";
 import { persistOutputUrls } from "../lib/persist-output.js";
 import { AppError } from "../lib/errors.js";
+import { isRetriableI2iProviderError } from "../lib/image-provider-fallback.js";
 import {
   aliyunWanI2iConfigured,
+  listGenerateProviderCandidates,
+  pickGenerateProvider,
   resolveImageProvider,
   type ImageRouteContext,
 } from "../lib/image-routing.js";
@@ -23,17 +26,42 @@ export function resolveProvider(
   return resolveImageProvider(modelId, operation, context);
 }
 
-export async function generateImages(
+async function runGenerateWithProvider(
+  provider: ImageProvider,
   params: GenerateParams,
 ): Promise<GenerateResult & { modelName?: string }> {
-  const provider = resolveProvider(params.modelId, "generate", {
-    hasReferenceImages: Boolean(params.referenceUrls?.length),
-    userId: params.userId,
-  });
   const result = await provider.generate(params);
   const urls = await persistOutputUrls(result.urls);
   const meta = getModel(params.modelId);
   return { ...result, urls, modelName: meta?.name };
+}
+
+export async function generateImages(
+  params: GenerateParams,
+): Promise<GenerateResult & { modelName?: string }> {
+  const hasRefs = Boolean(params.referenceUrls?.length);
+  const context: ImageRouteContext = {
+    hasReferenceImages: hasRefs,
+    userId: params.userId,
+  };
+  const candidates = hasRefs
+    ? listGenerateProviderCandidates(params.modelId, true, context)
+    : [pickGenerateProvider(params.modelId, false, context)];
+
+  let lastError: unknown;
+  for (let i = 0; i < candidates.length; i++) {
+    const provider = candidates[i]!;
+    try {
+      return await runGenerateWithProvider(provider, params);
+    } catch (err) {
+      lastError = err;
+      const hasMore = i < candidates.length - 1;
+      if (!hasRefs || !hasMore || !isRetriableI2iProviderError(err)) {
+        throw err;
+      }
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("图生图失败");
 }
 
 export async function editImage(

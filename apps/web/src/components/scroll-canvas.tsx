@@ -77,6 +77,7 @@ interface ScrollCanvasProps {
   ) => void;
   jobStreamStatus?: string | null;
   jobFailed?: boolean;
+  jobErrorMessage?: string | null;
   jobProgressCompleted?: number;
   jobProgressTotal?: number;
   onOpenChatPanel?: () => void;
@@ -121,6 +122,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       onJumpToParentBatch,
       jobStreamStatus,
       jobFailed,
+      jobErrorMessage,
       jobProgressCompleted,
       jobProgressTotal,
       onOpenChatPanel,
@@ -206,6 +208,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
           <CanvasJobOverlay
             status={jobStreamStatus ?? null}
             failed={jobFailed}
+            errorMessage={jobErrorMessage}
             onOpenChat={onOpenChatPanel}
             onCancel={onCancelJob}
             completed={jobProgressCompleted}

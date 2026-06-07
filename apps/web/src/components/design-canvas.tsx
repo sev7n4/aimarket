@@ -67,6 +67,7 @@ interface DesignCanvasProps {
   readOnly?: boolean;
   jobStreamStatus?: string | null;
   jobFailed?: boolean;
+  jobErrorMessage?: string | null;
   jobProgressCompleted?: number;
   jobProgressTotal?: number;
   onOpenChatPanel?: () => void;
@@ -144,6 +145,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       readOnly = false,
       jobStreamStatus = null,
       jobFailed = false,
+      jobErrorMessage = null,
       jobProgressCompleted = 0,
       jobProgressTotal = 0,
       onOpenChatPanel,
@@ -816,6 +818,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               statusChip={statusChip}
               jobStreamStatus={jobStreamStatus}
               jobFailed={jobFailed}
+              jobErrorMessage={jobErrorMessage}
               jobProgressCompleted={jobProgressCompleted}
               jobProgressTotal={jobProgressTotal}
               onOpenChatPanel={onOpenChatPanel}
@@ -841,6 +844,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               onJumpToParentBatch={onJumpToParentBatch}
               jobStreamStatus={jobStreamStatus}
               jobFailed={jobFailed}
+              jobErrorMessage={jobErrorMessage}
               jobProgressCompleted={jobProgressCompleted}
               jobProgressTotal={jobProgressTotal}
               onOpenChatPanel={onOpenChatPanel}
