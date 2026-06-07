@@ -181,6 +181,7 @@ export function StudioWorkspace({
   const handleJobCompleteRef = useRef<
     (completedJobId?: string) => Promise<void>
   >(async () => {});
+  const completingJobIdRef = useRef<string | null>(null);
   const { user, loading: authLoading, refreshUser } = useAuth();
   const uploadRef = useRef<HTMLInputElement>(null);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -534,6 +535,14 @@ export function StudioWorkspace({
   );
 
   const handleJobComplete = useCallback(async (completedJobId?: string) => {
+    if (
+      completedJobId &&
+      completingJobIdRef.current === completedJobId
+    ) {
+      return;
+    }
+    if (completedJobId) completingJobIdRef.current = completedJobId;
+    try {
     invalidateSessionCanvasBundle(sessionId);
     let jobStatus: string | undefined;
     let toolType: string | undefined;
@@ -585,6 +594,11 @@ export function StudioWorkspace({
       }
     } else {
       window.requestAnimationFrame(() => focusLatestCanvasItem());
+    }
+    } finally {
+      if (completedJobId && completingJobIdRef.current === completedJobId) {
+        completingJobIdRef.current = null;
+      }
     }
   }, [
     loadCanvas,

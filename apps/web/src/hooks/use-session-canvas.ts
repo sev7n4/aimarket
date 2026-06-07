@@ -144,9 +144,34 @@ export function useSessionCanvas(
     const fromMsgs = buildCanvasItemsFromMessages(bundle.messages);
     const layout = bundle.layout;
     const saved = (layout.items ?? []) as CanvasItem[];
-    const merged = withPendingLineage(
-      saved.length > 0 ? mergeCanvasItems(saved, fromMsgs) : fromMsgs,
-    );
+    let merged: CanvasItem[];
+    if (opts?.force && fromMsgs.length > 0) {
+      const savedByUrl = new Map(saved.map((i) => [i.url, i]));
+      merged = fromMsgs.map((item) => {
+        const prev = savedByUrl.get(item.url);
+        return prev
+          ? {
+              ...item,
+              x: prev.x,
+              y: prev.y,
+              width: prev.width,
+              height: prev.height,
+            }
+          : item;
+      });
+      for (const item of saved) {
+        if (
+          (item.batchId === "uploads" || item.source === "upload") &&
+          !merged.some((m) => m.url === item.url)
+        ) {
+          merged.push(item);
+        }
+      }
+    } else {
+      merged =
+        saved.length > 0 ? mergeCanvasItems(saved, fromMsgs) : fromMsgs;
+    }
+    merged = withPendingLineage(merged);
     skipNextSave.current = true;
     setItems(merged);
     persistReady.current = true;
