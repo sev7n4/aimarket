@@ -154,6 +154,39 @@ apps/web/e2e/creation-dock-ui.spec.ts
 
 ---
 
+## Phase 5 — 提交逻辑单源化（P1）
+
+> 原则：共享 job 管线，隔离提交决策；不拆三套 worker / 三个 Panel。
+
+| PR | 分支 | 范围 | 验收 |
+|----|------|------|------|
+| **5-1** | `refactor/creation-lane-submit-tests` | `buildDirectSubmitContext` / `resolveCreationSubmitPath`；`scripts/test-creation-lane-submit.ts`；接入 `pnpm test:integration` | 守卫矩阵单测全绿；`resolveSubmitPath` 无死代码 |
+| **5-2** | `refactor/creation-panel-submit-path` | `CreationPanel.handleSubmit` 改为 `switch(resolveCreationSubmitPath)`；删除重复 `if/else` | E2E `creation-lane-submit.spec.ts` 仍绿；typecheck 通过 |
+| **5-3** | `refactor/orchestration-submit-shared` | 抽出 `creation-orchestration-submit.ts`（Skill/Agent 确认与发起）；Studio Provider 与首页 Dock 共用 | 首页 Agent 车道与 Studio 行为一致；无重复 confirm/start 逻辑 |
+
+**依赖**：5-1 → 5-2 → 5-3（可 squash 为 1 个 PR，建议分 2–3 个便于 review）。
+
+---
+
+## Phase 6 — 分车道 Draft 状态（P1）
+
+| PR | 分支 | 范围 | 验收 |
+|----|------|------|------|
+| **6-1** | `refactor/creation-lane-draft-types` | 扩展 `LaneDraft`（modelId、aspectRatio、count、videoReferenceMode、videoDurationSec、outputPrefMode）；`aimarket.{scope}.laneDrafts` 存储 API | 类型与读写单测；旧 lane key 迁移不受影响 |
+| **6-2** | `refactor/creation-lane-draft-hook` | `useCreationLaneDrafts(scope)`：切 lane 时 save/load；refs 在 image/video 间共享、agent 清空 | 单元测试覆盖 save/load 往返 |
+| **6-3** | `feat/creation-panel-lane-drafts` | `CreationPanel` 接入 draft hook；`outputPrefMode` 按 scope+lane 存储 | E2E：图片车道配 16:9 → 切视频 → 切回图片，比例仍在 |
+| **6-4** | `chore/creation-lane-doc-drift` | 修正 `videoReferenceMode` 注释；Skill `source_lane`（可选，或并入 Phase 7） | 文档与代码一致 |
+
+**依赖**：6-1 → 6-2 → 6-3；6-4 可与 6-3 并行。
+
+**共享策略（拍板）**：
+
+- **按 lane 隔离**：modelId、aspectRatio、count、videoReferenceMode、videoDurationSec、outputPrefMode
+- **跨 lane 共享**：prompt、upload refs（image/video）；切 agent 时守卫清空或拒绝
+- **不拆**：`createGenerationJob` 管线、画布、session、计费
+
+---
+
 ## 进度日志
 
 | 日期 | Phase | 说明 |
@@ -162,3 +195,4 @@ apps/web/e2e/creation-dock-ui.spec.ts
 | 2026-06-07 | 2 | 分 scope lane 存储、`useCreationLaneState`、Studio 默认图片车道（#144） |
 | 2026-06-07 | 3 | 视频 referenceMode API、画布自动参考绑定、车道占位文案（#145） |
 | 2026-06-07 | 4 | `generation_jobs.source_lane`、时间线车道标记、灵感做同款按类型选车道 |
+| 2026-06-07 | 5 | 启动 PR 5-1～5-3 排期；分支 `refactor/creation-lane-submit-unify` 开发中 |

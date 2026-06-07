@@ -102,11 +102,21 @@ import {
   mergeReferenceSources,
 } from "@/lib/canvas-reference-bind";
 import {
+  buildDirectSubmitContext,
+  buildOrchestrationDispatchContext,
   hasReferenceImages,
   normalizeReferenceOutputIds,
-  shouldUseAgentSubmit,
-  shouldUseSkillSubmit,
+  resolveCreationSubmitPath,
+  shouldOrchestrationHandleSubmit,
 } from "@/lib/creation-lane-submit";
+import {
+  isAgentAwaitingConfirm,
+  isAgentRunInFlight,
+  isSkillAwaitingConfirm,
+  isSkillRunInFlight,
+  submitAgentOrchestration,
+  submitSkillOrchestration,
+} from "@/lib/creation-orchestration-submit";
 import type { StudioDockMode } from "@/lib/studio-dock-state";
 import type {
   FocusEditIntent,
@@ -616,13 +626,8 @@ export function CreationPanel({
     setDockSkillId(null);
   }, [studioOrchestrationActive, orchestrationResetTick, setPrompt]);
 
-  const skillAwaitingConfirm = orchSkillRun?.status === "waiting_confirm";
-  const skillInFlight = Boolean(
-    orchSkillRun &&
-      (["queued", "running", "waiting_job"] as SkillRunStatus[]).includes(
-        orchSkillRun.status,
-      ),
-  );
+  const skillAwaitingConfirm = isSkillAwaitingConfirm(orchSkillRun);
+  const skillInFlight = isSkillRunInFlight(orchSkillRun);
   const skillIdle =
     !orchSkillRun ||
     (["completed", "failed", "cancelled"] as SkillRunStatus[]).includes(
@@ -632,13 +637,8 @@ export function CreationPanel({
   const resolveProductAssetId = () =>
     productAssetId ?? assetIds[0] ?? mentionedAssetIds[0] ?? undefined;
 
-  const agentAwaitingConfirm = orchAgentRun?.status === "waiting_confirm";
-  const agentInFlight = Boolean(
-    orchAgentRun &&
-      (["planning", "running", "waiting_job"] as AgentRunStatus[]).includes(
-        orchAgentRun.status,
-      ),
-  );
+  const agentAwaitingConfirm = isAgentAwaitingConfirm(orchAgentRun);
+  const agentInFlight = isAgentRunInFlight(orchAgentRun);
   const submitAriaLabel = skillAwaitingConfirm
     ? "确认执行套餐"
     : agentAwaitingConfirm
@@ -1135,7 +1135,38 @@ export function CreationPanel({
     }
     if (!sessionId) return;
 
-    if (studioOrchestrationActive && studioOrch) {
+    const focusEditActive = Boolean(focusEdit?.points.length);
+    const directSubmitContext = buildDirectSubmitContext({
+      studioOrchestrationActive,
+      skillsEnabled,
+      agentEnabled,
+      isDock,
+      creationLane,
+      activeSkillId,
+      focusEditActive,
+      mentionedMasksCount: mentionedMasks.length,
+      submitVideo,
+      submitEcommerce,
+      referenceImageSources: referenceImageSources,
+    });
+    const orchestrationDispatchWouldHandle =
+      studioOrchestrationActive &&
+      shouldOrchestrationHandleSubmit(
+        buildOrchestrationDispatchContext({
+          creationLane,
+          activeSkillId,
+          focusEditActive,
+          mentionedMasksCount: mentionedMasks.length,
+          submitVideo,
+          referenceImageSources: referenceImageSources,
+        }),
+      );
+    const submitPath = resolveCreationSubmitPath({
+      direct: directSubmitContext,
+      orchestrationDispatchWouldHandle,
+    });
+
+    if (submitPath === "orchestration" && studioOrch) {
       setPending(true);
       try {
         const handled = await studioOrch.dispatchSubmit({
@@ -1143,7 +1174,7 @@ export function CreationPanel({
           creationLane,
           activeSkillId,
           effectiveMode,
-          focusEditActive: Boolean(focusEdit?.points.length),
+          focusEditActive,
           mentionedMasksCount: mentionedMasks.length,
           submitVideo,
           hasReferenceImages: hasRefs,
@@ -1158,50 +1189,29 @@ export function CreationPanel({
       }
     }
 
-    const directSubmitContext = {
-      studioOrchestrationActive,
-      skillsEnabled,
-      agentEnabled,
-      isDock,
-      creationLane,
-      activeSkillId,
-      focusEditActive: Boolean(focusEdit?.points.length),
-      mentionedMasksCount: mentionedMasks.length,
-      submitVideo,
-      submitEcommerce,
-      hasReferenceImages: hasRefs,
-    };
-
-    const useSkillSubmit =
-      shouldUseSkillSubmit(directSubmitContext) && Boolean(activeSkillId);
-
-    if (useSkillSubmit && activeSkillId) {
-      if (skillAwaitingConfirm) {
-        setPending(true);
-        try {
-          await ensureSession(sessionId, mode);
-          await confirmSkillRunAction();
-        } catch (err) {
-          alert(err instanceof Error ? err.message : "确认失败");
-        } finally {
-          setPending(false);
-        }
-        return;
-      }
-      if (skillInFlight) return;
-
+    if (submitPath === "skill" && activeSkillId) {
       setPending(true);
       try {
-        await ensureSession(sessionId, mode);
-        await startSkillRun(activeSkillId, {
+        const skillResult = await submitSkillOrchestration({
           prompt,
+          activeSkillId,
           productAssetId: resolveProductAssetId(),
           referenceAssetId: referenceAssetId ?? undefined,
+          skillRun: orchSkillRun,
+          ensureSession: () => ensureSession(sessionId, mode),
+          confirmRun: confirmSkillRunAction,
+          startRun: startSkillRun,
+          onValidationError: (message) => alert(message),
+          onStarted: () => {
+            void trackEvent("skill_run_start", {
+              sessionId: sessionId ?? "",
+              skillId: activeSkillId,
+            });
+          },
         });
-        void trackEvent("skill_run_start", {
-          sessionId: sessionId ?? "",
-          skillId: activeSkillId,
-        });
+        if (skillResult === "validation_failed" || skillResult === "in_flight") {
+          return;
+        }
       } catch (err) {
         alert(err instanceof Error ? err.message : "套餐提交失败");
       } finally {
@@ -1210,28 +1220,23 @@ export function CreationPanel({
       return;
     }
 
-    const useAgentSubmit = shouldUseAgentSubmit(directSubmitContext);
-
-    if (useAgentSubmit) {
-      if (agentAwaitingConfirm) {
-        setPending(true);
-        try {
-          await ensureSession(sessionId, mode);
-          await confirmAgentRunAction();
-        } catch (err) {
-          alert(err instanceof Error ? err.message : "确认失败");
-        } finally {
-          setPending(false);
-        }
-        return;
-      }
-      if (agentInFlight) return;
-
+    if (submitPath === "agent") {
       setPending(true);
       try {
-        await ensureSession(sessionId, mode);
-        await startAgentRun(prompt);
-        void trackEvent("agent_run_start", { sessionId: sessionId ?? "", mode });
+        const agentResult = await submitAgentOrchestration({
+          prompt,
+          agentRun: orchAgentRun,
+          ensureSession: () => ensureSession(sessionId, mode),
+          confirmRun: confirmAgentRunAction,
+          startRun: startAgentRun,
+          onStarted: () => {
+            void trackEvent("agent_run_start", {
+              sessionId: sessionId ?? "",
+              mode,
+            });
+          },
+        });
+        if (agentResult === "in_flight") return;
       } catch (err) {
         alert(err instanceof Error ? err.message : "Agent 提交失败");
       } finally {
@@ -1240,7 +1245,7 @@ export function CreationPanel({
       return;
     }
 
-    if (focusEdit?.points.length && onFocusEditSubmit) {
+    if (submitPath === "focus-edit" && focusEdit?.points.length && onFocusEditSubmit) {
       const sourceItem = canvasItems.find(
         (i) => i.id === focusEdit.points[0]?.itemId,
       );
