@@ -220,6 +220,7 @@ ai.post("/generate", async (c) => {
     sourceOutputId: lineage.sourceOutputId,
     referenceUrls: allReferenceUrls.length > 0 ? allReferenceUrls : undefined,
     sourceLane: body.sourceLane,
+    autoRoute: body.autoRoute || !body.modelId,
   });
 
   const byokActive = userHasByokOpenAi(userId);

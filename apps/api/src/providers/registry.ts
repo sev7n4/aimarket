@@ -1,12 +1,11 @@
 import { getModel } from "../lib/models.js";
 import { persistOutputUrls } from "../lib/persist-output.js";
 import { AppError } from "../lib/errors.js";
-import { isRetriableI2iProviderError } from "../lib/image-provider-fallback.js";
+import { isRetriableGenerateProviderError } from "../lib/image-provider-fallback.js";
 import { agnesImageConfigured } from "./agnes-image.js";
 import {
   aliyunWanI2iConfigured,
   listGenerateProviderCandidates,
-  pickGenerateProvider,
   resolveImageProvider,
   type ImageRouteContext,
 } from "../lib/image-routing.js";
@@ -45,9 +44,13 @@ export async function generateImages(
     hasReferenceImages: hasRefs,
     userId: params.userId,
   };
-  const candidates = hasRefs
-    ? listGenerateProviderCandidates(params.modelId, true, context)
-    : [pickGenerateProvider(params.modelId, false, context)];
+  const allowFallback = params.autoRoute === true;
+  const candidates = listGenerateProviderCandidates(
+    params.modelId,
+    hasRefs,
+    context,
+    { allowFallbackChain: allowFallback },
+  );
 
   let lastError: unknown;
   for (let i = 0; i < candidates.length; i++) {
@@ -57,12 +60,16 @@ export async function generateImages(
     } catch (err) {
       lastError = err;
       const hasMore = i < candidates.length - 1;
-      if (!hasRefs || !hasMore || !isRetriableI2iProviderError(err)) {
+      if (
+        !allowFallback ||
+        !hasMore ||
+        !isRetriableGenerateProviderError(err)
+      ) {
         throw err;
       }
     }
   }
-  throw lastError instanceof Error ? lastError : new Error("图生图失败");
+  throw lastError instanceof Error ? lastError : new Error("图像生成失败");
 }
 
 export async function editImage(

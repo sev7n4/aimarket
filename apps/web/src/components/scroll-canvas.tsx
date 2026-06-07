@@ -22,6 +22,10 @@ import type {
 } from "@/lib/canvas-timeline";
 import type { StudioTool } from "@/lib/types";
 import { hapticLight } from "@/lib/haptics";
+import {
+  formatBatchImageProvider,
+  formatBatchModelSelection,
+} from "@/lib/format-generation-display";
 
 export interface ScrollCanvasHandle {
   scrollToBatch: (batchId: string) => void;
@@ -241,6 +245,19 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                 const batchItems = itemsByBatch.get(section.id) ?? [];
                 const firstItem = batchItems[0] ?? null;
                 const params = firstItem?.generationParams;
+                const batchDisplayInput = params
+                  ? {
+                      modelId: params.modelId,
+                      imageProvider: params.imageProvider,
+                      autoRoute: params.autoRoute,
+                    }
+                  : undefined;
+                const batchModelLabel = batchDisplayInput
+                  ? formatBatchModelSelection(batchDisplayInput)
+                  : "-";
+                const batchProviderLabel = batchDisplayInput
+                  ? formatBatchImageProvider(batchDisplayInput)
+                  : null;
                 const expanded = expandedRecordIds.has(section.id);
                 const previewItems = batchItems.slice(0, 4);
                 const hiddenPreviewCount = Math.max(
@@ -382,10 +399,18 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                               <dl className="mt-1 grid gap-0.5 text-[10px] leading-relaxed text-zinc-500 sm:grid-cols-2">
                                 <div>
                                   <dt className="inline text-zinc-600">模型：</dt>
-                                  <dd className="inline">
-                                    {params.modelId ?? "-"}
-                                  </dd>
+                                  <dd className="inline">{batchModelLabel}</dd>
                                 </div>
+                                {batchProviderLabel ? (
+                                  <div>
+                                    <dt className="inline text-zinc-600">
+                                      出图：
+                                    </dt>
+                                    <dd className="inline">
+                                      {batchProviderLabel}
+                                    </dd>
+                                  </div>
+                                ) : null}
                                 <div>
                                   <dt className="inline text-zinc-600">比例：</dt>
                                   <dd className="inline">

@@ -67,6 +67,8 @@ export interface CreateJobInput {
   referenceUrls?: string[];
   /** 创作 Dock 车道溯源（agent / image / video） */
   sourceLane?: SourceLane | null;
+  /** 创作台 Auto：写入 tool_context，供异步 job 跨 Provider 回落 */
+  autoRoute?: boolean;
 }
 
 export function createGenerationJob(input: CreateJobInput) {
@@ -110,11 +112,21 @@ export function createGenerationJob(input: CreateJobInput) {
     toolType: input.toolType,
   });
 
-  let effectiveToolContext: (Partial<ToolContext> & { referenceUrls?: string[] }) | undefined;
-  if (input.toolContext || input.referenceUrls?.length) {
+  let effectiveToolContext:
+    | (Partial<ToolContext> & {
+        referenceUrls?: string[];
+        autoRoute?: boolean;
+      })
+    | undefined;
+  if (
+    input.toolContext ||
+    input.referenceUrls?.length ||
+    input.autoRoute !== undefined
+  ) {
     effectiveToolContext = {
       ...input.toolContext,
       referenceUrls: input.referenceUrls,
+      ...(input.autoRoute !== undefined ? { autoRoute: input.autoRoute } : {}),
     };
   }
 
@@ -225,17 +237,20 @@ export async function processGenerationJob({
 
   let toolContext: ToolContext | Record<string, unknown> | undefined;
   let referenceUrls: string[] | undefined;
+  let autoRoute = false;
   let videoReferenceMode: "omni" | "first-frame" | "first-last" | undefined;
   let videoDurationSec: number | undefined;
   if (job.tool_context) {
     try {
       const parsed = JSON.parse(job.tool_context) as ToolContext & {
         referenceUrls?: string[];
+        autoRoute?: boolean;
         videoReferenceMode?: "omni" | "first-frame" | "first-last";
         durationSec?: number;
       };
       toolContext = parsed;
       referenceUrls = parsed.referenceUrls;
+      autoRoute = parsed.autoRoute === true;
       videoReferenceMode = parsed.videoReferenceMode;
       videoDurationSec = parsed.durationSec;
     } catch {
@@ -301,6 +316,7 @@ export async function processGenerationJob({
           aspectRatio: job.aspect_ratio ?? "1:1",
           referenceUrls,
           userId: job.user_id,
+          autoRoute,
         });
         const url = part.urls[0];
         imageProvider = part.provider;
@@ -342,6 +358,7 @@ export async function processGenerationJob({
         aspectRatio: job.aspect_ratio ?? "1:1",
         referenceUrls,
         userId: job.user_id,
+        autoRoute,
       });
       urls = result.urls;
       imageProvider = result.provider;

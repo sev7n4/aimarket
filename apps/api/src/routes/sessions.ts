@@ -102,7 +102,18 @@ type SessionMessageRow = {
   count: number | null;
   image_provider: string | null;
   source_lane: string | null;
+  tool_context: string | null;
 };
+
+function readJobAutoRoute(toolContext: string | null | undefined): boolean {
+  if (!toolContext) return false;
+  try {
+    const parsed = JSON.parse(toolContext) as { autoRoute?: boolean };
+    return parsed.autoRoute === true;
+  } catch {
+    return false;
+  }
+}
 
 type MessageOutputRow = {
   id: string;
@@ -117,7 +128,7 @@ function loadSessionMessages(sessionId: string) {
   const messages = db
     .prepare(
       `SELECT m.id, m.role, m.content, m.job_id, m.created_at,
-              j.parent_job_id, j.source_output_id, j.model_id, j.resolution, j.aspect_ratio, j.tool_type, j.prompt, j.count, j.image_provider, j.source_lane
+              j.parent_job_id, j.source_output_id, j.model_id, j.resolution, j.aspect_ratio, j.tool_type, j.prompt, j.count, j.image_provider, j.source_lane, j.tool_context
        FROM messages m
        LEFT JOIN generation_jobs j ON j.id = m.job_id
        WHERE m.session_id = ? ORDER BY m.created_at ASC`,
@@ -169,6 +180,7 @@ function loadSessionMessages(sessionId: string) {
             toolType: m.tool_type ?? undefined,
             count: m.count ?? undefined,
             imageProvider: m.image_provider ?? undefined,
+            autoRoute: readJobAutoRoute(m.tool_context),
             sourceLane: m.source_lane ?? undefined,
           }
         : undefined,

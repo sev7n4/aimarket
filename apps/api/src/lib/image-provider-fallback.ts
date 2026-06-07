@@ -1,5 +1,5 @@
-/** 图生图 Provider 失败时是否值得尝试备用供应商（如 Seedream 429 配额） */
-export function isRetriableI2iProviderError(err: unknown): boolean {
+/** 文生图 / 图生图 Provider 失败时是否值得尝试备用供应商（如 429 配额） */
+export function isRetriableGenerateProviderError(err: unknown): boolean {
   const message = err instanceof Error ? err.message : String(err ?? "");
   const lower = message.toLowerCase();
   return (
