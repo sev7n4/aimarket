@@ -54,11 +54,12 @@ export const VIDEO_MODELS: ModelMeta[] = [
   },
 ];
 
-/**
- * omni-v2 / latest-v2-pro are internal routing aliases used by Auto mode.
- * They are NOT exposed to the user-facing model list.
- */
-export const INTERNAL_ROUTING_IDS = new Set(["omni-v2", "latest-v2-pro"]);
+export {
+  INTERNAL_ROUTING_MODEL_IDS as INTERNAL_ROUTING_IDS,
+  isInternalRoutingModelId,
+  type GenerationQualityTier,
+  type GenerationRoutingMode,
+} from "./generation-routing.js";
 
 export const ALL_MODELS = [...IMAGE_MODELS, ...VIDEO_MODELS];
 

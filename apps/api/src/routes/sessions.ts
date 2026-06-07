@@ -105,13 +105,25 @@ type SessionMessageRow = {
   tool_context: string | null;
 };
 
-function readJobAutoRoute(toolContext: string | null | undefined): boolean {
-  if (!toolContext) return false;
+function readJobRoutingContext(toolContext: string | null | undefined): {
+  autoRoute: boolean;
+  routingMode?: "auto" | "explicit" | "byok";
+  qualityTier?: "standard" | "pro";
+} {
+  if (!toolContext) return { autoRoute: false };
   try {
-    const parsed = JSON.parse(toolContext) as { autoRoute?: boolean };
-    return parsed.autoRoute === true;
+    const parsed = JSON.parse(toolContext) as {
+      autoRoute?: boolean;
+      routingMode?: "auto" | "explicit" | "byok";
+      qualityTier?: "standard" | "pro";
+    };
+    return {
+      autoRoute: parsed.autoRoute === true,
+      routingMode: parsed.routingMode,
+      qualityTier: parsed.qualityTier,
+    };
   } catch {
-    return false;
+    return { autoRoute: false };
   }
 }
 
@@ -172,17 +184,22 @@ function loadSessionMessages(sessionId: string) {
         label: o.label ?? undefined,
       })),
       generation_params: m.job_id
-        ? {
-            prompt: extractPublishablePrompt(m.prompt ?? "").prompt,
-            modelId: m.model_id ?? undefined,
-            resolution: m.resolution ?? undefined,
-            aspectRatio: m.aspect_ratio ?? undefined,
-            toolType: m.tool_type ?? undefined,
-            count: m.count ?? undefined,
-            imageProvider: m.image_provider ?? undefined,
-            autoRoute: readJobAutoRoute(m.tool_context),
-            sourceLane: m.source_lane ?? undefined,
-          }
+        ? (() => {
+            const routing = readJobRoutingContext(m.tool_context);
+            return {
+              prompt: extractPublishablePrompt(m.prompt ?? "").prompt,
+              modelId: m.model_id ?? undefined,
+              resolution: m.resolution ?? undefined,
+              aspectRatio: m.aspect_ratio ?? undefined,
+              toolType: m.tool_type ?? undefined,
+              count: m.count ?? undefined,
+              imageProvider: m.image_provider ?? undefined,
+              autoRoute: routing.autoRoute,
+              routingMode: routing.routingMode,
+              qualityTier: routing.qualityTier,
+              sourceLane: m.source_lane ?? undefined,
+            };
+          })()
         : undefined,
     };
   });

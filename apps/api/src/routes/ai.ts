@@ -161,8 +161,10 @@ ai.post("/generate", async (c) => {
     Boolean(body.assetIds?.length || body.referenceOutputIds?.length),
     userId,
   );
-  const modelId =
-    body.autoRoute || !body.modelId ? route.modelId : body.modelId;
+  const isAutoSubmit = body.autoRoute || !body.modelId;
+  const modelId = isAutoSubmit ? route.modelId : body.modelId!;
+  const routingMode = isAutoSubmit ? route.routingMode : "explicit";
+  const qualityTier = isAutoSubmit ? route.qualityTier : undefined;
 
   const refUrls = body.referenceOutputIds
     ? resolveReferenceUrls(body.referenceOutputIds)
@@ -220,7 +222,9 @@ ai.post("/generate", async (c) => {
     sourceOutputId: lineage.sourceOutputId,
     referenceUrls: allReferenceUrls.length > 0 ? allReferenceUrls : undefined,
     sourceLane: body.sourceLane,
-    autoRoute: body.autoRoute || !body.modelId,
+    autoRoute: routingMode === "auto",
+    routingMode,
+    qualityTier,
   });
 
   const byokActive = userHasByokOpenAi(userId);
@@ -231,9 +235,11 @@ ai.post("/generate", async (c) => {
       estimatedPoints: pointsCost,
       status: "queued",
       modelId,
+      routingMode,
+      qualityTier,
       aspectRatio: body.aspectRatio,
       routeReason:
-        body.autoRoute ? route.reason
+        isAutoSubmit ? route.reason
         : byokActive ? "已启用 BYOK，将优先使用您的 OpenAI Key"
         : undefined,
       byokActive,

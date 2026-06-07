@@ -1,4 +1,8 @@
-/** 与 API INTERNAL_ROUTING_IDS 对齐：Auto 路由别名，不对用户直出 */
+/** 与 API generation-routing 对齐 */
+export type GenerationRoutingMode = "auto" | "explicit" | "byok";
+export type GenerationQualityTier = "standard" | "pro";
+
+/** @deprecated 读路径兼容；新数据请读 routingMode */
 const INTERNAL_ROUTING_MODEL_IDS = new Set(["omni-v2", "latest-v2-pro"]);
 
 const USER_MODEL_LABELS: Record<string, string> = {
@@ -21,16 +25,29 @@ const IMAGE_PROVIDER_LABELS: Record<string, string> = {
 export interface GenerationBatchDisplayInput {
   modelId?: string;
   imageProvider?: string;
-  /** 来自 job tool_context，创作台 Auto 提交为 true */
+  /** 旧 job 兼容 */
   autoRoute?: boolean;
+  routingMode?: GenerationRoutingMode;
+  qualityTier?: GenerationQualityTier;
 }
 
 export function isInternalRoutingModelId(modelId?: string): boolean {
   return Boolean(modelId && INTERNAL_ROUTING_MODEL_IDS.has(modelId));
 }
 
+function isAutoRouting(params: GenerationBatchDisplayInput): boolean {
+  if (params.routingMode === "auto" || params.routingMode === "byok") {
+    return true;
+  }
+  if (params.routingMode === "explicit") return false;
+  return (
+    params.autoRoute === true || isInternalRoutingModelId(params.modelId)
+  );
+}
+
 /** BYOK：Auto 无参考图时走用户 OpenAI Key，job 记为 dall-e-3 + openai */
 export function isByokGeneration(params: GenerationBatchDisplayInput): boolean {
+  if (params.routingMode === "byok") return true;
   return (
     params.modelId === "dall-e-3" && params.imageProvider === "openai"
   );
@@ -55,9 +72,7 @@ export function formatBatchModelSelection(
   params: GenerationBatchDisplayInput,
 ): string {
   if (isByokGeneration(params)) return "Auto (BYOK)";
-  if (params.autoRoute || isInternalRoutingModelId(params.modelId)) {
-    return "Auto";
-  }
+  if (isAutoRouting(params)) return "Auto";
   return formatUserModelLabel(params.modelId);
 }
 
@@ -80,12 +95,7 @@ export function formatBatchImageProvider(
   const providerLabel = formatImageProviderLabel(provider);
   if (!providerLabel) return null;
 
-  const isAuto =
-    params.autoRoute ||
-    isInternalRoutingModelId(params.modelId) ||
-    isByokGeneration(params);
-
-  if (isAuto) return providerLabel;
+  if (isAutoRouting(params)) return providerLabel;
 
   const modelId = params.modelId;
   if (modelId === "agnes-image" && provider === "agnes-image") return null;

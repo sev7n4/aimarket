@@ -77,8 +77,10 @@ export interface ChatMessage {
     count?: number;
     toolType?: string;
     imageProvider?: string;
-    /** 创作台 Auto 提交；用于画布展示「Auto」而非内部路由别名 */
+    /** 创作台 Auto 提交；旧 job 兼容 */
     autoRoute?: boolean;
+    routingMode?: "auto" | "explicit" | "byok";
+    qualityTier?: "standard" | "pro";
     sourceLane?: "agent" | "image" | "video";
   };
 }

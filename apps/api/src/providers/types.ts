@@ -23,6 +23,8 @@ export interface GenerateParams {
   userId?: string;
   /** 创作台 Auto：允许跨 Provider 回落；指定模型时为 false */
   autoRoute?: boolean;
+  routingMode?: "auto" | "explicit" | "byok";
+  qualityTier?: "standard" | "pro";
 }
 
 export interface EditParams {
