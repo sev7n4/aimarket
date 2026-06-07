@@ -31,6 +31,9 @@ export const httpVideoProvider: VideoProvider = {
         model: params.modelId,
         count: params.count,
         resolution: params.resolution,
+        referenceUrls: params.referenceUrls,
+        referenceMode: params.referenceMode,
+        durationSec: params.durationSec,
       }),
     });
 

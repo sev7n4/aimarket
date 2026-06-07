@@ -1552,6 +1552,7 @@ export function StudioWorkspace({
                 jobElapsedMs={jobElapsedMs}
                 queueAhead={queueAhead}
                 canvasItems={canvasItems}
+                selectedCanvasItem={selectedCanvasItem}
                 mentionItemRequest={mentionItemRequest}
                 onUploadToCanvas={handleUploadToCanvas}
                 onDockModeChange={setDockMode}

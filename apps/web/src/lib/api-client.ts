@@ -608,6 +608,10 @@ export async function submitVideoGeneration(body: {
   aspectRatio?: string;
   parentJobId?: string;
   sourceOutputId?: string;
+  referenceMode?: import("./creation-dock-prefs").VideoReferenceMode;
+  durationSec?: import("./creation-dock-prefs").VideoDurationSec;
+  assetIds?: string[];
+  referenceOutputIds?: string[];
 }) {
   const res = await request<{
     data: { jobId: string; estimatedPoints: number };

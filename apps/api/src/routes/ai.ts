@@ -22,6 +22,10 @@ import {
   buildReferenceAwarePrompt,
   resolveReferenceUrls,
 } from "../lib/references.js";
+import {
+  applyVideoReferenceMode,
+  resolveAssetReferenceUrls,
+} from "../lib/video-references.js";
 import { toPublicAssetUrl } from "../lib/public-url.js";
 import { db } from "../db/index.js";
 import { AppError } from "../lib/errors.js";
@@ -307,28 +311,65 @@ ai.post("/generate/video", async (c) => {
       aspectRatio: z.enum(["auto","1:1","4:3","3:4","16:9","9:16","3:2","2:3","4:5","5:4","21:9"]).default("auto"),
       parentJobId: z.string().uuid().optional(),
       sourceOutputId: z.string().uuid().optional(),
+      referenceMode: z
+        .enum(["omni", "first-frame", "first-last"])
+        .default("omni"),
+      durationSec: z.union([z.literal(5), z.literal(10)]).optional(),
+      assetIds: z.array(z.string().uuid()).optional(),
+      referenceOutputIds: z.array(z.string().uuid()).optional(),
     })
     .parse(await c.req.json());
 
-  await assertPromptAllowed(body.prompt);
+  if (body.assetIds?.length) {
+    for (const assetId of body.assetIds) {
+      const asset = db
+        .prepare("SELECT id FROM assets WHERE id = ? AND user_id = ?")
+        .get(assetId, userId);
+      if (!asset) throw new AppError(400, "INVALID_ASSET", "附件不存在");
+    }
+  }
+
+  const refUrls = body.referenceOutputIds
+    ? resolveReferenceUrls(body.referenceOutputIds)
+    : [];
+  const assetUrls = body.assetIds?.length
+    ? resolveAssetReferenceUrls(body.assetIds, userId)
+    : [];
+  const mergedReferenceUrls = applyVideoReferenceMode(
+    [...refUrls, ...assetUrls],
+    body.referenceMode,
+  );
+
+  let prompt = body.prompt;
+  if (mergedReferenceUrls.length > 0) {
+    prompt = buildReferenceAwarePrompt(body.prompt, mergedReferenceUrls);
+  }
+  await assertPromptAllowed(prompt);
 
   const lineage = resolveJobLineage({
     parentJobId: body.parentJobId,
     sourceOutputId: body.sourceOutputId,
+    referenceOutputIds: body.referenceOutputIds,
   });
 
   const { jobId, pointsCost } = createGenerationJob({
     sessionId: body.sessionId,
     userId,
-    prompt: body.prompt,
+    prompt,
     modelId: body.modelId,
     mode: "chat",
     count: body.count,
     resolution: body.resolution,
     aspectRatio: body.aspectRatio,
     toolType: "video",
+    toolContext: {
+      videoReferenceMode: body.referenceMode,
+      durationSec: body.durationSec,
+      referenceUrls: mergedReferenceUrls.length ? mergedReferenceUrls : undefined,
+    },
     parentJobId: lineage.parentJobId,
     sourceOutputId: lineage.sourceOutputId,
+    referenceUrls: mergedReferenceUrls.length ? mergedReferenceUrls : undefined,
   });
 
   return c.json({
