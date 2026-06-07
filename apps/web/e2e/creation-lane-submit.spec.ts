@@ -67,13 +67,21 @@ test.describe("creation lane submit guard", () => {
       timeout: 20_000,
     });
 
+    // Agent 车道 + 自动模型 + 参考图会触发「未配置图生图 API」confirm；CI mock 环境须接受
+    page.on("dialog", (dialog) => dialog.accept());
+
     const textarea = station.locator("textarea").first();
     await textarea.fill("E2E 图生图车道守卫：参考图应走图片生成");
+
+    const generateResponse = page.waitForResponse(
+      (res) =>
+        res.url().includes("/api/v1/ai/generate") &&
+        res.request().method() === "POST",
+      { timeout: 30_000 },
+    );
     await station.getByRole("button", { name: "开始生成" }).click();
 
-    await expect
-      .poll(() => postTargets.includes("generate"), { timeout: 30_000 })
-      .toBe(true);
+    expect((await generateResponse).ok()).toBeTruthy();
     expect(postTargets).not.toContain("agent");
   });
 });
