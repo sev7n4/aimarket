@@ -21,6 +21,8 @@ export interface GenerateParams {
   referenceUrls?: string[];
   /** 启用 BYOK 时使用该用户的加密 Key */
   userId?: string;
+  /** 创作台 Auto：允许跨 Provider 回落；指定模型时为 false */
+  autoRoute?: boolean;
 }
 
 export interface EditParams {

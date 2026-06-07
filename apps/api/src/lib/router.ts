@@ -1,3 +1,4 @@
+import { agnesImageConfigured } from "../providers/agnes-image.js";
 import { userHasByokOpenAi } from "./user-provider-config.js";
 
 export interface RouteSuggestion {
@@ -13,6 +14,18 @@ function aliyunWanI2iConfigured(): boolean {
   return Boolean(process.env.ALIYUN_WAN_I2I_MODEL?.trim());
 }
 
+function anyI2iProviderConfigured(): boolean {
+  return (
+    agnesImageConfigured() ||
+    (Boolean(process.env.DASHSCOPE_API_KEY?.trim()) &&
+      aliyunWanI2iConfigured()) ||
+    Boolean(process.env.ARK_API_KEY?.trim())
+  );
+}
+
+/** Auto 路由别名：三家 Provider 均可承接并走回落链 */
+const AUTO_ROUTE_MODEL = "latest-v2-pro";
+
 export function suggestModel(
   mode: string,
   prompt: string,
@@ -27,84 +40,67 @@ export function suggestModel(
   }
 
   if (hasReferenceImages) {
-    const hasSeedream = Boolean(process.env.ARK_API_KEY?.trim());
+    if (anyI2iProviderConfigured()) {
+      return {
+        modelId: AUTO_ROUTE_MODEL,
+        reason:
+          "检测到参考图片，Auto 将按 Agnes → 万相 → Seedream 依次尝试",
+      };
+    }
+
     const hasWan = Boolean(process.env.DASHSCOPE_API_KEY?.trim());
-    const imageProviderMode = process.env.IMAGE_PROVIDER ?? "auto";
-
-    if (hasWan && aliyunWanI2iConfigured()) {
-      if (imageProviderMode === "aliyun_wan" || !hasSeedream) {
-        return {
-          modelId: "latest-v2-pro",
-          reason: "检测到参考图片，使用阿里云万相图生图模型",
-        };
-      }
-    }
-
-    if (hasSeedream) {
-      return {
-        modelId: "seedream-5",
-        reason: "检测到参考图片，使用火山方舟 Seedream 进行图生图",
-      };
-    }
-
-    if (hasWan && aliyunWanI2iConfigured()) {
-      return {
-        modelId: "latest-v2-pro",
-        reason: "检测到参考图片，使用阿里云万相图生图模型",
-      };
-    }
-
     if (hasWan) {
       return {
         modelId: "omni-v2",
         reason:
-          "⚠️ 已配置万相文生图但未配置 ALIYUN_WAN_I2I_MODEL；图生图请配置 ARK_API_KEY（Seedream）或万相 i2i 模型",
+          "⚠️ 已配置万相文生图但未配置图生图能力；请配置 AGNES_API_KEY、ALIYUN_WAN_I2I_MODEL 或 ARK_API_KEY",
       };
     }
-    
+
     return {
       modelId: "omni-v2",
-      reason: "⚠️ 您引用了图片但未配置图生图 API（ARK_API_KEY 或 DASHSCOPE_API_KEY），将走文生图流程。建议配置 API key 以获得更好的图生图效果。",
+      reason:
+        "⚠️ 您引用了图片但未配置图生图 API，将走文生图流程。建议配置 API key 以获得更好的图生图效果。",
     };
   }
 
   if (mode === "ecommerce") {
     return {
-      modelId: "latest-v2-pro",
-      reason: "电商套图场景，优先稳定 Pro 模型",
+      modelId: AUTO_ROUTE_MODEL,
+      reason: "电商套图场景，Auto 将按 Agnes → 万相 → Seedream 依次尝试",
     };
   }
 
   if (mode === "image") {
     return {
       modelId: "omni-v2",
-      reason: "图片模式，按当前图片生成偏好出图",
+      reason: "图片模式，Auto 将按 Agnes → 万相 → Seedream 依次尝试",
     };
   }
 
   if (ECOMMERCE_KEYWORDS.some((k) => prompt.includes(k))) {
     return {
-      modelId: "latest-v2-pro",
-      reason: "检测到电商类需求",
+      modelId: AUTO_ROUTE_MODEL,
+      reason: "检测到电商类需求，Auto 将按 Agnes → 万相 → Seedream 依次尝试",
     };
   }
 
   if (PORTRAIT_KEYWORDS.some((k) => prompt.includes(k))) {
     return {
-      modelId: "seedream-5",
-      reason: "检测到人像类需求，强化一致性",
+      modelId: AUTO_ROUTE_MODEL,
+      reason: "检测到人像类需求，Auto 将按 Agnes → 万相 → Seedream 依次尝试",
     };
   }
 
   if (QUICK_KEYWORDS.some((k) => prompt.includes(k))) {
     return {
       modelId: "omni-v2",
-      reason: "检测到轻量编辑需求",
+      reason: "检测到轻量编辑需求，Auto 将按 Agnes → 万相 → Seedream 依次尝试",
     };
   }
 
   return {
     modelId: "omni-v2",
-    reason: "默认通用对话模型",
+    reason: "默认通用模型，Auto 将按 Agnes → 万相 → Seedream 依次尝试",
   };
 }

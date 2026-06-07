@@ -30,11 +30,11 @@ export const MODEL_GENERATE_BINDINGS: ReadonlyArray<{
   i2i: boolean;
 }> = [
   // Internal routing aliases kept for Auto mode and legacy job records
-  { modelId: "omni-v2", providerName: "aliyun-wan", t2i: true, i2i: false },
   { modelId: "omni-v2", providerName: "agnes-image", t2i: true, i2i: true },
+  { modelId: "omni-v2", providerName: "aliyun-wan", t2i: true, i2i: false },
   { modelId: "omni-v2", providerName: "seedream-image", t2i: true, i2i: true },
-  { modelId: "latest-v2-pro", providerName: "aliyun-wan", t2i: true, i2i: false },
   { modelId: "latest-v2-pro", providerName: "agnes-image", t2i: true, i2i: true },
+  { modelId: "latest-v2-pro", providerName: "aliyun-wan", t2i: true, i2i: false },
   { modelId: "latest-v2-pro", providerName: "seedream-image", t2i: true, i2i: true },
   { modelId: "agnes-image", providerName: "agnes-image", t2i: true, i2i: true },
   // User-facing real models
@@ -54,16 +54,13 @@ const ALL_PROVIDERS: ImageProvider[] = [
   mockProvider,
 ];
 
-function i2iFallbackOrder(): readonly string[] {
-  const mode = process.env.IMAGE_PROVIDER ?? "auto";
-  const withAgnes = agnesImageConfigured() ? ["agnes-image"] : [];
-  if (mode === "aliyun_wan" && aliyunWanI2iConfigured()) {
-    return ["aliyun-wan", ...withAgnes, "seedream-image"];
-  }
-  if (mode === "agnes" && agnesImageConfigured()) {
-    return ["agnes-image", "aliyun-wan", "seedream-image"];
-  }
-  return ["seedream-image", "aliyun-wan", ...withAgnes];
+/** 文生图 / 图生图默认回落顺序：Agnes → 万相 → Seedream */
+export function generateFallbackOrder(): readonly string[] {
+  return ["agnes-image", "aliyun-wan", "seedream-image"];
+}
+
+export function aliyunWanT2iConfigured(): boolean {
+  return Boolean(process.env.DASHSCOPE_API_KEY?.trim());
 }
 
 function providerByName(name: string): ImageProvider | undefined {
@@ -74,9 +71,10 @@ export function aliyunWanI2iConfigured(): boolean {
   return Boolean(process.env.ALIYUN_WAN_I2I_MODEL?.trim());
 }
 
-function providerCanI2i(
+function providerConfiguredForGenerate(
   provider: ImageProvider,
   modelId: string,
+  hasRefs: boolean,
   context: ImageRouteContext = {},
 ): boolean {
   if (!provider.supports(modelId, "generate", context)) return false;
@@ -84,12 +82,12 @@ function providerCanI2i(
     return Boolean(process.env.ARK_API_KEY?.trim());
   }
   if (provider.name === "aliyun-wan") {
-    return aliyunWanI2iConfigured();
+    return hasRefs ? aliyunWanI2iConfigured() : aliyunWanT2iConfigured();
   }
   if (provider.name === "agnes-image") {
     return agnesImageConfigured();
   }
-  return false;
+  return true;
 }
 
 function bindingsFor(
@@ -102,7 +100,17 @@ function bindingsFor(
   });
 }
 
-function orderedGenerateCandidates(
+/** 用户显式点选的模型（不走跨厂商回落） */
+export const USER_SELECTED_IMAGE_MODEL_IDS = new Set([
+  "seedream-5",
+  "seedream-4",
+  "wanxiang-2.6",
+  "agnes-image",
+  "dall-e-2",
+  "dall-e-3",
+]);
+
+function orderedExplicitCandidates(
   modelId: string,
   hasRefs: boolean,
   context: ImageRouteContext = {},
@@ -113,8 +121,9 @@ function orderedGenerateCandidates(
 
   const push = (provider: ImageProvider | undefined) => {
     if (!provider || seen.has(provider.name)) return;
-    if (!provider.supports(modelId, "generate", context)) return;
-    if (hasRefs && !providerCanI2i(provider, modelId, context)) return;
+    if (!providerConfiguredForGenerate(provider, modelId, hasRefs, context)) {
+      return;
+    }
     seen.add(provider.name);
     out.push(provider);
   };
@@ -123,10 +132,39 @@ function orderedGenerateCandidates(
     push(providerByName(binding.providerName));
   }
 
-  if (hasRefs) {
-    for (const name of i2iFallbackOrder()) {
-      push(providerByName(name));
+  if (out.length === 0) {
+    for (const provider of ALL_PROVIDERS) {
+      push(provider);
     }
+  }
+
+  return out;
+}
+
+function orderedAutoRouteCandidates(
+  modelId: string,
+  hasRefs: boolean,
+  context: ImageRouteContext = {},
+): ImageProvider[] {
+  const mode = hasRefs ? "i2i" : "t2i";
+  const seen = new Set<string>();
+  const out: ImageProvider[] = [];
+
+  const push = (provider: ImageProvider | undefined) => {
+    if (!provider || seen.has(provider.name)) return;
+    if (!providerConfiguredForGenerate(provider, modelId, hasRefs, context)) {
+      return;
+    }
+    seen.add(provider.name);
+    out.push(provider);
+  };
+
+  for (const name of generateFallbackOrder()) {
+    push(providerByName(name));
+  }
+
+  for (const binding of bindingsFor(modelId, mode)) {
+    push(providerByName(binding.providerName));
   }
 
   for (const provider of ALL_PROVIDERS) {
@@ -157,37 +195,9 @@ function pickWithEnvMode(
     return openai?.supports(modelId, operation, context) ? openai : undefined;
   }
 
-  if (mode === "agnes") {
+  if (mode === "agnes" || mode === "aliyun_wan" || mode === "auto") {
     return (
-      candidates.find((p) => p.name === "agnes-image") ??
-      candidates.find((p) => p.name !== "mock")
-    );
-  }
-
-  if (mode === "aliyun_wan") {
-    // 文生图：优先万相；图生图 / 显式 Seedream 模型：允许回落到已配置的 i2i Provider
-    if (modelId.startsWith("seedream")) {
-      return (
-        candidates.find((p) => p.name === "seedream-image") ??
-        candidates.find((p) => p.name !== "mock")
-      );
-    }
-    if (hasRefs && operation === "generate") {
-      if (aliyunWanI2iConfigured()) {
-        const wan = candidates.find(
-          (p) =>
-            p.name === "aliyun-wan" && providerCanI2i(p, modelId, context),
-        );
-        if (wan) return wan;
-      }
-      return (
-        candidates.find((p) => providerCanI2i(p, modelId, context)) ??
-        candidates.find((p) => p.name !== "mock")
-      );
-    }
-    return (
-      candidates.find((p) => p.name === "aliyun-wan") ??
-      candidates.find((p) => p.name !== "mock")
+      candidates.find((p) => p.name !== "mock") ?? candidates[0]
     );
   }
 
@@ -202,7 +212,7 @@ export function resolveImageProvider(
   const hasRefs = context.hasReferenceImages ?? false;
 
   if (operation === "generate") {
-    const candidates = orderedGenerateCandidates(modelId, hasRefs, context);
+    const candidates = listGenerateProviderCandidates(modelId, hasRefs, context);
     const picked = pickWithEnvMode(
       candidates,
       modelId,
@@ -242,13 +252,25 @@ export function listRegisteredProviders(): ImageProvider[] {
   return ALL_PROVIDERS;
 }
 
-/** 图生图候选 Provider 列表（按路由优先级排序，含主选与备用） */
+export interface GenerateProviderListOptions {
+  /** true = Auto，跨 Provider 回落；false = 用户指定模型，单供应商 */
+  allowFallbackChain?: boolean;
+}
+
+/** 文生图 / 图生图候选 Provider 列表 */
 export function listGenerateProviderCandidates(
   modelId: string,
   hasRefs: boolean,
   context: ImageRouteContext = {},
+  options: GenerateProviderListOptions = {},
 ): ImageProvider[] {
-  return orderedGenerateCandidates(modelId, hasRefs, context);
+  const allowFallback =
+    options.allowFallbackChain ??
+    !USER_SELECTED_IMAGE_MODEL_IDS.has(modelId);
+  if (allowFallback) {
+    return orderedAutoRouteCandidates(modelId, hasRefs, context);
+  }
+  return orderedExplicitCandidates(modelId, hasRefs, context);
 }
 
 export function pickGenerateProvider(
