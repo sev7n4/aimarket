@@ -90,10 +90,36 @@ test.describe("canvas batch stream", () => {
     );
     await waitForGenerationCycle(page);
 
-    const batchSections = page.locator('[data-testid^="canvas-batch-section-"]');
+    const token = await page.evaluate(() =>
+      localStorage.getItem("aimarket_token"),
+    );
+    const sessionId = new URL(page.url()).searchParams.get("sessionId");
+    expect(token).toBeTruthy();
+    expect(sessionId).toBeTruthy();
+
+    const apiBase = process.env.E2E_API_URL ?? "http://localhost:4000";
     await expect
-      .poll(async () => batchSections.count(), { timeout: 120_000 })
+      .poll(
+        async () => {
+          const res = await page.request.get(
+            `${apiBase}/api/v1/imageSession/${sessionId}/canvas-bundle`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          if (!res.ok()) return 0;
+          const json = (await res.json()) as {
+            data: { messages: { outputs?: unknown[] }[] };
+          };
+          return json.data.messages.filter((m) => m.outputs?.length).length;
+        },
+        { timeout: 120_000 },
+      )
       .toBe(2);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForGenerationSettled(page);
+
+    const batchSections = page.locator('[data-testid^="canvas-batch-section-"]');
+    await expect(batchSections).toHaveCount(2, { timeout: 60_000 });
     await expect(page.getByText(/批次\s*2/).first()).toBeVisible({
       timeout: 30_000,
     });
