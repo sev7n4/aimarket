@@ -86,8 +86,10 @@ import {
   normalizeDockSkillId,
 } from "@/components/creation-dock-controls";
 import {
+  persistCreationLane,
   persistOutputMode,
   readStoredOutputMode,
+  CREATION_LANE_PLACEHOLDERS,
   type CreationDockScope,
   type CreationLane,
   type OutputPreferenceMode,
@@ -95,6 +97,10 @@ import {
   type VideoReferenceMode,
 } from "@/lib/creation-dock-prefs";
 import { useCreationLaneState } from "@/hooks/use-creation-lane-state";
+import {
+  canAutoBindCanvasItem,
+  mergeReferenceSources,
+} from "@/lib/canvas-reference-bind";
 import {
   hasReferenceImages,
   normalizeReferenceOutputIds,
@@ -225,6 +231,8 @@ interface CreationPanelProps {
   }) => Promise<string>;
   /** 上传完成后把图片添加到画布素材区 */
   onUploadToCanvas?: (assetId: string, url: string, thumbUrl?: string) => void;
+  /** Studio：当前选中的画布项，图片/视频车道自动作参考 */
+  selectedCanvasItem?: CanvasItem | null;
   /** Studio：走 Agent Run 编排（/agent/runs） */
   agentOrchestration?: boolean;
   /** Studio：展示长 Skill 套餐（/agent/skills） */
@@ -273,6 +281,7 @@ export function CreationPanel({
   prompt: controlledPrompt,
   onPromptChange,
   onUploadToCanvas,
+  selectedCanvasItem = null,
   agentOrchestration = false,
   agentSkills = false,
   onAgentRunComplete,
@@ -441,12 +450,21 @@ export function CreationPanel({
     [studioOrchestrationActive, studioOrch, skillPackages],
   );
 
+  function buildReferenceSources() {
+    return mergeReferenceSources(
+      {
+        assetIds,
+        mentionedAssetIds,
+        selectedRefIds: selectedRefs.map((r) => r.id),
+      },
+      selectedCanvasItem,
+      creationLane,
+      Boolean(focusEdit?.points.length),
+    );
+  }
+
   function handleCreationLaneChange(lane: CreationLane) {
-    const refSources = {
-      assetIds,
-      mentionedAssetIds,
-      selectedRefIds: selectedRefs.map((r) => r.id),
-    };
+    const refSources = buildReferenceSources();
     if (lane === "agent" && hasReferenceImages(refSources)) {
       onInteractionHint?.("Agent 模式暂不支持参考图，已切换到图片生成");
       lane = "image";
@@ -740,6 +758,10 @@ export function CreationPanel({
     setModelId(inspirationApply.modelId);
     setAspectRatio(coerceAspectRatio(inspirationApply.aspectRatio));
     setResolution(inspirationApply.resolution);
+    if (isStudioDock) {
+      setCreationLane(inspirationApply.creationLane);
+      persistCreationLane("studio", inspirationApply.creationLane);
+    }
     const vars: Record<string, string> = {};
     for (const v of inspirationApply.variables ?? []) {
       vars[v.key] =
@@ -823,12 +845,10 @@ export function CreationPanel({
 
   useEffect(() => {
     if (!user || effectiveMode === "ecommerce") return;
-    const hasReferenceImages =
-      assetIds.length > 0 ||
-      mentionedAssetIds.length > 0 ||
-      selectedRefs.length > 0;
+    const refsForSuggest = buildReferenceSources();
+    const hasRefsForSuggest = hasReferenceImages(refsForSuggest);
     const t = setTimeout(() => {
-      suggestModel(mode, prompt, hasReferenceImages)
+      suggestModel(mode, prompt, hasRefsForSuggest)
         .then((s) => {
           if (modelId === AUTO_MODEL_ID) {
             setRouteHint(s.reason ? `Auto → ${s.reason}` : "Auto 路由");
@@ -847,6 +867,9 @@ export function CreationPanel({
     assetIds.length,
     mentionedAssetIds.length,
     selectedRefs.length,
+    selectedCanvasItem?.id,
+    creationLane,
+    focusEdit?.points.length,
     effectiveMode,
   ]);
 
@@ -1055,11 +1078,7 @@ export function CreationPanel({
       }
     }
 
-    const referenceImageSources = {
-      assetIds,
-      mentionedAssetIds,
-      selectedRefIds: selectedRefs.map((r) => r.id),
-    };
+    const referenceImageSources = buildReferenceSources();
     const hasRefs = hasReferenceImages(referenceImageSources);
     if (hasRefs && modelId === AUTO_MODEL_ID) {
       try {
@@ -1276,11 +1295,21 @@ export function CreationPanel({
         }
         const videoModelId =
           modelId === AUTO_MODEL_ID ? videoModel.id : modelId;
+        const videoRefs = buildReferenceSources();
+        const videoAssetIds = Array.from(
+          new Set([...videoRefs.assetIds, ...videoRefs.mentionedAssetIds]),
+        );
         const res = await submitVideoGeneration({
           sessionId,
           prompt: prompt.trim(),
           modelId: videoModelId,
           count,
+          referenceMode: videoReferenceMode,
+          durationSec: videoDurationSec,
+          assetIds: videoAssetIds.length ? videoAssetIds : undefined,
+          referenceOutputIds: normalizeReferenceOutputIds(
+            videoRefs.selectedRefIds,
+          ),
           ...lineageApi,
         });
         jobId = res.jobId;
@@ -1303,8 +1332,9 @@ export function CreationPanel({
         setReferenceAssetId(null);
       } else {
         const useAuto = modelId === AUTO_MODEL_ID;
+        const imageRefs = buildReferenceSources();
         const mergedAssetIds = Array.from(
-          new Set([...assetIds, ...mentionedAssetIds]),
+          new Set([...imageRefs.assetIds, ...imageRefs.mentionedAssetIds]),
         );
         const toolEdit = mentionedMasks.length > 0;
         const res = await submitGeneration({
@@ -1317,7 +1347,7 @@ export function CreationPanel({
           mode: effectiveMode === "ecommerce" ? "ecommerce" : "image",
           assetIds: mergedAssetIds.length ? mergedAssetIds : undefined,
           referenceOutputIds: normalizeReferenceOutputIds(
-            selectedRefs.map((r) => r.id),
+            imageRefs.selectedRefIds,
           ),
           autoRoute: useAuto,
           toolContext: mentionedMasks.length
@@ -1616,8 +1646,10 @@ export function CreationPanel({
                   }
                 }}
                 placeholder={
-                  rotatingPlaceholder && !prompt.trim()
-                    ? rotatingText
+                  isDock && !prompt.trim()
+                    ? creationLane === "image" && rotatingPlaceholder
+                      ? rotatingText
+                      : CREATION_LANE_PLACEHOLDERS[creationLane]
                     : effectiveMode === "ecommerce"
                       ? placeholders.ecommerce
                       : mode === "chat"
@@ -1717,6 +1749,16 @@ export function CreationPanel({
         {!dockCompactLine && selectedRefs.length > 0 ? (
           <p className="mt-1 text-xs text-purple-400">
             @ 引用了 {selectedRefs.length} 张生成图
+          </p>
+        ) : null}
+        {!dockCompactLine &&
+        canAutoBindCanvasItem(
+          selectedCanvasItem,
+          creationLane,
+          Boolean(focusEdit?.points.length),
+        ) ? (
+          <p className="mt-1 text-xs text-sky-400/90">
+            已选用画布「{selectedCanvasItem?.label ?? "图片"}」作参考
           </p>
         ) : null}
         {!dockCompactLine && mentionedAssetIds.length > 0 ? (

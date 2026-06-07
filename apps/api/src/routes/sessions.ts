@@ -73,6 +73,7 @@ function loadSourceInspirationForSession(sessionId: string) {
     ),
     referenceUrls: canonical.referenceAssets.map((a) => a.url),
     coverUrl: canonical.coverUrl,
+    mediaType: canonical.mediaType,
   };
 }
 

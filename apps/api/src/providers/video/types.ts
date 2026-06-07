@@ -1,8 +1,13 @@
+import type { VideoReferenceMode } from "../../lib/video-references.js";
+
 export interface VideoGenerateParams {
   prompt: string;
   modelId: string;
   count: number;
   resolution: string;
+  referenceUrls?: string[];
+  referenceMode?: VideoReferenceMode;
+  durationSec?: number;
 }
 
 export interface VideoGenerateResult {

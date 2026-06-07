@@ -1,6 +1,6 @@
 # 创作 Dock 三车道解耦计划
 
-> 状态：Phase 2 进行中；Phase 0–1 已合并（#143）  
+> 状态：Phase 3 进行中；Phase 0–2 已合并（#143、#144）  
 > 关联问题：Studio 默认 Agent 车道 + 有参考图时走 Agent 提交，导致图生图不创建 `generation_jobs`  
 > 最后更新：2026-06-05
 
@@ -103,9 +103,11 @@ submitByLane(lane)
 
 **任务**：
 
-- [ ] 视频 `videoReferenceMode` 接入 API
-- [ ] 画布选中 reference 自动绑定（无需强制 `@`）
-- [ ] 车道专属 UI 文案与空态提示
+- [x] 视频 `videoReferenceMode` 接入 API
+- [x] 画布选中 reference 自动绑定（无需强制 `@`）
+- [x] 车道专属 UI 文案与空态提示
+
+**验收**：视频提交携带 referenceMode + 参考图；点选画布即可图生图。
 
 ---
 
@@ -155,4 +157,5 @@ apps/web/e2e/creation-dock-ui.spec.ts
 | 日期 | Phase | 说明 |
 |------|-------|------|
 | 2026-06-05 | 0–1 | 提交路由守卫、`creation-lane-submit.ts`、E2E `creation-lane-submit.spec.ts`（#143） |
-| 2026-06-07 | 2 | 分 scope lane 存储、`useCreationLaneState`、Studio 默认图片车道 |
+| 2026-06-07 | 2 | 分 scope lane 存储、`useCreationLaneState`、Studio 默认图片车道（#144） |
+| 2026-06-07 | 3 | 视频 referenceMode API、画布自动参考绑定、车道占位文案 |

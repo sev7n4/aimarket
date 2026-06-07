@@ -58,7 +58,7 @@ export interface CreateJobInput {
   resolution: string;
   aspectRatio?: string;
   toolType?: string;
-  toolContext?: ToolContext;
+  toolContext?: ToolContext | Record<string, unknown>;
   slideLabels?: string[];
   parentJobId?: string | null;
   sourceOutputId?: string | null;
@@ -214,15 +214,21 @@ export async function processGenerationJob({
   const isToolJob =
     Boolean(job.tool_type) && !isEcommerceSetToolType(job.tool_type);
 
-  let toolContext: ToolContext | undefined;
+  let toolContext: ToolContext | Record<string, unknown> | undefined;
   let referenceUrls: string[] | undefined;
+  let videoReferenceMode: "omni" | "first-frame" | "first-last" | undefined;
+  let videoDurationSec: number | undefined;
   if (job.tool_context) {
     try {
       const parsed = JSON.parse(job.tool_context) as ToolContext & {
         referenceUrls?: string[];
+        videoReferenceMode?: "omni" | "first-frame" | "first-last";
+        durationSec?: number;
       };
       toolContext = parsed;
       referenceUrls = parsed.referenceUrls;
+      videoReferenceMode = parsed.videoReferenceMode;
+      videoDurationSec = parsed.durationSec;
     } catch {
       toolContext = undefined;
     }
@@ -259,6 +265,9 @@ export async function processGenerationJob({
         modelId: job.model_id,
         count: job.count,
         resolution: job.resolution,
+        referenceUrls,
+        referenceMode: videoReferenceMode,
+        durationSec: videoDurationSec,
       });
       urls = video.urls;
     } else if (labels && labels.length > 1) {
@@ -301,7 +310,7 @@ export async function processGenerationJob({
           ).run(job.session_id);
         });
       }
-    } else if (job.tool_type) {
+    } else if (job.tool_type && job.tool_type !== "video") {
       const result = await runToolImages({
         toolId: job.tool_type,
         prompt: job.prompt,
@@ -309,7 +318,7 @@ export async function processGenerationJob({
         count: job.count,
         resolution: job.resolution,
         aspectRatio: job.aspect_ratio ?? "1:1",
-        toolContext,
+        toolContext: toolContext as ToolContext | undefined,
         referenceUrls,
         userId: job.user_id,
       });

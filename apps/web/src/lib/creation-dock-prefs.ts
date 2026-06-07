@@ -32,6 +32,13 @@ export type VideoDurationSec = 5 | 10;
 
 export const OUTPUT_PREF_AUTO_LABEL = "自动";
 
+/** 各创作车道 Dock 输入框占位（Studio / 首页单行态） */
+export const CREATION_LANE_PLACEHOLDERS: Record<CreationLane, string> = {
+  image: "描述画面；上传、@ 引用或点选画布图片作参考",
+  agent: "告诉 Agent 目标，会自动选模型与步骤（不支持参考图）",
+  video: "描述镜头与氛围；点选画布图片可作首帧或全能参考",
+};
+
 /** @deprecated 迁移至 {@link HOME_LANE_KEY} / {@link STUDIO_LANE_KEY} */
 export const LEGACY_LANE_KEY = "aimarket.creationDock.lane";
 export const HOME_LANE_KEY = "aimarket.home.lane";
