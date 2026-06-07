@@ -122,9 +122,10 @@ test.describe("creation dock UI", () => {
     });
     await expect(aspectButton).toBeVisible({ timeout: 10_000 });
     await aspectButton.click();
-    await studioDock
+    // CompactDockSheet 内容可能 portal 到 Dock 外
+    await page
       .locator("button")
-      .filter({ has: page.locator("span", { hasText: "16:9", exact: true }) })
+      .filter({ has: page.locator("span", { hasText: /^16:9$/ }) })
       .first()
       .click();
     await expect(aspectButton).toContainText("16:9");
