@@ -1,6 +1,6 @@
 # 创作 Dock 三车道解耦计划
 
-> 状态：Phase 0–1 已完成（待 PR）；Phase 2 待开始  
+> 状态：Phase 2 进行中；Phase 0–1 已合并（#143）  
 > 关联问题：Studio 默认 Agent 车道 + 有参考图时走 Agent 提交，导致图生图不创建 `generation_jobs`  
 > 最后更新：2026-06-05
 
@@ -90,10 +90,10 @@ submitByLane(lane)
 
 **任务**：
 
-- [ ] `LaneDraft` + `useCreationLaneState`
-- [ ] 拆分 `aimarket.home.lane` / `aimarket.studio.lane`（迁移旧 key）
-- [ ] Studio 默认 `creationLane` 改为 `image`
-- [ ] 更新 E2E：`creation-dock-ui.spec.ts` 中 Studio 默认期望由 Agent → 图片
+- [x] `LaneDraft` + `useCreationLaneState`
+- [x] 拆分 `aimarket.home.lane` / `aimarket.studio.lane`（迁移旧 key）
+- [x] Studio 默认 `creationLane` 改为 `image`
+- [x] 更新 E2E：`creation-dock-ui.spec.ts` 中 Studio 默认期望由 Agent → 图片
 
 **验收**：首页与 Studio 车道偏好互不影响；Studio 打开即为图片车道。
 
@@ -154,4 +154,5 @@ apps/web/e2e/creation-dock-ui.spec.ts
 
 | 日期 | Phase | 说明 |
 |------|-------|------|
-| 2026-06-05 | 0–1 | 提交路由守卫、`creation-lane-submit.ts`、E2E `creation-lane-submit.spec.ts` |
+| 2026-06-05 | 0–1 | 提交路由守卫、`creation-lane-submit.ts`、E2E `creation-lane-submit.spec.ts`（#143） |
+| 2026-06-07 | 2 | 分 scope lane 存储、`useCreationLaneState`、Studio 默认图片车道 |

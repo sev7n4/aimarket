@@ -25,7 +25,7 @@ test.describe("creation lane submit guard", () => {
     expect(body.data?.token).toBeTruthy();
 
     await page.addInitScript(() => {
-      localStorage.setItem("aimarket.creationDock.lane", "agent");
+      localStorage.setItem("aimarket.studio.lane", "agent");
     });
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
