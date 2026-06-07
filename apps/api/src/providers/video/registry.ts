@@ -1,14 +1,24 @@
+import {
+  agnesVideoConfigured,
+  agnesVideoProvider,
+} from "./agnes.js";
 import { mockVideoProvider } from "./mock.js";
 import { httpVideoProvider } from "./http.js";
 import type { VideoGenerateParams, VideoGenerateResult } from "./types.js";
 
-const providers = [httpVideoProvider, mockVideoProvider];
+const providers = [agnesVideoProvider, httpVideoProvider, mockVideoProvider];
 
 export function resolveVideoProvider(modelId: string) {
   const mode = process.env.VIDEO_PROVIDER ?? "auto";
   if (mode === "mock") return mockVideoProvider;
   if (mode === "http") return httpVideoProvider;
+  if (mode === "agnes") {
+    return agnesVideoConfigured() ? agnesVideoProvider : mockVideoProvider;
+  }
 
+  if (agnesVideoConfigured() && agnesVideoProvider.supports(modelId)) {
+    return agnesVideoProvider;
+  }
   if (process.env.VIDEO_API_URL && httpVideoProvider.supports(modelId)) {
     return httpVideoProvider;
   }
@@ -26,6 +36,8 @@ export function getVideoProviderStatus() {
   return {
     mode: process.env.VIDEO_PROVIDER ?? "auto",
     httpConfigured: Boolean(process.env.VIDEO_API_URL),
-    activeProvider: resolveVideoProvider("seedance-2").name,
+    agnesConfigured: agnesVideoConfigured(),
+    agnesVideoModel: process.env.AGNES_VIDEO_MODEL ?? "agnes-video-v2.0",
+    activeProvider: resolveVideoProvider("agnes-video").name,
   };
 }

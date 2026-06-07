@@ -5,6 +5,10 @@
  */
 import { AppError } from "./errors.js";
 import { userHasByokOpenAi } from "./user-provider-config.js";
+import {
+  agnesImageConfigured,
+  agnesImageProvider,
+} from "../providers/agnes-image.js";
 import { aliyunWanProvider } from "../providers/aliyun-wan.js";
 import { mockProvider } from "../providers/mock.js";
 import { openaiProvider } from "../providers/openai.js";
@@ -27,9 +31,12 @@ export const MODEL_GENERATE_BINDINGS: ReadonlyArray<{
 }> = [
   // Internal routing aliases kept for Auto mode and legacy job records
   { modelId: "omni-v2", providerName: "aliyun-wan", t2i: true, i2i: false },
+  { modelId: "omni-v2", providerName: "agnes-image", t2i: true, i2i: true },
   { modelId: "omni-v2", providerName: "seedream-image", t2i: true, i2i: true },
   { modelId: "latest-v2-pro", providerName: "aliyun-wan", t2i: true, i2i: false },
+  { modelId: "latest-v2-pro", providerName: "agnes-image", t2i: true, i2i: true },
   { modelId: "latest-v2-pro", providerName: "seedream-image", t2i: true, i2i: true },
+  { modelId: "agnes-image", providerName: "agnes-image", t2i: true, i2i: true },
   // User-facing real models
   { modelId: "seedream-5", providerName: "seedream-image", t2i: true, i2i: true },
   { modelId: "wanxiang-2.6", providerName: "aliyun-wan", t2i: true, i2i: false },
@@ -41,12 +48,23 @@ export const MODEL_GENERATE_BINDINGS: ReadonlyArray<{
 const ALL_PROVIDERS: ImageProvider[] = [
   seededitProvider,
   seedreamImageProvider,
+  agnesImageProvider,
   aliyunWanProvider,
   openaiProvider,
   mockProvider,
 ];
 
-const I2I_FALLBACK_ORDER = ["seedream-image", "aliyun-wan"] as const;
+function i2iFallbackOrder(): readonly string[] {
+  const mode = process.env.IMAGE_PROVIDER ?? "auto";
+  const withAgnes = agnesImageConfigured() ? ["agnes-image"] : [];
+  if (mode === "aliyun_wan" && aliyunWanI2iConfigured()) {
+    return ["aliyun-wan", ...withAgnes, "seedream-image"];
+  }
+  if (mode === "agnes" && agnesImageConfigured()) {
+    return ["agnes-image", "aliyun-wan", "seedream-image"];
+  }
+  return ["seedream-image", "aliyun-wan", ...withAgnes];
+}
 
 function providerByName(name: string): ImageProvider | undefined {
   return ALL_PROVIDERS.find((p) => p.name === name);
@@ -67,6 +85,9 @@ function providerCanI2i(
   }
   if (provider.name === "aliyun-wan") {
     return aliyunWanI2iConfigured();
+  }
+  if (provider.name === "agnes-image") {
+    return agnesImageConfigured();
   }
   return false;
 }
@@ -103,7 +124,7 @@ function orderedGenerateCandidates(
   }
 
   if (hasRefs) {
-    for (const name of I2I_FALLBACK_ORDER) {
+    for (const name of i2iFallbackOrder()) {
       push(providerByName(name));
     }
   }
@@ -136,6 +157,13 @@ function pickWithEnvMode(
     return openai?.supports(modelId, operation, context) ? openai : undefined;
   }
 
+  if (mode === "agnes") {
+    return (
+      candidates.find((p) => p.name === "agnes-image") ??
+      candidates.find((p) => p.name !== "mock")
+    );
+  }
+
   if (mode === "aliyun_wan") {
     // 文生图：优先万相；图生图 / 显式 Seedream 模型：允许回落到已配置的 i2i Provider
     if (modelId.startsWith("seedream")) {
@@ -145,6 +173,13 @@ function pickWithEnvMode(
       );
     }
     if (hasRefs && operation === "generate") {
+      if (aliyunWanI2iConfigured()) {
+        const wan = candidates.find(
+          (p) =>
+            p.name === "aliyun-wan" && providerCanI2i(p, modelId, context),
+        );
+        if (wan) return wan;
+      }
       return (
         candidates.find((p) => providerCanI2i(p, modelId, context)) ??
         candidates.find((p) => p.name !== "mock")
@@ -179,7 +214,7 @@ export function resolveImageProvider(
 
     const detail =
       hasRefs ?
-        "当前无可用图生图 Provider（请配置 ARK_API_KEY 或 ALIYUN_WAN_I2I_MODEL）"
+        "当前无可用图生图 Provider（请配置 ALIYUN_WAN_I2I_MODEL、AGNES_API_KEY 或 ARK_API_KEY）"
       : "当前无可用文生图 Provider";
     throw new AppError(400, "MODEL_UNSUPPORTED", `模型 ${modelId}：${detail}`);
   }
@@ -205,4 +240,24 @@ export function resolveImageProvider(
 
 export function listRegisteredProviders(): ImageProvider[] {
   return ALL_PROVIDERS;
+}
+
+/** 图生图候选 Provider 列表（按路由优先级排序，含主选与备用） */
+export function listGenerateProviderCandidates(
+  modelId: string,
+  hasRefs: boolean,
+  context: ImageRouteContext = {},
+): ImageProvider[] {
+  return orderedGenerateCandidates(modelId, hasRefs, context);
+}
+
+export function pickGenerateProvider(
+  modelId: string,
+  hasRefs: boolean,
+  context: ImageRouteContext = {},
+): ImageProvider {
+  return resolveImageProvider(modelId, "generate", {
+    ...context,
+    hasReferenceImages: hasRefs,
+  });
 }

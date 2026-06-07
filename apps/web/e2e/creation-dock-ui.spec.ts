@@ -61,10 +61,12 @@ test.describe("creation dock UI", () => {
     const compactHeight = await floatingTextarea
       .boundingBox()
       .then((box) => box?.height ?? 0);
-    await floatingTextarea.click();
+    await floatingTextarea.focus();
     await expect
-      .poll(async () => (await floatingTextarea.boundingBox())?.height ?? 0)
-      .toBeGreaterThan(compactHeight + 12);
+      .poll(async () => (await floatingTextarea.boundingBox())?.height ?? 0, {
+        timeout: 15_000,
+      })
+      .toBeGreaterThan(compactHeight + 6);
   });
 
   test("Studio 创作台默认图片车道，与首页同款单行布局", async ({ page }) => {

@@ -6,6 +6,8 @@ import { jobStatusLabel } from "@/lib/job-stream";
 interface CanvasJobOverlayProps {
   status: string | null;
   failed?: boolean;
+  /** 失败时的可读说明（优先于通用文案） */
+  errorMessage?: string | null;
   onOpenChat?: () => void;
   onCancel?: () => void;
   /** 套图渐进：已完成张数 */
@@ -49,6 +51,7 @@ function formatEtaHint(
 export function CanvasJobOverlay({
   status,
   failed,
+  errorMessage,
   onOpenChat,
   onCancel,
   completed = 0,
@@ -104,8 +107,9 @@ export function CanvasJobOverlay({
         {failed ?
           <>
             <p className="text-sm font-medium text-red-300">生成失败</p>
-            <p className="mt-1 text-xs text-zinc-500">
-              请打开对话区查看详情或重试
+            <p className="mt-1 text-xs leading-relaxed text-zinc-400">
+              {errorMessage ??
+                "请打开对话区查看详情，或调整参考图与描述后重试"}
             </p>
             {onOpenChat ?
               <button

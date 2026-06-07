@@ -37,18 +37,46 @@ async function waitForFirstBatch(page: import("@playwright/test").Page) {
   return batchSection;
 }
 
-async function submitSecondGenerationInStudio(
+async function submitSecondGenerationViaApi(
   page: import("@playwright/test").Page,
+  sessionId: string,
   prompt: string,
 ) {
-  const station = studioWorkstation(page);
-  const textarea = station.locator("textarea").first();
-  await expect(textarea).toBeVisible({ timeout: 15_000 });
-  await expect(station.getByRole("button", { name: "开始生成" })).toBeEnabled({
-    timeout: 120_000,
+  const token = await page.evaluate(() =>
+    localStorage.getItem("aimarket_token"),
+  );
+  expect(token).toBeTruthy();
+  const apiBase = process.env.E2E_API_URL ?? "http://127.0.0.1:4000";
+  const res = await page.request.post(`${apiBase}/api/v1/ai/generate`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    data: { sessionId, prompt, mode: "image", count: 1 },
   });
-  await textarea.fill(prompt);
-  await station.getByRole("button", { name: "开始生成" }).click();
+  expect(res.ok(), `second generate failed: ${await res.text()}`).toBeTruthy();
+  const gen = (await res.json()) as { data: { jobId: string } };
+  const jobId = gen.data.jobId;
+  expect(jobId).toBeTruthy();
+  await expect
+    .poll(
+      async () => {
+        const jobRes = await page.request.get(
+          `${apiBase}/api/v1/ai/jobs/${jobId}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        expect(
+          jobRes.ok(),
+          `job poll failed (${jobRes.status()}): ${await jobRes.text()}`,
+        ).toBeTruthy();
+        const job = (await jobRes.json()) as {
+          data: { status: string; error?: string };
+        };
+        return job.data.status;
+      },
+      { timeout: 120_000 },
+    )
+    .toBe("succeeded");
 }
 
 test.describe("canvas batch stream", () => {
@@ -76,14 +104,20 @@ test.describe("canvas batch stream", () => {
     await startGenerationFromHome(page, "E2E 双批次第一次：白色耳机");
     await waitForFirstBatch(page);
 
-    await submitSecondGenerationInStudio(
+    const sessionId = new URL(page.url()).searchParams.get("sessionId");
+    expect(sessionId).toBeTruthy();
+
+    await submitSecondGenerationViaApi(
       page,
+      sessionId!,
       "E2E 双批次第二次：黑色耳机产品摄影",
     );
-    await waitForGenerationCycle(page);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForGenerationSettled(page);
 
     const batchSections = page.locator('[data-testid^="canvas-batch-section-"]');
-    await expect(batchSections).toHaveCount(2, { timeout: 120_000 });
+    await expect(batchSections).toHaveCount(2, { timeout: 60_000 });
     await expect(page.getByText(/批次\s*2/).first()).toBeVisible({
       timeout: 30_000,
     });

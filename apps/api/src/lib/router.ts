@@ -29,14 +29,24 @@ export function suggestModel(
   if (hasReferenceImages) {
     const hasSeedream = Boolean(process.env.ARK_API_KEY?.trim());
     const hasWan = Boolean(process.env.DASHSCOPE_API_KEY?.trim());
-    
+    const imageProviderMode = process.env.IMAGE_PROVIDER ?? "auto";
+
+    if (hasWan && aliyunWanI2iConfigured()) {
+      if (imageProviderMode === "aliyun_wan" || !hasSeedream) {
+        return {
+          modelId: "latest-v2-pro",
+          reason: "检测到参考图片，使用阿里云万相图生图模型",
+        };
+      }
+    }
+
     if (hasSeedream) {
       return {
         modelId: "seedream-5",
         reason: "检测到参考图片，使用火山方舟 Seedream 进行图生图",
       };
     }
-    
+
     if (hasWan && aliyunWanI2iConfigured()) {
       return {
         modelId: "latest-v2-pro",

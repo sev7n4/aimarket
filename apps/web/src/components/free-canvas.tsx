@@ -125,6 +125,7 @@ interface FreeCanvasProps {
   statusChip?: ReactNode;
   jobStreamStatus?: string | null;
   jobFailed?: boolean;
+  jobErrorMessage?: string | null;
   jobProgressCompleted?: number;
   jobProgressTotal?: number;
   onOpenChatPanel?: () => void;
@@ -179,6 +180,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       statusChip = null,
       jobStreamStatus = null,
       jobFailed = false,
+      jobErrorMessage = null,
       jobProgressCompleted = 0,
       jobProgressTotal = 0,
       onOpenChatPanel,
@@ -780,6 +782,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
           <CanvasJobOverlay
             status={jobStreamStatus ?? null}
             failed={jobFailed}
+            errorMessage={jobErrorMessage}
             onOpenChat={onOpenChatPanel}
             onCancel={onCancelJob}
             completed={jobProgressCompleted}

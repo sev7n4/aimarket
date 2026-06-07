@@ -42,7 +42,7 @@ import { getActiveWorkspaceId } from "@/lib/active-workspace";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { resolveApiBase } from "@/lib/api-base";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { trackEvent } from "@/lib/api-client";
+import { formatJobErrorMessage } from "@/lib/job-error-message";
 import { type CreationMode } from "@aimarket/ui";
 import type { ImageSession, StudioTool } from "@/lib/types";
 import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
@@ -62,6 +62,7 @@ import {
   runTool,
   submitGeneration,
   uploadAsset,
+  trackEvent,
 } from "@/lib/api-client";
 import {
   MAX_FOCUS_POINTS,
@@ -81,6 +82,7 @@ import {
 } from "@/lib/inspiration-studio";
 import { persistCreationLane } from "@/lib/creation-dock-prefs";
 import {
+  invalidateSessionCanvasBundle,
   prefetchSessionCanvasBundle,
   useSessionCanvas,
 } from "@/hooks/use-session-canvas";
@@ -179,6 +181,7 @@ export function StudioWorkspace({
   const handleJobCompleteRef = useRef<
     (completedJobId?: string) => Promise<void>
   >(async () => {});
+  const completingJobIdRef = useRef<string | null>(null);
   const { user, loading: authLoading, refreshUser } = useAuth();
   const uploadRef = useRef<HTMLInputElement>(null);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -194,6 +197,7 @@ export function StudioWorkspace({
     null,
   );
   const [jobFailed, setJobFailed] = useState(false);
+  const [jobError, setJobError] = useState<string | null>(null);
 
   const [mode, setMode] = useState<CreationMode>(initialMode);
   const [selectedCanvasId, setSelectedCanvasId] = useState<string | null>(null);
@@ -456,7 +460,10 @@ export function StudioWorkspace({
           setPollingJobId(null);
           setJobStreamStatus(null);
           void loadCanvasRef.current({ force: true });
-          if (job.status === "failed") setJobFailed(true);
+          if (job.status === "failed") {
+            setJobFailed(true);
+            setJobError(job.error ?? null);
+          }
           router.replace(
             `/studio?sessionId=${encodeURIComponent(sessionId)}&mode=${mode}`,
           );
@@ -528,17 +535,15 @@ export function StudioWorkspace({
   );
 
   const handleJobComplete = useCallback(async (completedJobId?: string) => {
-    setJobFailed(false);
-    setPollingJobId(null);
-    setJobStreamStatus(null);
-    setJobProgressCompleted(0);
-    setJobProgressTotal(0);
-    setJobStartedAt(null);
-    setQueueAhead(null);
-    lastOutputCountRef.current = 0;
-    router.replace(
-      `/studio?sessionId=${encodeURIComponent(sessionId)}&mode=${mode}`,
-    );
+    if (
+      completedJobId &&
+      completingJobIdRef.current === completedJobId
+    ) {
+      return;
+    }
+    if (completedJobId) completingJobIdRef.current = completedJobId;
+    try {
+    invalidateSessionCanvasBundle(sessionId);
     let jobStatus: string | undefined;
     let toolType: string | undefined;
     if (completedJobId) {
@@ -569,6 +574,18 @@ export function StudioWorkspace({
         activeWorkspaceId ?? undefined,
       ),
     );
+    setJobFailed(false);
+    setJobError(null);
+    setPollingJobId(null);
+    setJobStreamStatus(null);
+    setJobProgressCompleted(0);
+    setJobProgressTotal(0);
+    setJobStartedAt(null);
+    setQueueAhead(null);
+    lastOutputCountRef.current = 0;
+    router.replace(
+      `/studio?sessionId=${encodeURIComponent(sessionId)}&mode=${mode}`,
+    );
     if (canvasRef.current?.isInRefineMode()) {
       if (jobStatus === "succeeded") {
         canvasRef.current.completeRefineJob({ toolName: toolType });
@@ -577,6 +594,11 @@ export function StudioWorkspace({
       }
     } else {
       window.requestAnimationFrame(() => focusLatestCanvasItem());
+    }
+    } finally {
+      if (completedJobId && completingJobIdRef.current === completedJobId) {
+        completingJobIdRef.current = null;
+      }
     }
   }, [
     loadCanvas,
@@ -603,7 +625,10 @@ export function StudioWorkspace({
         if (job.count) setJobProgressTotal(job.count);
         setQueueAhead(job.queue_ahead ?? null);
         if (job.status === "succeeded" || job.status === "failed") {
-          if (job.status === "failed") setJobFailed(true);
+          if (job.status === "failed") {
+            setJobFailed(true);
+            setJobError(job.error ?? null);
+          }
           void handleJobCompleteRef.current(jobId);
         }
       })
@@ -612,6 +637,7 @@ export function StudioWorkspace({
       });
 
     setJobFailed(false);
+    setJobError(null);
     setJobProgressCompleted(0);
     setJobStartedAt(Date.now());
     lastOutputCountRef.current = 0;
@@ -632,7 +658,10 @@ export function StudioWorkspace({
             void loadCanvasRef.current({ force: true });
           }
         }
-        if (ev.status === "failed") setJobFailed(true);
+        if (ev.status === "failed") {
+          setJobFailed(true);
+          setJobError(ev.error ?? null);
+        }
       },
       () => {
         void handleJobCompleteRef.current(jobId);
@@ -644,6 +673,7 @@ export function StudioWorkspace({
           duration_ms: Math.round(performance.now() - t0),
         });
         setJobFailed(true);
+        setJobError("任务连接中断，请重试");
         setPollingJobId(null);
         setJobStreamStatus("failed");
       },
@@ -1411,6 +1441,7 @@ export function StudioWorkspace({
               readOnly={readOnly}
               jobStreamStatus={jobStreamStatus}
               jobFailed={jobFailed}
+              jobErrorMessage={formatJobErrorMessage(jobError)}
               jobProgressCompleted={jobProgressCompleted}
               jobProgressTotal={jobProgressTotal}
               onCancelJob={handleCancelJob}
