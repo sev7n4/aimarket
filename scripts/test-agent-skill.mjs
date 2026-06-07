@@ -133,6 +133,27 @@ async function main() {
       Number.isInteger(heroIdx) && heroIdx >= 0,
       `hero=${heroIdx ?? "missing"}`,
     );
+    const setJobId = setStep?.outputs?.jobId;
+    if (setJobId) {
+      const setJob = await req(`/api/v1/ai/jobs/${setJobId}`, { headers: authH });
+      ok(
+        "skill gen_set source_lane agent",
+        setJob.res.ok && setJob.json?.data?.source_lane === "agent",
+        setJob.json?.data?.source_lane ?? "missing",
+      );
+    }
+    const videoStep = final?.steps?.find((s) => s.id === "promo_video");
+    const videoJobId = videoStep?.outputs?.jobId;
+    if (videoJobId) {
+      const videoJob = await req(`/api/v1/ai/jobs/${videoJobId}`, {
+        headers: authH,
+      });
+      ok(
+        "skill promo_video source_lane video",
+        videoJob.res.ok && videoJob.json?.data?.source_lane === "video",
+        videoJob.json?.data?.source_lane ?? "missing",
+      );
+    }
   }
 
   const failed = results.filter((r) => !r.pass).length;

@@ -179,6 +179,18 @@ apps/web/e2e/creation-dock-ui.spec.ts
 
 **依赖**：6-1 → 6-2 → 6-3；6-4 可与 6-3 并行。
 
+---
+
+## Phase 7 — Skill 溯源与废弃 legacy execute（P2）
+
+| PR | 分支 | 范围 | 验收 |
+|----|------|------|------|
+| **7-1** | `feat/phase7-skill-source-lane` | `skill-executor` 写入 `source_lane`；`inferSkillStepSourceLane` | `test-agent-skill.mjs` 断言 gen_set=agent、video=video |
+| **7-2** | 同上 | `inspiration-set-generate-bar` 改用 `createSkillRun`；移除 `executeAgentPlan` | 无前端调用 `/agent/execute` |
+| **7-3** | 同上 | `/agent/execute` 保留但加 `Deprecation` 头；文档更新 | 集成测试全绿 |
+
+**依赖**：Phase 6 合并后启动。
+
 **共享策略（拍板）**：
 
 - **按 lane 隔离**：modelId、aspectRatio、count、videoReferenceMode、videoDurationSec、outputPrefMode
@@ -196,4 +208,5 @@ apps/web/e2e/creation-dock-ui.spec.ts
 | 2026-06-07 | 3 | 视频 referenceMode API、画布自动参考绑定、车道占位文案（#145） |
 | 2026-06-07 | 4 | `generation_jobs.source_lane`、时间线车道标记、灵感做同款按类型选车道 |
 | 2026-06-07 | 5 | PR #147 合并并部署；提交路由单源化完成 |
-| 2026-06-07 | 6 | 分支 `refactor/creation-lane-draft-types`：LaneSettingsDraft + useCreationLaneDrafts |
+| 2026-06-07 | 6 | PR #148：LaneSettingsDraft + useCreationLaneDrafts，按车道保留模型/比例 |
+| 2026-06-07 | 7 | 分支 `feat/phase7-skill-source-lane`：Skill source_lane + 废弃 `/agent/execute` 前端调用 |

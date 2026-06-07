@@ -1169,32 +1169,6 @@ export async function cancelSkillRun(runId: string) {
   return res.data;
 }
 
-export async function executeAgentPlan(body: {
-  sessionId: string;
-  prompt: string;
-  mode: "chat" | "image" | "ecommerce";
-  modelId?: string;
-  resolution?: string;
-  aspectRatio?: string;
-  count?: number;
-  confirmed?: boolean;
-  productAssetId?: string;
-  referenceAssetId?: string;
-}) {
-  const res = await request<{
-    data: {
-      jobId: string;
-      estimatedPoints: number;
-      status: string;
-      plan: import("./types").AgentPlan;
-    };
-  }>("/api/v1/agent/execute", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-  return res.data;
-}
-
 export async function optimizePromptApi(
   prompt: string,
   mode: "chat" | "image" | "ecommerce" = "image",

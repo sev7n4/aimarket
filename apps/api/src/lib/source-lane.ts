@@ -18,3 +18,8 @@ export function inferSourceLane(input: {
   if (input.toolType === "video") return "video";
   return null;
 }
+
+/** Skill 步骤溯源：套图/工具步骤归 Agent 车道，视频步骤归视频车道 */
+export function inferSkillStepSourceLane(step: { type: string }): SourceLane {
+  return step.type === "video" ? "video" : "agent";
+}
