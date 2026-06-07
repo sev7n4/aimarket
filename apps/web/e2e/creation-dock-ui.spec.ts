@@ -122,7 +122,11 @@ test.describe("creation dock UI", () => {
     });
     await expect(aspectButton).toBeVisible({ timeout: 10_000 });
     await aspectButton.click();
-    await studioDock.getByRole("button", { name: "16:9", exact: true }).click();
+    await studioDock
+      .locator("button")
+      .filter({ has: page.locator("span", { hasText: "16:9", exact: true }) })
+      .first()
+      .click();
     await expect(aspectButton).toContainText("16:9");
 
     await studioDock.getByRole("button", { name: "选择创作方式" }).click();
