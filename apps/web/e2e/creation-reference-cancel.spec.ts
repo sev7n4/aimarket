@@ -4,13 +4,13 @@ import { gotoStudioAndWait, skipStudioCoach, studioWorkstation } from "./helpers
 
 const tinyImage = path.join(__dirname, "fixtures", "tiny.png");
 
-test.describe("canvas reference auto-bind", () => {
-  test("点选画布图片无需 @ 即可图生图", async ({ page, request }) => {
+test.describe("reference cancel chips", () => {
+  test("画布点选与 @ 引用均可通过 chip 取消", async ({ page, request }) => {
     test.setTimeout(90_000);
     await skipStudioCoach(page);
 
     const apiBase = process.env.E2E_API_URL ?? "http://127.0.0.1:4000";
-    const email = `e2e_canvas_bind_${Date.now()}_${Math.random()
+    const email = `e2e_ref_cancel_${Date.now()}_${Math.random()
       .toString(36)
       .slice(2, 8)}@test.local`;
     const register = await request.post(`${apiBase}/api/v1/auth/register`, {
@@ -42,11 +42,34 @@ test.describe("canvas reference auto-bind", () => {
 
     const canvasItem = page.locator('[data-testid^="canvas-item-upload-"]').first();
     await expect(canvasItem).toBeVisible({ timeout: 20_000 });
-    await canvasItem.click();
 
-    await expect(station.locator('[data-testid="reference-chip-canvas"]')).toBeVisible({
-      timeout: 10_000,
-    });
+    await canvasItem.click();
+    const canvasChip = station.locator('[data-testid="reference-chip-canvas"]');
+    await expect(canvasChip).toBeVisible({ timeout: 10_000 });
+
+    const canvasRefId = await canvasChip.getAttribute("data-reference-id");
+    expect(canvasRefId).toBeTruthy();
+    await station
+      .locator(`[data-testid="reference-chip-remove-${canvasRefId}"]`)
+      .click();
+    await expect(canvasChip).toBeHidden({ timeout: 5_000 });
+
+    await canvasItem.hover();
+    const quickMention = page.locator('[data-testid="canvas-item-quick-mention"]').first();
+    await expect(quickMention).toBeVisible({ timeout: 5_000 });
+    await quickMention.click();
+
+    const mentionChip = station.locator('[data-testid="reference-chip-mention-asset"]');
+    await expect(mentionChip).toBeVisible({ timeout: 10_000 });
+    await expect(station.locator("textarea").first()).toContainText("@");
+
+    const mentionRefId = await mentionChip.getAttribute("data-reference-id");
+    expect(mentionRefId).toBeTruthy();
+    await station
+      .locator(`[data-testid="reference-chip-remove-${mentionRefId}"]`)
+      .click();
+    await expect(mentionChip).toBeHidden({ timeout: 5_000 });
+    await expect(station.locator("textarea").first()).not.toContainText("@");
 
     const generateResponse = page.waitForResponse(
       (res) =>
@@ -54,15 +77,16 @@ test.describe("canvas reference auto-bind", () => {
         res.request().method() === "POST",
       { timeout: 30_000 },
     );
-
-    await station.locator("textarea").first().fill("E2E 画布自动参考图生图");
+    await station.locator("textarea").first().fill("E2E 取消引用后文生图");
     await station.getByRole("button", { name: "开始生成" }).click();
 
     const generateRes = await generateResponse;
     expect(generateRes.ok()).toBeTruthy();
     const payload = generateRes.request().postDataJSON() as {
       assetIds?: string[];
+      referenceOutputIds?: string[];
     };
-    expect(payload.assetIds?.length).toBeGreaterThan(0);
+    expect(payload.assetIds?.length ?? 0).toBe(0);
+    expect(payload.referenceOutputIds?.length ?? 0).toBe(0);
   });
 });

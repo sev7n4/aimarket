@@ -100,6 +100,16 @@ import {
   mergeReferenceSources,
 } from "@/lib/canvas-reference-bind";
 import {
+  ReferenceChips,
+  type ReferenceChipItem,
+} from "@/components/reference-chips";
+import {
+  extractMentionLabelsFromPrompt,
+  filterAssetIdsByPromptLabels,
+  filterRefsByPromptLabels,
+  removeMentionTokenFromPrompt,
+} from "@/lib/mention-sync";
+import {
   buildDirectSubmitContext,
   buildOrchestrationDispatchContext,
   hasReferenceImages,
@@ -241,6 +251,8 @@ interface CreationPanelProps {
   onUploadToCanvas?: (assetId: string, url: string, thumbUrl?: string) => void;
   /** Studio：当前选中的画布项，图片/视频车道自动作参考 */
   selectedCanvasItem?: CanvasItem | null;
+  /** Studio：取消画布点选参考（chip × 或等价操作） */
+  onClearCanvasSelection?: () => void;
   /** Studio：走 Agent Run 编排（/agent/runs） */
   agentOrchestration?: boolean;
   /** Studio：展示长 Skill 套餐（/agent/skills） */
@@ -290,6 +302,7 @@ export function CreationPanel({
   onPromptChange,
   onUploadToCanvas,
   selectedCanvasItem = null,
+  onClearCanvasSelection,
   agentOrchestration = false,
   agentSkills = false,
   onAgentRunComplete,
@@ -346,7 +359,7 @@ export function CreationPanel({
   /** 已通过 @ 引用的 canvas-asset 项，提交时把 assetId 合并到请求 */
   const [mentionedAssetIds, setMentionedAssetIds] = useState<string[]>([]);
   const [mentionedAssetPreviews, setMentionedAssetPreviews] = useState<
-    UploadPreviewItem[]
+    Array<UploadPreviewItem & { label?: string }>
   >([]);
   const [mentionedMasks, setMentionedMasks] = useState<CanvasMaskSelection[]>(
     [],
@@ -479,6 +492,98 @@ export function CreationPanel({
       creationLane,
       Boolean(focusEdit?.points.length),
     );
+  }
+
+  function resolveAssetMentionLabel(assetId: string): string | undefined {
+    const preview = mentionedAssetPreviews.find((p) => p.id === assetId);
+    if (preview?.label) return preview.label;
+    const canvasIdx = canvasItems.findIndex((item) => item.assetId === assetId);
+    if (canvasIdx >= 0) {
+      return canvasItems[canvasIdx]?.label ?? `图${canvasIdx + 1}`;
+    }
+    const uploadIdx = uploadPreviews.findIndex((p) => p.id === assetId);
+    if (uploadIdx >= 0) {
+      return `上传图${uploadIdx + 1}`;
+    }
+    return undefined;
+  }
+
+  function syncMentionStateFromPrompt(nextPrompt: string) {
+    const labels = extractMentionLabelsFromPrompt(nextPrompt);
+    setSelectedRefs((prev) => filterRefsByPromptLabels(prev, labels));
+    const labelByAssetId = new Map<string, string>();
+    for (const assetId of mentionedAssetIds) {
+      const label = resolveAssetMentionLabel(assetId);
+      if (label) labelByAssetId.set(assetId, label);
+    }
+    setMentionedAssetIds((prev) =>
+      filterAssetIdsByPromptLabels(prev, labelByAssetId, labels),
+    );
+    setMentionedAssetPreviews((prev) =>
+      prev.filter((preview) => {
+        const label = preview.label ?? resolveAssetMentionLabel(preview.id);
+        return label != null && labels.includes(label);
+      }),
+    );
+  }
+
+  const canvasReferenceActive = canAutoBindCanvasItem(
+    selectedCanvasItem,
+    creationLane,
+    Boolean(focusEdit?.points.length),
+  );
+
+  const referenceChips = useMemo((): ReferenceChipItem[] => {
+    const chips: ReferenceChipItem[] = [];
+    if (canvasReferenceActive && selectedCanvasItem) {
+      chips.push({
+        id: selectedCanvasItem.id,
+        variant: "canvas",
+        label: selectedCanvasItem.label ?? "图片",
+        url: selectedCanvasItem.url,
+      });
+    }
+    for (const ref of selectedRefs) {
+      chips.push({
+        id: ref.id,
+        variant: "mention-output",
+        label: ref.label,
+        url: ref.url,
+      });
+    }
+    for (const assetId of mentionedAssetIds) {
+      const preview = mentionedAssetPreviews.find((p) => p.id === assetId);
+      chips.push({
+        id: assetId,
+        variant: "mention-asset",
+        label: preview?.label ?? resolveAssetMentionLabel(assetId) ?? "素材",
+        url: preview?.url,
+      });
+    }
+    return chips;
+  }, [
+    canvasReferenceActive,
+    selectedCanvasItem,
+    selectedRefs,
+    mentionedAssetIds,
+    mentionedAssetPreviews,
+    canvasItems,
+    uploadPreviews,
+  ]);
+
+  function handleRemoveReferenceChip(chip: ReferenceChipItem) {
+    if (chip.variant === "canvas") {
+      onClearCanvasSelection?.();
+      return;
+    }
+    if (chip.variant === "mention-output") {
+      setSelectedRefs((prev) => prev.filter((ref) => ref.id !== chip.id));
+      setPrompt(removeMentionTokenFromPrompt(prompt, chip.label));
+      return;
+    }
+    setMentionedAssetIds((prev) => prev.filter((id) => id !== chip.id));
+    setMentionedAssetPreviews((prev) => prev.filter((p) => p.id !== chip.id));
+    setPrompt(removeMentionTokenFromPrompt(prompt, chip.label));
   }
 
   function handleCreationLaneChange(lane: CreationLane) {
@@ -654,6 +759,7 @@ export function CreationPanel({
     selectedRefs.length > 0 ||
     mentionedAssetIds.length > 0 ||
     mentionedMasks.length > 0 ||
+    canvasReferenceActive ||
     Boolean(focusEdit);
   const dockCompactLine =
     isDock &&
@@ -665,6 +771,7 @@ export function CreationPanel({
         selectedRefs.length === 0 &&
         mentionedAssetIds.length === 0 &&
         mentionedMasks.length === 0 &&
+        !canvasReferenceActive &&
         !focusEdit
       : !dockShouldExpand);
   const dockIconBtn =
@@ -989,7 +1096,7 @@ export function CreationPanel({
       setMentionedAssetPreviews((prev) =>
         prev.find((p) => p.id === item.assetId)
           ? prev
-          : [...prev, { id: item.assetId, url: item.url }],
+          : [...prev, { id: item.assetId, url: item.url, label: item.label }],
       );
     }
 
@@ -1628,6 +1735,7 @@ export function CreationPanel({
                 onChange={(e) => {
                   const v = e.target.value;
                   setPrompt(v);
+                  syncMentionStateFromPrompt(v);
                   // 检测光标前的 @<query>，弹出/更新引用 popover
                   const caret = e.target.selectionStart ?? v.length;
                   const before = v.slice(0, caret);
@@ -1750,36 +1858,11 @@ export function CreationPanel({
               </Button>
             ) : null}
           </div>
-        {!dockCompactLine && selectedRefs.length > 0 ? (
-          <p className="mt-1 text-xs text-purple-400">
-            @ 引用了 {selectedRefs.length} 张生成图
-          </p>
-        ) : null}
-        {!dockCompactLine &&
-        canAutoBindCanvasItem(
-          selectedCanvasItem,
-          creationLane,
-          Boolean(focusEdit?.points.length),
-        ) ? (
-          <p className="mt-1 text-xs text-sky-400/90">
-            已选用画布「{selectedCanvasItem?.label ?? "图片"}」作参考
-          </p>
-        ) : null}
-        {!dockCompactLine && mentionedAssetIds.length > 0 ? (
-          <div className="mt-1 flex items-center gap-1.5 text-xs text-purple-400">
-            <span>@ 引用了 {mentionedAssetIds.length} 张素材图</span>
-            <span className="flex -space-x-1">
-              {mentionedAssetPreviews.slice(0, 4).map((item) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={item.id}
-                  src={item.url}
-                  alt=""
-                  className="size-5 rounded border border-black/40 object-cover"
-                />
-              ))}
-            </span>
-          </div>
+        {!dockCompactLine && referenceChips.length > 0 ? (
+          <ReferenceChips
+            chips={referenceChips}
+            onRemove={handleRemoveReferenceChip}
+          />
         ) : null}
         {!dockCompactLine && mentionedMasks.length > 0 ? (
           <p className="mt-1 text-xs text-amber-300">

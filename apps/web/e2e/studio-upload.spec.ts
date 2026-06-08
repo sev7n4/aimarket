@@ -73,7 +73,7 @@ test.describe("studio upload references", () => {
       uploadedCanvasItem.first().getByTestId("canvas-item-quick-mention"),
     ).toBeVisible({ timeout: 10_000 });
     await uploadedCanvasItem.first().getByTestId("canvas-item-quick-mention").click();
-    await expect(page.getByText(/@ 引用了 1 张素材图/)).toBeVisible({
+    await expect(station.locator('[data-testid="reference-chip-mention-asset"]')).toBeVisible({
       timeout: 10_000,
     });
     await uploadedCanvasItem.first().hover();
