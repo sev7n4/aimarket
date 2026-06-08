@@ -3,6 +3,7 @@
 import {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -12,6 +13,7 @@ import { Plus } from "lucide-react";
 import { assetUrl } from "@/lib/api-client";
 import type { CanvasItem, BatchSection } from "@/lib/canvas-tools";
 import { batchDisplayIndex } from "@/lib/canvas-tools";
+import { CanvasGeneratingTimelineCard } from "@/components/canvas-generating-timeline-card";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
 import { ScrollCanvasItemChrome } from "@/components/scroll-canvas-item-chrome";
 import { RefineSelectedCta } from "@/components/refine-selected-cta";
@@ -89,6 +91,8 @@ interface ScrollCanvasProps {
   onDismissJobFailure?: () => void;
   jobElapsedMs?: number;
   queueAhead?: number | null;
+  /** 单张生成中：时间线 skeleton 展示用 prompt */
+  pendingJobPrompt?: string | null;
   focusClickActive: boolean;
   focusItem: CanvasItem | null;
   onFocusImageClick?: (
@@ -135,6 +139,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       onDismissJobFailure,
       jobElapsedMs,
       queueAhead,
+      pendingJobPrompt = null,
       focusClickActive,
       focusItem,
       onFocusImageClick,
@@ -151,10 +156,24 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       () => new Set(),
     );
 
-    const showJobOverlay =
+    const jobActive =
       Boolean(jobStreamStatus) &&
       jobStreamStatus !== "succeeded" &&
       jobStreamStatus !== "failed";
+    const isMultiSlideJob = (jobProgressTotal ?? 0) > 1;
+    const useTimelineGenerating = jobActive && !isMultiSlideJob;
+    const showJobOverlay = jobFailed || (jobActive && isMultiSlideJob);
+    const showTimeline =
+      items.length > 0 ||
+      Boolean(orchestrationEvent) ||
+      useTimelineGenerating;
+
+    useEffect(() => {
+      if (!useTimelineGenerating) return;
+      const el = scrollContainerRef.current;
+      if (!el) return;
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }, [useTimelineGenerating, jobStreamStatus]);
 
     const itemsByBatch = useMemo(() => {
       const map = new Map<string, CanvasItem[]>();
@@ -225,11 +244,25 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
           />
         ) : null}
 
-        {items.length === 0 && !orchestrationEvent ? (
+        {!showTimeline ? (
           <div
             className={`min-h-full w-full ${scrollBottomInset}`.trim()}
             aria-label="画布"
           />
+        ) : useTimelineGenerating && items.length === 0 && !orchestrationEvent ? (
+          <div
+            className={`min-h-full w-full ${scrollBottomInset}`.trim()}
+            aria-label="画布"
+          >
+            <CanvasGeneratingTimelineCard
+              status={jobStreamStatus ?? "running"}
+              prompt={pendingJobPrompt}
+              elapsedMs={jobElapsedMs}
+              queueAhead={queueAhead}
+              onCancel={onCancelJob}
+              centered
+            />
+          </div>
         ) : (
           <div
             className={`w-full py-3 pl-2 pr-3 sm:py-4 sm:pl-3 sm:pr-4 ${scrollBottomInset}`.trim()}
@@ -609,6 +642,16 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                   </section>
                 );
               })}
+
+              {useTimelineGenerating ? (
+                <CanvasGeneratingTimelineCard
+                  status={jobStreamStatus ?? "running"}
+                  prompt={pendingJobPrompt}
+                  elapsedMs={jobElapsedMs}
+                  queueAhead={queueAhead}
+                  onCancel={onCancelJob}
+                />
+              ) : null}
 
               {orchestrationEvent ? (
                 <section

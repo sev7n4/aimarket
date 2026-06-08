@@ -1556,14 +1556,26 @@ export function CreationPanel({
             ? prompt.trim().length >= 10 && Boolean(resolveProductAssetId())
             : prompt.trim().length > 0)));
 
+  const imageLaneJobActive =
+    Boolean(jobStreamStatus) &&
+    jobStreamStatus !== "succeeded" &&
+    jobStreamStatus !== "failed";
+
   const streamBusy =
     orchAgentBusy ||
     orchSkillBusy ||
     skillInFlight ||
     agentInFlight ||
-    (Boolean(jobStreamStatus) &&
-      jobStreamStatus !== "succeeded" &&
-      jobStreamStatus !== "failed");
+    imageLaneJobActive;
+
+  /** Studio 图片车道：进度以画布时间线为主，Dock 仅在失败时展示状态条 */
+  const showDockJobStatusBar =
+    Boolean(jobStreamStatus) &&
+    !(isStudioDock && creationLane === "image" && imageLaneJobActive);
+
+  const submitLoading =
+    pending ||
+    (isStudioDock && creationLane === "image" && imageLaneJobActive);
 
   const jobStatusSubtext =
     jobStreamStatus === "queued" && queueAhead != null
@@ -1578,7 +1590,7 @@ export function CreationPanel({
 
   const body = (
     <>
-      {jobStreamStatus ? (
+      {showDockJobStatusBar ? (
         <div
           className={`mb-2 flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs ${
             jobStreamStatus === "failed"
@@ -2186,7 +2198,7 @@ export function CreationPanel({
             disabled={readOnly || pending || streamBusy}
             aria-label={submitAriaLabel}
           >
-            {pending ? (
+            {submitLoading ? (
               <Loader2 className="size-5 animate-spin" />
             ) : (
               <ArrowUp className="size-5" />

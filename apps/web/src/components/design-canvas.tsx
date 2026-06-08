@@ -119,6 +119,7 @@ interface DesignCanvasProps {
   onCancelJob?: () => void;
   jobElapsedMs?: number;
   queueAhead?: number | null;
+  pendingJobPrompt?: string | null;
   /** 滚动画布内容区底部留白（Dock 浮层不占用画布背景高度） */
   scrollBottomInset?: string;
   orchestrationEvent?: import("@/lib/canvas-timeline").OrchestrationTimelineEvent | null;
@@ -175,6 +176,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onCancelJob,
       jobElapsedMs,
       queueAhead,
+      pendingJobPrompt = null,
       scrollBottomInset = "",
       orchestrationEvent = null,
       orchestrationActions,
@@ -868,6 +870,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               onDismissJobFailure={onDismissJobFailure}
               jobElapsedMs={jobElapsedMs}
               queueAhead={queueAhead}
+              pendingJobPrompt={pendingJobPrompt}
               focusClickActive={focusClickActive}
               focusItem={focusItem ?? null}
               onFocusImageClick={onFocusImageClick}
