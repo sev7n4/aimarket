@@ -2,33 +2,190 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { fetchProviderStatus } from "@/lib/api-client";
+import { useAuth } from "@/lib/auth-context";
 import { jobStatusLabel } from "@/lib/job-stream";
 
-/** 单张文生图/图生图典型耗时（秒），用于进度与预计剩余 */
+/** 单张文生图/图生图典型耗时（秒） */
 const DEFAULT_ESTIMATE_SEC = 60;
+/** 与 scroll-canvas 成品缩略图高度一致 */
+const SLOT_THUMB_HEIGHT = "10.5rem";
 
 interface CanvasGeneratingTimelineCardProps {
   status: string;
   prompt?: string | null;
   elapsedMs?: number;
-  /** 任务开始时间戳；优先于 elapsedMs，用于本地秒级刷新 */
   startedAt?: number | null;
   queueAhead?: number | null;
   onCancel?: () => void;
+  /** 空画布：居中 pill + 小占位，无时间线大卡 */
   centered?: boolean;
 }
 
-function formatDuration(sec: number): string {
+function formatDurationShort(sec: number): string {
   const s = Math.max(0, Math.floor(sec));
-  if (s < 60) return `${s} 秒`;
+  if (s < 60) return `${s}s`;
   const min = Math.floor(s / 60);
-  return `${min} 分 ${s % 60} 秒`;
+  return `${min}分${s % 60}s`;
 }
 
-function statusTone(status: string): string {
-  if (status === "queued") return "text-amber-200";
-  if (status === "running") return "text-orange-200";
-  return "text-zinc-200";
+function buildStatusLine(
+  status: string,
+  elapsedSec: number,
+  remainingSec: number,
+  queueAhead: number | null | undefined,
+): string {
+  if (status === "queued") {
+    if (queueAhead == null) return "排队中";
+    if (queueAhead <= 0) return "排队中 · 即将开始";
+    return `排队中 · 前方 ${queueAhead} 个`;
+  }
+  if (status === "running") {
+    if (elapsedSec <= 0) return "生成中";
+    if (elapsedSec >= DEFAULT_ESTIMATE_SEC) {
+      return `生成中 · 已 ${formatDurationShort(elapsedSec)} · 仍在推理`;
+    }
+    return `生成中 · 已 ${formatDurationShort(elapsedSec)} · 约剩 ${formatDurationShort(remainingSec)}`;
+  }
+  return jobStatusLabel(status);
+}
+
+function GeneratingPlaceholder({ compact = false }: { compact?: boolean }) {
+  return (
+    <div
+      className={`relative shrink-0 overflow-hidden rounded-lg border border-dashed border-orange-500/35 bg-zinc-900/40 ${
+        compact ? "aspect-square max-h-[min(40vh,14rem)] w-full max-w-[14rem]" : ""
+      }`}
+      style={compact ? undefined : { height: SLOT_THUMB_HEIGHT, aspectRatio: "1" }}
+      aria-hidden
+    >
+      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-zinc-800/50 via-transparent to-zinc-800/50" />
+    </div>
+  );
+}
+
+function GeneratingSlotBody({
+  status,
+  prompt,
+  elapsedSec,
+  remainingSec,
+  queueAhead,
+  progressPercent,
+  canCancel,
+  onCancel,
+  providerHint,
+  compact = false,
+}: {
+  status: string;
+  prompt?: string | null;
+  elapsedSec: number;
+  remainingSec: number;
+  queueAhead: number | null | undefined;
+  progressPercent: number;
+  canCancel: boolean;
+  onCancel?: () => void;
+  providerHint: string | null;
+  compact?: boolean;
+}) {
+  const statusLine = buildStatusLine(
+    status,
+    elapsedSec,
+    remainingSec,
+    queueAhead,
+  );
+
+  return (
+    <article
+      data-testid="canvas-generating-timeline-card"
+      className={`group/gen-slot min-w-0 ${compact ? "flex w-full max-w-md flex-col items-center" : ""}`}
+      role="status"
+      aria-live="polite"
+    >
+      <div
+        className={`flex items-center gap-2 ${compact ? "justify-center" : "justify-between"}`}
+      >
+        <div
+          className={`flex min-w-0 items-center gap-1.5 ${
+            compact
+              ? "rounded-full border border-white/10 bg-[#141414]/90 px-3 py-1.5 shadow-lg backdrop-blur"
+              : ""
+          }`}
+        >
+          <Loader2 className="size-3.5 shrink-0 animate-spin text-orange-400" />
+          <p className="truncate text-[12px] text-zinc-200">{statusLine}</p>
+        </div>
+        {canCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="shrink-0 text-[10px] text-zinc-500 transition hover:text-zinc-300"
+          >
+            取消
+          </button>
+        ) : null}
+      </div>
+
+      <div
+        className={`mt-1.5 h-0.5 overflow-hidden rounded-full bg-white/10 ${
+          compact ? "w-full max-w-md" : ""
+        }`}
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={progressPercent}
+        aria-label="生成进度"
+      >
+        <div
+          className={`h-full rounded-full bg-orange-500/80 transition-all duration-700 ${
+            status === "queued" ? "animate-pulse" : ""
+          }`}
+          style={{ width: `${progressPercent}%` }}
+        />
+      </div>
+
+      <div
+        className={`mt-2 flex gap-2 ${compact ? "w-full max-w-md flex-col items-center" : "items-start"}`}
+      >
+        <GeneratingPlaceholder compact={compact} />
+        {prompt && !compact ? (
+          <p
+            className="min-w-0 flex-1 line-clamp-2 text-[11px] leading-snug text-zinc-500"
+            title={prompt}
+          >
+            {prompt}
+          </p>
+        ) : null}
+      </div>
+
+      <div
+        className={`pointer-events-none mt-1.5 max-h-0 overflow-hidden opacity-0 transition-all duration-200 group-hover/gen-slot:pointer-events-auto group-hover/gen-slot:max-h-24 group-hover/gen-slot:opacity-100 ${
+          compact ? "w-full max-w-md text-center" : ""
+        }`}
+      >
+        <p className="text-[10px] leading-relaxed text-zinc-500">
+          {prompt ? (
+            <span className="block whitespace-pre-wrap">{prompt}</span>
+          ) : null}
+          {status === "queued" && queueAhead != null ? (
+            <span className="mt-0.5 block">
+              排队：{queueAhead <= 0 ? "即将开始处理" : `前方约 ${queueAhead} 个任务`}
+            </span>
+          ) : null}
+          {status === "running" && elapsedSec > 0 ? (
+            <span className="mt-0.5 block tabular-nums">
+              已用时 {formatDurationShort(elapsedSec)}
+              {elapsedSec < DEFAULT_ESTIMATE_SEC
+                ? ` · 预计剩余约 ${formatDurationShort(remainingSec)}`
+                : ""}
+            </span>
+          ) : null}
+          {providerHint ? (
+            <span className="mt-0.5 block text-zinc-600">{providerHint}</span>
+          ) : null}
+        </p>
+      </div>
+    </article>
+  );
 }
 
 export function CanvasGeneratingTimelineCard({
@@ -40,13 +197,30 @@ export function CanvasGeneratingTimelineCard({
   onCancel,
   centered = false,
 }: CanvasGeneratingTimelineCardProps) {
+  const { user } = useAuth();
   const [tick, setTick] = useState(0);
+  const [providerHint, setProviderHint] = useState<string | null>(null);
 
   useEffect(() => {
     if (status !== "queued" && status !== "running") return;
     const timer = window.setInterval(() => setTick((n) => n + 1), 1000);
     return () => window.clearInterval(timer);
   }, [status]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    void fetchProviderStatus()
+      .then((p) => {
+        if (!cancelled) setProviderHint(p.hint ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setProviderHint(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const elapsedSec = useMemo(() => {
     void tick;
@@ -71,117 +245,25 @@ export function CanvasGeneratingTimelineCard({
 
   const remainingSec = Math.max(0, DEFAULT_ESTIMATE_SEC - elapsedSec);
 
-  const statusDetail =
-    status === "queued"
-      ? queueAhead == null
-        ? "排队中，等待空闲算力"
-        : queueAhead <= 0
-          ? "即将开始处理"
-          : `前方约 ${queueAhead} 个任务`
-      : status === "running"
-        ? elapsedSec > 0
-          ? `已用时 ${formatDuration(elapsedSec)} · 预计剩余约 ${formatDuration(remainingSec)}`
-          : "模型推理中，请稍候"
-        : "处理中";
-
-  const card = (
-    <article
-      data-testid="canvas-generating-timeline-card"
-      className="rounded-xl border border-orange-500/20 bg-orange-500/[0.04] px-3 py-3 sm:px-4"
-      role="status"
-      aria-live="polite"
-    >
-      <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <Loader2 className="size-4 shrink-0 animate-spin text-orange-400" />
-          <div className="min-w-0">
-            <p className={`text-[13px] font-medium ${statusTone(status)}`}>
-              {jobStatusLabel(status)}
-            </p>
-            <p className="text-[11px] text-zinc-500">{statusDetail}</p>
-          </div>
-        </div>
-        {canCancel ? (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="shrink-0 rounded-md bg-white/10 px-2 py-1 text-[10px] text-zinc-300 transition hover:bg-white/15 hover:text-white"
-          >
-            取消
-          </button>
-        ) : null}
-      </header>
-
-      <div
-        className="mb-2 h-1.5 overflow-hidden rounded-full bg-white/10"
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={progressPercent}
-        aria-label="生成进度"
-      >
-        <div
-          className={`h-full rounded-full bg-gradient-to-r from-orange-500/80 to-orange-300/90 transition-all duration-700 ${
-            status === "queued" ? "animate-pulse" : ""
-          }`}
-          style={{ width: `${progressPercent}%` }}
-        />
-      </div>
-
-      <div className="mb-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-zinc-500">
-        <span>
-          状态：
-          <span className="text-zinc-300">{jobStatusLabel(status)}</span>
-        </span>
-        {status === "running" && elapsedSec > 0 ? (
-          <span>
-            已用时：
-            <span className="tabular-nums text-zinc-300">
-              {formatDuration(elapsedSec)}
-            </span>
-          </span>
-        ) : null}
-        {status === "running" ? (
-          <span>
-            预计：
-            <span className="tabular-nums text-zinc-300">
-              约 {formatDuration(remainingSec)}
-            </span>
-          </span>
-        ) : null}
-        {status === "queued" && queueAhead != null ? (
-          <span>
-            排队：
-            <span className="text-zinc-300">
-              {queueAhead <= 0 ? "即将开始" : `${queueAhead} 个`}
-            </span>
-          </span>
-        ) : null}
-      </div>
-
-      {prompt ? (
-        <p className="mb-3 line-clamp-2 text-[12px] leading-relaxed text-zinc-500">
-          {prompt}
-        </p>
-      ) : null}
-
-      <div
-        className="relative aspect-[4/3] max-h-48 w-full overflow-hidden rounded-lg border border-white/10 bg-zinc-900/80"
-        aria-hidden
-      >
-        <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-zinc-800/80 via-zinc-700/40 to-zinc-800/80" />
-      </div>
-
-      <p className="mt-2 text-[10px] text-zinc-600">
-        完成后将自动定位到新图
-      </p>
-    </article>
+  const body = (
+    <GeneratingSlotBody
+      status={status}
+      prompt={prompt}
+      elapsedSec={elapsedSec}
+      remainingSec={remainingSec}
+      queueAhead={queueAhead}
+      progressPercent={progressPercent}
+      canCancel={canCancel}
+      onCancel={onCancel}
+      providerHint={providerHint}
+      compact={centered}
+    />
   );
 
   if (centered) {
     return (
-      <div className="flex min-h-full w-full items-center justify-center px-3 py-8">
-        <div className="w-full max-w-md">{card}</div>
+      <div className="flex min-h-full w-full flex-col items-center justify-center gap-3 px-3 py-8">
+        {body}
       </div>
     );
   }
@@ -198,7 +280,7 @@ export function CanvasGeneratingTimelineCard({
           aria-hidden
         />
       </div>
-      <div className="min-w-0 flex-1">{card}</div>
+      <div className="min-w-0 flex-1">{body}</div>
     </section>
   );
 }
