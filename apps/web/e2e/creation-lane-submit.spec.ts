@@ -72,7 +72,7 @@ test.describe("creation lane submit guard", () => {
     });
 
     const textarea = station.locator("textarea").first();
-    await textarea.fill("E2E 图生图车道守卫：参考图应走图片生成");
+    await textarea.fill("@商品素材 E2E 图生图车道守卫：参考图应走图片生成");
 
     const generateResponse = page.waitForResponse(
       (res) =>
