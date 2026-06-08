@@ -264,6 +264,7 @@ export function StudioWorkspace({
   const [jobProgressTotal, setJobProgressTotal] = useState(0);
   const [jobStartedAt, setJobStartedAt] = useState<number | null>(null);
   const [queueAhead, setQueueAhead] = useState<number | null>(null);
+  const [activeJobPrompt, setActiveJobPrompt] = useState<string | null>(null);
   const [, setJobTick] = useState(0);
   const [studioPrompt, setStudioPrompt] = useState(initialPrompt);
   const lastOutputCountRef = useRef(0);
@@ -471,6 +472,7 @@ export function StudioWorkspace({
         if (job.status === "succeeded" || job.status === "failed") {
           setPollingJobId(null);
           setJobStreamStatus(null);
+          setActiveJobPrompt(null);
           void loadCanvasRef.current({ force: true });
           if (job.status === "failed") {
             setJobFailed(true);
@@ -527,9 +529,10 @@ export function StudioWorkspace({
       } else {
         setSelectedCanvasId(null);
       }
+      setActiveJobPrompt(studioPrompt.trim() || null);
       setPollingJobId(jobId);
     },
-    [registerBatchLineage],
+    [registerBatchLineage, studioPrompt],
   );
 
   /** 仅滚动/高亮最新批次，不写入 selectedCanvasId（避免误绑定图生图参考） */
@@ -629,6 +632,7 @@ export function StudioWorkspace({
     setJobProgressTotal(0);
     setJobStartedAt(null);
     setQueueAhead(null);
+    setActiveJobPrompt(null);
     lastOutputCountRef.current = 0;
     router.replace(
       `/studio?sessionId=${encodeURIComponent(sessionId)}&mode=${mode}`,
@@ -740,6 +744,7 @@ export function StudioWorkspace({
         setJobFailed(true);
         setJobError("任务连接中断，请重试");
         setPollingJobId(null);
+        setActiveJobPrompt(null);
         setJobStreamStatus("failed");
       },
     );
@@ -1148,6 +1153,7 @@ export function StudioWorkspace({
       setJobProgressTotal(0);
       setJobStartedAt(null);
       setQueueAhead(null);
+      setActiveJobPrompt(null);
       setSelectSourceBanner(`任务已取消，积分已退回（${result.refundedPoints}积分）`);
       await refreshUser();
       await loadCanvas({ force: true });
@@ -1515,6 +1521,7 @@ export function StudioWorkspace({
               onDismissJobFailure={dismissJobFailure}
               jobElapsedMs={jobElapsedMs}
               queueAhead={queueAhead}
+              pendingJobPrompt={activeJobPrompt}
               selectSourceBanner={selectSourceBanner}
               showFailureBannerDismiss={jobFailed}
               onCutoutItem={(item) => handleQuickToolFromCanvas(item, "cutout")}
