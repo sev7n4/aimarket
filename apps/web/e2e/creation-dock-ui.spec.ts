@@ -81,9 +81,6 @@ test.describe("creation dock UI", () => {
       name: "选择创作方式",
     });
     await expect(studioLanePicker).toContainText("图片生成");
-    await expect(
-      studioDock.getByRole("button", { name: "选择模型" }),
-    ).toContainText("Auto");
 
     const collapsedHeight = await textarea.boundingBox().then((box) => box?.height ?? 0);
     await textarea.click();
@@ -92,6 +89,9 @@ test.describe("creation dock UI", () => {
       .toBeGreaterThan(collapsedHeight + 12);
 
     await expect(studioLanePicker).toContainText("图片生成");
+    await expect(
+      studioDock.getByRole("button", { name: "选择模型" }),
+    ).toContainText("Auto");
   });
 
   test("首页与 Studio 车道偏好互不影响", async ({ page }) => {
