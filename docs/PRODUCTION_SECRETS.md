@@ -212,6 +212,19 @@ sqlite3 /tmp/aimarket.db "PRAGMA wal_checkpoint(FULL);
 
 建议同时配置 `AGNES_API_KEY`、`DASHSCOPE_API_KEY`、`ARK_API_KEY`，提高 Auto 回落成功率。
 
+### Studio 工具探活缓存（可选）
+
+工具提交前会做配置检查 + 探活缓存（负缓存命中时同步失败，不入队）：
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `TOOL_PROVIDER_HEALTH_CACHE_MS_OK` | `60000` | 探活成功缓存 TTL（ms） |
+| `TOOL_PROVIDER_HEALTH_CACHE_MS_QUOTA` | `120000` | 配额/429 负缓存 TTL |
+| `TOOL_PROVIDER_HEALTH_CACHE_MS_AUTH` | `300000` | 鉴权失败负缓存 TTL |
+| `TOOL_PROVIDER_HEALTH_CACHE_MS_UNAVAILABLE` | `90000` | 上游 5xx 负缓存 TTL |
+
+任务失败时也会回写缓存，避免重复空等轮询。
+
 ## 轮换与应急
 
 1. 修改 `/opt/aimarket/.env` 中对应变量。

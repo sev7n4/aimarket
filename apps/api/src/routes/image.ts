@@ -9,6 +9,7 @@ import { enrichPromptWithReferences, resolveReferenceUrls } from "../lib/referen
 import { toPublicAssetUrl } from "../lib/public-url.js";
 import { AppError } from "../lib/errors.js";
 import { getTool } from "../lib/tools.js";
+import { ensureToolProviderHealthy } from "../lib/tool-preflight.js";
 import {
   mockReversePrompt,
   resolveImageUrlForReverse,
@@ -126,6 +127,8 @@ async function handleExtendImage(
   const lineage = resolveJobLineage({
     referenceOutputIds: body.referenceOutputIds,
   });
+
+  await ensureToolProviderHealthy("expand", userId);
 
   const { jobId, pointsCost } = createGenerationJob({
     sessionId: body.sessionId,

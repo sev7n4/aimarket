@@ -130,6 +130,7 @@ interface FreeCanvasProps {
   jobProgressTotal?: number;
   onOpenChatPanel?: () => void;
   onCancelJob?: () => void;
+  onDismissJobFailure?: () => void;
   jobElapsedMs?: number;
   queueAhead?: number | null;
   mobile: boolean;
@@ -185,6 +186,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
       jobProgressTotal = 0,
       onOpenChatPanel,
       onCancelJob,
+      onDismissJobFailure,
       jobElapsedMs,
       queueAhead,
       mobile,
@@ -785,6 +787,7 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
             errorMessage={jobErrorMessage}
             onOpenChat={onOpenChatPanel}
             onCancel={onCancelJob}
+            onDismiss={jobFailed ? onDismissJobFailure : undefined}
             completed={jobProgressCompleted}
             total={jobProgressTotal}
             elapsedMs={jobElapsedMs}

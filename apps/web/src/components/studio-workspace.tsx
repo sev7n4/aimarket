@@ -198,6 +198,16 @@ export function StudioWorkspace({
   );
   const [jobFailed, setJobFailed] = useState(false);
   const [jobError, setJobError] = useState<string | null>(null);
+  const [jobFailedToolType, setJobFailedToolType] = useState<string | null>(
+    null,
+  );
+
+  const dismissJobFailure = useCallback(() => {
+    setJobFailed(false);
+    setJobError(null);
+    setJobFailedToolType(null);
+    setSelectSourceBanner(null);
+  }, []);
 
   const [mode, setMode] = useState<CreationMode>(initialMode);
   const [selectedCanvasId, setSelectedCanvasId] = useState<string | null>(null);
@@ -463,6 +473,13 @@ export function StudioWorkspace({
           if (job.status === "failed") {
             setJobFailed(true);
             setJobError(job.error ?? null);
+            setJobFailedToolType(job.tool_type ?? null);
+            const friendly = formatJobErrorMessage(job.error, {
+              toolType: job.tool_type,
+            });
+            setSelectSourceBanner(
+              friendly ?? job.error ?? "生成失败，积分已退回",
+            );
           }
           router.replace(
             `/studio?sessionId=${encodeURIComponent(sessionId)}&mode=${mode}`,
@@ -583,13 +600,17 @@ export function StudioWorkspace({
     if (jobStatus === "failed") {
       setJobFailed(true);
       setJobError(failedJobError);
-      const friendly = formatJobErrorMessage(failedJobError);
+      setJobFailedToolType(toolType ?? null);
+      const friendly = formatJobErrorMessage(failedJobError, {
+        toolType,
+      });
       setSelectSourceBanner(
         friendly ?? failedJobError ?? "生成失败，积分已退回",
       );
     } else if (jobStatus === "succeeded") {
       setJobFailed(false);
       setJobError(null);
+      setJobFailedToolType(null);
     }
     setPollingJobId(null);
     setJobStreamStatus(null);
@@ -654,6 +675,7 @@ export function StudioWorkspace({
 
     setJobFailed(false);
     setJobError(null);
+    setJobFailedToolType(null);
     setJobProgressCompleted(0);
     setJobStartedAt(Date.now());
     lastOutputCountRef.current = 0;
@@ -1457,13 +1479,17 @@ export function StudioWorkspace({
               readOnly={readOnly}
               jobStreamStatus={jobStreamStatus}
               jobFailed={jobFailed}
-              jobErrorMessage={formatJobErrorMessage(jobError)}
+              jobErrorMessage={formatJobErrorMessage(jobError, {
+                toolType: jobFailedToolType,
+              })}
               jobProgressCompleted={jobProgressCompleted}
               jobProgressTotal={jobProgressTotal}
               onCancelJob={handleCancelJob}
+              onDismissJobFailure={dismissJobFailure}
               jobElapsedMs={jobElapsedMs}
               queueAhead={queueAhead}
               selectSourceBanner={selectSourceBanner}
+              showFailureBannerDismiss={jobFailed}
               onCutoutItem={(item) => handleQuickToolFromCanvas(item, "cutout")}
               onExpandItem={(item) => handleQuickToolFromCanvas(item, "expand")}
               brushRequest={brushRequest}

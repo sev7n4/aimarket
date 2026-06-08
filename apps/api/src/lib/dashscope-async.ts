@@ -46,6 +46,11 @@ export async function submitDashScopeImageSynthesis(
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(
+        `DashScope 鉴权失败 (${res.status}): ${errText.slice(0, 300)}`,
+      );
+    }
     throw new Error(
       `DashScope image-synthesis 提交失败 (${res.status}): ${errText.slice(0, 300)}`,
     );
@@ -102,11 +107,17 @@ export async function pollDashScopeTask(
     }
 
     if (status === "FAILED" || status === "CANCELED") {
-      throw new Error(
-        json.output?.message ??
-          json.message ??
-          `DashScope 任务失败 (${status})`,
-      );
+      const code = json.output?.code ?? json.code;
+      const message =
+        json.output?.message ?? json.message ?? `DashScope 任务失败 (${status})`;
+      if (
+        code === "InvalidApiKey" ||
+        code === "AccessDenied" ||
+        /invalidapikey|access.denied|unauthorized/i.test(message)
+      ) {
+        throw new Error(`DashScope 鉴权失败 (${code ?? status}): ${message}`);
+      }
+      throw new Error(message);
     }
 
     await new Promise((r) => setTimeout(r, intervalMs));

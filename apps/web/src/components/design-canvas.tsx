@@ -72,6 +72,9 @@ interface DesignCanvasProps {
   jobProgressTotal?: number;
   onOpenChatPanel?: () => void;
   selectSourceBanner?: string | null;
+  /** 失败时顶部提示条可关闭 */
+  showFailureBannerDismiss?: boolean;
+  onDismissJobFailure?: () => void;
   onCutoutItem?: (item: CanvasItem) => void;
   onExpandItem?: (item: CanvasItem) => void;
   brushRequest?: {
@@ -150,6 +153,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       jobProgressTotal = 0,
       onOpenChatPanel,
       selectSourceBanner = null,
+      showFailureBannerDismiss = false,
+      onDismissJobFailure,
       onCutoutItem,
       onExpandItem,
       brushRequest = null,
@@ -706,8 +711,18 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
 
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
           {selectSourceBanner ? (
-            <div className="absolute left-2 right-2 top-2 z-20 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100/90">
-              {selectSourceBanner}
+            <div className="absolute left-2 right-2 top-2 z-20 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100/90">
+              <span className="min-w-0 flex-1">{selectSourceBanner}</span>
+              {showFailureBannerDismiss && onDismissJobFailure ? (
+                <button
+                  type="button"
+                  onClick={onDismissJobFailure}
+                  className="shrink-0 rounded p-0.5 text-amber-200/70 transition hover:bg-amber-500/20 hover:text-amber-50"
+                  aria-label="关闭提示"
+                >
+                  ×
+                </button>
+              ) : null}
             </div>
           ) : null}
 
@@ -823,6 +838,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               jobProgressTotal={jobProgressTotal}
               onOpenChatPanel={onOpenChatPanel}
               onCancelJob={onCancelJob}
+              onDismissJobFailure={onDismissJobFailure}
               jobElapsedMs={jobElapsedMs}
               queueAhead={queueAhead}
               mobile={mobile}
@@ -849,6 +865,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               jobProgressTotal={jobProgressTotal}
               onOpenChatPanel={onOpenChatPanel}
               onCancelJob={onCancelJob}
+              onDismissJobFailure={onDismissJobFailure}
               jobElapsedMs={jobElapsedMs}
               queueAhead={queueAhead}
               focusClickActive={focusClickActive}

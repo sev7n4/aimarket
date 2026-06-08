@@ -17,6 +17,7 @@ import { recordAnalyticsEvent } from "../lib/analytics.js";
 import { db } from "../db/index.js";
 import { resolveJobLineage } from "../lib/job-lineage.js";
 import { mergeExpandToolContext } from "../lib/expand-run.js";
+import { ensureToolProviderHealthy } from "../lib/tool-preflight.js";
 
 const tools = new Hono<{ Variables: AuthVariables }>();
 
@@ -132,6 +133,8 @@ tools.post("/:toolId/run", async (c) => {
     referenceOutputIds: body.referenceOutputIds,
   });
   const toolContext = mergeExpandToolContext(toolId, body);
+
+  await ensureToolProviderHealthy(toolId, userId);
 
   const { jobId, pointsCost } = createGenerationJob({
     sessionId: body.sessionId,
