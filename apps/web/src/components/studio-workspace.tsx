@@ -1522,6 +1522,7 @@ export function StudioWorkspace({
               jobElapsedMs={jobElapsedMs}
               queueAhead={queueAhead}
               pendingJobPrompt={activeJobPrompt}
+              jobStartedAt={jobStartedAt}
               selectSourceBanner={selectSourceBanner}
               showFailureBannerDismiss={jobFailed}
               onCutoutItem={(item) => handleQuickToolFromCanvas(item, "cutout")}

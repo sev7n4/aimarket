@@ -11,11 +11,12 @@ async function registerAndLogin(page: import("@playwright/test").Page) {
 test.describe("mobile collab", () => {
   test.use({ viewport: MOBILE_VIEWPORT });
 
-  test("首页移动 dock 展示热门能力 chips", async ({ page }) => {
+  test("首页移动 dock 下滑到底部为伸展态", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText("电商热门能力")).toBeVisible();
-    await expect(page.getByRole("button", { name: "AI 扩图" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "白底主图" })).toBeVisible();
+    const dock = page.locator('[data-home-floating-dock="true"]');
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await expect(dock).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("upload-preview-add")).toBeVisible();
   });
 
   test("已登录首页展示继续编辑最近会话", async ({ page }) => {
