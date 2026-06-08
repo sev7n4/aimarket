@@ -80,7 +80,7 @@ test.describe("studio upload references", () => {
 
     await station.getByRole("button", { name: "引用画布图片" }).click();
     await expect(
-      page.getByRole("button", { name: /图1|上传图1/ }).first(),
+      page.getByRole("button", { name: "商品素材" }).first(),
     ).toBeVisible({
       timeout: 10_000,
     });

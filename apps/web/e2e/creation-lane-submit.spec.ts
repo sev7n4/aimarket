@@ -65,8 +65,11 @@ test.describe("creation lane submit guard", () => {
 
     const canvasItem = page.locator('[data-testid^="canvas-item-upload-"]').first();
     await expect(canvasItem).toBeVisible({ timeout: 20_000 });
-    await canvasItem.click();
-    await expect(station.locator('[data-testid="reference-chip-canvas"]')).toBeVisible({
+    await canvasItem.hover();
+    await canvasItem.getByTestId("canvas-item-quick-mention").click();
+    await expect(
+      station.locator('[data-testid="reference-chip-mention-asset"]'),
+    ).toBeVisible({
       timeout: 10_000,
     });
 
