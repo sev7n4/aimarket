@@ -10,6 +10,8 @@ RUN pnpm install --frozen-lockfile --filter @aimarket/web...
 FROM deps AS build
 ARG NEXT_PUBLIC_API_URL=http://localhost:4100
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# 限制 Next 构建堆，避免同机 runner OOM 掉线
+ENV NODE_OPTIONS=--max-old-space-size=3072
 COPY packages/ui ./packages/ui
 COPY apps/web ./apps/web
 RUN mkdir -p apps/web/public

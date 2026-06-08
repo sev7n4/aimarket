@@ -95,6 +95,8 @@ if [[ -n "$RUNNER_SERVICE" ]]; then
   cat > "${OVERRIDE_DIR}/override.conf" <<'EOF'
 [Service]
 Environment=ACTIONS_RUNNER_DISABLE_AUTO_UPDATE=true
+Restart=always
+RestartSec=30
 EOF
   systemctl daemon-reload
   systemctl restart "$RUNNER_SERVICE"
@@ -124,6 +126,16 @@ echo "$CRON_LINE" > /etc/cron.d/aimarket-build-prune
 chmod 644 /etc/cron.d/aimarket-build-prune
 touch /var/log/aimarket-build-prune.log
 chmod 644 /var/log/aimarket-build-prune.log
+
+WATCHDOG_SCRIPT="${AIMARKET_DEPLOY_DIR}/ensure-runner-watchdog.sh"
+if [[ -x "$WATCHDOG_SCRIPT" ]]; then
+  WATCHDOG_CRON="*/5 * * * * root $WATCHDOG_SCRIPT >> /var/log/aimarket-runner-watchdog.log 2>&1"
+  echo "$WATCHDOG_CRON" > /etc/cron.d/aimarket-runner-watchdog
+  chmod 644 /etc/cron.d/aimarket-runner-watchdog
+  touch /var/log/aimarket-runner-watchdog.log
+  chmod 644 /var/log/aimarket-runner-watchdog.log
+  echo "watchdog cron: /etc/cron.d/aimarket-runner-watchdog"
+fi
 
 echo ""
 echo "完成。在 GitHub → Settings → Actions → Runners 应看到 Online，标签含: $RUNNER_LABELS"
