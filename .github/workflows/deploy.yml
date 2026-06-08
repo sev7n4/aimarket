@@ -19,7 +19,6 @@ on:
 
 permissions:
   contents: read
-  actions: read
 
 concurrency:
   group: aimarket-deploy-production
@@ -31,27 +30,8 @@ env:
   TCR_NAMESPACE: ${{ vars.TCR_NAMESPACE || 'aimarket' }}
 
 jobs:
-  verify-runner:
-    name: Verify aimarket-build runner online
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    steps:
-      - name: Check runner via GitHub API
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          online=$(gh api "repos/${{ github.repository }}/actions/runners" \
-            --jq '[.runners[] | select(.status=="online") | select([.labels[].name] | index("aimarket-build"))] | length')
-          if [[ "$online" -lt 1 ]]; then
-            echo "::error::No online runner (label aimarket-build). On build CVM run: sudo bash /opt/aimarket/deploy/restart-github-runner.sh && sudo bash /opt/aimarket/deploy/prune-build-runner.sh — or reboot CVM if SSH hangs."
-            exit 1
-          fi
-          echo "Online aimarket-build runners: $online"
-
   preflight:
     name: Check build runner
-    needs: verify-runner
     runs-on: [self-hosted, aimarket-build]
     timeout-minutes: 5
     steps:
@@ -65,7 +45,7 @@ jobs:
 
   build-push:
     name: Build ${{ matrix.image }}
-    needs: [verify-runner, preflight]
+    needs: preflight
     runs-on: [self-hosted, aimarket-build]
     timeout-minutes: 60
     environment: production
