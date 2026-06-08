@@ -23,6 +23,7 @@ runs:
         CORS_ORIGIN=http://localhost:3000
         PUBLIC_WEB_URL=http://localhost:3000
         IMAGE_PROVIDER=mock
+        TOOL_IMAGE_PROVIDER=mock
         MODERATION_PROVIDER=local
         MODERATION_OUTPUT=${{ inputs.moderation_output }}
         JOB_QUEUE=memory

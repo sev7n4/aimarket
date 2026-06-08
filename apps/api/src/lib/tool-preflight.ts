@@ -11,6 +11,14 @@ function isMockProviderName(name: string): boolean {
   return name.endsWith("-mock") || name === "tool-mock";
 }
 
+/** CI / 本地 mock 出图时允许工具走 mock，不做生产级 preflight 拦截 */
+function allowsToolMock(): boolean {
+  const toolMode = (process.env.TOOL_IMAGE_PROVIDER ?? "auto").toLowerCase();
+  if (toolMode === "mock") return true;
+  const imageMode = (process.env.IMAGE_PROVIDER ?? "auto").toLowerCase();
+  return imageMode === "mock";
+}
+
 function healthErrorMessage(
   toolName: string,
   providerName: string,
@@ -59,8 +67,7 @@ function resolveConfiguredProvider(
     throw new AppError(404, "NOT_FOUND", "工具不存在");
   }
 
-  const globalMode = (process.env.TOOL_IMAGE_PROVIDER ?? "auto").toLowerCase();
-  if (globalMode === "mock") {
+  if (allowsToolMock()) {
     return {
       toolName: tool.name,
       providerName: resolveToolProvider(toolId, userId).name,
@@ -102,8 +109,7 @@ export async function ensureToolProviderHealthy(
   toolId: string,
   userId?: string,
 ): Promise<{ providerName: string }> {
-  const globalMode = (process.env.TOOL_IMAGE_PROVIDER ?? "auto").toLowerCase();
-  if (globalMode === "mock") {
+  if (allowsToolMock()) {
     return assertToolProviderReady(toolId, userId);
   }
 
