@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CreationPanel } from "@/components/creation-panel";
 import { LoginDialog } from "@/components/login-dialog";
-import { ScenarioQuickBar } from "@/components/scenario-quick-bar";
 import { HomeRecentSessions } from "@/components/home-recent-sessions";
 import { useAuth } from "@/lib/auth-context";
 import { BRAND_SLOGAN } from "@/lib/brand";
@@ -76,8 +75,8 @@ export function HomeCreationSection({
       agentSkills
       prompt={prompt}
       onPromptChange={setPrompt}
-      initialDockExpanded={!dockPinned}
-      dockLineOnly={dockPinned}
+      initialDockExpanded
+      dockLineOnly={false}
     />
   );
 
@@ -127,9 +126,6 @@ export function HomeCreationSection({
             </div>
           </div>
         </div>
-        {!dockPinned ? (
-          <ScenarioQuickBar className="pointer-events-auto mx-auto mt-3 max-w-3xl" compact />
-        ) : null}
         <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
       </section>
     </>

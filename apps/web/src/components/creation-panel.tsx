@@ -1027,30 +1027,40 @@ export function CreationPanel({
       const batch = selectedFiles.slice(0, remaining);
       for (const file of batch) {
         const asset = await uploadAsset(file, sessionId);
+        const previewUrl =
+          asset.url.startsWith("http") || asset.url.startsWith("blob:")
+            ? asset.url
+            : assetUrl(asset.thumbUrl ?? asset.url);
         if (onUploadToCanvas) {
-          // Studio：上传仅进画布，须点选或 @ 后才作生成参考
+          // Studio：缩略图仅作 Dock 视觉反馈；生成参考仍靠画布点选 / @
           onUploadToCanvas(asset.id, asset.url, asset.thumbUrl);
+          setUploadPreviews((prev) =>
+            [...prev, { id: asset.id, url: previewUrl }].slice(0, 4),
+          );
         } else {
           setAssetIds((prev) => [...prev, asset.id].slice(0, 4));
           setUploadPreviews((prev) =>
-            [
-              ...prev,
-              {
-                id: asset.id,
-                url:
-                  asset.url.startsWith("http") || asset.url.startsWith("blob:")
-                    ? asset.url
-                    : assetUrl(asset.url),
-              },
-            ].slice(0, 4),
+            [...prev, { id: asset.id, url: previewUrl }].slice(0, 4),
           );
         }
       }
       const extraFiles = selectedFiles.slice(remaining);
       for (const file of extraFiles) {
         const asset = await uploadAsset(file, sessionId);
+        const previewUrl =
+          asset.url.startsWith("http") || asset.url.startsWith("blob:")
+            ? asset.url
+            : assetUrl(asset.thumbUrl ?? asset.url);
         if (onUploadToCanvas) {
           onUploadToCanvas(asset.id, asset.url, asset.thumbUrl);
+          setUploadPreviews((prev) =>
+            [...prev, { id: asset.id, url: previewUrl }].slice(0, 4),
+          );
+        } else {
+          setAssetIds((prev) => [...prev, asset.id].slice(0, 4));
+          setUploadPreviews((prev) =>
+            [...prev, { id: asset.id, url: previewUrl }].slice(0, 4),
+          );
         }
       }
     } catch (err) {

@@ -93,6 +93,7 @@ interface ScrollCanvasProps {
   queueAhead?: number | null;
   /** 单张生成中：时间线 skeleton 展示用 prompt */
   pendingJobPrompt?: string | null;
+  jobStartedAt?: number | null;
   focusClickActive: boolean;
   focusItem: CanvasItem | null;
   onFocusImageClick?: (
@@ -140,6 +141,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       jobElapsedMs,
       queueAhead,
       pendingJobPrompt = null,
+      jobStartedAt = null,
       focusClickActive,
       focusItem,
       onFocusImageClick,
@@ -258,6 +260,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
               status={jobStreamStatus ?? "running"}
               prompt={pendingJobPrompt}
               elapsedMs={jobElapsedMs}
+              startedAt={jobStartedAt}
               queueAhead={queueAhead}
               onCancel={onCancelJob}
               centered
@@ -648,6 +651,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                   status={jobStreamStatus ?? "running"}
                   prompt={pendingJobPrompt}
                   elapsedMs={jobElapsedMs}
+                  startedAt={jobStartedAt}
                   queueAhead={queueAhead}
                   onCancel={onCancelJob}
                 />
