@@ -1,7 +1,10 @@
 import { getModel } from "../lib/models.js";
 import { persistOutputUrls } from "../lib/persist-output.js";
 import { AppError } from "../lib/errors.js";
-import { isRetriableGenerateProviderError } from "../lib/image-provider-fallback.js";
+import {
+  autoProviderAttemptTimeoutMs,
+  isRetriableGenerateProviderError,
+} from "../lib/image-provider-fallback.js";
 import {
   inferRoutingModeFromJob,
   resolveRoutingModelId,
@@ -40,6 +43,34 @@ async function runGenerateWithProvider(
   return { ...result, urls, modelName: meta?.name };
 }
 
+async function runGenerateWithProviderBounded(
+  provider: ImageProvider,
+  params: GenerateParams,
+  attemptTimeoutMs?: number,
+): Promise<GenerateResult & { modelName?: string }> {
+  if (!attemptTimeoutMs) {
+    return runGenerateWithProvider(provider, params);
+  }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(
+        new Error(
+          `${provider.name} 请求超时 (${attemptTimeoutMs}ms)，Auto 将尝试下一供应商`,
+        ),
+      );
+    }, attemptTimeoutMs);
+  });
+  try {
+    return await Promise.race([
+      runGenerateWithProvider(provider, params),
+      timeoutPromise,
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function generateImages(
   params: GenerateParams,
 ): Promise<GenerateResult & { modelName?: string }> {
@@ -70,11 +101,17 @@ export async function generateImages(
   let lastError: unknown;
   for (let i = 0; i < candidates.length; i++) {
     const provider = candidates[i]!;
+    const hasMore = i < candidates.length - 1;
+    const attemptTimeout =
+      allowFallback && hasMore ? autoProviderAttemptTimeoutMs() : undefined;
     try {
-      return await runGenerateWithProvider(provider, params);
+      return await runGenerateWithProviderBounded(
+        provider,
+        params,
+        attemptTimeout,
+      );
     } catch (err) {
       lastError = err;
-      const hasMore = i < candidates.length - 1;
       if (
         !allowFallback ||
         !hasMore ||

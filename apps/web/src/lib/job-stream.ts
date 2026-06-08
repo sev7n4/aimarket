@@ -15,7 +15,8 @@ export interface JobStreamEvent {
 
 const TERMINAL = new Set(["succeeded", "failed"]);
 const POLL_INTERVAL_MS = 1500;
-const POLL_MAX_ATTEMPTS = 120;
+/** 15 分钟：Auto 多供应商回落时单 job 可能超过 3 分钟 */
+const POLL_MAX_ATTEMPTS = 600;
 
 /** 默认 SSE；设 NEXT_PUBLIC_USE_JOB_STREAM=false 则仅轮询 */
 export function shouldUseJobStream(): boolean {
@@ -37,6 +38,7 @@ export function streamJob(
   const controller = new AbortController();
 
   (async () => {
+    let terminal = false;
     try {
       const res = await fetch(`${API_BASE}/api/v1/ai/jobs/${jobId}/stream`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -69,11 +71,16 @@ export function streamJob(
           if (parsed.status) {
             onEvent(parsed as JobStreamEvent);
             if (TERMINAL.has(parsed.status)) {
+              terminal = true;
               onDone();
               return;
             }
           }
         }
+      }
+      if (!terminal) {
+        onError(new Error("SSE 已结束但任务未完成"));
+        return;
       }
       onDone();
     } catch (err) {
@@ -123,6 +130,24 @@ function pollJob(
       }
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
+    if (cancelled) return;
+    try {
+      const job = await fetchJob(jobId);
+      if (TERMINAL.has(job.status)) {
+        onEvent({
+          status: job.status,
+          error: job.error,
+          outputs: job.outputs,
+          count: job.count,
+          completed: job.outputs?.length ?? 0,
+          queueAhead: job.queue_ahead ?? null,
+        });
+        onDone();
+        return;
+      }
+    } catch {
+      /* 最终探测失败则走超时 */
+    }
     onError(new Error("任务超时"));
   })();
 
@@ -154,23 +179,27 @@ export function watchJob(
     onDone();
   };
 
+  const startPollFallback = () => {
+    if (finished) return;
+    pollStop = pollJob(
+      jobId,
+      onEvent,
+      finish,
+      (pollErr) => {
+        if (!finished) {
+          finished = true;
+          onError(pollErr);
+        }
+      },
+    );
+  };
+
   const streamStop = streamJob(
     jobId,
     onEvent,
     finish,
     () => {
-      if (finished) return;
-      pollStop = pollJob(
-        jobId,
-        onEvent,
-        finish,
-        (pollErr) => {
-          if (!finished) {
-            finished = true;
-            onError(pollErr);
-          }
-        },
-      );
+      startPollFallback();
     },
   );
 
