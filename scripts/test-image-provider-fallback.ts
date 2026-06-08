@@ -31,6 +31,18 @@ ok(
   "validation not retriable",
   !isRetriableGenerateProviderError(new Error("prompt blocked by moderation")),
 );
+ok(
+  "Agnes 500 upstream_error retriable",
+  isRetriableGenerateProviderError(
+    new Error(
+      'Agnes Image 失败 (500): {"error":{"type":"upstream_error","code":"500"}}',
+    ),
+  ),
+);
+ok(
+  "502 retriable",
+  isRetriableGenerateProviderError(new Error("provider timeout (502)")),
+);
 
 ok(
   "default fallback order Agnes → wan → Seedream",

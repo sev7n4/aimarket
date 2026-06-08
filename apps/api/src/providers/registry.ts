@@ -157,6 +157,10 @@ export function getProviderStatus() {
     hint = "真实出图：OpenAI Images API（不支持图生图）";
   }
 
+  if (mode === "auto" && !usingMock) {
+    hint = `${hint}；创作台 Auto 路由顺序 Agnes → 万相 → Seedream，上游 5xx/429 自动回落`;
+  }
+
   return {
     mode,
     openaiConfigured,

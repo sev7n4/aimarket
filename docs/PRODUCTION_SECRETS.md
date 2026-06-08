@@ -187,6 +187,31 @@ curl -s http://<IP>:4100/api/v1/ai/providerStatus \
 - `tools.expandProvider` → `tool-edit-mock`
 - `promptOptimize.activeProvider` → `template-mock`（无 Key）或 `openai`（已配 Key）
 
+## 出图失败排查（运维）
+
+创作台 **Auto 智能路由** 顺序：`Agnes → 万相 → Seedream`。上游 **5xx / 429** 会自动尝试下一 Provider；若全部失败，任务 `failed` 且积分退回。
+
+常见错误：
+
+| 现象 | 原因 | 处理 |
+|------|------|------|
+| `Agnes Image 失败 (500)` + `upstream_error` | Agnes 上游不稳定 | 通常 Auto 已回落万相/Seedream；持续失败检查 `AGNES_API_KEY` 与配额 |
+| `SetLimitExceeded` / Seedream 429 | 火山方舟推理配额用尽 | 控制台调整限额或关闭 Safe Experience；图生图依赖 `ARK_API_KEY` |
+| 画布无图、报错一闪而过 | 前端已修复为常驻 banner；旧版需重编 web | 合并含 `fix/generation-fallback-and-error-ui` 的 web 镜像 |
+
+近 12 小时失败任务（CVM 上）：
+
+```bash
+docker cp aimarket-api:/app/data/aimarket.db /tmp/aimarket.db
+docker cp aimarket-api:/app/data/aimarket.db-wal /tmp/aimarket.db-wal 2>/dev/null || true
+sqlite3 /tmp/aimarket.db "PRAGMA wal_checkpoint(FULL);
+  SELECT created_at, status, substr(error,1,200), substr(prompt,1,60)
+  FROM generation_jobs WHERE status='failed' AND created_at > datetime('now','-12 hours')
+  ORDER BY created_at DESC LIMIT 20;"
+```
+
+建议同时配置 `AGNES_API_KEY`、`DASHSCOPE_API_KEY`、`ARK_API_KEY`，提高 Auto 回落成功率。
+
 ## 轮换与应急
 
 1. 修改 `/opt/aimarket/.env` 中对应变量。

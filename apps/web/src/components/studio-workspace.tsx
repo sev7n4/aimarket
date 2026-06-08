@@ -548,11 +548,15 @@ export function StudioWorkspace({
     invalidateSessionCanvasBundle(sessionId);
     let jobStatus: string | undefined;
     let toolType: string | undefined;
+    let failedJobError: string | null = null;
     if (completedJobId) {
       try {
         const job = await fetchJob(completedJobId);
         jobStatus = job.status;
         toolType = job.tool_type ?? undefined;
+        if (job.status === "failed") {
+          failedJobError = job.error ?? null;
+        }
         if (
           job.tool_type &&
           job.status === "succeeded" &&
@@ -576,8 +580,17 @@ export function StudioWorkspace({
         activeWorkspaceId ?? undefined,
       ),
     );
-    setJobFailed(false);
-    setJobError(null);
+    if (jobStatus === "failed") {
+      setJobFailed(true);
+      setJobError(failedJobError);
+      const friendly = formatJobErrorMessage(failedJobError);
+      setSelectSourceBanner(
+        friendly ?? failedJobError ?? "生成失败，积分已退回",
+      );
+    } else if (jobStatus === "succeeded") {
+      setJobFailed(false);
+      setJobError(null);
+    }
     setPollingJobId(null);
     setJobStreamStatus(null);
     setJobProgressCompleted(0);
