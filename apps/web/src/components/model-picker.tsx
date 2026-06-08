@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronDown, Sparkles } from "lucide-react";
 import type { ImageModel } from "@/lib/types";
 import { CompactDockSheet } from "@/components/compact-dock-sheet";
+import { isInternalRoutingModelId } from "@/lib/format-generation-display";
 
 export const AUTO_MODEL_ID = "auto";
 
@@ -31,7 +32,7 @@ export function ModelPicker({ models, value, onChange }: ModelPickerProps) {
   const list = models;
 
   const label =
-    value === AUTO_MODEL_ID
+    value === AUTO_MODEL_ID || isInternalRoutingModelId(value)
       ? "Auto"
       : list.find((m) => m.id === value)?.name ?? "选择模型";
 

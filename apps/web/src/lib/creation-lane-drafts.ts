@@ -12,8 +12,16 @@ import {
   readStoredCreationLane,
   type LaneDraft,
 } from "./creation-dock-prefs";
+import { isInternalRoutingModelId } from "./format-generation-display";
 
-const AUTO_MODEL_ID = "auto";
+export const AUTO_MODEL_ID = "auto";
+
+/** 存盘/接口回落的内部 slug 统一为创作台 Auto */
+export function normalizeLaneModelId(modelId: string): string {
+  if (!modelId || modelId === AUTO_MODEL_ID) return AUTO_MODEL_ID;
+  if (isInternalRoutingModelId(modelId)) return AUTO_MODEL_ID;
+  return modelId;
+}
 
 /** 单车道生成参数草稿（prompt/refs 仍由 CreationPanel 全局管理） */
 export interface LaneSettingsDraft {
@@ -88,6 +96,7 @@ export function defaultLaneSettingsDraft(lane: CreationLane): LaneSettingsDraft 
     aspectRatio: "auto",
     count: 1,
     resolution: "1k",
+    /** 图片车道仅默认 Auto 模型；输出偏好「自动」仅用于 Agent 车道 */
     outputPrefMode: "manual",
     videoReferenceMode: "omni",
     videoDurationSec: 5,
@@ -136,10 +145,11 @@ function parseLaneSettingsDraft(
   if (!value || typeof value !== "object") return base;
   const raw = value as Record<string, unknown>;
   return {
-    modelId:
+    modelId: normalizeLaneModelId(
       typeof raw.modelId === "string" && raw.modelId.length > 0
         ? raw.modelId
         : base.modelId,
+    ),
     aspectRatio: parseAspectRatio(raw.aspectRatio) ?? base.aspectRatio,
     count:
       typeof raw.count === "number" && raw.count >= 1 && raw.count <= 8

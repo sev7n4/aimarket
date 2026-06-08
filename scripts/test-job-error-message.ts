@@ -22,6 +22,14 @@ ok(
   missing != null && /万相图生图模型/.test(missing),
 );
 
+const agnes500 = formatJobErrorMessage(
+  'Agnes Image 失败 (500): {"error":{"type":"upstream_error","code":"500"}}',
+);
+ok(
+  "agnes 500 friendly",
+  agnes500 != null && /Agnes 图像服务暂时不可用/.test(agnes500),
+);
+
 const failed = results.filter((r) => !r.pass).length;
 console.log(`\n${results.length - failed}/${results.length} 通过\n`);
 process.exit(failed > 0 ? 1 : 0);

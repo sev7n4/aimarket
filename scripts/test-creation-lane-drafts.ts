@@ -6,6 +6,7 @@
 import {
   createDefaultScopeLaneDrafts,
   defaultLaneSettingsDraft,
+  normalizeLaneModelId,
   patchActiveLaneSettings,
   switchActiveLane,
 } from "../apps/web/src/lib/creation-lane-drafts.ts";
@@ -25,10 +26,22 @@ function assertEq<T>(name: string, actual: T, expected: T) {
 const home = createDefaultScopeLaneDrafts("home");
 ok("default active lane image", home.activeLane === "image");
 ok(
-  "image lane manual output",
+  "image lane manual output pref",
   home.lanes.image.outputPrefMode === "manual",
 );
+ok("image lane default model auto", home.lanes.image.modelId === "auto");
 ok("agent lane auto output", home.lanes.agent.outputPrefMode === "auto");
+
+assertEq(
+  "normalize internal routing slug to auto",
+  normalizeLaneModelId("omni-v2"),
+  "auto",
+);
+assertEq(
+  "preserve explicit user model",
+  normalizeLaneModelId("seedream-5"),
+  "seedream-5",
+);
 
 const patched = patchActiveLaneSettings(home, {
   aspectRatio: "16:9",
