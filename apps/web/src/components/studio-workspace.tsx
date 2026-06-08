@@ -1603,6 +1603,7 @@ export function StudioWorkspace({
                 queueAhead={queueAhead}
                 canvasItems={canvasItems}
                 selectedCanvasItem={selectedCanvasItem}
+                onClearCanvasSelection={() => setSelectedCanvasId(null)}
                 mentionItemRequest={mentionItemRequest}
                 onUploadToCanvas={handleUploadToCanvas}
                 onDockModeChange={setDockMode}

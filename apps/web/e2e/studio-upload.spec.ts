@@ -49,14 +49,6 @@ test.describe("studio upload references", () => {
     await station.locator('input[type="file"]').setInputFiles(tinyImage);
     expect((await uploadResponse).ok()).toBeTruthy();
 
-    const previewCard = station.getByTestId("upload-preview-card-0");
-    await expect(previewCard).toBeVisible({ timeout: 20_000 });
-    await expect(previewCard.locator("img")).toHaveAttribute(
-      "src",
-      /\/uploads\//,
-      { timeout: 20_000 },
-    );
-
     await expect(page.getByText("素材区").first()).toBeVisible({
       timeout: 20_000,
     });
@@ -73,7 +65,7 @@ test.describe("studio upload references", () => {
       uploadedCanvasItem.first().getByTestId("canvas-item-quick-mention"),
     ).toBeVisible({ timeout: 10_000 });
     await uploadedCanvasItem.first().getByTestId("canvas-item-quick-mention").click();
-    await expect(page.getByText(/@ 引用了 1 张素材图/)).toBeVisible({
+    await expect(station.locator('[data-testid="reference-chip-mention-asset"]')).toBeVisible({
       timeout: 10_000,
     });
     await uploadedCanvasItem.first().hover();
@@ -87,7 +79,9 @@ test.describe("studio upload references", () => {
     await page.getByLabel("关闭菜单").click();
 
     await station.getByRole("button", { name: "引用画布图片" }).click();
-    await expect(page.getByRole("button", { name: /上传图1.*当前上传/ })).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "商品素材" }).first(),
+    ).toBeVisible({
       timeout: 10_000,
     });
   });

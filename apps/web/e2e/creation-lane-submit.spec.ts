@@ -1,7 +1,10 @@
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { skipStudioCoach, studioWorkstation } from "./helpers/studio";
-import { creditsButton } from "./helpers/auth";
+import {
+  gotoStudioAndWait,
+  skipStudioCoach,
+  studioWorkstation,
+} from "./helpers/studio";
 
 const tinyImage = path.join(__dirname, "fixtures", "tiny.png");
 
@@ -28,12 +31,12 @@ test.describe("creation lane submit guard", () => {
       localStorage.setItem("aimarket.studio.lane", "agent");
     });
 
+    page.on("dialog", (dialog) => dialog.accept());
+
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.evaluate((token) => {
       localStorage.setItem("aimarket_token", token);
     }, body.data!.token!);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(creditsButton(page)).toBeVisible({ timeout: 15_000 });
 
     const postTargets: string[] = [];
     page.on("request", (req) => {
@@ -43,13 +46,8 @@ test.describe("creation lane submit guard", () => {
       if (url.includes("/api/v1/agent/runs")) postTargets.push("agent");
     });
 
-    await page.goto("/studio", { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(/\/studio/, { timeout: 15_000 });
-
+    await gotoStudioAndWait(page);
     const station = studioWorkstation(page);
-    await expect(station.locator("textarea").first()).toBeVisible({
-      timeout: 15_000,
-    });
     await expect(
       station.getByRole("button", { name: "选择创作方式" }),
     ).toContainText("Agent 模式");
@@ -63,15 +61,18 @@ test.describe("creation lane submit guard", () => {
     await station.locator('input[type="file"]').setInputFiles(tinyImage);
     expect((await uploadResponse).ok()).toBeTruthy();
 
-    await expect(station.getByTestId("upload-preview-card-0")).toBeVisible({
-      timeout: 20_000,
+    const canvasItem = page.locator('[data-testid^="canvas-item-upload-"]').first();
+    await expect(canvasItem).toBeVisible({ timeout: 20_000 });
+    await canvasItem.hover();
+    await canvasItem.getByTestId("canvas-item-quick-mention").click();
+    await expect(
+      station.locator('[data-testid="reference-chip-mention-asset"]'),
+    ).toBeVisible({
+      timeout: 10_000,
     });
 
-    // Agent 车道 + 自动模型 + 参考图会触发「未配置图生图 API」confirm；CI mock 环境须接受
-    page.on("dialog", (dialog) => dialog.accept());
-
     const textarea = station.locator("textarea").first();
-    await textarea.fill("E2E 图生图车道守卫：参考图应走图片生成");
+    await textarea.fill("@商品素材 E2E 图生图车道守卫：参考图应走图片生成");
 
     const generateResponse = page.waitForResponse(
       (res) =>

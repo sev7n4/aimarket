@@ -31,6 +31,7 @@ interface StudioCreationDockProps {
   queueAhead?: number | null;
   canvasItems: CanvasItem[];
   selectedCanvasItem?: CanvasItem | null;
+  onClearCanvasSelection?: () => void;
   mentionItemRequest: {
     key: number;
     item: CanvasItem;
@@ -82,6 +83,7 @@ export function StudioCreationDock({
   queueAhead,
   canvasItems,
   selectedCanvasItem = null,
+  onClearCanvasSelection,
   mentionItemRequest,
   onUploadToCanvas,
   onDockModeChange,
@@ -127,6 +129,7 @@ export function StudioCreationDock({
         readOnly={readOnly}
         canvasItems={canvasItems}
         selectedCanvasItem={selectedCanvasItem}
+        onClearCanvasSelection={onClearCanvasSelection}
         mentionItemRequest={mentionItemRequest}
         onUploadToCanvas={onUploadToCanvas}
         focusEdit={focusEdit}
