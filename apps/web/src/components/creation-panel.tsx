@@ -349,6 +349,8 @@ export function CreationPanel({
     Record<string, string>
   >({});
   const [pending, setPending] = useState(false);
+  const [polishBusy, setPolishBusy] = useState(false);
+  const [polishHint, setPolishHint] = useState<string | null>(null);
   const [assetIds, setAssetIds] = useState<string[]>([]);
   const [productAssetId, setProductAssetId] = useState<string | null>(null);
   const [referenceAssetId, setReferenceAssetId] = useState<string | null>(null);
@@ -1832,30 +1834,73 @@ export function CreationPanel({
                 <button
                   type="button"
                   title={
-                    prompt.trim()
-                      ? "润色 Prompt"
-                      : "输入描述后可一键润色"
+                    polishBusy
+                      ? "润色中…"
+                      : polishHint
+                        ? `已润色（${polishHint}）`
+                        : prompt.trim()
+                          ? "润色 Prompt"
+                          : "输入描述后可一键润色"
                   }
-                  disabled={!prompt.trim()}
+                  disabled={!prompt.trim() || polishBusy}
                   onClick={() => {
                     const raw = prompt.trim();
-                    if (!raw) return;
-                    if (user && getToken()) {
-                      void optimizePromptApi(raw, mode)
-                        .then(setPrompt)
-                        .catch(() => setPrompt(polishPrompt(mode, raw)));
-                    } else {
-                      setPrompt(polishPrompt(mode, raw));
+                    if (!raw || polishBusy) return;
+                    const polishApiMode: "chat" | "image" | "ecommerce" =
+                      effectiveMode === "ecommerce"
+                        ? "ecommerce"
+                        : effectiveMode === "chat"
+                          ? "chat"
+                          : "image";
+                    const hasRefs =
+                      referenceChips.length > 0 ||
+                      assetIds.length > 0 ||
+                      selectedRefs.length > 0 ||
+                      mentionedAssetIds.length > 0;
+                    const sourceLabel = (
+                      source: "template-mock" | "openai" | "dashscope",
+                    ) => {
+                      if (source === "dashscope") return "百炼";
+                      if (source === "openai") return "OpenAI";
+                      return "模板";
+                    };
+                    if (!user || !getToken()) {
+                      setPrompt(polishPrompt(polishApiMode, raw));
+                      setPolishHint("模板");
+                      return;
                     }
+                    setPolishBusy(true);
+                    void optimizePromptApi(raw, polishApiMode, {
+                      context: {
+                        modelId:
+                          modelId === AUTO_MODEL_ID ? undefined : modelId,
+                        aspectRatio,
+                        hasReferenceImages: hasRefs,
+                        creationLane,
+                      },
+                    })
+                      .then((res) => {
+                        setPrompt(res.prompt);
+                        setPolishHint(sourceLabel(res.source));
+                      })
+                      .catch(() => {
+                        setPrompt(polishPrompt(polishApiMode, raw));
+                        setPolishHint("模板");
+                      })
+                      .finally(() => setPolishBusy(false));
                   }}
                   className={`absolute bottom-1 right-1 rounded-lg p-1.5 transition ${
-                    prompt.trim()
+                    prompt.trim() && !polishBusy
                       ? "text-orange-400 hover:bg-white/10 hover:text-orange-300"
                       : "text-zinc-600 opacity-70"
                   }`}
                   aria-label="润色描述"
                 >
-                  <Wand2 className="size-4" />
+                  {polishBusy ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="size-4" />
+                  )}
                 </button>
               ) : null}
               </div>

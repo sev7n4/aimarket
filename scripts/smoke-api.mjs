@@ -700,7 +700,8 @@ async function main() {
       provider.json?.data?.tools?.genericToolProvider === "tool-mock" &&
       (provider.json?.data?.promptOptimize?.activeProvider ===
         "template-mock" ||
-        provider.json?.data?.promptOptimize?.activeProvider === "openai"),
+        provider.json?.data?.promptOptimize?.activeProvider === "openai" ||
+        provider.json?.data?.promptOptimize?.activeProvider === "dashscope"),
     `image=${provider.json?.data?.activeProvider} aliyunWan=${provider.json?.data?.aliyunWanConfigured} seedream=${provider.json?.data?.tools?.seedreamConfigured} cutout=${provider.json?.data?.tools?.cutoutMode}/${provider.json?.data?.tools?.cutoutHttpConfigured} upscale=${provider.json?.data?.tools?.upscaleMode}/${provider.json?.data?.tools?.upscaleHttpConfigured} edit=${provider.json?.data?.tools?.editMode}/${provider.json?.data?.tools?.editHttpConfigured}`,
   );
 

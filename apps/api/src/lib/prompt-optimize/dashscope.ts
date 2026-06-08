@@ -1,23 +1,23 @@
 import { buildOptimizeSystemPrompt } from "./context.js";
 import type { OptimizeMode, PromptOptimizeContext } from "./types.js";
 
-export async function optimizePromptWithOpenAI(
+export async function optimizePromptWithDashScope(
   mode: OptimizeMode,
   raw: string,
   context?: PromptOptimizeContext,
 ): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  const apiKey = process.env.DASHSCOPE_API_KEY?.trim();
   if (!apiKey) {
-    throw new Error("OPENAI_API_KEY 未配置");
+    throw new Error("DASHSCOPE_API_KEY 未配置");
   }
 
-  const base = (process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(
-    /\/$/,
-    "",
-  );
-  const model = process.env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini";
+  const base = (
+    process.env.DASHSCOPE_BASE_URL ?? "https://dashscope.aliyuncs.com"
+  ).replace(/\/$/, "");
+  const model =
+    process.env.PROMPT_OPTIMIZE_DASHSCOPE_MODEL?.trim() ?? "qwen-plus";
 
-  const res = await fetch(`${base}/chat/completions`, {
+  const res = await fetch(`${base}/compatible-mode/v1/chat/completions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -40,7 +40,9 @@ export async function optimizePromptWithOpenAI(
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    throw new Error(`OpenAI chat 失败 (${res.status}): ${errText.slice(0, 200)}`);
+    throw new Error(
+      `DashScope chat 失败 (${res.status}): ${errText.slice(0, 200)}`,
+    );
   }
 
   const data = (await res.json()) as {
@@ -48,7 +50,7 @@ export async function optimizePromptWithOpenAI(
   };
   const text = data.choices?.[0]?.message?.content?.trim();
   if (!text) {
-    throw new Error("OpenAI 返回空内容");
+    throw new Error("DashScope 返回空内容");
   }
   return text;
 }
