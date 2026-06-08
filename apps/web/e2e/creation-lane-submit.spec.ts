@@ -63,8 +63,11 @@ test.describe("creation lane submit guard", () => {
     await station.locator('input[type="file"]').setInputFiles(tinyImage);
     expect((await uploadResponse).ok()).toBeTruthy();
 
-    await expect(station.getByTestId("upload-preview-card-0")).toBeVisible({
-      timeout: 20_000,
+    const canvasItem = page.locator('[data-testid^="canvas-item-upload-"]').first();
+    await expect(canvasItem).toBeVisible({ timeout: 20_000 });
+    await canvasItem.click();
+    await expect(station.locator('[data-testid="reference-chip-canvas"]')).toBeVisible({
+      timeout: 10_000,
     });
 
     // Agent 车道 + 自动模型 + 参考图会触发「未配置图生图 API」confirm；CI mock 环境须接受

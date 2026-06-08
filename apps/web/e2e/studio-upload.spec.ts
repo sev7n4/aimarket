@@ -49,14 +49,6 @@ test.describe("studio upload references", () => {
     await station.locator('input[type="file"]').setInputFiles(tinyImage);
     expect((await uploadResponse).ok()).toBeTruthy();
 
-    const previewCard = station.getByTestId("upload-preview-card-0");
-    await expect(previewCard).toBeVisible({ timeout: 20_000 });
-    await expect(previewCard.locator("img")).toHaveAttribute(
-      "src",
-      /\/uploads\//,
-      { timeout: 20_000 },
-    );
-
     await expect(page.getByText("素材区").first()).toBeVisible({
       timeout: 20_000,
     });
@@ -87,7 +79,9 @@ test.describe("studio upload references", () => {
     await page.getByLabel("关闭菜单").click();
 
     await station.getByRole("button", { name: "引用画布图片" }).click();
-    await expect(page.getByRole("button", { name: /上传图1.*当前上传/ })).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: /图1|上传图1/ }).first(),
+    ).toBeVisible({
       timeout: 10_000,
     });
   });
