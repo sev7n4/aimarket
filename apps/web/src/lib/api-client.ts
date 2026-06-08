@@ -1171,18 +1171,25 @@ export async function cancelSkillRun(runId: string) {
   return res.data;
 }
 
+export interface PromptOptimizeContextInput {
+  modelId?: string;
+  aspectRatio?: string;
+  hasReferenceImages?: boolean;
+  creationLane?: string;
+}
+
 export async function optimizePromptApi(
   prompt: string,
   mode: "chat" | "image" | "ecommerce" = "image",
+  options?: { context?: PromptOptimizeContextInput },
 ) {
-  const res = await request<{ data: { prompt: string } }>(
-    "/api/v1/prompt/optimize",
-    {
-      method: "POST",
-      body: JSON.stringify({ prompt, mode }),
-    },
-  );
-  return res.data.prompt;
+  const res = await request<{
+    data: { prompt: string; source: "template-mock" | "openai" | "dashscope" };
+  }>("/api/v1/prompt/optimize", {
+    method: "POST",
+    body: JSON.stringify({ prompt, mode, context: options?.context }),
+  });
+  return res.data;
 }
 
 export async function reversePromptFromImage(body: {

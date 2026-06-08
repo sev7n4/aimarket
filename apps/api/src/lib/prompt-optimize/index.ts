@@ -1,35 +1,72 @@
+import { optimizePromptWithDashScope } from "./dashscope.js";
 import { optimizePromptWithOpenAI } from "./openai.js";
 import { optimizePromptWithTemplate } from "./template.js";
 import type {
   OptimizeMode,
+  PromptOptimizeContext,
   PromptOptimizeResult,
   PromptOptimizeSource,
 } from "./types.js";
 
-export { optimizeModeSchema } from "./types.js";
-export type { OptimizeMode, PromptOptimizeResult, PromptOptimizeSource };
+export { optimizeModeSchema, promptOptimizeContextSchema } from "./types.js";
+export type {
+  OptimizeMode,
+  PromptOptimizeContext,
+  PromptOptimizeResult,
+  PromptOptimizeSource,
+};
 
-function resolveProviderMode(): "mock" | "openai" | "auto" {
+type ProviderMode = "mock" | "openai" | "dashscope" | "auto";
+
+function resolveProviderMode(): ProviderMode {
   const mode = (process.env.PROMPT_OPTIMIZE_PROVIDER ?? "auto").toLowerCase();
-  if (mode === "mock" || mode === "openai") return mode;
+  if (
+    mode === "mock" ||
+    mode === "openai" ||
+    mode === "dashscope"
+  ) {
+    return mode;
+  }
   return "auto";
+}
+
+function dashscopeConfigured(): boolean {
+  return Boolean(process.env.DASHSCOPE_API_KEY?.trim());
+}
+
+function openaiConfigured(): boolean {
+  return Boolean(process.env.OPENAI_API_KEY?.trim());
+}
+
+function resolveActiveProvider(): PromptOptimizeSource {
+  const mode = resolveProviderMode();
+  if (mode === "openai") return openaiConfigured() ? "openai" : "template-mock";
+  if (mode === "dashscope") {
+    return dashscopeConfigured() ? "dashscope" : "template-mock";
+  }
+  if (mode === "mock") return "template-mock";
+  if (dashscopeConfigured()) return "dashscope";
+  if (openaiConfigured()) return "openai";
+  return "template-mock";
 }
 
 export function getPromptOptimizeStatus() {
   const mode = resolveProviderMode();
-  const openaiConfigured = Boolean(process.env.OPENAI_API_KEY?.trim());
-  const activeProvider: PromptOptimizeSource =
-    mode === "openai" || (mode === "auto" && openaiConfigured)
-      ? "openai"
-      : "template-mock";
+  const activeProvider = resolveActiveProvider();
+  const dashscope = dashscopeConfigured();
+  const openai = openaiConfigured();
 
   let hint: string;
-  if (mode === "openai" && !openaiConfigured) {
+  if (mode === "openai" && !openai) {
     hint = "已强制 openai 但未配置 OPENAI_API_KEY，请求将回落模板润色";
-  } else if (activeProvider === "template-mock" && openaiConfigured) {
-    hint = "未启用 LLM 或 openai 失败时走模板润色；可设 PROMPT_OPTIMIZE_PROVIDER=openai";
+  } else if (mode === "dashscope" && !dashscope) {
+    hint = "已强制 dashscope 但未配置 DASHSCOPE_API_KEY，请求将回落模板润色";
+  } else if (activeProvider === "dashscope") {
+    hint = `提示词润色走阿里百炼 Chat（${process.env.PROMPT_OPTIMIZE_DASHSCOPE_MODEL ?? "qwen-plus"}）`;
   } else if (activeProvider === "openai") {
-    hint = "提示词润色走 OpenAI Chat";
+    hint = `提示词润色走 OpenAI Chat（${process.env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini"}）`;
+  } else if ((dashscope || openai) && activeProvider === "template-mock") {
+    hint = "LLM 失败或未启用时走模板润色";
   } else {
     hint = "提示词润色走本地模板（mock）";
   }
@@ -37,8 +74,11 @@ export function getPromptOptimizeStatus() {
   return {
     mode,
     activeProvider,
-    openaiConfigured,
+    openaiConfigured: openai,
+    dashscopeConfigured: dashscope,
     chatModel: process.env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini",
+    dashscopeModel:
+      process.env.PROMPT_OPTIMIZE_DASHSCOPE_MODEL ?? "qwen-plus",
     usingMock: activeProvider === "template-mock",
     hint,
   };
@@ -49,9 +89,26 @@ export function optimizePrompt(mode: OptimizeMode, raw: string): string {
   return optimizePromptWithTemplate(mode, raw);
 }
 
+async function tryProvider(
+  source: PromptOptimizeSource,
+  mode: OptimizeMode,
+  raw: string,
+  context?: PromptOptimizeContext,
+): Promise<string> {
+  switch (source) {
+    case "dashscope":
+      return optimizePromptWithDashScope(mode, raw, context);
+    case "openai":
+      return optimizePromptWithOpenAI(mode, raw, context);
+    default:
+      return optimizePromptWithTemplate(mode, raw);
+  }
+}
+
 export async function optimizePromptAsync(
   mode: OptimizeMode,
   raw: string,
+  context?: PromptOptimizeContext,
 ): Promise<PromptOptimizeResult> {
   const trimmed = raw.trim();
   if (!trimmed) {
@@ -59,17 +116,29 @@ export async function optimizePromptAsync(
   }
 
   const providerMode = resolveProviderMode();
-  const tryOpenAi =
-    providerMode === "openai" ||
-    (providerMode === "auto" && Boolean(process.env.OPENAI_API_KEY?.trim()));
+  const chain: PromptOptimizeSource[] =
+    providerMode === "mock"
+      ? []
+      : providerMode === "dashscope"
+        ? dashscopeConfigured()
+          ? ["dashscope"]
+          : []
+        : providerMode === "openai"
+          ? openaiConfigured()
+            ? ["openai"]
+            : []
+          : [
+              ...(dashscopeConfigured() ? (["dashscope"] as const) : []),
+              ...(openaiConfigured() ? (["openai"] as const) : []),
+            ];
 
-  if (tryOpenAi) {
+  for (const source of chain) {
     try {
-      const prompt = await optimizePromptWithOpenAI(mode, trimmed);
-      return { prompt, source: "openai" };
+      const prompt = await tryProvider(source, mode, trimmed, context);
+      return { prompt, source };
     } catch (err) {
-      console.warn("[prompt-optimize] OpenAI 失败，回落模板", err);
-      if (providerMode === "openai") {
+      console.warn(`[prompt-optimize] ${source} 失败`, err);
+      if (providerMode === source) {
         throw err;
       }
     }

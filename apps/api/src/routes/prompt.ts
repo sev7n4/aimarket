@@ -4,6 +4,7 @@ import type { AuthVariables } from "../middleware/auth.js";
 import {
   optimizeModeSchema,
   optimizePromptAsync,
+  promptOptimizeContextSchema,
 } from "../lib/prompt-optimize.js";
 import { AppError } from "../lib/errors.js";
 
@@ -14,6 +15,7 @@ prompt.post("/optimize", async (c) => {
     .object({
       prompt: z.string().max(4000),
       mode: optimizeModeSchema.default("image"),
+      context: promptOptimizeContextSchema,
     })
     .parse(await c.req.json());
 
@@ -21,7 +23,11 @@ prompt.post("/optimize", async (c) => {
     throw new AppError(400, "VALIDATION_ERROR", "请输入需要润色的内容");
   }
 
-  const result = await optimizePromptAsync(body.mode, body.prompt);
+  const result = await optimizePromptAsync(
+    body.mode,
+    body.prompt,
+    body.context,
+  );
 
   return c.json({
     data: result,

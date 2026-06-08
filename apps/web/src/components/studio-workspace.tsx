@@ -257,6 +257,8 @@ export function StudioWorkspace({
   const [tools, setTools] = useState<StudioTool[]>([]);
   const [ready, setReady] = useState(false);
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
+  /** SSE 早断时递增以重新挂载 watchJob */
+  const [jobWatchSeq, setJobWatchSeq] = useState(0);
   const [jobStreamStatus, setJobStreamStatus] = useState<string | null>(null);
   const [jobProgressCompleted, setJobProgressCompleted] = useState(0);
   const [jobProgressTotal, setJobProgressTotal] = useState(0);
@@ -611,6 +613,15 @@ export function StudioWorkspace({
       setJobFailed(false);
       setJobError(null);
       setJobFailedToolType(null);
+    } else if (
+      completedJobId &&
+      (jobStatus === "queued" || jobStatus === "running")
+    ) {
+      completingJobIdRef.current = null;
+      setJobStreamStatus(jobStatus);
+      setSelectSourceBanner("生成仍在进行，正在继续等待结果…");
+      setJobWatchSeq((n) => n + 1);
+      return;
     }
     setPollingJobId(null);
     setJobStreamStatus(null);
@@ -704,7 +715,23 @@ export function StudioWorkspace({
       () => {
         void handleJobCompleteRef.current(jobId);
       },
-      () => {
+      async () => {
+        try {
+          const job = await fetchJob(jobId);
+          if (job.status === "succeeded" || job.status === "failed") {
+            void handleJobCompleteRef.current(jobId);
+            return;
+          }
+          if (job.status === "queued" || job.status === "running") {
+            completingJobIdRef.current = null;
+            setJobStreamStatus(job.status);
+            setSelectSourceBanner("生成仍在进行，正在继续等待结果…");
+            setJobWatchSeq((n) => n + 1);
+            return;
+          }
+        } catch {
+          /* fall through */
+        }
         void trackEvent("generation_fail", {
           job_id: jobId,
           error_code: "STREAM_ERROR",
@@ -721,7 +748,7 @@ export function StudioWorkspace({
       window.clearInterval(tickTimer);
       stop();
     };
-  }, [pollingJobId, user]);
+  }, [pollingJobId, user, jobWatchSeq]);
 
   const jobElapsedMs =
     jobStartedAt != null ? Date.now() - jobStartedAt : undefined;

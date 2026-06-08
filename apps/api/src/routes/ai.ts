@@ -392,9 +392,12 @@ ai.get("/jobs/:jobId/stream", (c) => {
   const jobId = c.req.param("jobId");
 
   return streamSSE(c, async (stream) => {
+    const pollMs = 800;
+    const maxMs = Number(process.env.JOB_STREAM_MAX_MS ?? 900_000);
+    const deadline = Date.now() + maxMs;
     let lastStatus = "";
     let lastOutputCount = -1;
-    for (let i = 0; i < 120; i++) {
+    while (Date.now() < deadline) {
       const job = getJob(jobId, userId);
       const outputCount = job.outputs.length;
       if (job.status !== lastStatus || outputCount !== lastOutputCount) {
@@ -420,7 +423,7 @@ ai.get("/jobs/:jobId/stream", (c) => {
         });
         break;
       }
-      await stream.sleep(800);
+      await stream.sleep(pollMs);
     }
   });
 });

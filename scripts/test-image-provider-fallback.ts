@@ -43,6 +43,16 @@ ok(
   "502 retriable",
   isRetriableGenerateProviderError(new Error("provider timeout (502)")),
 );
+ok(
+  "provider attempt timeout retriable",
+  isRetriableGenerateProviderError(
+    new Error("agnes-image 请求超时 (75000ms)，Auto 将尝试下一供应商"),
+  ),
+);
+ok(
+  "fetch failed retriable",
+  isRetriableGenerateProviderError(new Error("fetch failed")),
+);
 
 ok(
   "default fallback order Agnes → wan → Seedream",

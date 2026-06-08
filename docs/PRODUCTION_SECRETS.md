@@ -53,7 +53,7 @@ docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.i
 | **扩图 expand** | `TOOL_EXPAND_PROVIDER` + `DASHSCOPE_API_KEY` 或 `TOOL_EXPAND_HTTP_URL` | `tool-edit-mock` | **`tool-wan-expand`**（万相 `wanx2.1-imageedit` + `function:expand`）/ **`tool-expand-http`**（FLUX Fill 等 outpaint 网关）/ 回落 `tool-seedream` |
 | 局部 inpaint / 消除 erase | `TOOL_EDIT_PROVIDER` + `ARK_API_KEY` 或 `TOOL_EDIT_HTTP_URL` | `tool-edit-mock` | `tool-seedream` / `tool-edit-http` |
 | 超分/增强 | （同上） | `tool-upscale-mock` | 第三方 upscale API |
-| 提示词润色 | `PROMPT_OPTIMIZE_PROVIDER` | `auto` 或 `mock` | `openai` + `OPENAI_API_KEY` |
+| 提示词润色 | `PROMPT_OPTIMIZE_PROVIDER` | `auto` 或 `mock` | `auto`（有 `DASHSCOPE_API_KEY` 时优先百炼 `qwen-plus`；或 `openai` + `OPENAI_API_KEY`） |
 | 内容审核 | `MODERATION_PROVIDER` | `local` 或 `openai` | 视合规要求 |
 
 OpenAI 相关（**仅服务器 `.env`**）：
