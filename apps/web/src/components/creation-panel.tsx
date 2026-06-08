@@ -67,6 +67,8 @@ import {
   type AspectRatio,
 } from "@/components/generation-settings-popover";
 import { ModelPicker, AUTO_MODEL_ID } from "@/components/model-picker";
+import { normalizeLaneModelId } from "@/lib/creation-lane-drafts";
+import { isInternalRoutingModelId } from "@/lib/format-generation-display";
 import { CountPicker } from "@/components/count-picker";
 import type { StudioInspirationApply } from "@/lib/inspiration-studio";
 import { FocusEditChips } from "@/components/focus-edit-chips";
@@ -627,7 +629,22 @@ export function CreationPanel({
       setModelId(AUTO_MODEL_ID);
       setAspectRatio("auto");
     }
-  }, [isDock, outputPrefMode, creationLane, models]);
+  }, [isDock, outputPrefMode, creationLane, models, setModelId, setAspectRatio]);
+
+  useEffect(() => {
+    if (!isDock || models.length === 0) return;
+    if (modelId === AUTO_MODEL_ID || isInternalRoutingModelId(modelId)) {
+      if (modelId !== AUTO_MODEL_ID) setModelId(AUTO_MODEL_ID);
+      return;
+    }
+    const laneModels =
+      creationLane === "video"
+        ? models.filter((m) => m.type === "video")
+        : models.filter((m) => m.type === "image");
+    if (laneModels.length > 0 && !laneModels.some((m) => m.id === modelId)) {
+      setModelId(AUTO_MODEL_ID);
+    }
+  }, [isDock, models, modelId, creationLane, setModelId]);
 
   const {
     run: agentRun,
@@ -856,7 +873,7 @@ export function CreationPanel({
     if (!inspirationApply) return;
     setPrompt(inspirationApply.prompt);
     const inspirationSettings = {
-      modelId: inspirationApply.modelId,
+      modelId: normalizeLaneModelId(inspirationApply.modelId),
       aspectRatio: coerceAspectRatio(inspirationApply.aspectRatio),
       resolution: inspirationApply.resolution,
     };
@@ -1480,7 +1497,6 @@ export function CreationPanel({
         jobId = res.jobId;
         if (res.routeReason) setRouteHint(res.routeReason);
         else if (res.byokActive) setRouteHint("BYOK 已启用 · 将使用您的 OpenAI Key");
-        if (res.modelId && useAuto) setModelId(res.modelId);
       }
       if (homeDirectSubmit) {
         setNavigating(true);
