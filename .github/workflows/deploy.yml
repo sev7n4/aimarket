@@ -30,8 +30,27 @@ env:
   TCR_NAMESPACE: ${{ vars.TCR_NAMESPACE || 'aimarket' }}
 
 jobs:
+  verify-runner:
+    name: Verify aimarket-build runner online
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check runner via GitHub API
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          online=$(gh api "repos/${{ github.repository }}/actions/runners" \
+            --jq '[.runners[] | select(.status=="online") | select([.labels[].name] | index("aimarket-build"))] | length')
+          if [[ "$online" -lt 1 ]]; then
+            echo "::error::No online runner (label aimarket-build). On build CVM run: sudo bash /opt/aimarket/deploy/restart-github-runner.sh && sudo bash /opt/aimarket/deploy/prune-build-runner.sh — or reboot CVM if SSH hangs."
+            exit 1
+          fi
+          echo "Online aimarket-build runners: $online"
+
   preflight:
     name: Check build runner
+    needs: verify-runner
     runs-on: [self-hosted, aimarket-build]
     timeout-minutes: 5
     steps:
@@ -45,9 +64,9 @@ jobs:
 
   build-push:
     name: Build ${{ matrix.image }}
-    needs: preflight
+    needs: [verify-runner, preflight]
     runs-on: [self-hosted, aimarket-build]
-    timeout-minutes: 45
+    timeout-minutes: 60
     environment: production
     env:
       PUBLIC_API_URL: http://${{ secrets.TENCENT_CLOUD_IP || secrets.DEPLOY_HOST }}:4100
@@ -112,6 +131,17 @@ jobs:
           fi
           echo "Web build API URL: $url"
 
+      - name: Prune Docker before build
+        run: |
+          set +e
+          docker builder prune -f --filter "until=48h" >/dev/null 2>&1
+          docker image prune -f >/dev/null 2>&1
+          if [[ -x /opt/aimarket/deploy/prune-build-runner.sh ]]; then
+            bash /opt/aimarket/deploy/prune-build-runner.sh || true
+          fi
+          set -e
+          df -h / /var/lib/docker 2>/dev/null || df -h /
+
       - name: Build and push (TCR only)
         run: |
           set -euo pipefail
@@ -119,6 +149,7 @@ jobs:
           ARGS=()
           if [[ "${{ matrix.web_image }}" == "true" ]]; then
             ARGS+=(--build-arg "NEXT_PUBLIC_API_URL=${{ env.PUBLIC_API_URL }}")
+            ARGS+=(--shm-size=512m)
           fi
           push_ok=0
           for attempt in $(seq 1 3); do
