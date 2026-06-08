@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { jobStatusLabel } from "@/lib/job-stream";
 
 interface CanvasJobOverlayProps {
@@ -10,6 +10,8 @@ interface CanvasJobOverlayProps {
   errorMessage?: string | null;
   onOpenChat?: () => void;
   onCancel?: () => void;
+  /** 失败浮层关闭（仅清 UI，不影响任务记录） */
+  onDismiss?: () => void;
   /** 套图渐进：已完成张数 */
   completed?: number;
   /** 套图渐进：总张数 */
@@ -54,6 +56,7 @@ export function CanvasJobOverlay({
   errorMessage,
   onOpenChat,
   onCancel,
+  onDismiss,
   completed = 0,
   total = 0,
   elapsedMs,
@@ -103,23 +106,44 @@ export function CanvasJobOverlay({
       role="status"
       aria-live="polite"
     >
-      <div className="pointer-events-auto mx-4 max-w-sm rounded-2xl border border-white/10 bg-[#141414]/95 px-5 py-4 shadow-2xl">
+      <div className="pointer-events-auto relative mx-4 max-w-sm rounded-2xl border border-white/10 bg-[#141414]/95 px-5 py-4 shadow-2xl">
         {failed ?
           <>
-            <p className="text-sm font-medium text-red-300">生成失败</p>
+            {onDismiss ? (
+              <button
+                type="button"
+                onClick={onDismiss}
+                className="absolute right-3 top-3 rounded-full p-1 text-zinc-500 transition hover:bg-white/10 hover:text-zinc-200"
+                aria-label="关闭"
+              >
+                <X className="size-4" />
+              </button>
+            ) : null}
+            <p className="pr-6 text-sm font-medium text-red-300">生成失败</p>
             <p className="mt-1 text-xs leading-relaxed text-zinc-400">
               {errorMessage ??
                 "请打开对话区查看详情，或调整参考图与描述后重试"}
             </p>
-            {onOpenChat ?
-              <button
-                type="button"
-                onClick={onOpenChat}
-                className="mt-3 rounded-full bg-white/10 px-4 py-1.5 text-xs text-zinc-200 hover:bg-white/15"
-              >
-                打开对话区
-              </button>
-            : null}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {onDismiss ? (
+                <button
+                  type="button"
+                  onClick={onDismiss}
+                  className="rounded-full bg-white/10 px-4 py-1.5 text-xs text-zinc-200 hover:bg-white/15"
+                >
+                  知道了
+                </button>
+              ) : null}
+              {onOpenChat ? (
+                <button
+                  type="button"
+                  onClick={onOpenChat}
+                  className="rounded-full bg-white/10 px-4 py-1.5 text-xs text-zinc-200 hover:bg-white/15"
+                >
+                  打开对话区
+                </button>
+              ) : null}
+            </div>
           </>
         : <div className="flex items-start gap-3">
             <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-orange-400" />

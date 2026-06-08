@@ -86,6 +86,7 @@ interface ScrollCanvasProps {
   jobProgressTotal?: number;
   onOpenChatPanel?: () => void;
   onCancelJob?: () => void;
+  onDismissJobFailure?: () => void;
   jobElapsedMs?: number;
   queueAhead?: number | null;
   focusClickActive: boolean;
@@ -131,6 +132,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       jobProgressTotal,
       onOpenChatPanel,
       onCancelJob,
+      onDismissJobFailure,
       jobElapsedMs,
       queueAhead,
       focusClickActive,
@@ -215,6 +217,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
             errorMessage={jobErrorMessage}
             onOpenChat={onOpenChatPanel}
             onCancel={onCancelJob}
+            onDismiss={jobFailed ? onDismissJobFailure : undefined}
             completed={jobProgressCompleted}
             total={jobProgressTotal}
             elapsedMs={jobElapsedMs}

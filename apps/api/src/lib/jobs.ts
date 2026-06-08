@@ -33,6 +33,8 @@ import type {
 } from "./generation-routing.js";
 import type { SourceLane } from "./source-lane.js";
 import { inferSourceLane } from "./source-lane.js";
+import { assertToolProviderReady } from "./tool-preflight.js";
+import { recordProviderHealthFailure } from "./provider-health-cache.js";
 
 const delayMs = Number(process.env.MOCK_GENERATION_DELAY_MS ?? 2500);
 
@@ -103,7 +105,7 @@ export function createGenerationJob(input: CreateJobInput) {
     !isEcommerceSetToolType(input.toolType) &&
     modelMeta?.type !== "video"
   ) {
-    resolveToolProvider(input.toolType, input.userId);
+    assertToolProviderReady(input.toolType, input.userId);
   } else if (modelMeta?.type !== "video") {
     resolveProvider(input.modelId, "generate", {
       hasReferenceImages: Boolean(input.referenceUrls?.length),
@@ -477,6 +479,17 @@ export async function processGenerationJob({
     notifyAgentJobCompleted(jobId);
   } catch (err) {
     const message = err instanceof Error ? err.message : "生成失败";
+    if (isToolJob && job.tool_type) {
+      try {
+        const providerName = resolveToolProvider(
+          job.tool_type,
+          job.user_id,
+        ).name;
+        recordProviderHealthFailure(providerName, message);
+      } catch {
+        /* 忽略探活缓存回写失败 */
+      }
+    }
     const errorCode =
       err instanceof AppError ? err.code : "GENERATION_ERROR";
     const durationMs = Math.max(0, Date.now() - startedMs);
