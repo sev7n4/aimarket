@@ -27,6 +27,10 @@ import type { JobQueuePayload } from "./queue/types.js";
 import { notifyAgentJobCompleted } from "./agent/job-events.js";
 import { assertEmailVerifiedForSpend } from "./email-verification.js";
 import { ensureThumbnail, ensureThumbnails } from "./thumbnails.js";
+import type {
+  GenerationQualityTier,
+  GenerationRoutingMode,
+} from "./generation-routing.js";
 import type { SourceLane } from "./source-lane.js";
 import { inferSourceLane } from "./source-lane.js";
 
@@ -69,6 +73,8 @@ export interface CreateJobInput {
   sourceLane?: SourceLane | null;
   /** 创作台 Auto：写入 tool_context，供异步 job 跨 Provider 回落 */
   autoRoute?: boolean;
+  routingMode?: GenerationRoutingMode;
+  qualityTier?: GenerationQualityTier;
 }
 
 export function createGenerationJob(input: CreateJobInput) {
@@ -116,17 +122,23 @@ export function createGenerationJob(input: CreateJobInput) {
     | (Partial<ToolContext> & {
         referenceUrls?: string[];
         autoRoute?: boolean;
+        routingMode?: GenerationRoutingMode;
+        qualityTier?: GenerationQualityTier;
       })
     | undefined;
   if (
     input.toolContext ||
     input.referenceUrls?.length ||
-    input.autoRoute !== undefined
+    input.autoRoute !== undefined ||
+    input.routingMode !== undefined ||
+    input.qualityTier !== undefined
   ) {
     effectiveToolContext = {
       ...input.toolContext,
       referenceUrls: input.referenceUrls,
       ...(input.autoRoute !== undefined ? { autoRoute: input.autoRoute } : {}),
+      ...(input.routingMode ? { routingMode: input.routingMode } : {}),
+      ...(input.qualityTier ? { qualityTier: input.qualityTier } : {}),
     };
   }
 
@@ -238,6 +250,8 @@ export async function processGenerationJob({
   let toolContext: ToolContext | Record<string, unknown> | undefined;
   let referenceUrls: string[] | undefined;
   let autoRoute = false;
+  let routingMode: GenerationRoutingMode | undefined;
+  let qualityTier: GenerationQualityTier | undefined;
   let videoReferenceMode: "omni" | "first-frame" | "first-last" | undefined;
   let videoDurationSec: number | undefined;
   if (job.tool_context) {
@@ -245,12 +259,16 @@ export async function processGenerationJob({
       const parsed = JSON.parse(job.tool_context) as ToolContext & {
         referenceUrls?: string[];
         autoRoute?: boolean;
+        routingMode?: GenerationRoutingMode;
+        qualityTier?: GenerationQualityTier;
         videoReferenceMode?: "omni" | "first-frame" | "first-last";
         durationSec?: number;
       };
       toolContext = parsed;
       referenceUrls = parsed.referenceUrls;
       autoRoute = parsed.autoRoute === true;
+      routingMode = parsed.routingMode;
+      qualityTier = parsed.qualityTier;
       videoReferenceMode = parsed.videoReferenceMode;
       videoDurationSec = parsed.durationSec;
     } catch {
@@ -317,6 +335,8 @@ export async function processGenerationJob({
           referenceUrls,
           userId: job.user_id,
           autoRoute,
+          routingMode,
+          qualityTier,
         });
         const url = part.urls[0];
         imageProvider = part.provider;
@@ -359,6 +379,8 @@ export async function processGenerationJob({
         referenceUrls,
         userId: job.user_id,
         autoRoute,
+        routingMode,
+        qualityTier,
       });
       urls = result.urls;
       imageProvider = result.provider;

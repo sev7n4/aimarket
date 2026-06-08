@@ -65,6 +65,26 @@ ok(
   isByokGeneration({ modelId: "dall-e-3", imageProvider: "openai" }),
 );
 
+ok(
+  "routingMode auto shows Auto without autoRoute flag",
+  formatBatchModelSelection({ routingMode: "auto", modelId: "omni-v2" }) ===
+    "Auto",
+);
+
+ok(
+  "routingMode byok shows Auto (BYOK)",
+  formatBatchModelSelection({ routingMode: "byok", modelId: "dall-e-3" }) ===
+    "Auto (BYOK)",
+);
+
+ok(
+  "routingMode explicit shows product name",
+  formatBatchModelSelection({
+    routingMode: "explicit",
+    modelId: "agnes-image",
+  }) === "Agnes Image 2.1",
+);
+
 const failed = results.filter((r) => !r.pass).length;
 console.log(`\n${results.length - failed}/${results.length} 通过\n`);
 process.exit(failed > 0 ? 1 : 0);

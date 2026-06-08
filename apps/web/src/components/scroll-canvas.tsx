@@ -250,6 +250,8 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                       modelId: params.modelId,
                       imageProvider: params.imageProvider,
                       autoRoute: params.autoRoute,
+                      routingMode: params.routingMode,
+                      qualityTier: params.qualityTier,
                     }
                   : undefined;
                 const batchModelLabel = batchDisplayInput

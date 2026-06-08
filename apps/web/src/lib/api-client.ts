@@ -489,6 +489,8 @@ export async function submitGeneration(body: {
       estimatedPoints: number;
       status: string;
       modelId?: string;
+      routingMode?: "auto" | "explicit" | "byok";
+      qualityTier?: "standard" | "pro";
       routeReason?: string;
       byokActive?: boolean;
     };

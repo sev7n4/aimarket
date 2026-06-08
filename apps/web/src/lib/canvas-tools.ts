@@ -99,6 +99,8 @@ export interface CanvasItem {
     toolContext?: unknown;
     imageProvider?: string;
     autoRoute?: boolean;
+    routingMode?: "auto" | "explicit" | "byok";
+    qualityTier?: "standard" | "pro";
     sourceLane?: "agent" | "image" | "video";
   };
 }
@@ -414,6 +416,8 @@ export function buildCanvasItemsFromMessages(
       count?: number;
       imageProvider?: string;
       autoRoute?: boolean;
+      routingMode?: "auto" | "explicit" | "byok";
+      qualityTier?: "standard" | "pro";
       sourceLane?: CreationLane;
     };
   }[],

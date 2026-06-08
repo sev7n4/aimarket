@@ -2,6 +2,10 @@ import { getModel } from "../lib/models.js";
 import { persistOutputUrls } from "../lib/persist-output.js";
 import { AppError } from "../lib/errors.js";
 import { isRetriableGenerateProviderError } from "../lib/image-provider-fallback.js";
+import {
+  inferRoutingModeFromJob,
+  resolveRoutingModelId,
+} from "../lib/generation-routing.js";
 import { agnesImageConfigured } from "./agnes-image.js";
 import {
   aliyunWanI2iConfigured,
@@ -44,9 +48,20 @@ export async function generateImages(
     hasReferenceImages: hasRefs,
     userId: params.userId,
   };
-  const allowFallback = params.autoRoute === true;
+  const routingMode =
+    params.routingMode ??
+    inferRoutingModeFromJob({
+      autoRoute: params.autoRoute,
+      modelId: params.modelId,
+    });
+  const allowFallback = routingMode === "auto";
+  const bindingModelId = resolveRoutingModelId({
+    routingMode,
+    qualityTier: params.qualityTier,
+    explicitModelId: params.modelId,
+  });
   const candidates = listGenerateProviderCandidates(
-    params.modelId,
+    bindingModelId,
     hasRefs,
     context,
     { allowFallbackChain: allowFallback },
