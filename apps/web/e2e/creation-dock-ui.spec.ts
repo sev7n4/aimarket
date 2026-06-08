@@ -37,7 +37,7 @@ async function mockSignedInStudio(page: Page) {
 }
 
 test.describe("creation dock UI", () => {
-  test("首页创作台默认展开，滚出视口后底部单行常驻", async ({ page }) => {
+  test("首页创作台默认展开，滚出视口后底部保持伸展", async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.removeItem("aimarket.home.lane");
       localStorage.removeItem("aimarket.studio.lane");
@@ -56,17 +56,11 @@ test.describe("creation dock UI", () => {
     const floatingDock = page.locator('[data-home-floating-dock="true"]');
     await expect(floatingDock).toBeVisible();
     const floatingTextarea = floatingDock.locator("textarea").first();
-    await expect(floatingTextarea).toHaveAttribute("rows", "1");
-
-    const compactHeight = await floatingTextarea
-      .boundingBox()
-      .then((box) => box?.height ?? 0);
-    await floatingTextarea.focus();
-    await expect
-      .poll(async () => (await floatingTextarea.boundingBox())?.height ?? 0, {
-        timeout: 15_000,
-      })
-      .toBeGreaterThan(compactHeight + 6);
+    await expect(floatingTextarea).toHaveAttribute("rows", "2");
+    await expect(floatingDock.getByTestId("upload-preview-add")).toBeVisible();
+    await expect(
+      floatingDock.getByRole("button", { name: "选择创作方式" }),
+    ).toBeVisible();
   });
 
   test("Studio 创作台默认图片车道，与首页同款单行布局", async ({ page }) => {

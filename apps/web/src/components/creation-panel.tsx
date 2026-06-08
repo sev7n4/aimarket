@@ -1032,15 +1032,17 @@ export function CreationPanel({
             ? asset.url
             : assetUrl(asset.thumbUrl ?? asset.url);
         if (onUploadToCanvas) {
+          // Studio：缩略图仅作 Dock 视觉反馈；生成参考仍靠画布点选 / @
           onUploadToCanvas(asset.id, asset.url, asset.thumbUrl);
+          setUploadPreviews((prev) =>
+            [...prev, { id: asset.id, url: previewUrl }].slice(0, 4),
+          );
+        } else {
+          setAssetIds((prev) => [...prev, asset.id].slice(0, 4));
+          setUploadPreviews((prev) =>
+            [...prev, { id: asset.id, url: previewUrl }].slice(0, 4),
+          );
         }
-        setAssetIds((prev) => [...prev, asset.id].slice(0, 4));
-        setUploadPreviews((prev) =>
-          [
-            ...prev,
-            { id: asset.id, url: previewUrl },
-          ].slice(0, 4),
-        );
       }
       const extraFiles = selectedFiles.slice(remaining);
       for (const file of extraFiles) {
@@ -1051,14 +1053,15 @@ export function CreationPanel({
             : assetUrl(asset.thumbUrl ?? asset.url);
         if (onUploadToCanvas) {
           onUploadToCanvas(asset.id, asset.url, asset.thumbUrl);
+          setUploadPreviews((prev) =>
+            [...prev, { id: asset.id, url: previewUrl }].slice(0, 4),
+          );
+        } else {
+          setAssetIds((prev) => [...prev, asset.id].slice(0, 4));
+          setUploadPreviews((prev) =>
+            [...prev, { id: asset.id, url: previewUrl }].slice(0, 4),
+          );
         }
-        setAssetIds((prev) => [...prev, asset.id].slice(0, 4));
-        setUploadPreviews((prev) =>
-          [
-            ...prev,
-            { id: asset.id, url: previewUrl },
-          ].slice(0, 4),
-        );
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : "上传失败");
