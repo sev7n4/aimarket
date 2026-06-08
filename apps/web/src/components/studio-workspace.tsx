@@ -505,16 +505,18 @@ export function StudioWorkspace({
       if (lineage) registerBatchLineage(jobId, lineage);
       if (canvasRef.current?.isInRefineMode()) {
         canvasRef.current.beginRefineJob();
+      } else {
+        setSelectedCanvasId(null);
       }
       setPollingJobId(jobId);
     },
     [registerBatchLineage],
   );
 
-  const focusLatestCanvasItem = useCallback(() => {
+  /** 仅滚动/高亮最新批次，不写入 selectedCanvasId（避免误绑定图生图参考） */
+  const scrollToLatestCanvasBatch = useCallback(() => {
     const target = pickLatestBatchFocusTarget(canvasItemsRef.current);
     if (!target) return;
-    setSelectedCanvasId(target.itemId);
     if (target.batchId) {
       canvasRef.current?.fitToBatch(target.batchId);
     } else {
@@ -593,7 +595,8 @@ export function StudioWorkspace({
         canvasRef.current.cancelRefineJob();
       }
     } else {
-      window.requestAnimationFrame(() => focusLatestCanvasItem());
+      setSelectedCanvasId(null);
+      window.requestAnimationFrame(() => scrollToLatestCanvasBatch());
     }
     } finally {
       if (completedJobId && completingJobIdRef.current === completedJobId) {
@@ -604,7 +607,7 @@ export function StudioWorkspace({
     loadCanvas,
     refreshUser,
     activeWorkspaceId,
-    focusLatestCanvasItem,
+    scrollToLatestCanvasBatch,
     router,
     sessionId,
     mode,
@@ -690,11 +693,11 @@ export function StudioWorkspace({
 
   useEffect(() => {
     const count = canvasItems.length;
-    if (count > prevItemCountRef.current) {
-      focusLatestCanvasItem();
+    if (count > prevItemCountRef.current && pollingJobId) {
+      scrollToLatestCanvasBatch();
     }
     prevItemCountRef.current = count;
-  }, [canvasItems.length, focusLatestCanvasItem]);
+  }, [canvasItems.length, pollingJobId, scrollToLatestCanvasBatch]);
 
   function handleQuickToolFromCanvas(
     item: CanvasItem,

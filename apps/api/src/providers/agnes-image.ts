@@ -32,6 +32,47 @@ interface AgnesImageResponse {
   error?: { message?: string };
 }
 
+/** Agnes 单次请求常只回 1 张；count>1 时并行多请求 */
+export function agnesGenerateRequestCount(requested: number): number {
+  return Math.min(Math.max(1, requested), 4);
+}
+
+async function callAgnesGenerate(
+  base: string,
+  apiKey: string,
+  body: Record<string, unknown>,
+): Promise<string[]> {
+  const res = await fetch(`${base}/images/generations`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(180_000),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`Agnes Image 失败 (${res.status}): ${errText.slice(0, 300)}`);
+  }
+
+  const json = (await res.json()) as AgnesImageResponse;
+  if (json.error?.message) {
+    throw new Error(`Agnes Image 业务错误：${json.error.message}`);
+  }
+
+  const urls = (json.data ?? [])
+    .map((it) => it.url)
+    .filter((u): u is string => typeof u === "string" && u.length > 0);
+
+  if (!urls.length) {
+    throw new Error("Agnes Image 返回缺少图片 URL");
+  }
+
+  return urls;
+}
+
 export const agnesImageProvider: ImageProvider = {
   name: "agnes-image",
   supports(modelId, operation) {
@@ -47,42 +88,26 @@ export const agnesImageProvider: ImageProvider = {
       process.env.AGNES_API_BASE_URL ?? "https://apihub.agnes-ai.com/v1"
     ).replace(/\/$/, "");
     const refs = params.referenceUrls ?? [];
-    const body: Record<string, unknown> = {
+    const want = agnesGenerateRequestCount(params.count);
+    const baseBody: Record<string, unknown> = {
       model: agnesImageApiModel(),
       prompt: params.prompt.slice(0, 4000),
       size: resolveAgnesSize(params.resolution, params.aspectRatio ?? "1:1"),
-      n: Math.min(params.count, 4),
+      n: 1,
     };
     if (refs.length) {
-      body.extra_body = {
+      baseBody.extra_body = {
         image: refs.length === 1 ? refs[0] : refs,
         response_format: "url",
       };
     }
 
-    const res = await fetch(`${base}/images/generations`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(180_000),
-    });
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(`Agnes Image 失败 (${res.status}): ${errText.slice(0, 300)}`);
-    }
-
-    const json = (await res.json()) as AgnesImageResponse;
-    if (json.error?.message) {
-      throw new Error(`Agnes Image 业务错误：${json.error.message}`);
-    }
-
-    const urls = (json.data ?? [])
-      .map((it) => it.url)
-      .filter((u): u is string => typeof u === "string" && u.length > 0);
+    const batches = await Promise.all(
+      Array.from({ length: want }, () =>
+        callAgnesGenerate(base, apiKey, baseBody),
+      ),
+    );
+    const urls = batches.flat().slice(0, want);
 
     if (!urls.length) {
       throw new Error("Agnes Image 返回缺少图片 URL");
