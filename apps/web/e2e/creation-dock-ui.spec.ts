@@ -81,6 +81,9 @@ test.describe("creation dock UI", () => {
       name: "选择创作方式",
     });
     await expect(studioLanePicker).toContainText("图片生成");
+    await expect(
+      studioDock.getByRole("button", { name: "选择模型" }),
+    ).toContainText("Auto");
 
     const collapsedHeight = await textarea.boundingBox().then((box) => box?.height ?? 0);
     await textarea.click();

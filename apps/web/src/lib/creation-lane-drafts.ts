@@ -96,7 +96,8 @@ export function defaultLaneSettingsDraft(lane: CreationLane): LaneSettingsDraft 
     aspectRatio: "auto",
     count: 1,
     resolution: "1k",
-    outputPrefMode: "auto",
+    /** 图片车道仅默认 Auto 模型；输出偏好「自动」仅用于 Agent 车道 */
+    outputPrefMode: "manual",
     videoReferenceMode: "omni",
     videoDurationSec: 5,
   };
