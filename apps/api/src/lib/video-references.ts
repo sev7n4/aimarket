@@ -26,3 +26,15 @@ export function applyVideoReferenceMode(
   if (urls.length === 1) return urls;
   return [urls[0]!, urls[urls.length - 1]!];
 }
+
+const VIDEO_I2V_INSTRUCTION =
+  "【图生视频】以参考图为首帧主体，保持主体一致，按描述生成镜头运动与氛围。";
+
+/** 视频车道：参考图走 `image` 字段，prompt 仅保留动作/镜头描述（不复用图生图 I2I 约束） */
+export function buildVideoReferencePrompt(
+  prompt: string,
+  referenceUrls: string[],
+): string {
+  if (!referenceUrls.length) return prompt;
+  return `${VIDEO_I2V_INSTRUCTION}\n\n${prompt.trim()}`;
+}

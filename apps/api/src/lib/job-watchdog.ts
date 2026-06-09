@@ -6,7 +6,7 @@ const DEFAULT_JOB_MAX_RUNNING_MS = Number(
   process.env.JOB_MAX_RUNNING_MS ?? 900_000,
 );
 const VIDEO_POLL_TIMEOUT_MS = Number(
-  process.env.AGNES_VIDEO_POLL_TIMEOUT_MS ?? 600_000,
+  process.env.AGNES_VIDEO_POLL_TIMEOUT_MS ?? 900_000,
 );
 const VIDEO_WATCHDOG_BUFFER_MS = Number(
   process.env.JOB_WATCHDOG_VIDEO_BUFFER_MS ?? 120_000,

@@ -15,10 +15,29 @@ import {
   type InspirationRow,
 } from "../lib/inspiration.js";
 import { AppError } from "../lib/errors.js";
+import {
+  agnesVideoConfigured,
+  probeAgnesVideoTask,
+} from "../providers/video/agnes.js";
+import { getVideoProviderStatus } from "../providers/video/registry.js";
 
 export const admin = new Hono();
 
 admin.use("*", requireAdmin);
+
+admin.get("/agnes/videos/:taskId", async (c) => {
+  if (!agnesVideoConfigured()) {
+    throw new AppError(503, "AGNES_NOT_CONFIGURED", "AGNES_API_KEY 未配置");
+  }
+  const taskId = c.req.param("taskId");
+  const snap = await probeAgnesVideoTask(taskId);
+  return c.json({
+    data: {
+      ...snap,
+      provider: getVideoProviderStatus(),
+    },
+  });
+});
 
 admin.get("/stats", (c) => {
   const users = db
