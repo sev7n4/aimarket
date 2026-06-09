@@ -1290,11 +1290,13 @@ export function StudioWorkspace({
             workspaceCollapsed ? undefined : { width: workspaceWidth }
           }
           className={`fixed bottom-0 left-14 z-50 flex min-h-0 w-[min(85vw,280px)] flex-col border-r border-white/5 bg-[#080808] p-3 transition-all top-0 ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+            sidebarOpen
+              ? "translate-x-0"
+              : "-translate-x-full pointer-events-none"
           } ${
             workspaceCollapsed
               ? "lg:hidden"
-              : "lg:static lg:top-auto lg:z-0 lg:m-2 lg:mr-0 lg:w-auto lg:translate-x-0 lg:rounded-2xl lg:border lg:bg-[#090909]/95"
+              : "lg:pointer-events-auto lg:static lg:top-auto lg:z-0 lg:m-2 lg:mr-0 lg:w-auto lg:translate-x-0 lg:rounded-2xl lg:border lg:bg-[#090909]/95"
           }`}
         >
           <div className="mb-2 flex items-center justify-between lg:hidden">
