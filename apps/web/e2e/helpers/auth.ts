@@ -6,7 +6,7 @@ function leftRail(page: Page) {
 
 /** 左轨底栏：登录后账户按钮含积分（见 StudioWorkspaceFooter collapsed aria-label） */
 export function creditsButton(page: Page) {
-  return leftRail(page).getByRole("button", { name: /积分\s*\d+/ });
+  return leftRail(page).getByRole("button", { name: /\d+\s*积分/ });
 }
 
 /** 从左轨底栏打开登录弹窗 */
