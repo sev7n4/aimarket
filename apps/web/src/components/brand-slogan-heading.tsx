@@ -24,7 +24,10 @@ export function BrandSloganHeading({ className = "" }: BrandSloganHeadingProps) 
         className="brand-slogan-ornament mx-auto mb-5 sm:mb-6"
         aria-hidden
       />
-      <h1 className="brand-slogan-heading text-center">
+      <h1
+        className="brand-slogan-heading text-center"
+        aria-label={BRAND_SLOGAN}
+      >
         <span className="brand-slogan-line brand-slogan-line--lead block">
           {lead}
         </span>
