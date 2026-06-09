@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { usePathname, useRouter } from "next/navigation";
 import { Clock, Compass, Layers, PanelLeft, Plus } from "lucide-react";
 import { BrandMarkIcon } from "@/components/brand-mark-icon";
+import { LoginDialog } from "@/components/login-dialog";
 import { RecentSessionsList } from "@/components/recent-sessions-list";
 import { StudioWorkspaceFooter } from "@/components/studio-workspace-footer";
 import { useRecentSessions } from "@/hooks/use-recent-sessions";
@@ -93,6 +94,7 @@ export function AppLeftRail({
   const pathname = usePathname();
   const { sessions, loading } = useRecentSessions(3);
   const [recentOpen, setRecentOpen] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
   const recentWrapRef = useRef<HTMLDivElement>(null);
   const recentCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -148,9 +150,21 @@ export function AppLeftRail({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [recentOpen]);
 
-  const handleLogin = onLogin ?? (() => {
-    document.dispatchEvent(new CustomEvent("aimarket:open-login"));
-  });
+  const handleLogin =
+    onLogin ??
+    (() => {
+      setLoginOpen(true);
+    });
+
+  useEffect(() => {
+    const openLogin = () => {
+      if (onLogin) onLogin();
+      else setLoginOpen(true);
+    };
+    document.addEventListener("aimarket:open-login", openLogin);
+    return () =>
+      document.removeEventListener("aimarket:open-login", openLogin);
+  }, [onLogin]);
 
   return (
     <aside
@@ -255,6 +269,9 @@ export function AppLeftRail({
       <div className="mt-auto w-full px-1.5 pt-2">
         <StudioWorkspaceFooter collapsed onLogin={handleLogin} />
       </div>
+      {!onLogin ? (
+        <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
+      ) : null}
     </aside>
   );
 }
