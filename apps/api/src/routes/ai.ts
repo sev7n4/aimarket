@@ -24,6 +24,7 @@ import {
 } from "../lib/references.js";
 import {
   applyVideoReferenceMode,
+  buildVideoReferencePrompt,
   resolveAssetReferenceUrls,
 } from "../lib/video-references.js";
 import { toPublicAssetUrl } from "../lib/public-url.js";
@@ -369,7 +370,7 @@ ai.post("/generate/video", async (c) => {
 
   let prompt = body.prompt;
   if (mergedReferenceUrls.length > 0) {
-    prompt = buildReferenceAwarePrompt(body.prompt, mergedReferenceUrls);
+    prompt = buildVideoReferencePrompt(body.prompt, mergedReferenceUrls);
   }
   await assertPromptAllowed(prompt);
 

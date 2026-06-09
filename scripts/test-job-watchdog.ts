@@ -26,8 +26,8 @@ const videoLimit = jobMaxRunningMs({
   modelId: "seedance-2",
 });
 ok(
-  "video max running >= 10min",
-  videoLimit >= 600_000,
+  "video max running >= 15min+buffer",
+  videoLimit >= 900_000,
   String(videoLimit),
 );
 
