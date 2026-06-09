@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Settings } from "lucide-react";
+import { Settings, User } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { StudioUserDialog } from "@/components/studio-user-dialog";
 import { ModelProviderSettingsDialog } from "@/components/model-provider-settings-dialog";
@@ -29,7 +29,7 @@ export function StudioWorkspaceFooter({
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
 
-  const initial = user?.email[0]?.toUpperCase() ?? "?";
+  const initial = user?.email[0]?.toUpperCase() ?? "";
 
   if (floating) {
     return (
@@ -69,13 +69,23 @@ export function StudioWorkspaceFooter({
           <button
             type="button"
             onClick={() => (user ? setUserOpen(true) : onLogin())}
-            className="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-purple-600 text-xs font-bold text-white transition hover:ring-2 hover:ring-orange-500/40"
+            className={`flex size-9 items-center justify-center rounded-full text-xs font-bold transition ${
+              user
+                ? "bg-gradient-to-br from-cyan-500 to-violet-600 text-white hover:ring-2 hover:ring-cyan-400/40"
+                : "border border-white/15 bg-white/[0.04] text-zinc-400 hover:border-white/25 hover:bg-white/[0.08] hover:text-zinc-200"
+            }`}
             title={user ? user.email : "登录"}
             aria-label={
               user ? `账户信息，${user.credits} 积分` : "登录"
             }
           >
-            {loading ? "…" : initial}
+            {loading ? (
+              "…"
+            ) : user ? (
+              initial
+            ) : (
+              <User className="size-4" strokeWidth={2} />
+            )}
           </button>
           <button
             type="button"
@@ -113,8 +123,20 @@ export function StudioWorkspaceFooter({
           className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-transparent px-1 py-1 text-left transition hover:border-white/10 hover:bg-white/[0.03]"
           title={user ? user.email : "登录"}
         >
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-purple-600 text-xs font-bold text-white">
-            {loading ? "…" : initial}
+          <span
+            className={`flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+              user
+                ? "bg-gradient-to-br from-cyan-500 to-violet-600 text-white"
+                : "border border-white/15 bg-white/[0.04] text-zinc-400"
+            }`}
+          >
+            {loading ? (
+              "…"
+            ) : user ? (
+              initial
+            ) : (
+              <User className="size-3.5" strokeWidth={2} />
+            )}
           </span>
           <span className="min-w-0 flex-1">
             {user ? (

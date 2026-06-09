@@ -1,23 +1,24 @@
-<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="˙˛ù">
-  <title>˙˛ù Logo</title>
+<svg width="48" height="48" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="???">
+  <title>??? Logo</title>
   <defs>
-    <linearGradient id="ctb-grad" x1="8" y1="6" x2="40" y2="42" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FB923C"/>
+    <linearGradient id="moyu-ink" x1="4" y1="3" x2="28" y2="29" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="0.45" stop-color="#6366F1"/>
       <stop offset="1" stop-color="#A855F7"/>
     </linearGradient>
-    <linearGradient id="ctb-badge" x1="30" y1="28" x2="42" y2="42" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F97316"/>
-      <stop offset="1" stop-color="#7C3AED"/>
-    </linearGradient>
+    <radialGradient id="moyu-glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(16 17) rotate(90) scale(14)">
+      <stop stop-color="#22D3EE" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#22D3EE" stop-opacity="0"/>
+    </radialGradient>
   </defs>
-  <!-- W˛‡B -->
-  <rect x="6" y="14" width="22" height="22" rx="5" fill="#7C3AED" fill-opacity="0.28" transform="rotate(-11 17 25)"/>
-  <!-- ;˛aG -->
-  <rect x="10" y="6" width="26" height="26" rx="6" fill="url(#ctb-grad)"/>
-  <rect x="13" y="9" width="20" height="15" rx="3.5" fill="white" fill-opacity="0.22"/>
-  <!-- F¡˛:Äqb -->
-  <path d="M14 22 L19 16 L23 20 L27 14 L32 22 Z" fill="white" fill-opacity="0.55"/>
-  <!-- £ Ì∆ë≠> -->
-  <circle cx="34" cy="34" r="9" fill="url(#ctb-badge)"/>
-  <path d="M31.2 29.8v8.4l6.2-4.2-6.2-4.2z" fill="white"/>
+  <circle cx="16" cy="17" r="14" fill="url(#moyu-glow)"/>
+  <path d="M16 4.5c5.2 0 9.5 3.4 9.5 7.6 0 2.2-1.1 4.2-2.9 5.4-.8.5-1.7.8-2.7 1h-7.8c-1 0-1.9-.3-2.7-.8-1.8-1.2-2.9-3.2-2.9-5.6C6.5 7.9 10.8 4.5 16 4.5Z" fill="url(#moyu-ink)"/>
+  <ellipse cx="18.6" cy="9.2" rx="1.35" ry="1.1" fill="white" fill-opacity="0.92"/>
+  <circle cx="19" cy="8.95" r="0.42" fill="#0F172A"/>
+  <path d="M10.8 13.8h4.1c2.05 0 3.55 1.25 3.55 3.05 0 1.55-1.15 2.75-2.95 2.95h-1.35v5.6" stroke="white" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M19.6 13.8v11.75" stroke="white" stroke-width="2.15" stroke-linecap="round"/>
+  <path d="M7.5 24.2c1.4-1.6 2.8-1.1 3.6.2" stroke="#67E8F9" stroke-width="1.25" stroke-linecap="round" opacity="0.65"/>
+  <path d="M24.8 22.8c-1.3 1.5-2.7 1-3.4-.3" stroke="#C4B5FD" stroke-width="1.25" stroke-linecap="round" opacity="0.55"/>
+  <circle cx="7" cy="26.2" r="1.05" fill="#22D3EE" fill-opacity="0.55"/>
+  <circle cx="25.5" cy="25.8" r="0.75" fill="#A855F7" fill-opacity="0.45"/>
 </svg>
