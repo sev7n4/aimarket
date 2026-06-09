@@ -11,6 +11,12 @@ async function registerAndLogin(page: import("@playwright/test").Page) {
 test.describe("mobile collab", () => {
   test.use({ viewport: MOBILE_VIEWPORT });
 
+  test("移动端展示汉堡菜单而非左轨", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("app-left-rail")).toBeHidden();
+    await expect(page.getByRole("button", { name: "打开菜单" })).toBeVisible();
+  });
+
   test("首页移动 dock 下滑到底部为伸展态", async ({ page }) => {
     await page.goto("/");
     const dock = page.locator('[data-home-floating-dock="true"]');
@@ -32,8 +38,8 @@ test.describe("mobile collab", () => {
     await expect(page).toHaveURL(/\/studio/, { timeout: 15_000 });
     await ensurePromise;
     await page.goto("/");
-    await page.getByTestId("home-recent-rail-btn").hover();
-    await expect(page.getByTestId("home-recent-popover").getByText("继续编辑")).toBeVisible({
+    await page.getByRole("button", { name: "打开菜单" }).click();
+    await expect(page.getByText("继续编辑")).toBeVisible({
       timeout: 15_000,
     });
   });
@@ -55,7 +61,7 @@ test.describe("mobile collab", () => {
     ).toBeVisible({ timeout: 15_000 });
 
     await page.getByRole("button", { name: "展开创作台" }).click();
-    await page.getByTestId("app-left-rail").getByRole("button", { name: "工作区" }).click();
+    await page.getByRole("button", { name: "打开侧栏" }).click();
     await expect(page.getByRole("button", { name: "重命名" }).first()).toBeVisible({
       timeout: 15_000,
     });

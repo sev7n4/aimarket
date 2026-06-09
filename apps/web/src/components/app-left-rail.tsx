@@ -14,7 +14,7 @@ import { buildStudioUrl } from "@/lib/studio-navigation";
 
 /** 全局左轨宽度（与 pl-14 / left-14 一致） */
 export const APP_LEFT_RAIL_WIDTH_CLASS = "w-14";
-export const APP_LEFT_RAIL_PAD_CLASS = "pl-14";
+export const APP_LEFT_RAIL_PAD_CLASS = "lg:pl-14";
 
 interface AppLeftRailProps {
   variant?: "home" | "studio";
@@ -170,7 +170,7 @@ export function AppLeftRail({
     <aside
       data-testid="app-left-rail"
       aria-label="主导航"
-      className={`fixed left-0 top-0 z-[45] flex ${APP_LEFT_RAIL_WIDTH_CLASS} h-dvh flex-col items-center border-r border-white/5 bg-[#050505] py-3`}
+      className={`fixed left-0 top-0 z-[45] hidden h-dvh flex-col items-center border-r border-white/5 bg-[#050505] py-3 lg:flex ${APP_LEFT_RAIL_WIDTH_CLASS}`}
     >
       <Link
         href="/"

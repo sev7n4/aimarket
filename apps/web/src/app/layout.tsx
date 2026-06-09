@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Noto_Serif_SC } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
 import { InviteCaptureRoot } from "@/components/invite-capture-root";
 import { BRAND_NAME, BRAND_SLOGAN } from "@/lib/brand";
@@ -13,6 +13,14 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+/** 品牌 Slogan 展示衬线（中文艺术标题感） */
+const brandDisplay = Noto_Serif_SC({
+  variable: "--font-brand-display",
+  weight: ["500", "600", "700"],
+  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -44,7 +52,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${brandDisplay.variable} antialiased`}
       >
         <AuthProvider>
           <InviteCaptureRoot />

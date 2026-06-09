@@ -3,6 +3,92 @@
 
 @theme inline {
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-brand-display), "Noto Serif SC", ui-serif, Georgia,
+    serif;
+}
+
+@keyframes brand-slogan-shimmer {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.brand-slogan-heading {
+  font-family: var(--font-display);
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+.brand-slogan-ornament {
+  height: 1px;
+  width: 4.5rem;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(34, 211, 238, 0.55) 35%,
+    rgba(168, 85, 247, 0.5) 65%,
+    transparent
+  );
+  opacity: 0.85;
+}
+
+.brand-slogan-line {
+  background-image: linear-gradient(
+    118deg,
+    #a5f3fc 0%,
+    #e0e7ff 18%,
+    #c4b5fd 42%,
+    #f0abfc 62%,
+    #67e8f9 82%,
+    #ddd6fe 100%
+  );
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  animation: brand-slogan-shimmer 9s ease-in-out infinite;
+}
+
+.brand-slogan-line--lead {
+  font-size: clamp(1.35rem, 4.8vw, 2rem);
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0.06em;
+}
+
+.brand-slogan-line--tail {
+  font-size: clamp(1.05rem, 3.6vw, 1.55rem);
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: 0.22em;
+  opacity: 0.96;
+  background-image: linear-gradient(
+    118deg,
+    #bae6fd 0%,
+    #c7d2fe 30%,
+    #e9d5ff 55%,
+    #a5f3fc 100%
+  );
+}
+
+.brand-slogan-glow {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(34, 211, 238, 0.14) 0%,
+    rgba(99, 102, 241, 0.1) 45%,
+    transparent 72%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-slogan-line {
+    animation: none;
+    background-position: 50% 50%;
+  }
 }
 
 html {
