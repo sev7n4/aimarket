@@ -32,6 +32,7 @@ test.describe("mobile collab", () => {
     await expect(page).toHaveURL(/\/studio/, { timeout: 15_000 });
     await ensurePromise;
     await page.goto("/");
+    await page.getByRole("button", { name: "打开菜单" }).click();
     await expect(page.getByText("继续编辑")).toBeVisible({ timeout: 15_000 });
   });
 
