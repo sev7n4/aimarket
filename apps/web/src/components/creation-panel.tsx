@@ -62,6 +62,18 @@ import {
   UploadPreviewStack,
   type UploadPreviewItem,
 } from "@/components/upload-preview-stack";
+
+const DOCK_UPLOAD_IMAGE_TYPES = /^image\/(jpeg|png|webp)$/i;
+
+function imageFilesFromDataTransfer(dt: DataTransfer): File[] {
+  return Array.from(dt.files ?? []).filter((f) =>
+    DOCK_UPLOAD_IMAGE_TYPES.test(f.type),
+  );
+}
+
+function dataTransferHasFiles(dt: DataTransfer): boolean {
+  return dt.types.includes("Files") || dt.files.length > 0;
+}
 import {
   GenerationSettingsPopover,
   type AspectRatio,
@@ -355,6 +367,8 @@ export function CreationPanel({
   const [productAssetId, setProductAssetId] = useState<string | null>(null);
   const [referenceAssetId, setReferenceAssetId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [dockDragOver, setDockDragOver] = useState(false);
+  const dockDragDepthRef = useRef(0);
   const [references, setReferences] = useState<SessionReference[]>([]);
   const [selectedRefs, setSelectedRefs] = useState<SessionReference[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
@@ -2222,9 +2236,58 @@ export function CreationPanel({
     </>
   );
 
+  function handleDockDragEnter(e: React.DragEvent) {
+    if (!isDock || readOnly) return;
+    if (!dataTransferHasFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    dockDragDepthRef.current += 1;
+    setDockDragOver(true);
+  }
+
+  function handleDockDragLeave(e: React.DragEvent) {
+    if (!isDock || readOnly) return;
+    e.preventDefault();
+    dockDragDepthRef.current = Math.max(0, dockDragDepthRef.current - 1);
+    if (dockDragDepthRef.current === 0) setDockDragOver(false);
+  }
+
+  function handleDockDragOver(e: React.DragEvent) {
+    if (!isDock || readOnly) return;
+    if (!dataTransferHasFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  }
+
+  function handleDockDrop(e: React.DragEvent) {
+    if (!isDock || readOnly) return;
+    e.preventDefault();
+    dockDragDepthRef.current = 0;
+    setDockDragOver(false);
+    const files = imageFilesFromDataTransfer(e.dataTransfer);
+    if (!files.length) {
+      onInteractionHint?.("仅支持拖拽 JPG / PNG / WebP 图片");
+      return;
+    }
+    uploadTargetRef.current = "general";
+    setUploadTarget("general");
+    void handleUpload(files);
+  }
+
   if (isDock) {
     const panel = (
-      <div className="relative w-full overflow-visible rounded-[1.5rem] border border-white/[0.12] bg-gradient-to-b from-white/[0.07] via-zinc-950/76 to-zinc-950/92 shadow-[0_12px_48px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)_inset,0_-18px_42px_rgba(249,115,22,0.06),0_12px_48px_rgba(139,92,246,0.05)] backdrop-blur-2xl backdrop-saturate-150">
+      <div
+        data-testid="creation-dock-drop-zone"
+        data-drag-active={dockDragOver ? "true" : undefined}
+        onDragEnter={handleDockDragEnter}
+        onDragLeave={handleDockDragLeave}
+        onDragOver={handleDockDragOver}
+        onDrop={handleDockDrop}
+        className={`relative w-full overflow-visible rounded-[1.5rem] border bg-gradient-to-b from-white/[0.07] via-zinc-950/76 to-zinc-950/92 shadow-[0_12px_48px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)_inset,0_-18px_42px_rgba(249,115,22,0.06),0_12px_48px_rgba(139,92,246,0.05)] backdrop-blur-2xl backdrop-saturate-150 transition ${
+          dockDragOver
+            ? "border-orange-400/50 ring-2 ring-orange-500/35"
+            : "border-white/[0.12]"
+        }`}
+      >
         <div
           className="pointer-events-none absolute -left-10 top-0 h-28 w-28 rounded-full bg-orange-500/[0.08] blur-3xl"
           aria-hidden

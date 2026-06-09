@@ -924,6 +924,16 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             items={lightbox.items}
             initialIndex={lightbox.index}
             onClose={() => setLightbox(null)}
+            onRefine={
+              !readOnly
+                ? () => {
+                    const item = lightbox.items[lightbox.index];
+                    if (!item || item.isVideo) return;
+                    setLightbox(null);
+                    enterRefineMode(item.id);
+                  }
+                : undefined
+            }
           />
         )}
       </div>

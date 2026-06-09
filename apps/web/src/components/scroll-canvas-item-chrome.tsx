@@ -60,13 +60,13 @@ export function ScrollCanvasItemChrome({
     {
       id: "canvas-preview",
       icon: Eye,
-      title: "预览",
+      title: "预览大图（双击图片）",
       onClick: onPreview,
     },
     {
       id: "canvas-refine",
       icon: Wand2,
-      title: "精修",
+      title: "进入精修：圈选、对比、连续迭代",
       tone: "orange",
       onClick: onRefine,
     },

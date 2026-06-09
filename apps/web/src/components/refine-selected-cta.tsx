@@ -30,7 +30,8 @@ export function RefineSelectedCta({ onRefine }: RefineSelectedCtaProps) {
       data-testid="refine-selected-cta"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="flex max-w-full items-center gap-1 rounded-lg border border-orange-400/40 bg-gradient-to-r from-orange-500/90 to-orange-600/90 px-1 py-1 shadow-lg shadow-orange-950/40">
+      <div className="flex max-w-full flex-col items-center gap-0.5">
+        <div className="flex max-w-full items-center gap-1 rounded-lg border border-orange-400/40 bg-gradient-to-r from-orange-500/90 to-orange-600/90 px-1 py-1 shadow-lg shadow-orange-950/40">
         <button
           type="button"
           onClick={() => {
@@ -52,6 +53,8 @@ export function RefineSelectedCta({ onRefine }: RefineSelectedCtaProps) {
         >
           <X className="size-3.5" />
         </button>
+        </div>
+        <p className="text-[10px] text-zinc-500">双击图片可预览大图</p>
       </div>
     </div>
   );

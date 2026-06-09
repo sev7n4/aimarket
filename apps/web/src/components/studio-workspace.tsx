@@ -481,9 +481,16 @@ export function StudioWorkspace({
             const friendly = formatJobErrorMessage(job.error, {
               toolType: job.tool_type,
             });
+            const refundHint =
+              job.points_cost > 0
+                ? `，已退回 ${job.points_cost} 积分`
+                : "，积分已退回";
             setSelectSourceBanner(
-              friendly ?? job.error ?? "生成失败，积分已退回",
+              friendly
+                ? `${friendly}${refundHint}`
+                : (job.error ?? `生成失败${refundHint}`),
             );
+            void refreshUser();
           }
           router.replace(
             `/studio?sessionId=${encodeURIComponent(sessionId)}&mode=${mode}`,
@@ -498,7 +505,7 @@ export function StudioWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [initialJobId, user, sessionId, mode, router]);
+  }, [initialJobId, user, sessionId, mode, router, refreshUser]);
 
   useEffect(() => {
     if (!initialToolId || !tools.length) return;
@@ -571,6 +578,7 @@ export function StudioWorkspace({
     let jobStatus: string | undefined;
     let toolType: string | undefined;
     let failedJobError: string | null = null;
+    let failedPointsCost = 0;
     if (completedJobId) {
       try {
         const job = await fetchJob(completedJobId);
@@ -578,6 +586,7 @@ export function StudioWorkspace({
         toolType = job.tool_type ?? undefined;
         if (job.status === "failed") {
           failedJobError = job.error ?? null;
+          failedPointsCost = job.points_cost ?? 0;
         }
         if (
           job.tool_type &&
@@ -609,8 +618,14 @@ export function StudioWorkspace({
       const friendly = formatJobErrorMessage(failedJobError, {
         toolType,
       });
+      const refundHint =
+        failedPointsCost > 0
+          ? `，已退回 ${failedPointsCost} 积分`
+          : "，积分已退回";
       setSelectSourceBanner(
-        friendly ?? failedJobError ?? "生成失败，积分已退回",
+        friendly
+          ? `${friendly}${refundHint}`
+          : (failedJobError ?? `生成失败${refundHint}`),
       );
     } else if (jobStatus === "succeeded") {
       setJobFailed(false);

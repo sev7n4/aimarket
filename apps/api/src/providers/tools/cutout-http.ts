@@ -1,4 +1,4 @@
-import { cutoutMockProvider } from "./cutout-mock.js";
+import { AppError } from "../../lib/errors.js";
 import {
   invokeHttpTool,
   shouldUseHttp,
@@ -29,12 +29,13 @@ export const cutoutHttpProvider: ImageToolProvider = {
         height: result.height,
       };
     } catch (err) {
-      const mode = (process.env[CONFIG.modeEnv] ?? "auto").toLowerCase();
+      const detail = err instanceof Error ? err.message : "抠图服务调用失败";
       console.warn("[tool-cutout-http] 调用失败", err);
-      if (mode === "http") {
-        throw err;
-      }
-      return cutoutMockProvider.run(params);
+      throw new AppError(
+        502,
+        "TOOL_CUTOUT_FAILED",
+        `抠图服务不可用：${detail}`,
+      );
     }
   },
 };

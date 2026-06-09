@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CreationPanel } from "@/components/creation-panel";
 import { LoginDialog } from "@/components/login-dialog";
-import { HomeRecentSessions } from "@/components/home-recent-sessions";
 import { useAuth } from "@/lib/auth-context";
 import { BRAND_SLOGAN } from "@/lib/brand";
 import { randomUUID } from "@/lib/uuid";
@@ -97,7 +96,6 @@ export function HomeCreationSection({
                 "登录后即可上传参考图并生成；也可先输入描述，提交时将引导登录"}
             </p>
           ) : null}
-          <HomeRecentSessions className="hidden px-1 pb-2 max-lg:block" />
           {dockPinned ? (
             <div
               style={{ height: dockSpacerH }}
@@ -109,7 +107,9 @@ export function HomeCreationSection({
             ref={dockWrapRef}
             className={
               dockPinned
-                ? "pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-[max(0.65rem,env(safe-area-inset-bottom))] sm:px-4"
+                ? `pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-[max(0.65rem,env(safe-area-inset-bottom))] sm:px-4${
+                    user ? " md:left-14" : ""
+                  }`
                 : "w-full"
             }
             data-home-floating-dock={dockPinned ? "true" : undefined}

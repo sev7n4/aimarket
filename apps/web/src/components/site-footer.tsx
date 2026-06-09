@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { BRAND_NAME } from "@/lib/brand";
 
-export function SiteFooter() {
+export function SiteFooter({ className = "" }: { className?: string }) {
   return (
-    <footer className="border-t border-white/5 px-4 py-10 text-center text-xs text-zinc-500">
+    <footer
+      className={`border-t border-white/5 px-4 py-10 text-center text-xs text-zinc-500 ${className}`}
+    >
       <p className="mb-3">
         © {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.
       </p>
