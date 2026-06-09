@@ -807,7 +807,8 @@ export function HomeScenarioFan({
   return (
     <section
       className={`mx-auto w-full max-w-5xl overflow-x-clip px-3 pt-4 max-lg:overflow-x-visible sm:px-4 lg:overflow-visible lg:pt-6 ${className}`}
-      aria-label="灵感套图扇形入口"
+      id="inspiration-kits"
+      aria-label="灵感套件扇形入口"
     >
       <div className="flex flex-col gap-1.5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:gap-3">
         <button
@@ -817,7 +818,7 @@ export function HomeScenarioFan({
           aria-expanded={expanded}
         >
           <p className="flex items-center gap-1 text-sm font-medium text-zinc-100">
-            灵感套图 · 一键做同款
+            灵感套件 · 一键做同款
             {expanded ? (
               <ChevronUp className="size-4 text-zinc-500 transition group-hover:text-zinc-300" />
             ) : (
@@ -866,7 +867,7 @@ export function HomeScenarioFan({
         <div className="mt-1.5 lg:mt-3">
           {loading && templates.length === 0 ? (
             <p className="py-16 text-center text-sm text-zinc-500">
-              加载灵感套图中…
+              加载灵感套件中…
             </p>
           ) : null}
 
@@ -883,7 +884,7 @@ export function HomeScenarioFan({
                   isFanDragging ? "cursor-grabbing" : "cursor-grab"
                 }`}
                 style={{ height: mobileFanStageHeight }}
-                aria-label="灵感套图扇形浏览"
+                aria-label="灵感套件扇形浏览"
                 onPointerDown={handleFanPointerDown}
                 onPointerMove={handleViewportPointerMove}
                 onWheel={handleMobileWheel}
@@ -911,7 +912,7 @@ export function HomeScenarioFan({
               <div
                 className="mt-2 flex items-center gap-2 px-1 lg:hidden"
                 onPointerDown={handleFanPointerDown}
-                aria-label="切换灵感套图"
+                aria-label="切换灵感套件"
               >
                 <button
                   type="button"

@@ -84,7 +84,7 @@ export function HomeCreationSection({
       <section
         ref={sectionRef}
         id="home-creation"
-        className="relative z-40 scroll-mt-20 px-3 pb-3 pt-2 lg:px-4 lg:pb-6 lg:pt-0"
+        className="relative z-40 scroll-mt-4 px-3 pb-3 pt-3 lg:px-4 lg:pb-6 lg:pt-4"
       >
         <div className="mx-auto max-w-3xl">
           <h1 className="mb-3 text-balance text-center text-lg font-semibold leading-snug tracking-tight text-zinc-100 sm:text-xl">
@@ -107,9 +107,7 @@ export function HomeCreationSection({
             ref={dockWrapRef}
             className={
               dockPinned
-                ? `pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-[max(0.65rem,env(safe-area-inset-bottom))] sm:px-4${
-                    user ? " md:left-14" : ""
-                  }`
+                ? "pointer-events-none fixed inset-x-0 bottom-0 left-14 z-50 flex justify-center px-3 pb-[max(0.65rem,env(safe-area-inset-bottom))] sm:px-4"
                 : "w-full"
             }
             data-home-floating-dock={dockPinned ? "true" : undefined}

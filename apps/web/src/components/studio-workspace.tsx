@@ -20,8 +20,10 @@ import { StudioCreationDock } from "@/components/studio-creation-dock";
 import { CanvasSelectionToolbar } from "@/components/canvas-selection-toolbar";
 import { StudioDock, studioDockScrollInset } from "@/components/studio-dock";
 import { StudioCoach } from "@/components/studio-coach";
-import { StudioHeader } from "@/components/studio-header";
-import { BrandLogo } from "@/components/brand-logo";
+import {
+  APP_LEFT_RAIL_PAD_CLASS,
+  AppLeftRail,
+} from "@/components/app-left-rail";
 import { ProviderStatusChip } from "@/components/provider-status-banner";
 import { ContentReportDialog } from "@/components/content-report-dialog";
 import {
@@ -30,7 +32,6 @@ import {
   type ToolConfirmRequest,
 } from "@/components/tool-confirm-dialog";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
-import { StudioWorkspaceFooter } from "@/components/studio-workspace-footer";
 import { WorkspaceProvider } from "@/lib/workspace-context";
 import {
   defaultStudioDockMode,
@@ -1254,25 +1255,13 @@ export function StudioWorkspace({
     focusEditSession?.itemId,
   ]);
 
-  /** 桌面端侧栏展开时隐藏顶栏，把画布纵向空间还给创作区 */
-  const showTopBar = mobile || workspaceCollapsed;
-
   return (
     <WorkspaceProvider onWorkspaceChange={handleWorkspaceChange}>
-      {showTopBar ? (
-        <StudioHeader
-          sessionId={user ? sessionId : undefined}
-          sessionTitle={sessionTitle}
-          sessionKind={sessionKind}
-          sessionReadOnly={readOnly}
-          onMenuClick={() => setSidebarOpen(true)}
-          onTitleSaved={handleTitleSaved}
-          onSessionDeleted={() => handleSessionDeleted()}
-          onReportClick={user ? () => setReportOpen(true) : undefined}
-          variant="minimal"
-          showAccountActions={mobile || workspaceCollapsed}
-        />
-      ) : null}
+      <AppLeftRail
+        variant="studio"
+        onOpenWorkspace={() => setSidebarOpen(true)}
+        onLogin={() => setLoginOpen(true)}
+      />
 
       <input
         ref={uploadRef}
@@ -1286,11 +1275,11 @@ export function StudioWorkspace({
 
       <StudioCoach />
 
-      <div className="relative flex min-h-0 flex-1">
+      <div className={`relative flex min-h-0 flex-1 ${APP_LEFT_RAIL_PAD_CLASS}`}>
         {sidebarOpen ? (
           <button
             type="button"
-            className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+            className="fixed inset-0 left-14 z-40 bg-black/60 lg:hidden"
             aria-label="关闭侧栏"
             onClick={() => setSidebarOpen(false)}
           />
@@ -1300,9 +1289,7 @@ export function StudioWorkspace({
           style={
             workspaceCollapsed ? undefined : { width: workspaceWidth }
           }
-          className={`fixed bottom-0 left-0 z-50 flex min-h-0 w-[min(85vw,280px)] flex-col border-r border-white/5 bg-[#080808] p-3 transition-all ${
-            showTopBar ? "top-12" : "top-0"
-          } ${
+          className={`fixed bottom-0 left-14 z-50 flex min-h-0 w-[min(85vw,280px)] flex-col border-r border-white/5 bg-[#080808] p-3 transition-all top-0 ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           } ${
             workspaceCollapsed
@@ -1312,25 +1299,28 @@ export function StudioWorkspace({
         >
           <div className="mb-2 flex items-center justify-between lg:hidden">
             <span className="text-xs font-medium text-zinc-500">工作区</span>
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(false)}
-              className="rounded-lg p-1 text-zinc-500 hover:text-white"
-              title="关闭侧栏"
-            >
-              <X className="size-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              {user && sessionId ? (
+                <button
+                  type="button"
+                  onClick={() => setReportOpen(true)}
+                  className="rounded-lg p-1.5 text-zinc-500 hover:text-amber-300"
+                  aria-label="举报违规内容"
+                  title="举报违规内容"
+                >
+                  <Flag className="size-4" />
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className="rounded-lg p-1 text-zinc-500 hover:text-white"
+                title="关闭侧栏"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
           </div>
-
-          <Link
-            href="/"
-            onClick={() => setSidebarOpen(false)}
-            className="mb-3 hidden items-center rounded-lg px-1 py-0.5 transition hover:bg-white/5 lg:flex"
-            title="返回首页"
-            aria-label="返回首页"
-          >
-            <BrandLogo variant="mark" markSize="sm" />
-          </Link>
 
           {!workspaceCollapsed ? (
             <button
@@ -1455,9 +1445,6 @@ export function StudioWorkspace({
               </li>
             ))}
           </ul>
-          <div className="shrink-0">
-            <StudioWorkspaceFooter onLogin={() => setLoginOpen(true)} />
-          </div>
         </aside>
 
         {!workspaceCollapsed && (
@@ -1481,12 +1468,6 @@ export function StudioWorkspace({
             >
               <ChevronRight className="size-3.5" strokeWidth={1.75} />
             </button>
-          ) : null}
-          {workspaceCollapsed ? (
-            <StudioWorkspaceFooter
-              floating
-              onLogin={() => setLoginOpen(true)}
-            />
           ) : null}
           <StudioOrchestrationProvider
             sessionId={sessionId}

@@ -169,18 +169,31 @@ export function InspirationGallery() {
                   className="object-cover transition duration-300 group-hover:scale-[1.03]"
                   unoptimized
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-3">
-                  <span className="text-[10px] uppercase tracking-wider text-orange-300/90">
-                    {item.category}
-                  </span>
-                  <span className="mt-0.5 block text-sm font-medium text-white">
-                    {item.title}
-                  </span>
-                  <span className="mt-1 block text-[10px] text-zinc-400 opacity-0 transition group-hover:opacity-100">
-                    做同款 →
-                  </span>
-                </div>
+                {item.category === "创意" ? (
+                  <>
+                    <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/25" />
+                    <div className="absolute inset-0 flex items-end justify-center p-3 opacity-0 transition group-hover:opacity-100">
+                      <span className="rounded-full bg-black/55 px-3 py-1 text-[11px] text-zinc-200 backdrop-blur-sm">
+                        做同款 →
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                      <span className="text-[10px] uppercase tracking-wider text-orange-300/90">
+                        {item.category}
+                      </span>
+                      <span className="mt-0.5 block text-sm font-medium text-white">
+                        {item.title}
+                      </span>
+                      <span className="mt-1 block text-[10px] text-zinc-400 opacity-0 transition group-hover:opacity-100">
+                        做同款 →
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </button>
           ))}

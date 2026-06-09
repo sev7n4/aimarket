@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { HomeCreationSection } from "@/components/home-creation-section";
 import {
   HomeScenarioFan,
@@ -9,10 +9,40 @@ import {
 import { InspirationGallery } from "@/components/inspiration-gallery";
 
 export function HomeMain() {
-  const [fanExpanded, setFanExpanded] = useState(false);
+  const [fanExpanded, setFanExpanded] = useState(true);
   const [lastPick, setLastPick] = useState<ScenarioPickPreview | null>(null);
 
   const toggleFan = useCallback(() => setFanExpanded((v) => !v), []);
+
+  useEffect(() => {
+    const onExpandKits = () => setFanExpanded(true);
+    document.addEventListener("aimarket:expand-inspiration-kits", onExpandKits);
+    return () =>
+      document.removeEventListener(
+        "aimarket:expand-inspiration-kits",
+        onExpandKits,
+      );
+  }, []);
+
+  useEffect(() => {
+    const hash = window.location.hash.replace("#", "");
+    if (hash === "inspiration-kits") {
+      setFanExpanded(true);
+      requestAnimationFrame(() => {
+        document.getElementById("inspiration-kits")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    } else if (hash === "inspiration") {
+      requestAnimationFrame(() => {
+        document.getElementById("inspiration")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    }
+  }, []);
 
   return (
     <>
