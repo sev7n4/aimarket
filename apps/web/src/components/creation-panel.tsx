@@ -24,6 +24,7 @@ import {
   estimatePoints,
   getToken,
   fetchModels,
+  getVideoAutoModelMeta,
   fetchReferences,
   fetchProviderStatus,
   submitEcommerceGenerate,
@@ -38,6 +39,11 @@ import {
 } from "@/lib/api-client";
 import { polishPrompt } from "@/lib/prompt-polish";
 import { jobStatusLabel } from "@/lib/job-stream";
+import {
+  resolveVideoSubmitModelId,
+  videoAutoPickerLabel,
+  type VideoAutoMeta,
+} from "@/lib/video-auto-model";
 import type { ImageModel } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -355,6 +361,9 @@ export function CreationPanel({
   const language = "中文";
   const designer = "Gloria";
   const [models, setModels] = useState<ImageModel[]>([]);
+  const [videoAutoMeta, setVideoAutoMeta] = useState<VideoAutoMeta | null>(
+    null,
+  );
   const [estimated, setEstimated] = useState<number | null>(null);
   const [routeHint, setRouteHint] = useState<string | null>(null);
   const [inspirationVars, setInspirationVars] = useState<
@@ -824,8 +833,14 @@ export function CreationPanel({
       return;
     }
     fetchModels()
-      .then(setModels)
-      .catch(() => setModels([]));
+      .then((m) => {
+        setModels(m);
+        setVideoAutoMeta(getVideoAutoModelMeta());
+      })
+      .catch(() => {
+        setModels([]);
+        setVideoAutoMeta(null);
+      });
   }, [user]);
 
   useEffect(() => {
@@ -1447,8 +1462,11 @@ export function CreationPanel({
           alert("当前暂无可用视频模型");
           return;
         }
-        const videoModelId =
-          modelId === AUTO_MODEL_ID ? videoModel.id : modelId;
+        const videoModelId = resolveVideoSubmitModelId(
+          modelId,
+          models,
+          videoAutoMeta,
+        );
         const videoRefs = buildReferenceSources();
         const videoAssetIds = Array.from(
           new Set([...videoRefs.assetIds, ...videoRefs.mentionedAssetIds]),
@@ -2174,6 +2192,11 @@ export function CreationPanel({
               onVideoReferenceModeChange={setVideoReferenceMode}
               videoDurationSec={videoDurationSec}
               onVideoDurationSecChange={setVideoDurationSec}
+              videoAutoLabel={videoAutoPickerLabel(
+                modelId,
+                models,
+                videoAutoMeta,
+              )}
             />
           ) : effectiveMode !== "ecommerce" ? (
             <>

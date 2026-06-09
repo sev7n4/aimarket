@@ -24,6 +24,7 @@ import { focus } from "./routes/focus.js";
 import { product, productWebhook } from "./routes/product.js";
 import { processGenerationJob } from "./lib/jobs.js";
 import { startJobQueue, getQueueStatus } from "./lib/queue/index.js";
+import { startJobWatchdog } from "./lib/job-watchdog.js";
 import { getPaymentStatus } from "./lib/payment/index.js";
 import { getVideoProviderStatus } from "./providers/video/registry.js";
 import { sign } from "./routes/sign.js";
@@ -148,6 +149,7 @@ const port = Number(process.env.PORT ?? 4000);
 void (async () => {
   await initAgentCheckpointer();
   void startJobQueue(processGenerationJob);
+  startJobWatchdog();
   serve({ fetch: app.fetch, port }, () => {
     console.log(`AIMarket API v0.8 listening on http://localhost:${port}`);
   });

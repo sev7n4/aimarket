@@ -35,6 +35,8 @@ import type { SourceLane } from "./source-lane.js";
 import { inferSourceLane } from "./source-lane.js";
 import { assertToolProviderReady } from "./tool-preflight.js";
 import { recordProviderHealthFailure } from "./provider-health-cache.js";
+import { reconcileStaleGenerationJob } from "./job-watchdog.js";
+import { markGenerationJobFailed } from "./job-fail.js";
 
 const delayMs = Number(process.env.MOCK_GENERATION_DELAY_MS ?? 2500);
 
@@ -492,33 +494,7 @@ export async function processGenerationJob({
     }
     const errorCode =
       err instanceof AppError ? err.code : "GENERATION_ERROR";
-    const durationMs = Math.max(0, Date.now() - startedMs);
-    recordAnalyticsEvent(job.user_id, "generation_fail", {
-      job_id: jobId,
-      error_code: errorCode,
-      duration_ms: durationMs,
-    });
-    db.transaction(() => {
-      db.prepare(
-        `UPDATE generation_jobs SET status = 'failed', error = ?, completed_at = datetime('now') WHERE id = ?`,
-      ).run(message, jobId);
-      db.prepare(
-        "UPDATE users SET credits = credits + ? WHERE id = ?",
-      ).run(job.points_cost, job.user_id);
-      db.prepare(
-        `UPDATE image_sessions SET status = 'idle', updated_at = datetime('now') WHERE id = ?`,
-      ).run(job.session_id);
-      db.prepare(
-        `INSERT INTO messages (id, session_id, role, content, job_id)
-         VALUES (?, ?, 'assistant', ?, ?)`,
-      ).run(
-        randomUUID(),
-        job.session_id,
-        `生成失败：${message}，积分已退回。`,
-        jobId,
-      );
-    });
-    notifyAgentJobCompleted(jobId);
+    markGenerationJobFailed(jobId, message, errorCode);
   }
 }
 
@@ -546,6 +522,8 @@ function countQueuedJobsAhead(
 }
 
 export function getJob(jobId: string, userId?: string): JobDetail {
+  reconcileStaleGenerationJob(jobId);
+
   const job = db
     .prepare(
       `SELECT id, session_id, user_id, model_id, prompt, mode, count, resolution,

@@ -536,6 +536,7 @@ interface VideoDockSettingsProps {
   onReferenceModeChange: (mode: VideoReferenceMode) => void;
   durationSec: VideoDurationSec;
   onDurationSecChange: (sec: VideoDurationSec) => void;
+  videoAutoLabel?: string;
   disabled?: boolean;
 }
 
@@ -551,6 +552,7 @@ export function VideoDockSettings({
   onReferenceModeChange,
   durationSec,
   onDurationSecChange,
+  videoAutoLabel,
   disabled = false,
 }: VideoDockSettingsProps) {
   const videoModels = models.filter((m) => m.type === "video");
@@ -562,6 +564,7 @@ export function VideoDockSettings({
           models={videoModels.length ? videoModels : models}
           value={modelId}
           onChange={onModelChange}
+          autoLabel={videoAutoLabel}
         />
       </div>
       <VideoReferencePicker
@@ -615,6 +618,7 @@ export interface CreationDockToolbarProps {
   onVideoReferenceModeChange: (mode: VideoReferenceMode) => void;
   videoDurationSec: VideoDurationSec;
   onVideoDurationSecChange: (sec: VideoDurationSec) => void;
+  videoAutoLabel?: string;
 }
 
 export function CreationDockToolbar({
@@ -643,6 +647,7 @@ export function CreationDockToolbar({
   onVideoReferenceModeChange,
   videoDurationSec,
   onVideoDurationSecChange,
+  videoAutoLabel,
 }: CreationDockToolbarProps) {
   return (
     <>
@@ -702,6 +707,7 @@ export function CreationDockToolbar({
           onReferenceModeChange={onVideoReferenceModeChange}
           durationSec={videoDurationSec}
           onDurationSecChange={onVideoDurationSecChange}
+          videoAutoLabel={videoAutoLabel}
           disabled={disabled}
         />
       ) : null}

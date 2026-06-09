@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import type { AuthVariables } from "../middleware/auth.js";
-import { ALL_MODELS, getModel } from "../lib/models.js";
+import { ALL_MODELS, getModel, VIDEO_MODEL_IDS } from "../lib/models.js";
 import {
   getProviderStatus,
   generateImages,
@@ -33,16 +33,34 @@ import { assertSessionWrite } from "../lib/session-access.js";
 import { assertPromptAllowed } from "../lib/content-moderation.js";
 import { rateLimit } from "../lib/rate-limit.js";
 import { toolContextSchema } from "../lib/tools.js";
+import {
+  getVideoProviderStatus,
+  resolveDefaultVideoModelId,
+  resolveVideoProvider,
+} from "../providers/video/registry.js";
 import { resolveJobLineage } from "../lib/job-lineage.js";
 
 const ai = new Hono<{ Variables: AuthVariables }>();
 
-ai.get("/queryModels", (c) => c.json({ data: ALL_MODELS }));
+ai.get("/queryModels", (c) => {
+  const autoModelId = resolveDefaultVideoModelId();
+  return c.json({
+    data: ALL_MODELS,
+    meta: {
+      videoAuto: {
+        modelId: autoModelId,
+        provider: resolveVideoProvider(autoModelId).name,
+        modelName: getModel(autoModelId)?.name ?? autoModelId,
+      },
+    },
+  });
+});
 
 ai.get("/providerStatus", (c) =>
   c.json({
     data: {
       ...getProviderStatus(),
+      video: getVideoProviderStatus(),
       tools: getToolProviderStatus(),
       focusPoint: getFocusPointProviderStatus(),
       promptOptimize: getPromptOptimizeStatus(),
@@ -314,7 +332,7 @@ ai.post("/generate/video", async (c) => {
     .object({
       sessionId: z.string().uuid(),
       prompt: z.string().min(1).max(4000),
-      modelId: z.enum(["seedance-2", "wan-2.6"]).default("seedance-2"),
+      modelId: z.enum(VIDEO_MODEL_IDS).default("seedance-2"),
       count: z.number().int().min(1).max(2).default(1),
       resolution: z.enum(["1k", "2k"]).default("1k"),
       aspectRatio: z.enum(["auto","1:1","4:3","3:4","16:9","9:16","3:2","2:3","4:5","5:4","21:9"]).default("auto"),

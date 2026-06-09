@@ -88,7 +88,11 @@ import {
   prefetchSessionCanvasBundle,
   useSessionCanvas,
 } from "@/hooks/use-session-canvas";
-import { watchJob } from "@/lib/job-stream";
+import {
+  watchJob,
+  JOB_STREAM_DISCONNECTED_HINT,
+  JOB_STREAM_STILL_RUNNING_HINT,
+} from "@/lib/job-stream";
 import { consumePendingAssets, type PendingAsset } from "@/lib/pending-assets";
 import { consumePendingInspiration, normalizePendingInspiration } from "@/lib/pending-inspiration";
 import { expandFromDirection } from "@/lib/expand-extend";
@@ -736,7 +740,7 @@ export function StudioWorkspace({
       () => {
         void handleJobCompleteRef.current(jobId);
       },
-      async () => {
+      async (err) => {
         try {
           const job = await fetchJob(jobId);
           if (job.status === "succeeded" || job.status === "failed") {
@@ -746,7 +750,7 @@ export function StudioWorkspace({
           if (job.status === "queued" || job.status === "running") {
             completingJobIdRef.current = null;
             setJobStreamStatus(job.status);
-            setSelectSourceBanner("生成仍在进行，正在继续等待结果…");
+            setSelectSourceBanner(JOB_STREAM_STILL_RUNNING_HINT);
             setJobWatchSeq((n) => n + 1);
             return;
           }
@@ -759,7 +763,9 @@ export function StudioWorkspace({
           duration_ms: Math.round(performance.now() - t0),
         });
         setJobFailed(true);
-        setJobError("任务连接中断，请重试");
+        const streamMsg =
+          err instanceof Error ? err.message : JOB_STREAM_DISCONNECTED_HINT;
+        setJobError(streamMsg);
         setPollingJobId(null);
         setActiveJobPrompt(null);
         setJobStreamStatus("failed");
