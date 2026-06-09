@@ -42,7 +42,7 @@ test.describe("creation dock drag-drop upload", () => {
 
     const dropZone = page.getByTestId("creation-dock-drop-zone");
     await expect(dropZone).toBeVisible();
-    await expect(page.getByTestId("home-left-rail")).toBeVisible();
+    await expect(page.getByTestId("app-left-rail")).toBeVisible();
 
     const pngBase64 =
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";

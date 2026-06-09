@@ -20,10 +20,8 @@ export function buildStudioUrl(
   });
   if (options?.title) {
     params.set("title", options.title);
-  } else if (kind === "project") {
-    params.set("title", "新建项目");
   } else {
-    params.set("title", "新建画布");
+    params.set("title", "未命名");
   }
   if (options?.prompt) params.set("q", options.prompt);
   if (options?.inspirationId) {

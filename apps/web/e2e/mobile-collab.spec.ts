@@ -32,8 +32,10 @@ test.describe("mobile collab", () => {
     await expect(page).toHaveURL(/\/studio/, { timeout: 15_000 });
     await ensurePromise;
     await page.goto("/");
-    await page.getByRole("button", { name: "打开菜单" }).click();
-    await expect(page.getByText("继续编辑")).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId("home-recent-rail-btn").hover();
+    await expect(page.getByTestId("home-recent-popover").getByText("继续编辑")).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test("创作页移动默认展示画布与底部 Dock", async ({ page }) => {
@@ -53,7 +55,7 @@ test.describe("mobile collab", () => {
     ).toBeVisible({ timeout: 15_000 });
 
     await page.getByRole("button", { name: "展开创作台" }).click();
-    await page.getByRole("button", { name: "打开侧栏" }).click();
+    await page.getByTestId("app-left-rail").getByRole("button", { name: "工作区" }).click();
     await expect(page.getByRole("button", { name: "重命名" }).first()).toBeVisible({
       timeout: 15_000,
     });

@@ -21,18 +21,17 @@ export const metadata: Metadata = {
     template: `%s | ${BRAND_NAME}`,
   },
   description:
-    "出图宝专注电商主图、套图、详情出图，并基于商品图生成宣传短视频。模板同款、套图 Agent、画布精修。",
+    "墨鱼π — AI 创意工作台：文生图、画布精修、灵感同款与套图 Agent。",
   openGraph: {
     title: `${BRAND_NAME} - ${BRAND_SLOGAN}`,
-    description:
-      "电商出图工作台：商品图到短视频，一套做完上架。",
+    description: BRAND_SLOGAN,
     type: "website",
     locale: "zh_CN",
     siteName: BRAND_NAME,
   },
   twitter: {
     card: "summary_large_image",
-    title: `${BRAND_NAME} - 电商出图与宣传短视频`,
+    title: `${BRAND_NAME} - ${BRAND_SLOGAN}`,
     description: BRAND_SLOGAN,
   },
 };

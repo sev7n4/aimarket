@@ -460,7 +460,7 @@ export function createUserPublishedInspiration(
     .prepare("SELECT COALESCE(MAX(legacy_id), 0) as m FROM inspiration_templates")
     .get() as { m: number };
   const legacyId = maxLegacy.m + 1;
-  const title = truncateTitle(input.title ?? prompt);
+  const title = truncateTitle(input.title?.trim() || "创作者灵感");
   const sortOrder = -legacyId;
 
   db.prepare(

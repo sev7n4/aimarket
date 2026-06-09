@@ -5,13 +5,11 @@ test.describe("smoke", () => {
   test("首页展示品牌与 Slogan", async ({ page }) => {
     await page.goto("/");
     await expect(
-      page.getByRole("banner").getByRole("link", {
-        name: /出图宝.*商品图到短视频/,
-      }),
+      page.getByTestId("app-left-rail").getByRole("link", { name: "墨鱼π" }),
     ).toBeVisible();
     await expect(
       page.getByRole("heading", {
-        name: "商品图到短视频，一套做完上架。",
+        name: "开始你的创意，创造无限可能",
       }),
     ).toBeVisible();
   });
