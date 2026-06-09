@@ -18,6 +18,13 @@ const POLL_INTERVAL_MS = 1500;
 /** 15 分钟：Auto 多供应商回落时单 job 可能超过 3 分钟 */
 const POLL_MAX_ATTEMPTS = 600;
 
+export const JOB_STREAM_STILL_RUNNING_HINT =
+  "生成仍在进行，正在继续等待结果…";
+export const JOB_STREAM_LISTEN_TIMEOUT_HINT =
+  "前端监听已达 15 分钟，任务可能仍在后台执行；请刷新页面查看，超时任务将自动失败并退回积分";
+export const JOB_STREAM_DISCONNECTED_HINT =
+  "任务连接中断，请刷新页面查看是否已完成；若长时间无结果将自动超时退积分";
+
 /** 默认 SSE；设 NEXT_PUBLIC_USE_JOB_STREAM=false 则仅轮询 */
 export function shouldUseJobStream(): boolean {
   return process.env.NEXT_PUBLIC_USE_JOB_STREAM !== "false";
@@ -148,7 +155,7 @@ function pollJob(
     } catch {
       /* 最终探测失败则走超时 */
     }
-    onError(new Error("任务超时"));
+    onError(new Error(JOB_STREAM_LISTEN_TIMEOUT_HINT));
   })();
 
   return () => {

@@ -407,8 +407,29 @@ export async function saveCanvasLayout(
 }
 
 export async function fetchModels() {
-  const res = await request<{ data: ImageModel[] }>("/api/v1/ai/queryModels");
+  const res = await request<{
+    data: ImageModel[];
+    meta?: {
+      videoAuto?: {
+        modelId: string;
+        provider: string;
+        modelName?: string;
+      };
+    };
+  }>("/api/v1/ai/queryModels");
+  videoAutoMeta = res.meta?.videoAuto ?? null;
   return res.data;
+}
+
+let videoAutoMeta: {
+  modelId: string;
+  provider: string;
+  modelName?: string;
+} | null = null;
+
+/** 视频车道 Auto 实际使用的 modelId（来自 queryModels meta） */
+export function getVideoAutoModelMeta() {
+  return videoAutoMeta;
 }
 
 export async function estimatePoints(

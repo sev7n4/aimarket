@@ -54,6 +54,12 @@ export const VIDEO_MODELS: ModelMeta[] = [
   },
 ];
 
+/** z.enum 用：与 VIDEO_MODELS 保持同步，避免接口白名单漏项 */
+export const VIDEO_MODEL_IDS = VIDEO_MODELS.map((m) => m.id) as [
+  (typeof VIDEO_MODELS)[number]["id"],
+  ...(typeof VIDEO_MODELS)[number]["id"][],
+];
+
 export {
   INTERNAL_ROUTING_MODEL_IDS as INTERNAL_ROUTING_IDS,
   isInternalRoutingModelId,

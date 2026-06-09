@@ -12,6 +12,8 @@ interface ModelPickerProps {
   models: ImageModel[];
   value: string;
   onChange: (id: string) => void;
+  /** 选中 Auto 时在按钮上显示的补充说明，如「Auto · Agnes Video」 */
+  autoLabel?: string;
 }
 
 function modelOptionClass(selected: boolean) {
@@ -26,14 +28,16 @@ function sectionLabelClass() {
   return "mb-1 mt-2 text-[9px] font-medium uppercase tracking-wide text-zinc-600";
 }
 
-export function ModelPicker({ models, value, onChange }: ModelPickerProps) {
+export function ModelPicker({ models, value, onChange, autoLabel }: ModelPickerProps) {
   const [open, setOpen] = useState(false);
 
   const list = models;
 
   const label =
     value === AUTO_MODEL_ID || isInternalRoutingModelId(value)
-      ? "Auto"
+      ? autoLabel
+        ? `Auto · ${autoLabel}`
+        : "Auto"
       : list.find((m) => m.id === value)?.name ?? "选择模型";
 
   function pick(id: string) {
@@ -76,7 +80,7 @@ export function ModelPicker({ models, value, onChange }: ModelPickerProps) {
             onClick={() => pick(AUTO_MODEL_ID)}
             className={modelOptionClass(value === AUTO_MODEL_ID)}
           >
-            Auto
+            {autoLabel ? `Auto · ${autoLabel}` : "Auto"}
           </button>
         </li>
       </ul>
