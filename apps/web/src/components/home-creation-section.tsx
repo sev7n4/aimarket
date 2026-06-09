@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CreationPanel } from "@/components/creation-panel";
 import { LoginDialog } from "@/components/login-dialog";
-import { useAuth } from "@/lib/auth-context";
-import { BRAND_SLOGAN } from "@/lib/brand";
+import { BrandSloganHeading } from "@/components/brand-slogan-heading";
 import { randomUUID } from "@/lib/uuid";
 
 interface HomeCreationSectionProps {
@@ -18,10 +17,8 @@ export function HomeCreationSection({
   inspirationCoverUrl,
   inspirationOpen,
 }: HomeCreationSectionProps = {}) {
-  const { user } = useAuth();
   const [sessionId] = useState(() => randomUUID());
   const [loginOpen, setLoginOpen] = useState(false);
-  const [authHint, setAuthHint] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
   const [dockPinned, setDockPinned] = useState(false);
   const [dockSpacerH, setDockSpacerH] = useState(0);
@@ -29,8 +26,7 @@ export function HomeCreationSection({
   const sectionRef = useRef<HTMLElement>(null);
   const dockWrapRef = useRef<HTMLDivElement>(null);
 
-  const openLogin = useCallback((hint?: string) => {
-    if (hint) setAuthHint(hint);
+  const openLogin = useCallback(() => {
     setLoginOpen(true);
   }, []);
 
@@ -52,7 +48,7 @@ export function HomeCreationSection({
     const el = dockWrapRef.current;
     if (!el || dockPinned) return;
     setDockSpacerH(el.offsetHeight);
-  }, [dockPinned, prompt, authHint, user]);
+  }, [dockPinned, prompt]);
 
   const creationPanel = (
     <CreationPanel
@@ -65,7 +61,6 @@ export function HomeCreationSection({
       homeDirectSubmit
       rotatingPlaceholder
       onAuthRequired={openLogin}
-      onInteractionHint={(msg) => setAuthHint(msg)}
       submitOnEnter
       onInspirationClick={onOpenInspiration}
       inspirationCoverUrl={inspirationCoverUrl}
@@ -84,18 +79,14 @@ export function HomeCreationSection({
       <section
         ref={sectionRef}
         id="home-creation"
-        className="relative z-40 scroll-mt-4 px-3 pb-3 pt-3 lg:px-4 lg:pb-6 lg:pt-4"
+        className="relative z-40 scroll-mt-20 px-3 pb-4 pt-10 sm:pt-12 lg:px-4 lg:pb-6 lg:pt-16 xl:pt-20"
       >
-        <div className="mx-auto max-w-3xl">
-          <h1 className="mb-3 text-balance text-center text-lg font-semibold leading-snug tracking-tight text-zinc-100 sm:text-xl">
-            {BRAND_SLOGAN}
-          </h1>
-          {!user ? (
-            <p className="mb-2 rounded-lg border border-orange-500/25 bg-orange-500/10 px-3 py-2 text-center text-xs text-orange-100/90">
-              {authHint ??
-                "登录后即可上传参考图并生成；也可先输入描述，提交时将引导登录"}
-            </p>
-          ) : null}
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.14),rgba(99,102,241,0.08)_42%,transparent_68%)] sm:h-56 lg:h-64"
+          aria-hidden
+        />
+        <div className="relative mx-auto max-w-3xl">
+          <BrandSloganHeading className="mb-5 sm:mb-6" />
           {dockPinned ? (
             <div
               style={{ height: dockSpacerH }}
@@ -107,7 +98,7 @@ export function HomeCreationSection({
             ref={dockWrapRef}
             className={
               dockPinned
-                ? "pointer-events-none fixed inset-x-0 bottom-0 left-14 z-50 flex justify-center px-3 pb-[max(0.65rem,env(safe-area-inset-bottom))] sm:px-4"
+                ? "pointer-events-none fixed inset-x-0 bottom-0 left-0 z-50 flex justify-center px-3 pb-[max(0.65rem,env(safe-area-inset-bottom))] sm:px-4 lg:left-14"
                 : "w-full"
             }
             data-home-floating-dock={dockPinned ? "true" : undefined}

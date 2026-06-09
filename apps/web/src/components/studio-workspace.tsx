@@ -20,6 +20,7 @@ import { StudioCreationDock } from "@/components/studio-creation-dock";
 import { CanvasSelectionToolbar } from "@/components/canvas-selection-toolbar";
 import { StudioDock, studioDockScrollInset } from "@/components/studio-dock";
 import { StudioCoach } from "@/components/studio-coach";
+import { StudioHeader } from "@/components/studio-header";
 import {
   APP_LEFT_RAIL_PAD_CLASS,
   AppLeftRail,
@@ -1255,6 +1256,9 @@ export function StudioWorkspace({
     focusEditSession?.itemId,
   ]);
 
+  /** 移动端与收起工作区时展示顶栏汉堡，打开工作区抽屉 */
+  const showTopBar = mobile || workspaceCollapsed;
+
   return (
     <WorkspaceProvider onWorkspaceChange={handleWorkspaceChange}>
       <AppLeftRail
@@ -1262,6 +1266,21 @@ export function StudioWorkspace({
         onOpenWorkspace={() => setSidebarOpen(true)}
         onLogin={() => setLoginOpen(true)}
       />
+
+      {showTopBar ? (
+        <StudioHeader
+          sessionId={user ? sessionId : undefined}
+          sessionTitle={sessionTitle}
+          sessionKind={sessionKind}
+          sessionReadOnly={readOnly}
+          onMenuClick={() => setSidebarOpen(true)}
+          onTitleSaved={handleTitleSaved}
+          onSessionDeleted={() => handleSessionDeleted()}
+          onReportClick={user ? () => setReportOpen(true) : undefined}
+          variant="minimal"
+          showAccountActions={mobile || workspaceCollapsed}
+        />
+      ) : null}
 
       <input
         ref={uploadRef}
@@ -1279,7 +1298,7 @@ export function StudioWorkspace({
         {sidebarOpen ? (
           <button
             type="button"
-            className="fixed inset-0 left-14 z-40 bg-black/60 lg:hidden"
+            className="fixed inset-0 z-40 bg-black/60 lg:hidden"
             aria-label="关闭侧栏"
             onClick={() => setSidebarOpen(false)}
           />
@@ -1289,7 +1308,9 @@ export function StudioWorkspace({
           style={
             workspaceCollapsed ? undefined : { width: workspaceWidth }
           }
-          className={`fixed bottom-0 left-14 z-50 flex min-h-0 w-[min(85vw,280px)] flex-col border-r border-white/5 bg-[#080808] p-3 transition-all top-0 ${
+          className={`fixed bottom-0 left-0 z-50 flex min-h-0 w-[min(85vw,280px)] flex-col border-r border-white/5 bg-[#080808] p-3 transition-all lg:left-14 ${
+            showTopBar ? "top-12" : "top-0"
+          } ${
             sidebarOpen
               ? "translate-x-0"
               : "-translate-x-full pointer-events-none"

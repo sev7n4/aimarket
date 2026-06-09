@@ -72,10 +72,10 @@ test.describe("home left rail", () => {
     ).toBeVisible();
   });
 
-  test("未登录用户同样展示左轨", async ({ page }) => {
+  test("未登录用户桌面端展示左轨且无汉堡菜单", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("app-left-rail")).toBeVisible();
-    await expect(page.getByRole("banner")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "打开菜单" })).toHaveCount(0);
   });
 
   test("登录用户滚出视口后贴底 Dock 仍正常且避开左轨", async ({ page }) => {

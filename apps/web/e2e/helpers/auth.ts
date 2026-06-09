@@ -4,14 +4,19 @@ function leftRail(page: Page) {
   return page.getByTestId("app-left-rail");
 }
 
-/** 左轨底栏：登录后账户按钮含积分（见 StudioWorkspaceFooter collapsed aria-label） */
+/** 登录后积分入口：桌面左轨底栏或移动顶栏 */
 export function creditsButton(page: Page) {
-  return leftRail(page).getByRole("button", { name: /\d+\s*积分/ });
+  return page.getByRole("button", { name: /(\d+\s*积分|积分\s*\d+)/ });
 }
 
-/** 从左轨底栏打开登录弹窗 */
+/** 打开登录弹窗：桌面左轨底栏或移动顶栏 */
 export async function openLoginDialog(page: Page) {
-  await leftRail(page).getByRole("button", { name: "登录" }).click();
+  const rail = leftRail(page);
+  if (await rail.isVisible()) {
+    await rail.getByRole("button", { name: "登录" }).click();
+    return;
+  }
+  await page.getByRole("banner").getByRole("button", { name: "登录" }).click();
 }
 
 /**
