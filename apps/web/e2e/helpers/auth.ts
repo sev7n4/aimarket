@@ -1,8 +1,17 @@
 import { expect, type Page } from "@playwright/test";
 
-/** 注册成功后顶栏积分按钮（比 getByText 更稳，避免误匹配文案） */
+function leftRail(page: Page) {
+  return page.getByTestId("app-left-rail");
+}
+
+/** 左轨底栏：登录后账户按钮含积分（见 StudioWorkspaceFooter collapsed aria-label） */
 export function creditsButton(page: Page) {
-  return page.getByRole("button", { name: /积分\s+\d+/ });
+  return leftRail(page).getByRole("button", { name: /积分\s*\d+/ });
+}
+
+/** 从左轨底栏打开登录弹窗 */
+export async function openLoginDialog(page: Page) {
+  await leftRail(page).getByRole("button", { name: "登录" }).click();
 }
 
 /**
@@ -14,7 +23,7 @@ export async function registerViaEmail(
 ): Promise<string> {
   const email = `${opts?.emailPrefix ?? "e2e"}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}@test.local`;
   await page.goto("/");
-  await page.getByRole("banner").getByRole("button", { name: "免费开始" }).click();
+  await openLoginDialog(page);
   await page.getByRole("button", { name: "邮箱" }).click();
   await page.getByRole("button", { name: "立即注册" }).click();
   await expect(page.getByRole("heading", { name: "注册" })).toBeVisible();

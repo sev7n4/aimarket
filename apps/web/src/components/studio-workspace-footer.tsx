@@ -71,7 +71,9 @@ export function StudioWorkspaceFooter({
             onClick={() => (user ? setUserOpen(true) : onLogin())}
             className="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-purple-600 text-xs font-bold text-white transition hover:ring-2 hover:ring-orange-500/40"
             title={user ? user.email : "登录"}
-            aria-label={user ? "账户信息" : "登录"}
+            aria-label={
+              user ? `账户信息，${user.credits} 积分` : "登录"
+            }
           >
             {loading ? "…" : initial}
           </button>
