@@ -11,8 +11,11 @@ export const BRAND_NAME = "墨鱼π";
 /** 完整 Slogan：Hero、关于页、登录弹窗副标 */
 export const BRAND_SLOGAN = "开始你的创意，创造无限可能";
 
-/** 图形标说明（叠图卡片 + 播放标，见 BrandMarkIcon） */
-export const BRAND_MARK_DESC = "墨鱼触手 · 创意涟漪 · 无限画布";
+/** 公司主体（图形标版权归属） */
+export const BRAND_COMPANY = "墨鱼科技";
+
+/** 图形标说明（墨鱼穹顶 + π 触须 + 墨滴，见 BrandMarkIcon） */
+export const BRAND_MARK_DESC = "墨鱼穹顶 · π 触须 · 墨滴涟漪";
 
 /** 窄位副标：侧栏、极小屏（可选，非 Slogan 替代） */
 export const BRAND_TAGLINE_SHORT = "所想即所得";
