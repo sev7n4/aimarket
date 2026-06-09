@@ -2,7 +2,14 @@
 
 import { useEffect, useCallback, useState } from "react";
 import { assetUrl } from "@/lib/api-client";
-import { X, RotateCcw, RotateCw, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  X,
+  RotateCcw,
+  RotateCw,
+  ChevronLeft,
+  ChevronRight,
+  Wand2,
+} from "lucide-react";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 
@@ -15,6 +22,8 @@ interface CanvasLightboxProps {
   }>;
   initialIndex: number;
   onClose: () => void;
+  /** Studio 画布预览：进入自由画布精修 */
+  onRefine?: () => void;
 }
 
 const ZOOM_MIN = 0.5;
@@ -25,6 +34,7 @@ export function CanvasLightbox({
   items,
   initialIndex,
   onClose,
+  onRefine,
 }: CanvasLightboxProps) {
   const [index, setIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
@@ -118,14 +128,31 @@ export function CanvasLightbox({
             {index + 1} / {items.length}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-full bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
-          title="关闭"
-        >
-          <X className="size-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          {onRefine && !current.isVideo ? (
+            <button
+              type="button"
+              data-testid="lightbox-refine-btn"
+              onClick={() => {
+                onRefine();
+                onClose();
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-orange-500/90 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-orange-400"
+              title="进入精修模式：圈选、对比、连续迭代"
+            >
+              <Wand2 className="size-4" />
+              精修此图
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
+            title="关闭"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
       </div>
 
       <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10">
