@@ -2,16 +2,48 @@ import fs from "node:fs";
 import path from "node:path";
 import { getObjectStorage } from "./object-storage/index.js";
 
-const ALLOWED_MIME = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
+const IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
+const AUDIO_MIME = new Set([
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/webm",
+  "audio/ogg",
+]);
+const VIDEO_MIME = new Set([
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+  "video/x-msvideo",
 ]);
 
-const MAX_BYTES = 10 * 1024 * 1024;
+const DEFAULT_MAX_BYTES = 10 * 1024 * 1024;
+const VIDEO_MAX_BYTES = 50 * 1024 * 1024;
+const AUDIO_MAX_BYTES = 15 * 1024 * 1024;
 
 const UPLOAD_DIR =
   process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
+
+export type UploadLane = "default" | "video";
+
+function maxBytesForMime(mimeType: string, lane: UploadLane): number {
+  if (VIDEO_MIME.has(mimeType)) return VIDEO_MAX_BYTES;
+  if (AUDIO_MIME.has(mimeType)) return AUDIO_MAX_BYTES;
+  if (lane === "video" && IMAGE_MIME.has(mimeType)) return DEFAULT_MAX_BYTES;
+  return DEFAULT_MAX_BYTES;
+}
+
+export function isAllowedUploadMime(
+  mimeType: string,
+  lane: UploadLane = "default",
+): boolean {
+  if (IMAGE_MIME.has(mimeType)) return true;
+  if (lane === "video") {
+    return AUDIO_MIME.has(mimeType) || VIDEO_MIME.has(mimeType);
+  }
+  return false;
+}
 
 export function ensureUploadDir() {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -21,11 +53,14 @@ export async function saveUpload(
   buffer: Buffer,
   mimeType: string,
   originalName: string,
+  options?: { lane?: UploadLane },
 ) {
-  if (!ALLOWED_MIME.has(mimeType)) {
+  const lane = options?.lane ?? "default";
+  if (!isAllowedUploadMime(mimeType, lane)) {
     throw new Error("UNSUPPORTED_MIME");
   }
-  if (buffer.length > MAX_BYTES) {
+  const maxBytes = maxBytesForMime(mimeType, lane);
+  if (buffer.length > maxBytes) {
     throw new Error("FILE_TOO_LARGE");
   }
 
@@ -45,7 +80,7 @@ export async function saveGeneratedImage(
   buffer: Buffer,
   mimeType = "image/png",
 ) {
-  if (buffer.length > MAX_BYTES) {
+  if (buffer.length > DEFAULT_MAX_BYTES) {
     throw new Error("GENERATED_IMAGE_TOO_LARGE");
   }
   const ext =

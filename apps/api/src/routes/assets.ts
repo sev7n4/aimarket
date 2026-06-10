@@ -63,22 +63,34 @@ assets.post("/upload", async (c) => {
   const file = body.file;
   const sessionId =
     typeof body.sessionId === "string" ? body.sessionId : undefined;
+  const lane =
+    typeof body.lane === "string" && body.lane === "video" ? "video" : "default";
 
   if (!file || !(file instanceof File)) {
-    throw new AppError(400, "VALIDATION_ERROR", "请上传图片文件");
+    throw new AppError(400, "VALIDATION_ERROR", "请上传文件");
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
   let saved: { filename: string; url: string; sizeBytes: number };
   try {
-    saved = await saveUpload(buffer, file.type, file.name);
+    saved = await saveUpload(buffer, file.type, file.name, { lane });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "UPLOAD_FAILED";
     if (msg === "UNSUPPORTED_MIME") {
-      throw new AppError(400, "UNSUPPORTED_MIME", "仅支持 JPG/PNG/WebP");
+      throw new AppError(
+        400,
+        "UNSUPPORTED_MIME",
+        lane === "video"
+          ? "视频车道支持 JPG/PNG/WebP、常见音频与 MP4/WebM 视频"
+          : "仅支持 JPG/PNG/WebP",
+      );
     }
     if (msg === "FILE_TOO_LARGE") {
-      throw new AppError(400, "FILE_TOO_LARGE", "文件不能超过 10MB");
+      throw new AppError(
+        400,
+        "FILE_TOO_LARGE",
+        file.type.startsWith("video/") ? "视频不能超过 50MB" : "文件不能超过 10MB",
+      );
     }
     throw new AppError(500, "UPLOAD_FAILED", "上传失败");
   }

@@ -23,9 +23,20 @@ import {
   resolveReferenceUrls,
 } from "../lib/references.js";
 import {
+  coerceVideoAspectRatio,
+  coerceVideoResolution,
+} from "../lib/video-output-presets.js";
+import {
   applyVideoReferenceMode,
   buildVideoReferencePrompt,
+  buildSmartMultiFramePrompt,
+  normalizeVideoReferenceMode,
+  resolveAssetMediaRefs,
   resolveAssetReferenceUrls,
+  resolveEffectiveDurationSec,
+  resolveSmartMultiShots,
+  resolveStructuredVideoReferences,
+  validateVideoReferencePayload,
 } from "../lib/video-references.js";
 import { toPublicAssetUrl } from "../lib/public-url.js";
 import { db } from "../db/index.js";
@@ -334,24 +345,57 @@ ai.post("/jobs/:jobId/cancel", (c) => {
 ai.post("/generate/video", async (c) => {
   const userId = c.get("userId");
   await rateLimit(`video:${userId}`, 20, 60_000);
-  const body = z
+
+  const videoMediaRefSchema = z.object({
+    assetId: z.string().uuid(),
+    mediaType: z.enum(["image", "audio", "video"]),
+    role: z.enum(["reference", "first_frame", "last_frame"]).optional(),
+  });
+
+  const smartMultiShotSchema = z.object({
+    order: z.number().int().min(0),
+    assetId: z.string().uuid().optional(),
+    motionPrompt: z.string().max(2000),
+  });
+
+  const bodyRaw = z
     .object({
       sessionId: z.string().uuid(),
       prompt: z.string().min(1).max(4000),
       modelId: z.enum(VIDEO_MODEL_IDS).default("seedance-2"),
       count: z.number().int().min(1).max(2).default(1),
       resolution: z.enum(["1k", "2k"]).default("1k"),
-      aspectRatio: z.enum(["auto","1:1","4:3","3:4","16:9","9:16","3:2","2:3","4:5","5:4","21:9"]).default("auto"),
+      aspectRatio: z
+        .enum([
+          "auto",
+          "1:1",
+          "4:3",
+          "3:4",
+          "16:9",
+          "9:16",
+          "3:2",
+          "2:3",
+          "4:5",
+          "5:4",
+          "21:9",
+        ])
+        .default("auto"),
       parentJobId: z.string().uuid().optional(),
       sourceOutputId: z.string().uuid().optional(),
       referenceMode: z
-        .enum(["omni", "first-frame", "first-last"])
+        .enum(["omni", "first-frame", "first-last", "smart-multi-frame"])
         .default("omni"),
-      durationSec: z.union([z.literal(5), z.literal(10)]).optional(),
+      durationSec: z.union([z.literal(4), z.literal(5), z.literal(10)]).optional(),
+      videoResolution: z.enum(["720P", "1080P"]).optional(),
+      videoReferences: z.array(videoMediaRefSchema).max(12).optional(),
+      smartMultiShots: z.array(smartMultiShotSchema).max(12).optional(),
       assetIds: z.array(z.string().uuid()).optional(),
       referenceOutputIds: z.array(z.string().uuid()).optional(),
     })
     .parse(await c.req.json());
+
+  const referenceMode = normalizeVideoReferenceMode(bodyRaw.referenceMode);
+  const body = { ...bodyRaw, referenceMode };
 
   const videoRoute = resolveVideoModelRoute(body.modelId);
   if (!videoRoute.available) {
@@ -362,28 +406,71 @@ ai.post("/generate/video", async (c) => {
     );
   }
 
-  if (body.assetIds?.length) {
-    for (const assetId of body.assetIds) {
-      const asset = db
-        .prepare("SELECT id FROM assets WHERE id = ? AND user_id = ?")
-        .get(assetId, userId);
-      if (!asset) throw new AppError(400, "INVALID_ASSET", "附件不存在");
-    }
+  const allAssetIds = new Set<string>([
+    ...(body.assetIds ?? []),
+    ...(body.videoReferences?.map((r) => r.assetId) ?? []),
+    ...(body.smartMultiShots?.flatMap((s) =>
+      s.assetId ? [s.assetId] : [],
+    ) ?? []),
+  ]);
+  for (const assetId of allAssetIds) {
+    const asset = db
+      .prepare("SELECT id FROM assets WHERE id = ? AND user_id = ?")
+      .get(assetId, userId);
+    if (!asset) throw new AppError(400, "INVALID_ASSET", "附件不存在");
   }
 
   const refUrls = body.referenceOutputIds
     ? resolveReferenceUrls(body.referenceOutputIds)
     : [];
-  const assetUrls = body.assetIds?.length
+  const legacyAssetUrls = body.assetIds?.length
     ? resolveAssetReferenceUrls(body.assetIds, userId)
     : [];
+
+  const structuredRefs = body.videoReferences?.length
+    ? resolveStructuredVideoReferences(body.videoReferences, userId)
+    : body.assetIds?.length
+      ? resolveAssetMediaRefs(body.assetIds, userId)
+      : [];
+
+  const resolvedShots = body.smartMultiShots?.length
+    ? resolveSmartMultiShots(body.smartMultiShots, userId)
+    : [];
+
   const mergedReferenceUrls = applyVideoReferenceMode(
-    [...refUrls, ...assetUrls],
-    body.referenceMode,
+    [...refUrls, ...legacyAssetUrls, ...structuredRefs.map((r) => r.url)],
+    referenceMode,
+  );
+
+  const validation = validateVideoReferencePayload({
+    mode: referenceMode,
+    videoReferences: body.videoReferences,
+    smartMultiShots: body.smartMultiShots,
+    referenceUrls: mergedReferenceUrls,
+  });
+  if (!validation.ok) {
+    throw new AppError(
+      400,
+      validation.code ?? "INVALID_VIDEO_REFERENCE",
+      validation.message ?? "视频参考参数无效",
+    );
+  }
+
+  const aspectRatio = coerceVideoAspectRatio(referenceMode, body.aspectRatio);
+  const videoResolution = coerceVideoResolution(
+    referenceMode,
+    body.videoResolution,
+  );
+  const durationSec = resolveEffectiveDurationSec(
+    referenceMode,
+    body.durationSec,
+    body.smartMultiShots?.length,
   );
 
   let prompt = body.prompt;
-  if (mergedReferenceUrls.length > 0) {
+  if (referenceMode === "smart-multi-frame" && resolvedShots.length) {
+    prompt = buildSmartMultiFramePrompt(body.prompt, resolvedShots);
+  } else if (mergedReferenceUrls.length > 0) {
     prompt = buildVideoReferencePrompt(body.prompt, mergedReferenceUrls);
   }
   await assertPromptAllowed(prompt);
@@ -402,12 +489,16 @@ ai.post("/generate/video", async (c) => {
     mode: "chat",
     count: body.count,
     resolution: body.resolution,
-    aspectRatio: body.aspectRatio,
+    aspectRatio,
     toolType: "video",
     toolContext: {
-      videoReferenceMode: body.referenceMode,
-      durationSec: body.durationSec,
+      videoReferenceMode: referenceMode,
+      durationSec,
+      videoResolution,
+      videoReferences: structuredRefs.length ? structuredRefs : undefined,
+      smartMultiShots: body.smartMultiShots,
       referenceUrls: mergedReferenceUrls.length ? mergedReferenceUrls : undefined,
+      validationHint: validation.message,
     },
     parentJobId: lineage.parentJobId,
     sourceOutputId: lineage.sourceOutputId,

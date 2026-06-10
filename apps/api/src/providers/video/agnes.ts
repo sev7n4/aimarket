@@ -2,6 +2,11 @@
  * Agnes Video V2.0 — 异步任务 POST /v1/videos + GET /v1/videos/{id}
  * 文档：https://agnes-ai.com/doc/agnes-video-v20
  */
+import {
+  buildSmartMultiFramePrompt,
+  normalizeVideoReferenceMode,
+} from "../../lib/video-references.js";
+import { mapAspectRatioForWan } from "../../lib/video-output-presets.js";
 import type {
   VideoGenerateParams,
   VideoGenerateResult,
@@ -15,6 +20,14 @@ const VIDEO_ALIASES = new Set([AGNES_VIDEO_MODEL_ID, "agnes-video-v2.0", "seedan
 const DEFAULT_POLL_INTERVAL_MS = 8_000;
 const DEFAULT_POLL_TIMEOUT_MS = 900_000;
 const MAX_429_RETRIES = 5;
+
+const RATIO_DIMENSIONS: Record<string, { width: number; height: number }> = {
+  "16:9": { width: 1280, height: 720 },
+  "9:16": { width: 720, height: 1280 },
+  "1:1": { width: 960, height: 960 },
+  "4:3": { width: 1104, height: 832 },
+  "3:4": { width: 832, height: 1104 },
+};
 
 export type AgnesVideoTaskSnapshot = {
   taskId: string;
@@ -52,6 +65,11 @@ function resolveVideoFrames(durationSec?: number): number {
   if (sec <= 6) return 121;
   if (sec <= 8) return 161;
   return 241;
+}
+
+function resolveDimensions(aspectRatio?: string): { width: number; height: number } {
+  const ratio = mapAspectRatioForWan(aspectRatio ?? "16:9");
+  return RATIO_DIMENSIONS[ratio] ?? RATIO_DIMENSIONS["16:9"]!;
 }
 
 function extractVideoUrl(task: Record<string, unknown>): string | null {
@@ -186,6 +204,68 @@ async function pollVideoTask(
   );
 }
 
+function resolveAgnesPromptAndRef(params: VideoGenerateParams): {
+  prompt: string;
+  imageUrl?: string;
+  degradationNote?: string;
+} {
+  const mode = normalizeVideoReferenceMode(params.referenceMode ?? "omni");
+  const notes: string[] = [];
+
+  if (mode === "smart-multi-frame" && params.smartMultiShots?.length) {
+    notes.push("智能多帧已合并 prompt + 首图（Agnes 不支持多镜头 API）");
+    const prompt = buildSmartMultiFramePrompt(
+      params.prompt,
+      params.smartMultiShots,
+    );
+    const firstShotUrl = params.smartMultiShots.find((s) => s.url)?.url;
+    const ref =
+      firstShotUrl ??
+      params.videoReferences?.find((r) => r.mediaType === "image")?.url ??
+      params.referenceUrls?.[0];
+    return { prompt, imageUrl: ref, degradationNote: notes.join("；") };
+  }
+
+  if (mode === "first-last") {
+    const first =
+      params.videoReferences?.find((r) => r.role === "first_frame")?.url ??
+      params.referenceUrls?.[0];
+    const hasLast =
+      Boolean(params.videoReferences?.find((r) => r.role === "last_frame")?.url) ||
+      (params.referenceUrls?.length ?? 0) >= 2;
+    if (!hasLast) notes.push("首尾帧将降级为仅首帧");
+    return {
+      prompt: params.prompt,
+      imageUrl: first,
+      degradationNote: notes.length ? notes.join("；") : undefined,
+    };
+  }
+
+  if (mode === "omni") {
+    const nonImages =
+      params.videoReferences?.filter((r) => r.mediaType !== "image") ?? [];
+    if (nonImages.length) {
+      notes.push("音/视频参考不可用，已忽略");
+    }
+    const imageRef =
+      params.videoReferences?.find((r) => r.mediaType === "image")?.url ??
+      params.referenceUrls?.[0];
+    if ((params.videoReferences?.length ?? params.referenceUrls?.length ?? 0) > 1) {
+      notes.push("全能参考将降级为仅首图");
+    }
+    return {
+      prompt: params.prompt,
+      imageUrl: imageRef,
+      degradationNote: notes.length ? notes.join("；") : undefined,
+    };
+  }
+
+  return {
+    prompt: params.prompt,
+    imageUrl: params.referenceUrls?.[0],
+  };
+}
+
 export const agnesVideoProvider: VideoProvider = {
   name: "agnes-video",
   supports(modelId) {
@@ -197,18 +277,19 @@ export const agnesVideoProvider: VideoProvider = {
     if (!apiKey) throw new Error("AGNES_API_KEY 未配置");
 
     const base = agnesVideoBaseUrl();
+    const { prompt, imageUrl, degradationNote } = resolveAgnesPromptAndRef(params);
+    const { width, height } = resolveDimensions(params.aspectRatio);
     const numFrames = resolveVideoFrames(params.durationSec);
     const body: Record<string, unknown> = {
       model: agnesVideoApiModel(),
-      prompt: params.prompt.slice(0, 4000),
-      width: 1152,
-      height: 768,
+      prompt: prompt.slice(0, 4000),
+      width,
+      height,
       num_frames: numFrames,
       frame_rate: 24,
     };
-    const ref = params.referenceUrls?.[0];
-    if (ref) {
-      body.image = ref;
+    if (imageUrl) {
+      body.image = imageUrl;
     }
 
     const createRes = await fetchWith429Retry(
@@ -235,13 +316,14 @@ export const agnesVideoProvider: VideoProvider = {
       throw new Error("Agnes Video 未返回 task id");
     }
     console.log(
-      `[agnes-video] created task=${taskId} frames=${numFrames} hasImage=${Boolean(ref)}`,
+      `[agnes-video] created task=${taskId} frames=${numFrames} hasImage=${Boolean(imageUrl)} ${width}x${height}`,
     );
 
     const videoUrl = await pollVideoTask(base, apiKey, taskId);
     return {
       urls: [videoUrl].slice(0, params.count),
       provider: "agnes-video",
+      degradationNote,
     };
   },
 };

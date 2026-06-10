@@ -5,6 +5,7 @@ import type {
   OutputPreferenceMode,
   VideoDurationSec,
   VideoReferenceMode,
+  VideoResolution,
 } from "./creation-dock-prefs";
 import {
   defaultCreationLaneForScope,
@@ -32,6 +33,7 @@ export interface LaneSettingsDraft {
   outputPrefMode: OutputPreferenceMode;
   videoReferenceMode: VideoReferenceMode;
   videoDurationSec: VideoDurationSec;
+  videoResolution: VideoResolution;
 }
 
 export interface ScopeLaneDraftsState {
@@ -77,18 +79,20 @@ export function defaultLaneSettingsDraft(lane: CreationLane): LaneSettingsDraft 
       resolution: "1k",
       outputPrefMode: "auto",
       videoReferenceMode: "omni",
-      videoDurationSec: 5,
+      videoDurationSec: 4,
+      videoResolution: "1080P",
     };
   }
   if (lane === "video") {
     return {
       modelId: AUTO_MODEL_ID,
-      aspectRatio: "auto",
+      aspectRatio: "16:9",
       count: 1,
       resolution: "1k",
       outputPrefMode: "manual",
       videoReferenceMode: "omni",
-      videoDurationSec: 5,
+      videoDurationSec: 4,
+      videoResolution: "1080P",
     };
   }
   return {
@@ -100,6 +104,7 @@ export function defaultLaneSettingsDraft(lane: CreationLane): LaneSettingsDraft 
     outputPrefMode: "manual",
     videoReferenceMode: "omni",
     videoDurationSec: 5,
+    videoResolution: "1080P",
   };
 }
 
@@ -127,14 +132,23 @@ function parseOutputPrefMode(value: unknown): OutputPreferenceMode | null {
 }
 
 function parseVideoReferenceMode(value: unknown): VideoReferenceMode | null {
-  if (value === "omni" || value === "first-frame" || value === "first-last") {
+  if (value === "first-frame") return "first-last";
+  if (
+    value === "omni" ||
+    value === "first-last" ||
+    value === "smart-multi-frame"
+  ) {
     return value;
   }
   return null;
 }
 
 function parseVideoDurationSec(value: unknown): VideoDurationSec | null {
-  return value === 5 || value === 10 ? value : null;
+  return value === 4 || value === 5 || value === 10 ? value : null;
+}
+
+function parseVideoResolution(value: unknown): VideoResolution | null {
+  return value === "720P" || value === "1080P" ? value : null;
 }
 
 function parseLaneSettingsDraft(
@@ -167,6 +181,8 @@ function parseLaneSettingsDraft(
       base.videoReferenceMode,
     videoDurationSec:
       parseVideoDurationSec(raw.videoDurationSec) ?? base.videoDurationSec,
+    videoResolution:
+      parseVideoResolution(raw.videoResolution) ?? base.videoResolution,
   };
 }
 

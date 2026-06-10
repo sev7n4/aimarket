@@ -649,10 +649,13 @@ export async function submitVideoGeneration(body: {
   count?: number;
   resolution?: string;
   aspectRatio?: string;
+  videoResolution?: import("./creation-dock-prefs").VideoResolution;
   parentJobId?: string;
   sourceOutputId?: string;
   referenceMode?: import("./creation-dock-prefs").VideoReferenceMode;
   durationSec?: import("./creation-dock-prefs").VideoDurationSec;
+  videoReferences?: import("./creation-dock-prefs").VideoMediaRef[];
+  smartMultiShots?: import("./creation-dock-prefs").SmartMultiShot[];
   assetIds?: string[];
   referenceOutputIds?: string[];
   sourceLane?: import("./creation-dock-prefs").CreationLane;
@@ -1320,10 +1323,15 @@ export async function uploadAssetViaPresign(file: File, sessionId?: string) {
   return completeAssetUpload(intent.assetId, file);
 }
 
-export async function uploadAsset(file: File, sessionId?: string) {
+export async function uploadAsset(
+  file: File,
+  sessionId?: string,
+  options?: { lane?: "video" | "default" },
+) {
   const form = new FormData();
   form.append("file", file);
   if (sessionId) form.append("sessionId", sessionId);
+  if (options?.lane === "video") form.append("lane", "video");
   const res = await request<{
     data: { id: string; url: string; thumbUrl?: string; mimeType: string };
   }>("/api/v1/assets/upload", {
