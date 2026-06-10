@@ -19,7 +19,7 @@ import {
   GenerationSettingsPopover,
   type AspectRatio,
 } from "@/components/generation-settings-popover";
-import type { AgentSkillPublic, ImageModel } from "@/lib/types";
+import type { AgentSkillPublic, ImageModel, VideoModelRouteMeta } from "@/lib/types";
 import {
   CREATION_LANE_LABELS,
   OUTPUT_PREF_AUTO_LABEL,
@@ -537,6 +537,7 @@ interface VideoDockSettingsProps {
   durationSec: VideoDurationSec;
   onDurationSecChange: (sec: VideoDurationSec) => void;
   videoAutoLabel?: string;
+  videoRoutes?: VideoModelRouteMeta[];
   disabled?: boolean;
 }
 
@@ -553,6 +554,7 @@ export function VideoDockSettings({
   durationSec,
   onDurationSecChange,
   videoAutoLabel,
+  videoRoutes,
   disabled = false,
 }: VideoDockSettingsProps) {
   const videoModels = models.filter((m) => m.type === "video");
@@ -565,6 +567,7 @@ export function VideoDockSettings({
           value={modelId}
           onChange={onModelChange}
           autoLabel={videoAutoLabel}
+          videoRoutes={videoRoutes}
         />
       </div>
       <VideoReferencePicker
@@ -619,6 +622,7 @@ export interface CreationDockToolbarProps {
   videoDurationSec: VideoDurationSec;
   onVideoDurationSecChange: (sec: VideoDurationSec) => void;
   videoAutoLabel?: string;
+  videoRoutes?: VideoModelRouteMeta[];
 }
 
 export function CreationDockToolbar({
@@ -648,6 +652,7 @@ export function CreationDockToolbar({
   videoDurationSec,
   onVideoDurationSecChange,
   videoAutoLabel,
+  videoRoutes,
 }: CreationDockToolbarProps) {
   return (
     <>
@@ -708,6 +713,7 @@ export function CreationDockToolbar({
           durationSec={videoDurationSec}
           onDurationSecChange={onVideoDurationSecChange}
           videoAutoLabel={videoAutoLabel}
+          videoRoutes={videoRoutes}
           disabled={disabled}
         />
       ) : null}

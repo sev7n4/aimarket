@@ -35,9 +35,10 @@ import { assertPromptAllowed } from "../lib/content-moderation.js";
 import { rateLimit } from "../lib/rate-limit.js";
 import { toolContextSchema } from "../lib/tools.js";
 import {
+  getVideoModelRoutes,
   getVideoProviderStatus,
   resolveDefaultVideoModelId,
-  resolveVideoProvider,
+  resolveVideoModelRoute,
 } from "../providers/video/registry.js";
 import { resolveJobLineage } from "../lib/job-lineage.js";
 
@@ -45,14 +46,18 @@ const ai = new Hono<{ Variables: AuthVariables }>();
 
 ai.get("/queryModels", (c) => {
   const autoModelId = resolveDefaultVideoModelId();
+  const autoRoute = resolveVideoModelRoute(autoModelId);
   return c.json({
     data: ALL_MODELS,
     meta: {
       videoAuto: {
         modelId: autoModelId,
-        provider: resolveVideoProvider(autoModelId).name,
+        provider: autoRoute.provider,
         modelName: getModel(autoModelId)?.name ?? autoModelId,
+        routingHint: autoRoute.routingHint,
+        upstreamLabel: autoRoute.upstreamLabel,
       },
+      videoRoutes: getVideoModelRoutes(),
     },
   });
 });
@@ -347,6 +352,15 @@ ai.post("/generate/video", async (c) => {
       referenceOutputIds: z.array(z.string().uuid()).optional(),
     })
     .parse(await c.req.json());
+
+  const videoRoute = resolveVideoModelRoute(body.modelId);
+  if (!videoRoute.available) {
+    throw new AppError(
+      503,
+      "VIDEO_MODEL_UNAVAILABLE",
+      videoRoute.unavailableReason ?? "该视频模型当前不可用",
+    );
+  }
 
   if (body.assetIds?.length) {
     for (const assetId of body.assetIds) {

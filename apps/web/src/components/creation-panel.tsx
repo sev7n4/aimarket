@@ -25,6 +25,8 @@ import {
   getToken,
   fetchModels,
   getVideoAutoModelMeta,
+  getVideoModelRoute,
+  getVideoModelRoutesMeta,
   fetchReferences,
   fetchProviderStatus,
   submitEcommerceGenerate,
@@ -44,7 +46,7 @@ import {
   videoAutoPickerLabel,
   type VideoAutoMeta,
 } from "@/lib/video-auto-model";
-import type { ImageModel } from "@/lib/types";
+import type { ImageModel, VideoModelRouteMeta } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 import {
   MentionPicker,
@@ -364,6 +366,7 @@ export function CreationPanel({
   const [videoAutoMeta, setVideoAutoMeta] = useState<VideoAutoMeta | null>(
     null,
   );
+  const [videoRoutes, setVideoRoutes] = useState<VideoModelRouteMeta[]>([]);
   const [estimated, setEstimated] = useState<number | null>(null);
   const [routeHint, setRouteHint] = useState<string | null>(null);
   const [inspirationVars, setInspirationVars] = useState<
@@ -836,10 +839,12 @@ export function CreationPanel({
       .then((m) => {
         setModels(m);
         setVideoAutoMeta(getVideoAutoModelMeta());
+        setVideoRoutes(getVideoModelRoutesMeta());
       })
       .catch(() => {
         setModels([]);
         setVideoAutoMeta(null);
+        setVideoRoutes([]);
       });
   }, [user]);
 
@@ -1467,6 +1472,13 @@ export function CreationPanel({
           models,
           videoAutoMeta,
         );
+        const route =
+          getVideoModelRoute(videoModelId) ??
+          videoRoutes.find((r) => r.modelId === videoModelId);
+        if (route && !route.available) {
+          alert(route.unavailableReason ?? "该视频模型当前不可用");
+          return;
+        }
         const videoRefs = buildReferenceSources();
         const videoAssetIds = Array.from(
           new Set([...videoRefs.assetIds, ...videoRefs.mentionedAssetIds]),
@@ -2197,6 +2209,7 @@ export function CreationPanel({
                 models,
                 videoAutoMeta,
               )}
+              videoRoutes={videoRoutes}
             />
           ) : effectiveMode !== "ecommerce" ? (
             <>
@@ -2204,6 +2217,7 @@ export function CreationPanel({
                 models={models}
                 value={modelId}
                 onChange={setModelId}
+                videoRoutes={isVideoModel ? videoRoutes : undefined}
               />
               <CountPicker value={count} onChange={setCount} max={4} />
               <GenerationSettingsPopover
