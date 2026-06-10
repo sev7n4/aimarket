@@ -94,6 +94,19 @@ export interface ImageModel {
 }
 
 /** queryModels.meta.videoRoutes 单项 */
+export type VideoReferenceCapability =
+  | "full"
+  | "image-only"
+  | "first-only"
+  | "degraded"
+  | "none";
+
+export interface VideoModelCapabilities {
+  omni: VideoReferenceCapability;
+  firstLast: VideoReferenceCapability;
+  smartMultiFrame: VideoReferenceCapability;
+}
+
 export interface VideoModelRouteMeta {
   modelId: string;
   modelName: string;
@@ -102,6 +115,7 @@ export interface VideoModelRouteMeta {
   upstreamLabel: string;
   routingHint?: string;
   unavailableReason?: string;
+  capabilities?: VideoModelCapabilities;
 }
 
 export interface GenerationJob {

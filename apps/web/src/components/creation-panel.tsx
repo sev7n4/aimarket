@@ -113,9 +113,14 @@ import {
   type CreationDockScope,
   type CreationLane,
   type OutputPreferenceMode,
+  type SmartMultiShot,
   type VideoDurationSec,
+  type VideoMediaRef,
   type VideoReferenceMode,
+  type VideoResolution,
 } from "@/lib/creation-dock-prefs";
+import { VideoReferenceSlots } from "@/components/video-reference-slots";
+import { applyModeVideoSettings } from "@/components/video-output-settings";
 import { useCreationLaneDrafts } from "@/hooks/use-creation-lane-drafts";
 import {
   canAutoBindCanvasItem,
@@ -436,6 +441,7 @@ export function CreationPanel({
     setOutputPrefMode,
     setVideoReferenceMode,
     setVideoDurationSec,
+    setVideoResolution,
     patchSettings,
   } = useCreationLaneDrafts(creationDockScope, {
     agentLaneAvailable,
@@ -448,7 +454,14 @@ export function CreationPanel({
     outputPrefMode,
     videoReferenceMode,
     videoDurationSec,
+    videoResolution,
   } = laneSettings;
+  const [videoReferences, setVideoReferences] = useState<VideoMediaRef[]>([]);
+  const [smartMultiShots, setSmartMultiShots] = useState<SmartMultiShot[]>([
+    { order: 0, motionPrompt: "" },
+    { order: 1, motionPrompt: "" },
+  ]);
+  const [firstLastMotionPrompt, setFirstLastMotionPrompt] = useState("");
   const selectedModel =
     modelId === AUTO_MODEL_ID ? undefined : models.find((m) => m.id === modelId);
   const isVideoModel = selectedModel?.type === "video";
@@ -510,6 +523,56 @@ export function CreationPanel({
       ),
     [studioOrchestrationActive, studioOrch, skillPackages],
   );
+
+  function handleVideoReferenceModeChange(mode: VideoReferenceMode) {
+    const coerced = applyModeVideoSettings(
+      mode,
+      {
+        aspectRatio,
+        videoResolution,
+        videoDurationSec,
+      },
+      smartMultiShots.length,
+    );
+    setVideoReferenceMode(mode);
+    setAspectRatio(coerced.aspectRatio as AspectRatio);
+    setVideoResolution(coerced.videoResolution);
+    setVideoDurationSec(coerced.videoDurationSec);
+  }
+
+  async function uploadVideoReference(
+    file: File,
+    _role?: VideoMediaRef["role"],
+  ) {
+    if (!sessionId) throw new Error("会话未就绪");
+    if (!requireAuth("登录后即可上传参考素材")) {
+      throw new Error("需要登录");
+    }
+    await ensureSession(sessionId, mode);
+    const data = await uploadAsset(file, sessionId, { lane: "video" });
+    return { assetId: data.id, url: data.url, mimeType: data.mimeType };
+  }
+
+  function videoSubmitAspectRatio(): string {
+    if (aspectRatio === "auto") return "16:9";
+    return aspectRatio;
+  }
+
+  function capabilityDegradationMessage(modelId: string): string | undefined {
+    const route = getVideoModelRoute(modelId) ?? videoRoutes.find((r) => r.modelId === modelId);
+    if (!route?.capabilities) return undefined;
+    const c = route.capabilities;
+    if (videoReferenceMode === "omni" && c.omni === "image-only") {
+      return "当前模型在全能参考模式下将降级为仅使用首张图片";
+    }
+    if (videoReferenceMode === "first-last" && c.firstLast === "first-only") {
+      return "当前模型在首尾帧模式下将降级为仅首帧";
+    }
+    if (videoReferenceMode === "smart-multi-frame" && c.smartMultiFrame === "degraded") {
+      return "当前模型在智能多帧模式下将合并 prompt 与首图";
+    }
+    return undefined;
+  }
 
   function buildReferenceSources() {
     return mergeReferenceSources(
@@ -1479,18 +1542,52 @@ export function CreationPanel({
           alert(route.unavailableReason ?? "该视频模型当前不可用");
           return;
         }
+        const degradeHint = capabilityDegradationMessage(videoModelId);
+        if (degradeHint && !window.confirm(`${degradeHint}，是否继续？`)) {
+          return;
+        }
         const videoRefs = buildReferenceSources();
         const videoAssetIds = Array.from(
           new Set([...videoRefs.assetIds, ...videoRefs.mentionedAssetIds]),
         );
+        const structuredRefs =
+          videoReferenceMode === "omni" || videoReferenceMode === "first-last"
+            ? videoReferences.map(({ assetId, mediaType, role }) => ({
+                assetId,
+                mediaType,
+                role,
+              }))
+            : undefined;
+        const shotsPayload =
+          videoReferenceMode === "smart-multi-frame"
+            ? smartMultiShots
+                .filter((s) => s.motionPrompt.trim())
+                .map((s, i) => ({
+                  order: i,
+                  assetId: s.assetId,
+                  motionPrompt: s.motionPrompt.trim(),
+                }))
+            : undefined;
+        const mergedPrompt =
+          videoReferenceMode === "first-last" && firstLastMotionPrompt.trim()
+            ? `${prompt.trim()}\n\n运动描述：${firstLastMotionPrompt.trim()}`
+            : prompt.trim();
         const res = await submitVideoGeneration({
           sessionId,
-          prompt: prompt.trim(),
+          prompt: mergedPrompt,
           modelId: videoModelId,
           count,
+          resolution,
+          aspectRatio: videoSubmitAspectRatio(),
+          videoResolution,
           referenceMode: videoReferenceMode,
           durationSec: videoDurationSec,
-          assetIds: videoAssetIds.length ? videoAssetIds : undefined,
+          videoReferences: structuredRefs?.length ? structuredRefs : undefined,
+          smartMultiShots: shotsPayload?.length ? shotsPayload : undefined,
+          assetIds:
+            videoReferenceMode === "omni" && videoAssetIds.length
+              ? videoAssetIds
+              : undefined,
           referenceOutputIds: normalizeReferenceOutputIds(
             videoRefs.selectedRefIds,
           ),
@@ -1795,6 +1892,19 @@ export function CreationPanel({
                   setUploadPreviews((prev) => prev.filter((p) => p.id !== id));
                   setAssetIds((prev) => prev.filter((a) => a !== id));
                 }}
+              />
+            ) : null}
+            {isDock && creationLane === "video" && !dockCompactLine ? (
+              <VideoReferenceSlots
+                mode={videoReferenceMode}
+                videoReferences={videoReferences}
+                onVideoReferencesChange={setVideoReferences}
+                smartMultiShots={smartMultiShots}
+                onSmartMultiShotsChange={setSmartMultiShots}
+                motionPrompt={firstLastMotionPrompt}
+                onMotionPromptChange={setFirstLastMotionPrompt}
+                onUpload={uploadVideoReference}
+                disabled={readOnly || pending || streamBusy}
               />
             ) : null}
             <div
@@ -2201,9 +2311,12 @@ export function CreationPanel({
               onResolutionChange={setResolution}
               onAspectRatioChange={setAspectRatio}
               videoReferenceMode={videoReferenceMode}
-              onVideoReferenceModeChange={setVideoReferenceMode}
+              onVideoReferenceModeChange={handleVideoReferenceModeChange}
               videoDurationSec={videoDurationSec}
               onVideoDurationSecChange={setVideoDurationSec}
+              videoResolution={videoResolution}
+              onVideoResolutionChange={setVideoResolution}
+              smartMultiShotCount={smartMultiShots.length}
               videoAutoLabel={videoAutoPickerLabel(
                 modelId,
                 models,

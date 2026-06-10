@@ -22,7 +22,7 @@ export function resolveDefaultVideoModelId(): string {
   if (mode === "mock") return "seedance-2";
 
   const routes = getVideoModelRoutes();
-  const preferred = ["agnes-video", "seedance-2", "wan-2.6"] as const;
+  const preferred = ["wan-2.6", "agnes-video", "seedance-2"] as const;
   for (const id of preferred) {
     const route = routes.find((r) => r.modelId === id);
     if (route?.available) return id;
@@ -37,6 +37,7 @@ export function getVideoProviderStatus() {
   return {
     mode: process.env.VIDEO_PROVIDER ?? "auto",
     httpConfigured: Boolean(process.env.VIDEO_API_URL?.trim()),
+    dashscopeConfigured: Boolean(process.env.DASHSCOPE_API_KEY?.trim()),
     agnesConfigured: Boolean(process.env.AGNES_API_KEY?.trim()),
     agnesVideoModel: process.env.AGNES_VIDEO_MODEL ?? "agnes-video-v2.0",
     activeProvider: defaultRoute.provider,

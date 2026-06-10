@@ -41,11 +41,12 @@ withEnv(
   {
     VIDEO_PROVIDER: "auto",
     AGNES_API_KEY: "sk-test",
+    DASHSCOPE_API_KEY: undefined,
     VIDEO_API_URL: undefined,
   },
   () => {
     const wan = resolveVideoModelRoute("wan-2.6");
-    ok("wan-2.6 无 HTTP 时 unavailable", !wan.available, wan.provider);
+    ok("wan-2.6 无 DashScope/HTTP 时 unavailable", !wan.available, wan.provider);
     ok(
       "wan-2.6 不走 mock",
       resolveVideoProvider("wan-2.6").name === "unavailable",
@@ -60,14 +61,38 @@ withEnv(
 
     const agnes = resolveVideoModelRoute("agnes-video");
     ok("agnes-video 可用", agnes.available && agnes.provider === "agnes-video");
+    ok("agnes capabilities omni=image-only", agnes.capabilities.omni === "image-only");
   },
 );
 
-// 2) HTTP 网关优先于 Agnes 别名
+// 2) DASHSCOPE 时 wan 走 aliyun-wan-video
 withEnv(
   {
     VIDEO_PROVIDER: "auto",
     AGNES_API_KEY: "sk-test",
+    DASHSCOPE_API_KEY: "sk-dash",
+    VIDEO_API_URL: undefined,
+  },
+  () => {
+    const wan = resolveVideoModelRoute("wan-2.6");
+    ok(
+      "wan-2.6 + DASHSCOPE 可用",
+      wan.provider === "aliyun-wan-video" && wan.available,
+      wan.upstreamLabel,
+    );
+    ok(
+      "wan capabilities full",
+      wan.capabilities.omni === "full" && wan.capabilities.smartMultiFrame === "full",
+    );
+  },
+);
+
+// 3) HTTP 网关优先于万相/Agnes
+withEnv(
+  {
+    VIDEO_PROVIDER: "auto",
+    AGNES_API_KEY: "sk-test",
+    DASHSCOPE_API_KEY: "sk-dash",
     VIDEO_API_URL: "https://video-gw.example.com",
   },
   () => {
@@ -81,7 +106,7 @@ withEnv(
   },
 );
 
-// 3) mock 模式
+// 4) mock 模式
 withEnv({ VIDEO_PROVIDER: "mock", AGNES_API_KEY: undefined }, () => {
   for (const id of ["agnes-video", "seedance-2", "wan-2.6"] as const) {
     const r = resolveVideoModelRoute(id);
@@ -89,7 +114,7 @@ withEnv({ VIDEO_PROVIDER: "mock", AGNES_API_KEY: undefined }, () => {
   }
 });
 
-// 4) meta 列表覆盖三模型
+// 5) meta 列表覆盖三模型
 withEnv({ VIDEO_PROVIDER: "auto", AGNES_API_KEY: "sk-test" }, () => {
   const routes = getVideoModelRoutes();
   ok("getVideoModelRoutes 含 3 项", routes.length === 3);

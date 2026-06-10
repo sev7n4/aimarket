@@ -93,5 +93,8 @@ export function useCreationLaneDrafts(
     setVideoDurationSec: (
       videoDurationSec: LaneSettingsDraft["videoDurationSec"],
     ) => patchSettings({ videoDurationSec }),
+    setVideoResolution: (
+      videoResolution: LaneSettingsDraft["videoResolution"],
+    ) => patchSettings({ videoResolution }),
   };
 }

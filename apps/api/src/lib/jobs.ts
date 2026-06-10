@@ -4,6 +4,7 @@ import { ECOMMERCE_SLIDES } from "./ecommerce.js";
 import { estimatePoints, estimateToolPoints } from "./pricing.js";
 import { getModel } from "./models.js";
 import { getTool, type ToolContext } from "./tools.js";
+import type { SmartMultiShot, VideoMediaRef } from "./video-references.js";
 import { AppError } from "./errors.js";
 import { assertSessionWrite, assertSessionRead } from "./session-access.js";
 import { recordAnalyticsEvent } from "./analytics.js";
@@ -256,8 +257,15 @@ export async function processGenerationJob({
   let autoRoute = false;
   let routingMode: GenerationRoutingMode | undefined;
   let qualityTier: GenerationQualityTier | undefined;
-  let videoReferenceMode: "omni" | "first-frame" | "first-last" | undefined;
+  let videoReferenceMode:
+    | "omni"
+    | "first-last"
+    | "smart-multi-frame"
+    | undefined;
   let videoDurationSec: number | undefined;
+  let videoResolution: "720P" | "1080P" | undefined;
+  let videoReferences: Array<VideoMediaRef & { url?: string }> | undefined;
+  let smartMultiShots: Array<SmartMultiShot & { url?: string }> | undefined;
   if (job.tool_context) {
     try {
       const parsed = JSON.parse(job.tool_context) as ToolContext & {
@@ -265,16 +273,29 @@ export async function processGenerationJob({
         autoRoute?: boolean;
         routingMode?: GenerationRoutingMode;
         qualityTier?: GenerationQualityTier;
-        videoReferenceMode?: "omni" | "first-frame" | "first-last";
+        videoReferenceMode?:
+          | "omni"
+          | "first-frame"
+          | "first-last"
+          | "smart-multi-frame";
         durationSec?: number;
+        videoResolution?: "720P" | "1080P";
+        videoReferences?: typeof videoReferences;
+        smartMultiShots?: typeof smartMultiShots;
       };
       toolContext = parsed;
       referenceUrls = parsed.referenceUrls;
       autoRoute = parsed.autoRoute === true;
       routingMode = parsed.routingMode;
       qualityTier = parsed.qualityTier;
-      videoReferenceMode = parsed.videoReferenceMode;
+      videoReferenceMode =
+        parsed.videoReferenceMode === "first-frame"
+          ? "first-last"
+          : parsed.videoReferenceMode;
       videoDurationSec = parsed.durationSec;
+      videoResolution = parsed.videoResolution;
+      videoReferences = parsed.videoReferences;
+      smartMultiShots = parsed.smartMultiShots;
     } catch {
       toolContext = undefined;
     }
@@ -311,7 +332,11 @@ export async function processGenerationJob({
         modelId: job.model_id,
         count: job.count,
         resolution: job.resolution,
+        aspectRatio: job.aspect_ratio ?? undefined,
+        videoResolution,
         referenceUrls,
+        videoReferences,
+        smartMultiShots,
         referenceMode: videoReferenceMode,
         durationSec: videoDurationSec,
       });

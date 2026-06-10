@@ -19,16 +19,38 @@ export const CREATION_LANE_LABELS: Record<CreationLane, string> = {
   video: "视频生成",
 };
 
-/** 视频参考方式（即梦「全能参考」等，已接 /ai/generate/video） */
-export type VideoReferenceMode = "omni" | "first-frame" | "first-last";
+/** 视频参考方式（即梦：全能参考 / 首尾帧 / 智能多帧） */
+export type VideoReferenceMode =
+  | "omni"
+  | "first-last"
+  | "smart-multi-frame";
 
 export const VIDEO_REFERENCE_LABELS: Record<VideoReferenceMode, string> = {
   omni: "全能参考",
-  "first-frame": "首帧",
   "first-last": "首尾帧",
+  "smart-multi-frame": "智能多帧",
 };
 
-export type VideoDurationSec = 5 | 10;
+export type VideoDurationSec = 4 | 5 | 10;
+export type VideoResolution = "720P" | "1080P";
+
+export type VideoMediaType = "image" | "audio" | "video";
+export type VideoMediaRole = "reference" | "first_frame" | "last_frame";
+
+export type VideoMediaRef = {
+  assetId: string;
+  mediaType: VideoMediaType;
+  role?: VideoMediaRole;
+  previewUrl?: string;
+  label?: string;
+};
+
+export type SmartMultiShot = {
+  order: number;
+  assetId?: string;
+  motionPrompt: string;
+  previewUrl?: string;
+};
 
 export const OUTPUT_PREF_AUTO_LABEL = "自动";
 
@@ -36,7 +58,7 @@ export const OUTPUT_PREF_AUTO_LABEL = "自动";
 export const CREATION_LANE_PLACEHOLDERS: Record<CreationLane, string> = {
   image: "描述画面；上传、@ 引用或点选画布图片作参考",
   agent: "告诉 Agent 目标，会自动选模型与步骤（不支持参考图）",
-  video: "描述镜头与氛围；点选画布图片可作首帧或全能参考",
+  video: "描述镜头与氛围；全能参考支持 @图/音/视，首尾帧与智能多帧见下方槽位",
 };
 
 /** @deprecated 迁移至 {@link HOME_LANE_KEY} / {@link STUDIO_LANE_KEY} */

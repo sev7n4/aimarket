@@ -9,24 +9,21 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { db } from "../db/index.js";
 import { AppError } from "./errors.js";
 import { getObjectStorage } from "./object-storage/index.js";
-import { saveUpload } from "./storage.js";
+import { isAllowedUploadMime, saveUpload } from "./storage.js";
 import { getApiPublicBase } from "./public-url.js";
 import { ensureThumbnail } from "./thumbnails.js";
 
 const MAX_BYTES = 10 * 1024 * 1024;
+const VIDEO_LANE_MAX_BYTES = 50 * 1024 * 1024;
 const PRESIGN_TTL_SEC = 900;
-
-const ALLOWED_MIME = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-]);
 
 export type UploadIntentInput = {
   fileName: string;
   mimeType: string;
   sizeBytes: number;
   sessionId?: string;
+  /** 视频创作台：允许 audio/video MIME */
+  lane?: "video" | "default";
 };
 
 export type UploadIntentResult = {
@@ -103,12 +100,28 @@ function getOwnedAsset(userId: string, assetId: string) {
   return row;
 }
 
-function validateUploadMeta(mimeType: string, sizeBytes: number) {
-  if (!ALLOWED_MIME.has(mimeType)) {
-    throw new AppError(400, "UNSUPPORTED_MIME", "仅支持 JPG/PNG/WebP");
+function validateUploadMeta(
+  mimeType: string,
+  sizeBytes: number,
+  lane: "video" | "default" = "default",
+) {
+  if (!isAllowedUploadMime(mimeType, lane)) {
+    const hint =
+      lane === "video"
+        ? "视频车道支持 JPG/PNG/WebP、常见音频与 MP4/WebM 视频"
+        : "仅支持 JPG/PNG/WebP";
+    throw new AppError(400, "UNSUPPORTED_MIME", hint);
   }
-  if (sizeBytes > MAX_BYTES) {
-    throw new AppError(400, "FILE_TOO_LARGE", "文件不能超过 10MB");
+  const max =
+    mimeType.startsWith("video/") && lane === "video"
+      ? VIDEO_LANE_MAX_BYTES
+      : MAX_BYTES;
+  if (sizeBytes > max) {
+    throw new AppError(
+      400,
+      "FILE_TOO_LARGE",
+      mimeType.startsWith("video/") ? "视频不能超过 50MB" : "文件不能超过 10MB",
+    );
   }
 }
 
@@ -116,7 +129,7 @@ export async function createUploadIntent(
   userId: string,
   input: UploadIntentInput,
 ): Promise<UploadIntentResult> {
-  validateUploadMeta(input.mimeType, input.sizeBytes);
+  validateUploadMeta(input.mimeType, input.sizeBytes, input.lane ?? "default");
 
   const assetId = randomUUID();
   const expireAt = new Date(Date.now() + PRESIGN_TTL_SEC * 1000).toISOString();

@@ -28,7 +28,12 @@ import {
   type OutputPreferenceMode,
   type VideoDurationSec,
   type VideoReferenceMode,
+  type VideoResolution,
 } from "@/lib/creation-dock-prefs";
+import {
+  VideoOutputSettings,
+  applyModeVideoSettings,
+} from "@/components/video-output-settings";
 
 const DOCK_PILL =
   "inline-flex max-w-[11rem] shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-zinc-300 transition hover:border-white/15 hover:bg-white/[0.07] hover:text-zinc-100";
@@ -528,14 +533,15 @@ interface VideoDockSettingsProps {
   models: ImageModel[];
   modelId: string;
   onModelChange: (id: string) => void;
-  resolution: string;
   aspectRatio: AspectRatio;
-  onResolutionChange: (v: string) => void;
   onAspectRatioChange: (v: AspectRatio) => void;
   referenceMode: VideoReferenceMode;
   onReferenceModeChange: (mode: VideoReferenceMode) => void;
   durationSec: VideoDurationSec;
   onDurationSecChange: (sec: VideoDurationSec) => void;
+  videoResolution: VideoResolution;
+  onVideoResolutionChange: (v: VideoResolution) => void;
+  smartMultiShotCount?: number;
   videoAutoLabel?: string;
   videoRoutes?: VideoModelRouteMeta[];
   disabled?: boolean;
@@ -545,19 +551,32 @@ export function VideoDockSettings({
   models,
   modelId,
   onModelChange,
-  resolution,
   aspectRatio,
-  onResolutionChange,
   onAspectRatioChange,
   referenceMode,
   onReferenceModeChange,
   durationSec,
   onDurationSecChange,
+  videoResolution,
+  onVideoResolutionChange,
+  smartMultiShotCount = 2,
   videoAutoLabel,
   videoRoutes,
   disabled = false,
 }: VideoDockSettingsProps) {
   const videoModels = models.filter((m) => m.type === "video");
+
+  function handleReferenceModeChange(mode: VideoReferenceMode) {
+    const coerced = applyModeVideoSettings(mode, {
+      aspectRatio,
+      videoResolution,
+      videoDurationSec: durationSec,
+    }, smartMultiShotCount);
+    onReferenceModeChange(mode);
+    onAspectRatioChange(coerced.aspectRatio as AspectRatio);
+    onVideoResolutionChange(coerced.videoResolution);
+    onDurationSecChange(coerced.videoDurationSec);
+  }
 
   return (
     <>
@@ -568,28 +587,27 @@ export function VideoDockSettings({
           onChange={onModelChange}
           autoLabel={videoAutoLabel}
           videoRoutes={videoRoutes}
+          referenceMode={referenceMode}
         />
       </div>
       <VideoReferencePicker
         value={referenceMode}
-        onChange={onReferenceModeChange}
+        onChange={handleReferenceModeChange}
         disabled={disabled}
       />
       <div className={disabled ? "pointer-events-none opacity-50" : undefined}>
-        <GenerationSettingsPopover
-          mode="chat"
-          resolution={resolution}
+        <VideoOutputSettings
+          referenceMode={referenceMode}
           aspectRatio={aspectRatio}
-          onResolutionChange={onResolutionChange}
-          onAspectRatioChange={onAspectRatioChange}
-          videoMode
+          videoResolution={videoResolution}
+          durationSec={durationSec}
+          onAspectRatioChange={(v) => onAspectRatioChange(v as AspectRatio)}
+          onVideoResolutionChange={onVideoResolutionChange}
+          onDurationSecChange={onDurationSecChange}
+          shotCount={smartMultiShotCount}
+          disabled={disabled}
         />
       </div>
-      <VideoDurationPicker
-        value={durationSec}
-        onChange={onDurationSecChange}
-        disabled={disabled}
-      />
     </>
   );
 }
@@ -621,6 +639,9 @@ export interface CreationDockToolbarProps {
   onVideoReferenceModeChange: (mode: VideoReferenceMode) => void;
   videoDurationSec: VideoDurationSec;
   onVideoDurationSecChange: (sec: VideoDurationSec) => void;
+  videoResolution: VideoResolution;
+  onVideoResolutionChange: (v: VideoResolution) => void;
+  smartMultiShotCount?: number;
   videoAutoLabel?: string;
   videoRoutes?: VideoModelRouteMeta[];
 }
@@ -651,6 +672,9 @@ export function CreationDockToolbar({
   onVideoReferenceModeChange,
   videoDurationSec,
   onVideoDurationSecChange,
+  videoResolution,
+  onVideoResolutionChange,
+  smartMultiShotCount,
   videoAutoLabel,
   videoRoutes,
 }: CreationDockToolbarProps) {
@@ -704,14 +728,15 @@ export function CreationDockToolbar({
           models={models}
           modelId={modelId}
           onModelChange={onModelChange}
-          resolution={resolution}
           aspectRatio={aspectRatio}
-          onResolutionChange={onResolutionChange}
           onAspectRatioChange={onAspectRatioChange}
           referenceMode={videoReferenceMode}
           onReferenceModeChange={onVideoReferenceModeChange}
           durationSec={videoDurationSec}
           onDurationSecChange={onVideoDurationSecChange}
+          videoResolution={videoResolution}
+          onVideoResolutionChange={onVideoResolutionChange}
+          smartMultiShotCount={smartMultiShotCount}
           videoAutoLabel={videoAutoLabel}
           videoRoutes={videoRoutes}
           disabled={disabled}
