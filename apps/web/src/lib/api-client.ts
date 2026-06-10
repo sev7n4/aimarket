@@ -19,6 +19,7 @@ import type {
   SessionReference,
   SignStatus,
   StudioTool,
+  VideoModelRouteMeta,
 } from "./types";
 
 const API_BASE = resolveApiBase();
@@ -414,10 +415,14 @@ export async function fetchModels() {
         modelId: string;
         provider: string;
         modelName?: string;
+        routingHint?: string;
+        upstreamLabel?: string;
       };
+      videoRoutes?: VideoModelRouteMeta[];
     };
   }>("/api/v1/ai/queryModels");
   videoAutoMeta = res.meta?.videoAuto ?? null;
+  videoRoutesMeta = res.meta?.videoRoutes ?? [];
   return res.data;
 }
 
@@ -425,11 +430,24 @@ let videoAutoMeta: {
   modelId: string;
   provider: string;
   modelName?: string;
+  routingHint?: string;
+  upstreamLabel?: string;
 } | null = null;
+
+let videoRoutesMeta: VideoModelRouteMeta[] = [];
 
 /** 视频车道 Auto 实际使用的 modelId（来自 queryModels meta） */
 export function getVideoAutoModelMeta() {
   return videoAutoMeta;
+}
+
+/** 各视频模型路由与可用性（来自 queryModels meta） */
+export function getVideoModelRoutesMeta(): VideoModelRouteMeta[] {
+  return videoRoutesMeta;
+}
+
+export function getVideoModelRoute(modelId: string): VideoModelRouteMeta | undefined {
+  return videoRoutesMeta.find((r) => r.modelId === modelId);
 }
 
 export async function estimatePoints(

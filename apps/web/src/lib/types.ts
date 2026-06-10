@@ -93,6 +93,17 @@ export interface ImageModel {
   pointsFactor: number;
 }
 
+/** queryModels.meta.videoRoutes 单项 */
+export interface VideoModelRouteMeta {
+  modelId: string;
+  modelName: string;
+  provider: string;
+  available: boolean;
+  upstreamLabel: string;
+  routingHint?: string;
+  unavailableReason?: string;
+}
+
 export interface GenerationJob {
   id: string;
   status: "queued" | "running" | "succeeded" | "failed";

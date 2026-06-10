@@ -1,41 +1,13 @@
-import {
-  agnesVideoConfigured,
-  agnesVideoProvider,
-  AGNES_VIDEO_MODEL_ID,
-} from "./agnes.js";
-import { mockVideoProvider } from "./mock.js";
-import { httpVideoProvider } from "./http.js";
+import { AGNES_VIDEO_MODEL_ID } from "./agnes.js";
 import type { VideoGenerateParams, VideoGenerateResult } from "./types.js";
+import {
+  getVideoModelRoutes,
+  resolveVideoModelRoute,
+  resolveVideoProvider,
+} from "./routing.js";
 
-const providers = [agnesVideoProvider, httpVideoProvider, mockVideoProvider];
-
-export function resolveVideoProvider(modelId: string) {
-  const mode = process.env.VIDEO_PROVIDER ?? "auto";
-  if (mode === "mock") return mockVideoProvider;
-  if (mode === "http") return httpVideoProvider;
-  if (mode === "agnes") {
-    return agnesVideoConfigured() ? agnesVideoProvider : mockVideoProvider;
-  }
-
-  if (agnesVideoConfigured() && agnesVideoProvider.supports(modelId)) {
-    return agnesVideoProvider;
-  }
-  if (process.env.VIDEO_API_URL && httpVideoProvider.supports(modelId)) {
-    return httpVideoProvider;
-  }
-  return mockVideoProvider;
-}
-
-/** 创作台 Auto 视频应解析到的 modelId（与 resolveVideoProvider 一致） */
-export function resolveDefaultVideoModelId(): string {
-  const mode = process.env.VIDEO_PROVIDER ?? "auto";
-  if (mode === "mock") return "seedance-2";
-  if (mode === "agnes" && agnesVideoConfigured()) return AGNES_VIDEO_MODEL_ID;
-  if (mode === "http" && process.env.VIDEO_API_URL) return "seedance-2";
-  if (agnesVideoConfigured()) return AGNES_VIDEO_MODEL_ID;
-  if (process.env.VIDEO_API_URL) return "seedance-2";
-  return "seedance-2";
-}
+export { resolveVideoProvider, resolveVideoModelRoute, getVideoModelRoutes };
+export type { VideoModelRouteMeta } from "./routing.js";
 
 export async function generateVideos(
   params: VideoGenerateParams,
@@ -44,12 +16,31 @@ export async function generateVideos(
   return provider.generate(params);
 }
 
+/** 创作台 Auto 视频应解析到的 modelId（与 resolveVideoProvider 一致） */
+export function resolveDefaultVideoModelId(): string {
+  const mode = process.env.VIDEO_PROVIDER ?? "auto";
+  if (mode === "mock") return "seedance-2";
+
+  const routes = getVideoModelRoutes();
+  const preferred = ["agnes-video", "seedance-2", "wan-2.6"] as const;
+  for (const id of preferred) {
+    const route = routes.find((r) => r.modelId === id);
+    if (route?.available) return id;
+  }
+  return AGNES_VIDEO_MODEL_ID;
+}
+
 export function getVideoProviderStatus() {
+  const routes = getVideoModelRoutes();
+  const defaultId = resolveDefaultVideoModelId();
+  const defaultRoute = resolveVideoModelRoute(defaultId);
   return {
     mode: process.env.VIDEO_PROVIDER ?? "auto",
-    httpConfigured: Boolean(process.env.VIDEO_API_URL),
-    agnesConfigured: agnesVideoConfigured(),
+    httpConfigured: Boolean(process.env.VIDEO_API_URL?.trim()),
+    agnesConfigured: Boolean(process.env.AGNES_API_KEY?.trim()),
     agnesVideoModel: process.env.AGNES_VIDEO_MODEL ?? "agnes-video-v2.0",
-    activeProvider: resolveVideoProvider("agnes-video").name,
+    activeProvider: defaultRoute.provider,
+    defaultModelId: defaultId,
+    modelRoutes: routes,
   };
 }

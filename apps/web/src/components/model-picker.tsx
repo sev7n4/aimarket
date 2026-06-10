@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, Sparkles } from "lucide-react";
-import type { ImageModel } from "@/lib/types";
+import type { ImageModel, VideoModelRouteMeta } from "@/lib/types";
 import { CompactDockSheet } from "@/components/compact-dock-sheet";
 import { isInternalRoutingModelId } from "@/lib/format-generation-display";
 
@@ -14,6 +14,8 @@ interface ModelPickerProps {
   onChange: (id: string) => void;
   /** 选中 Auto 时在按钮上显示的补充说明，如「Auto · Agnes Video」 */
   autoLabel?: string;
+  /** 视频模型路由（可用性 / 代理说明） */
+  videoRoutes?: VideoModelRouteMeta[];
 }
 
 function modelOptionClass(selected: boolean) {
@@ -28,17 +30,24 @@ function sectionLabelClass() {
   return "mb-1 mt-2 text-[9px] font-medium uppercase tracking-wide text-zinc-600";
 }
 
-export function ModelPicker({ models, value, onChange, autoLabel }: ModelPickerProps) {
+export function ModelPicker({ models, value, onChange, autoLabel, videoRoutes }: ModelPickerProps) {
   const [open, setOpen] = useState(false);
 
   const list = models;
+
+  const selectedVideoRoute =
+    value !== AUTO_MODEL_ID && !isInternalRoutingModelId(value)
+      ? videoRoutes?.find((r) => r.modelId === value)
+      : undefined;
 
   const label =
     value === AUTO_MODEL_ID || isInternalRoutingModelId(value)
       ? autoLabel
         ? `Auto · ${autoLabel}`
         : "Auto"
-      : list.find((m) => m.id === value)?.name ?? "选择模型";
+      : selectedVideoRoute?.routingHint
+        ? `${list.find((m) => m.id === value)?.name ?? "选择模型"} · ${selectedVideoRoute.routingHint}`
+        : list.find((m) => m.id === value)?.name ?? "选择模型";
 
   function pick(id: string) {
     onChange(id);
@@ -112,17 +121,33 @@ export function ModelPicker({ models, value, onChange, autoLabel }: ModelPickerP
             <p className={sectionLabelClass()}>视频模型</p>
           ) : null}
           <ul className="flex flex-col gap-0.5">
-            {videoModels.map((m) => (
+            {videoModels.map((m) => {
+              const route = videoRoutes?.find((r) => r.modelId === m.id);
+              const disabled = route?.available === false;
+              return (
               <li key={m.id}>
                 <button
                   type="button"
+                  disabled={disabled}
+                  title={disabled ? route?.unavailableReason : route?.upstreamLabel}
                   onClick={() => pick(m.id)}
-                  className={modelOptionClass(value === m.id)}
+                  className={`${modelOptionClass(value === m.id)} ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
                 >
-                  {m.name}
+                  <span className="block truncate">{m.name}</span>
+                  {route?.routingHint ? (
+                    <span className="block truncate text-[9px] font-normal opacity-70">
+                      {route.routingHint}
+                    </span>
+                  ) : null}
+                  {disabled && route?.unavailableReason ? (
+                    <span className="block truncate text-[9px] font-normal text-amber-500/90">
+                      未接入
+                    </span>
+                  ) : null}
                 </button>
               </li>
-            ))}
+            );
+            })}
           </ul>
         </>
       ) : null}

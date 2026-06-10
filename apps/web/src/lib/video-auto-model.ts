@@ -5,6 +5,8 @@ export type VideoAutoMeta = {
   modelId: string;
   provider: string;
   modelName?: string;
+  routingHint?: string;
+  upstreamLabel?: string;
 };
 
 export function resolveVideoSubmitModelId(
@@ -23,7 +25,11 @@ export function videoAutoPickerLabel(
   videoAuto?: VideoAutoMeta | null,
 ): string | undefined {
   if (modelId !== AUTO_MODEL_ID) return undefined;
-  if (videoAuto?.modelName) return videoAuto.modelName;
+  if (videoAuto?.modelName) {
+    return videoAuto.routingHint
+      ? `${videoAuto.modelName}（${videoAuto.routingHint}）`
+      : videoAuto.modelName;
+  }
   if (videoAuto?.modelId) {
     return models.find((m) => m.id === videoAuto.modelId)?.name;
   }
