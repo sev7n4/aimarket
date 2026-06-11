@@ -298,7 +298,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     const enterRefineMode = useCallback(
       (itemId: string) => {
         const item = items.find((i) => i.id === itemId);
-        if (!item) return;
+        if (!item || item.isVideo) return;
 
         if (item.x === 0 && item.y === 0) {
           const canvasWidth = 800;

@@ -237,7 +237,8 @@ export function CanvasLightbox({
               src={assetUrl(current.url)}
               controls
               autoPlay
-              className="max-h-[85vh] max-w-[85vw] rounded-lg"
+              playsInline
+              className="max-h-[85vh] max-w-[85vw] rounded-lg bg-black"
             />
           ) : (
             <img

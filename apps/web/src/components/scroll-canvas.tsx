@@ -15,8 +15,16 @@ import type { CanvasItem, BatchSection } from "@/lib/canvas-tools";
 import { batchDisplayIndex } from "@/lib/canvas-tools";
 import { CanvasGeneratingTimelineCard } from "@/components/canvas-generating-timeline-card";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
+import { CanvasVideoPlayer } from "@/components/canvas-video-player";
 import { ScrollCanvasItemChrome } from "@/components/scroll-canvas-item-chrome";
 import { RefineSelectedCta } from "@/components/refine-selected-cta";
+import { useIsMobile } from "@/hooks/use-is-mobile";
+import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
+import {
+  batchItemAspectRatio,
+  batchOutputCountLabel,
+  shouldUseMobileTwoColumnGrid,
+} from "@/lib/canvas-batch-layout";
 import { ScrollCanvasOrchestrationCard } from "@/components/scroll-canvas-orchestration-card";
 import type {
   OrchestrationTimelineActions,
@@ -152,6 +160,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
     },
     ref,
   ) {
+    const mobile = useIsMobile(MOBILE_BREAKPOINT);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const lastScrollTopRef = useRef(0);
     const [expandedRecordIds, setExpandedRecordIds] = useState<Set<string>>(
@@ -342,7 +351,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                           </span>
                         ) : null}
                         <span className="text-[10px] text-zinc-600">
-                          {section.count} 张
+                          {batchOutputCountLabel(batchItems)}
                         </span>
                         {hasRecordDetails ? (
                           <button
@@ -474,7 +483,9 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                                 </div>
                                 <div>
                                   <dt className="inline text-zinc-600">输出：</dt>
-                                  <dd className="inline">{section.count} 张</dd>
+                                  <dd className="inline">
+                                    {batchOutputCountLabel(batchItems)}
+                                  </dd>
                                 </div>
                                 <div className="sm:col-span-2">
                                   <dt className="inline text-zinc-600">
@@ -505,12 +516,19 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                         </button>
                       ) : null}
 
-                      <div className="flex flex-wrap gap-2 sm:gap-2.5">
+                      <div
+                        className={
+                          shouldUseMobileTwoColumnGrid(batchItems, mobile)
+                            ? "grid grid-cols-2 gap-2"
+                            : "flex flex-wrap gap-2 sm:gap-2.5"
+                        }
+                      >
                         {batchItems.map((item) => {
-                          const aspect =
-                            item.width > 0 && item.height > 0
-                              ? item.width / item.height
-                              : 1;
+                          const aspect = batchItemAspectRatio(item);
+                          const twoCol = shouldUseMobileTwoColumnGrid(
+                            batchItems,
+                            mobile,
+                          );
                           return (
                             <div
                               key={item.id}
@@ -521,11 +539,18 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                                 selectedId === item.id
                                   ? "ring-2 ring-orange-500/90 ring-offset-2 ring-offset-[#0d0d0d]"
                                   : "ring-1 ring-transparent hover:ring-white/15"
-                              } ${pulseId === item.id ? "animate-pulse ring-4 ring-orange-400/50" : ""}`}
-                              style={{
-                                aspectRatio: String(aspect),
-                                height: "10.5rem",
-                              }}
+                              } ${pulseId === item.id ? "animate-pulse ring-4 ring-orange-400/50" : ""} ${item.isVideo ? "ring-white/10" : ""}`}
+                              style={
+                                twoCol
+                                  ? {
+                                      aspectRatio: String(aspect),
+                                      width: "100%",
+                                    }
+                                  : {
+                                      aspectRatio: String(aspect),
+                                      height: "10.5rem",
+                                    }
+                              }
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (
@@ -604,6 +629,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                                 />
                               ) : null}
                               {!readOnly &&
+                              !item.isVideo &&
                               selectedId === item.id &&
                               (item.outputId || item.assetId) &&
                               !(focusClickActive && focusItem?.id === item.id) ? (
@@ -612,10 +638,9 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                                 />
                               ) : null}
                               {item.isVideo ? (
-                                <video
-                                  src={assetUrl(item.url)}
-                                  className="h-full w-full object-cover"
-                              preload="none"
+                                <CanvasVideoPlayer
+                                  url={item.url}
+                                  active={selectedId === item.id}
                                 />
                               ) : (
                                 <img

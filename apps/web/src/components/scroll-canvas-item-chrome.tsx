@@ -3,6 +3,7 @@
 import {
   Download,
   Eye,
+  Maximize2,
   Plus,
   RotateCcw,
   Share2,
@@ -52,6 +53,8 @@ export function ScrollCanvasItemChrome({
 }: ScrollCanvasItemChromeProps) {
   if (readOnly) return null;
 
+  const isVideo = item.isVideo === true;
+
   const show = selected
     ? "pointer-events-auto opacity-100"
     : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100";
@@ -59,17 +62,21 @@ export function ScrollCanvasItemChrome({
   const topActions: OverflowIconAction[] = [
     {
       id: "canvas-preview",
-      icon: Eye,
-      title: "预览大图（双击图片）",
+      icon: isVideo ? Maximize2 : Eye,
+      title: isVideo ? "全屏播放" : "预览大图（双击图片）",
       onClick: onPreview,
     },
-    {
-      id: "canvas-refine",
-      icon: Wand2,
-      title: "进入精修：圈选、对比、连续迭代",
-      tone: "orange",
-      onClick: onRefine,
-    },
+    ...(isVideo
+      ? []
+      : [
+          {
+            id: "canvas-refine",
+            icon: Wand2,
+            title: "进入精修：圈选、对比、连续迭代",
+            tone: "orange" as const,
+            onClick: onRefine,
+          },
+        ]),
     {
       id: "canvas-delete",
       icon: Trash2,
@@ -119,14 +126,16 @@ export function ScrollCanvasItemChrome({
       : []),
   ];
 
-  const toolActions = buildCanvasToolActions({
-    tools,
-    item,
-    pendingToolId,
-    onRunTool,
-  });
+  const toolActions = isVideo
+    ? []
+    : buildCanvasToolActions({
+        tools,
+        item,
+        pendingToolId,
+        onRunTool,
+      });
 
-  const hasToolchain = toolActions.length > 0;
+  const hasToolchain = !isVideo && toolActions.length > 0;
 
   return (
     <>
