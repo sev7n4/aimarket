@@ -1,12 +1,14 @@
 import type { CanvasItem } from "@/lib/canvas-tools";
 
-/** 移动端 2–4 张图片批次：两列网格（对标极梦画布多图排版） */
+/** 移动端 2–4 张/段批次：两列网格（对标极梦画布多图/多段视频排版） */
 export function shouldUseMobileTwoColumnGrid(
   items: CanvasItem[],
   isMobile: boolean,
 ): boolean {
   if (!isMobile || items.length < 2 || items.length > 4) return false;
-  return items.every((item) => !item.isVideo);
+  const allImage = items.every((item) => !item.isVideo);
+  const allVideo = items.every((item) => item.isVideo);
+  return allImage || allVideo;
 }
 
 export function batchOutputCountLabel(items: CanvasItem[]): string {
