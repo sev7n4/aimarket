@@ -31,7 +31,7 @@ export const VIDEO_REFERENCE_LABELS: Record<VideoReferenceMode, string> = {
   "smart-multi-frame": "智能多帧",
 };
 
-export type VideoDurationSec = 4 | 5 | 10;
+export type VideoDurationSec = 4 | 5 | 6 | 8 | 10 | 12 | 15;
 export type VideoResolution = "720P" | "1080P";
 
 export type VideoMediaType = "image" | "audio" | "video";

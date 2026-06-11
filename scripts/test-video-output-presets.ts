@@ -27,12 +27,12 @@ ok("智能多帧固定 720P", smart.defaultResolution === "720P");
 
 ok(
   "智能多帧时长推算",
-  coerceVideoDuration("smart-multi-frame", undefined, 3) === 10,
+  coerceVideoDuration("smart-multi-frame", undefined, 3) === 8,
 );
 
 ok(
-  "首尾帧 coerce 画幅",
-  coerceVideoAspectRatio("first-last", "21:9") === "16:9",
+  "首尾帧 coerce 21:9",
+  coerceVideoAspectRatio("first-last", "21:9") === "21:9",
 );
 
 ok(

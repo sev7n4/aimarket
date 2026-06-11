@@ -1,8 +1,14 @@
 import type { VideoReferenceMode } from "./creation-dock-prefs";
 
 export type VideoResolution = "720P" | "1080P";
-export type VideoDurationSec = 4 | 5 | 10;
-export type VideoAspectRatio = "16:9" | "9:16" | "1:1" | "4:3" | "3:4";
+export type VideoDurationSec = 4 | 5 | 6 | 8 | 10 | 12 | 15;
+export type VideoAspectRatio =
+  | "16:9"
+  | "9:16"
+  | "1:1"
+  | "4:3"
+  | "3:4"
+  | "21:9";
 
 export type VideoOutputPreset = {
   defaultDuration: VideoDurationSec | null;
@@ -17,8 +23,8 @@ export type VideoOutputPreset = {
 
 const OMNI: VideoOutputPreset = {
   defaultDuration: 4,
-  durations: [4, 5, 10],
-  aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4"],
+  durations: [4, 5, 6, 8, 10, 12, 15],
+  aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
   resolutions: ["720P", "1080P"],
   defaultResolution: "1080P",
   defaultAspectRatio: "16:9",
@@ -26,8 +32,8 @@ const OMNI: VideoOutputPreset = {
 
 const FIRST_LAST: VideoOutputPreset = {
   defaultDuration: 5,
-  durations: [5, 10],
-  aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4"],
+  durations: [5, 6, 8, 10, 12, 15],
+  aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
   resolutions: ["720P", "1080P"],
   defaultResolution: "1080P",
   defaultAspectRatio: "16:9",
@@ -50,6 +56,13 @@ export function getVideoOutputPreset(
   if (mode === "first-last") return FIRST_LAST;
   if (mode === "smart-multi-frame") return SMART_MULTI;
   return OMNI;
+}
+
+export function snapVideoDurationSec(estimatedSec: number): VideoDurationSec {
+  const options: VideoDurationSec[] = [4, 5, 6, 8, 10, 12, 15];
+  return options.reduce((best, d) =>
+    Math.abs(d - estimatedSec) < Math.abs(best - estimatedSec) ? d : best,
+  );
 }
 
 export function estimateSmartMultiFrameDuration(shotCount: number): number {
@@ -83,8 +96,7 @@ export function coerceVideoSettingsForMode(
 
   if (preset.durationFromShots) {
     const est = estimateSmartMultiFrameDuration(shotCount);
-    const videoDurationSec: VideoDurationSec =
-      est <= 4 ? 4 : est <= 5 ? 5 : 10;
+    const videoDurationSec = snapVideoDurationSec(est);
     return {
       aspectRatio,
       videoResolution,
