@@ -52,12 +52,25 @@ async function runMigrations(client: pg.PoolClient) {
   const row = await client.query(
     `SELECT id FROM schema_migrations WHERE id = '001_init'`,
   );
-  if (row.rowCount) return;
+  if (!row.rowCount) {
+    const sql = loadSchemaSql();
+    await client.query(sql);
+    await client.query(`INSERT INTO schema_migrations (id) VALUES ('001_init')`);
+    console.log("[db:postgres] schema 001_init applied");
+  }
 
-  const sql = loadSchemaSql();
-  await client.query(sql);
-  await client.query(`INSERT INTO schema_migrations (id) VALUES ('001_init')`);
-  console.log("[db:postgres] schema 001_init applied");
+  const row2 = await client.query(
+    `SELECT id FROM schema_migrations WHERE id = '002_provider_task_id'`,
+  );
+  if (!row2.rowCount) {
+    await client.query(
+      `ALTER TABLE generation_jobs ADD COLUMN IF NOT EXISTS provider_task_id TEXT`,
+    );
+    await client.query(
+      `INSERT INTO schema_migrations (id) VALUES ('002_provider_task_id')`,
+    );
+    console.log("[db:postgres] migration 002_provider_task_id applied");
+  }
 }
 
 export function createPostgresDb(): DbHandle {

@@ -2,6 +2,8 @@
  * Agnes Video V2.0 — 异步任务 POST /v1/videos + GET /v1/videos/{id}
  * 文档：https://agnes-ai.com/doc/agnes-video-v20
  */
+import { setJobProviderTaskId } from "../../lib/job-provider-task.js";
+import { formatProviderError } from "../../lib/provider-error.js";
 import {
   buildSmartMultiFramePrompt,
   normalizeVideoReferenceMode,
@@ -194,7 +196,7 @@ async function pollVideoTask(
     }
     if (snap.status === "failed") {
       throw new Error(
-        `Agnes Video 任务失败: ${String(task.error ?? "unknown")}`,
+        `Agnes Video 任务失败: ${formatProviderError(task.error)}`,
       );
     }
     await sleep(intervalMs);
@@ -318,6 +320,7 @@ export const agnesVideoProvider: VideoProvider = {
     console.log(
       `[agnes-video] created task=${taskId} frames=${numFrames} hasImage=${Boolean(imageUrl)} ${width}x${height}`,
     );
+    setJobProviderTaskId(params.jobId, taskId);
 
     const videoUrl = await pollVideoTask(base, apiKey, taskId);
     return {

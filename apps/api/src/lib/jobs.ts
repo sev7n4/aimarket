@@ -339,6 +339,7 @@ export async function processGenerationJob({
         smartMultiShots,
         referenceMode: videoReferenceMode,
         durationSec: videoDurationSec,
+        jobId,
       });
       urls = video.urls;
     } else if (labels && labels.length > 1) {
@@ -552,8 +553,8 @@ export function getJob(jobId: string, userId?: string): JobDetail {
   const job = db
     .prepare(
       `SELECT id, session_id, user_id, model_id, prompt, mode, count, resolution,
-              status, points_cost, error, tool_type, image_provider, source_lane,
-              created_at, completed_at
+              status, points_cost, error, tool_type, image_provider, provider_task_id,
+              source_lane, created_at, completed_at
        FROM generation_jobs WHERE id = ?`,
     )
     .get(jobId) as Record<string, unknown> | undefined;

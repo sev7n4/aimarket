@@ -5,6 +5,7 @@ import {
   dashScopeBaseUrl,
   type DashScopeTaskResponse,
 } from "../../lib/dashscope-async.js";
+import { setJobProviderTaskId } from "../../lib/job-provider-task.js";
 import {
   buildSmartMultiFramePrompt,
   normalizeVideoReferenceMode,
@@ -280,6 +281,7 @@ export const aliyunWanVideoProvider: VideoProvider = {
     const aspectNote = wanAspectRatioDegradationNote(params.aspectRatio);
     const taskId = await submitWanVideoTask({ model, input, parameters });
     console.log(`[aliyun-wan-video] task=${taskId} model=${model}`);
+    setJobProviderTaskId(params.jobId, taskId);
     const videoUrl = await pollWanVideoTask(taskId);
     const notes = [degradationNote, aspectNote].filter(Boolean).join("；");
     return {
