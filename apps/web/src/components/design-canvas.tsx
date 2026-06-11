@@ -41,6 +41,7 @@ import type { StudioTool } from "@/lib/types";
 export interface DesignCanvasHandle {
   fitToItem: (itemId: string) => void;
   fitToBatch: (batchId: string) => void;
+  scrollToGenerating: () => void;
   pulseItem: (itemId: string) => void;
   fitAll: () => void;
   undo: () => void;
@@ -456,8 +457,16 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       () => ({
         fitToItem: (itemId: string) =>
           freeCanvasRef.current?.fitToItem(itemId),
-        fitToBatch: (batchId: string) =>
-          freeCanvasRef.current?.fitToBatch(batchId),
+        fitToBatch: (batchId: string) => {
+          if (isRefineMode) {
+            freeCanvasRef.current?.fitToBatch(batchId);
+          } else {
+            scrollCanvasRef.current?.scrollToBatch(batchId);
+          }
+        },
+        scrollToGenerating: () => {
+          scrollCanvasRef.current?.scrollToGenerating();
+        },
         pulseItem,
         fitAll: () => freeCanvasRef.current?.fitAll(),
         undo,
@@ -485,6 +494,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         beginRefineJob,
         completeRefineJob,
         cancelRefineJob,
+        isRefineMode,
       ],
     );
 

@@ -75,6 +75,8 @@ function GeneratingSlotBody({
   onCancel,
   providerHint,
   compact = false,
+  promptExpanded,
+  onTogglePrompt,
 }: {
   status: string;
   prompt?: string | null;
@@ -86,6 +88,8 @@ function GeneratingSlotBody({
   onCancel?: () => void;
   providerHint: string | null;
   compact?: boolean;
+  promptExpanded: boolean;
+  onTogglePrompt: () => void;
 }) {
   const statusLine = buildStatusLine(
     status,
@@ -93,6 +97,7 @@ function GeneratingSlotBody({
     remainingSec,
     queueAhead,
   );
+  const showPromptToggle = Boolean(prompt && prompt.length > 48);
 
   return (
     <article
@@ -114,15 +119,28 @@ function GeneratingSlotBody({
           <Loader2 className="size-3.5 shrink-0 animate-spin text-orange-400" />
           <p className="truncate text-[12px] text-zinc-200">{statusLine}</p>
         </div>
-        {canCancel ? (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="shrink-0 text-[10px] text-zinc-500 transition hover:text-zinc-300"
-          >
-            取消
-          </button>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-1">
+          {showPromptToggle ? (
+            <button
+              type="button"
+              aria-label={promptExpanded ? "收起提示词" : "展开完整提示词"}
+              title={promptExpanded ? "收起提示词" : "展开完整提示词"}
+              className="rounded-full px-1 text-[12px] font-semibold leading-none text-orange-300 transition hover:bg-orange-500/15 hover:text-orange-100"
+              onClick={onTogglePrompt}
+            >
+              {promptExpanded ? "收起" : "..."}
+            </button>
+          ) : null}
+          {canCancel ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="text-[10px] text-zinc-500 transition hover:text-zinc-300"
+            >
+              取消
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div
@@ -147,7 +165,7 @@ function GeneratingSlotBody({
         className={`mt-2 flex gap-2 ${compact ? "w-full max-w-md flex-col items-center" : "items-start"}`}
       >
         <GeneratingPlaceholder compact={compact} />
-        {prompt && !compact ? (
+        {prompt && !compact && !promptExpanded ? (
           <p
             className="min-w-0 flex-1 line-clamp-2 text-[11px] leading-snug text-zinc-500"
             title={prompt}
@@ -157,32 +175,33 @@ function GeneratingSlotBody({
         ) : null}
       </div>
 
-      <div
-        className={`pointer-events-none mt-1.5 max-h-0 overflow-hidden opacity-0 transition-all duration-200 group-hover/gen-slot:pointer-events-auto group-hover/gen-slot:max-h-24 group-hover/gen-slot:opacity-100 ${
-          compact ? "w-full max-w-md text-center" : ""
-        }`}
-      >
-        <p className="text-[10px] leading-relaxed text-zinc-500">
-          {prompt ? (
-            <span className="block whitespace-pre-wrap">{prompt}</span>
-          ) : null}
-          {status === "queued" && queueAhead != null ? (
-            <span className="mt-0.5 block">
-              排队：{queueAhead <= 0 ? "即将开始处理" : `前方约 ${queueAhead} 个任务`}
-            </span>
-          ) : null}
-          {status === "running" && elapsedSec > 0 ? (
-            <span className="mt-0.5 block tabular-nums">
-              已用时 {formatDurationShort(elapsedSec)}
-              {elapsedSec < DEFAULT_ESTIMATE_SEC
-                ? ` · 预计剩余约 ${formatDurationShort(remainingSec)}`
-                : ""}
-            </span>
-          ) : null}
-          {providerHint ? (
-            <span className="mt-0.5 block text-zinc-600">{providerHint}</span>
-          ) : null}
+      {prompt && promptExpanded ? (
+        <p className="mt-2 whitespace-pre-wrap text-[11px] leading-snug text-zinc-500">
+          {prompt}
         </p>
+      ) : null}
+
+      <div
+        className={`mt-1.5 text-[10px] leading-relaxed text-zinc-500 ${
+          compact ? "w-full max-w-md text-center" : ""
+        } ${promptExpanded ? "" : "pointer-events-none max-h-0 overflow-hidden opacity-0 transition-all duration-200 group-hover/gen-slot:pointer-events-auto group-hover/gen-slot:max-h-24 group-hover/gen-slot:opacity-100"}`}
+      >
+        {status === "queued" && queueAhead != null ? (
+          <span className="block">
+            排队：{queueAhead <= 0 ? "即将开始处理" : `前方约 ${queueAhead} 个任务`}
+          </span>
+        ) : null}
+        {status === "running" && elapsedSec > 0 ? (
+          <span className="block tabular-nums">
+            已用时 {formatDurationShort(elapsedSec)}
+            {elapsedSec < DEFAULT_ESTIMATE_SEC
+              ? ` · 预计剩余约 ${formatDurationShort(remainingSec)}`
+              : ""}
+          </span>
+        ) : null}
+        {providerHint ? (
+          <span className="block text-zinc-600">{providerHint}</span>
+        ) : null}
       </div>
     </article>
   );
@@ -200,6 +219,7 @@ export function CanvasGeneratingTimelineCard({
   const { user } = useAuth();
   const [tick, setTick] = useState(0);
   const [providerHint, setProviderHint] = useState<string | null>(null);
+  const [promptExpanded, setPromptExpanded] = useState(false);
 
   useEffect(() => {
     if (status !== "queued" && status !== "running") return;
@@ -257,6 +277,8 @@ export function CanvasGeneratingTimelineCard({
       onCancel={onCancel}
       providerHint={providerHint}
       compact={centered}
+      promptExpanded={promptExpanded}
+      onTogglePrompt={() => setPromptExpanded((v) => !v)}
     />
   );
 

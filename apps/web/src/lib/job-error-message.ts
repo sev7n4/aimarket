@@ -94,6 +94,16 @@ export function formatJobErrorMessage(
     return "生成失败：Agnes 图像服务暂时不可用，请稍后重试。";
   }
 
+  if (
+    text.includes("Model not exist") ||
+    (text.includes("InvalidParameter") && text.includes("model"))
+  ) {
+    if (withFallback) {
+      return "生成失败：万相图生图模型配置有误，系统已尝试其他 Provider 兜底；若仍失败请联系管理员检查 ALIYUN_WAN_I2I_MODEL（应为 wan2.6-image）。";
+    }
+    return "生成失败：万相图生图模型不存在，请检查服务器 ALIYUN_WAN_I2I_MODEL 配置（应为 wan2.6-image）。";
+  }
+
   if (text.includes("DashScope") || text.includes("万相")) {
     const wan = text.match(/DashScope[^:]*:\s*(.{0,120})/i);
     const detail = wan?.[1]?.replace(/\s+/g, " ").trim();

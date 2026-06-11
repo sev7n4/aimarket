@@ -31,6 +31,8 @@ export function isRetriableGenerateProviderError(err: unknown): boolean {
     lower.includes("fetch failed") ||
     lower.includes("econnreset") ||
     lower.includes("etimedout") ||
-    lower.includes("network")
+    lower.includes("network") ||
+    lower.includes("model not exist") ||
+    lower.includes("invalidparameter")
   );
 }

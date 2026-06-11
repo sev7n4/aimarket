@@ -99,7 +99,7 @@ DASHSCOPE_API_KEY=sk-xxx     # 阿里云百炼控制台 → API-KEY
 DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com
 ALIYUN_WAN_MODEL=wan2.6-t2i
 # 图生图（参考图生成）；IMAGE_PROVIDER=aliyun_wan 时优先于 Seedream
-ALIYUN_WAN_I2I_MODEL=wan2.6-image-to-image
+ALIYUN_WAN_I2I_MODEL=wan2.6-image
 
 # 2. Studio 扩图（万相真扩图，推荐）
 TOOL_EXPAND_PROVIDER=auto

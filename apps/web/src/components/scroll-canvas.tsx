@@ -39,6 +39,8 @@ import {
 
 export interface ScrollCanvasHandle {
   scrollToBatch: (batchId: string) => void;
+  /** 滚动到时间线底部「生成中」卡片 */
+  scrollToGenerating: () => void;
 }
 
 function timelineTimeLabel(section: BatchSection): string {
@@ -174,20 +176,35 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       Boolean(jobStreamStatus) &&
       jobStreamStatus !== "succeeded" &&
       jobStreamStatus !== "failed";
-    const isMultiSlideJob = (jobProgressTotal ?? 0) > 1;
-    const useTimelineGenerating = jobActive && !isMultiSlideJob;
-    const showJobOverlay = jobFailed || (jobActive && isMultiSlideJob);
+    /** 套图逐张落画布（电商多 slide）：已有产出后才用角标 overlay */
+    const isProgressiveSlideJob =
+      jobActive &&
+      (jobProgressTotal ?? 0) > 1 &&
+      (jobProgressCompleted ?? 0) > 0;
+    const useTimelineGenerating = jobActive && !isProgressiveSlideJob;
+    const showJobOverlay = jobFailed || isProgressiveSlideJob;
     const showTimeline =
       items.length > 0 ||
       Boolean(orchestrationEvent) ||
       useTimelineGenerating;
 
-    useEffect(() => {
-      if (!useTimelineGenerating) return;
+    const scrollToGenerating = useCallback(() => {
       const el = scrollContainerRef.current;
       if (!el) return;
+      const section = el.querySelector(
+        '[data-testid="canvas-generating-timeline-section"], [data-testid="canvas-generating-timeline-card"]',
+      );
+      if (section) {
+        section.scrollIntoView({ behavior: "smooth", block: "end" });
+        return;
+      }
       el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-    }, [useTimelineGenerating, jobStreamStatus]);
+    }, []);
+
+    useEffect(() => {
+      if (!useTimelineGenerating) return;
+      scrollToGenerating();
+    }, [useTimelineGenerating, jobStreamStatus, scrollToGenerating]);
 
     const itemsByBatch = useMemo(() => {
       const map = new Map<string, CanvasItem[]>();
@@ -211,7 +228,11 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       }
     }, []);
 
-    useImperativeHandle(ref, () => ({ scrollToBatch }), [scrollToBatch]);
+    useImperativeHandle(
+      ref,
+      () => ({ scrollToBatch, scrollToGenerating }),
+      [scrollToBatch, scrollToGenerating],
+    );
 
     const handleScroll = useCallback(() => {
       const el = scrollContainerRef.current;

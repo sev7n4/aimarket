@@ -30,6 +30,14 @@ ok(
     !/兜底/.test(seedream429Tool),
 );
 
+const wanModel = formatJobErrorMessage(
+  '阿里百炼 wan API 失败 (400): {"code":"InvalidParameter","message":"Model not exist."}',
+);
+ok(
+  "wan model not exist auto route",
+  wanModel != null && /wan2\.6-image/.test(wanModel) && /兜底/.test(wanModel),
+);
+
 const missing = formatJobErrorMessage("ALIYUN_WAN_I2I_MODEL 未配置");
 ok(
   "missing i2i model",
