@@ -69,7 +69,7 @@ function staleJobMessage(row: {
   const isVideo =
     row.tool_type === "video" || model?.type === "video";
   if (isVideo) {
-    return "视频生成超时（供应商未在时限内返回结果），积分已退回";
+    return "视频生成超时（上游队列繁忙或未在时限内返回结果），积分已退回。可稍后重试或切换模型。";
   }
   return "生成任务超时，积分已退回";
 }

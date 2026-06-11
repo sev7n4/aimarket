@@ -4,6 +4,7 @@
  */
 import { setJobProviderTaskId } from "../../lib/job-provider-task.js";
 import { formatProviderError } from "../../lib/provider-error.js";
+import { formatAgnesVideoTimeoutMessage } from "../../lib/video-provider-errors.js";
 import {
   buildSmartMultiFramePrompt,
   normalizeVideoReferenceMode,
@@ -202,7 +203,13 @@ async function pollVideoTask(
     await sleep(intervalMs);
   }
   throw new Error(
-    `Agnes Video 任务超时 (${taskId}, 最后状态 ${lastStatus}, progress=${lastProgress ?? "n/a"}, polls=${polls}, timeoutMs=${timeoutMs})`,
+    formatAgnesVideoTimeoutMessage({
+      taskId,
+      lastStatus,
+      lastProgress,
+      timeoutMs,
+      polls,
+    }),
   );
 }
 
