@@ -17,6 +17,8 @@ export interface VideoGenerateParams {
   smartMultiShots?: Array<SmartMultiShot & { url?: string }>;
   referenceMode?: VideoReferenceMode;
   durationSec?: number;
+  /** 异步 worker 传入，用于持久化上游 task id */
+  jobId?: string;
 }
 
 export interface VideoGenerateResult {
