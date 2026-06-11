@@ -45,8 +45,16 @@ const SUPPORTED_MODELS = new Set([
   "latest-v2-pro",
   "wanxiang-2.6",
   "wan2.6-t2i",
+  "wan2.6-image",
   "wan2.5-t2i",
 ]);
+
+/** 百炼图生图/编辑模型名（官方为 wan2.6-image，非 wan2.6-image-to-image） */
+function resolveWanI2iModel(): string {
+  const raw = process.env.ALIYUN_WAN_I2I_MODEL?.trim() || "wan2.6-image";
+  if (raw === "wan2.6-image-to-image") return "wan2.6-image";
+  return raw;
+}
 
 export const aliyunWanProvider: ImageProvider = {
   name: "aliyun-wan",
@@ -63,7 +71,7 @@ export const aliyunWanProvider: ImageProvider = {
       process.env.DASHSCOPE_BASE_URL ?? "https://dashscope.aliyuncs.com"
     ).replace(/\/$/, "");
     const hasRefs = Boolean(params.referenceUrls?.length);
-    const i2iModel = process.env.ALIYUN_WAN_I2I_MODEL?.trim();
+    const i2iModel = resolveWanI2iModel();
     const t2iModel = process.env.ALIYUN_WAN_MODEL ?? "wan2.6-t2i";
     if (hasRefs) {
       if (!i2iModel) {

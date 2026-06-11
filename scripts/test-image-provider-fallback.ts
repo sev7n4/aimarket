@@ -53,6 +53,14 @@ ok(
   "fetch failed retriable",
   isRetriableGenerateProviderError(new Error("fetch failed")),
 );
+ok(
+  "wan model not exist retriable for auto fallback",
+  isRetriableGenerateProviderError(
+    new Error(
+      '阿里百炼 wan API 失败 (400): {"code":"InvalidParameter","message":"Model not exist."}',
+    ),
+  ),
+);
 
 ok(
   "default fallback order Agnes → wan → Seedream",
@@ -63,7 +71,7 @@ ok(
 process.env.IMAGE_PROVIDER = "auto";
 process.env.AGNES_API_KEY = "test-agnes";
 process.env.DASHSCOPE_API_KEY = "test-wan";
-process.env.ALIYUN_WAN_I2I_MODEL = "wan2.6-image-to-image";
+process.env.ALIYUN_WAN_I2I_MODEL = "wan2.6-image";
 process.env.ARK_API_KEY = "test-ark";
 const t2iCandidates = listGenerateProviderCandidates("omni-v2", false).map(
   (p) => p.name,

@@ -546,6 +546,9 @@ export function StudioWorkspace({
         canvasRef.current.beginRefineJob();
       } else {
         setSelectedCanvasId(null);
+        window.requestAnimationFrame(() => {
+          canvasRef.current?.scrollToGenerating();
+        });
       }
       setActiveJobPrompt(studioPrompt.trim() || null);
       setPollingJobId(jobId);
