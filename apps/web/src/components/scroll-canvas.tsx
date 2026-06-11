@@ -117,6 +117,9 @@ interface ScrollCanvasProps {
     pendingToolId?: string | null;
     onRunTool: (tool: StudioTool, item: CanvasItem) => void;
     onMentionItem?: (item: CanvasItem) => void;
+    onExtractVideoLastFrame?: (item: CanvasItem) => void;
+    onAddVideoBgm?: (item: CanvasItem) => void;
+    videoActionBusy?: boolean;
   };
 }
 
@@ -626,6 +629,11 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                                   publishDisabled={!item.outputId}
                                   onRunTool={batchTools?.onRunTool}
                                   onMentionItem={batchTools?.onMentionItem}
+                                  onExtractVideoLastFrame={
+                                    batchTools?.onExtractVideoLastFrame
+                                  }
+                                  onAddVideoBgm={batchTools?.onAddVideoBgm}
+                                  videoActionBusy={batchTools?.videoActionBusy}
                                 />
                               ) : null}
                               {!readOnly &&

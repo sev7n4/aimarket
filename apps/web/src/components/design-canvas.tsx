@@ -130,6 +130,9 @@ interface DesignCanvasProps {
     pendingToolId?: string | null;
     onRunTool: (tool: StudioTool, item: CanvasItem) => void;
     onMentionItem?: (item: CanvasItem) => void;
+    onExtractVideoLastFrame?: (item: CanvasItem) => void;
+    onAddVideoBgm?: (item: CanvasItem) => void;
+    videoActionBusy?: boolean;
   };
   onDownloadItem?: (item: CanvasItem) => void;
   onShareItem?: (item: CanvasItem) => void;

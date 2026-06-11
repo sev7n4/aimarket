@@ -65,6 +65,7 @@ import {
   submitGeneration,
   uploadAsset,
   trackEvent,
+  requestVideoBgmMux,
 } from "@/lib/api-client";
 import {
   MAX_FOCUS_POINTS,
@@ -83,6 +84,7 @@ import {
   type StudioInspirationApply,
 } from "@/lib/inspiration-studio";
 import { persistCreationLane } from "@/lib/creation-dock-prefs";
+import { extractVideoLastFrame } from "@/lib/video-frame-extract";
 import {
   invalidateSessionCanvasBundle,
   prefetchSessionCanvasBundle,
@@ -190,6 +192,9 @@ export function StudioWorkspace({
   const completingJobIdRef = useRef<string | null>(null);
   const { user, loading: authLoading, refreshUser } = useAuth();
   const uploadRef = useRef<HTMLInputElement>(null);
+  const bgmInputRef = useRef<HTMLInputElement>(null);
+  const pendingBgmVideoRef = useRef<CanvasItem | null>(null);
+  const [videoActionBusy, setVideoActionBusy] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
@@ -1165,6 +1170,78 @@ export function StudioWorkspace({
     }
   }
 
+  async function handleExtractVideoLastFrame(item: CanvasItem) {
+    if (!user) {
+      setLoginOpen(true);
+      return;
+    }
+    if (readOnly || !item.isVideo) return;
+    setVideoActionBusy(true);
+    setSelectSourceBanner("正在提取视频尾帧...");
+    try {
+      const blob = await extractVideoLastFrame(item.url);
+      const file = new File([blob], `last-frame-${item.id.slice(0, 8)}.jpg`, {
+        type: "image/jpeg",
+      });
+      await ensureSession(sessionId, mode);
+      const { id, url, thumbUrl } = await uploadAsset(file, sessionId);
+      const newItem = createUploadCanvasItem(url, canvasItemsRef.current, {
+        assetId: id,
+        role: "reference",
+        label: "视频尾帧",
+        thumbUrl,
+      });
+      setCanvasItems((prev) => [...prev, newItem]);
+      setMentionItemRequest((prev) => ({
+        key: (prev?.key ?? 0) + 1,
+        item: newItem,
+      }));
+      setSelectSourceBanner("尾帧已提取并加入画布，已引用到工作台");
+      hapticLight();
+    } catch (err) {
+      setSelectSourceBanner(
+        err instanceof Error ? err.message : "尾帧提取失败",
+      );
+    } finally {
+      setVideoActionBusy(false);
+    }
+  }
+
+  function handleAddVideoBgm(item: CanvasItem) {
+    if (!user) {
+      setLoginOpen(true);
+      return;
+    }
+    if (readOnly || !item.isVideo) return;
+    pendingBgmVideoRef.current = item;
+    bgmInputRef.current?.click();
+  }
+
+  async function onBgmFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    const item = pendingBgmVideoRef.current;
+    pendingBgmVideoRef.current = null;
+    if (!file || !item || !user) return;
+    setVideoActionBusy(true);
+    setSelectSourceBanner("正在上传音频...");
+    try {
+      await ensureSession(sessionId, mode);
+      const { id } = await uploadAsset(file, sessionId);
+      await requestVideoBgmMux({
+        sessionId,
+        videoUrl: assetUrl(item.url),
+        audioAssetId: id,
+      });
+      setSelectSourceBanner("配乐任务已提交");
+      hapticLight();
+    } catch (err) {
+      setSelectSourceBanner(err instanceof Error ? err.message : "配乐失败");
+    } finally {
+      setVideoActionBusy(false);
+    }
+  }
+
   async function handleCancelJob() {
     if (!pollingJobId || !user) return;
     
@@ -1296,6 +1373,14 @@ export function StudioWorkspace({
         className="hidden"
         onChange={(e) => void onFileSelected(e)}
         aria-label="上传图片"
+      />
+      <input
+        ref={bgmInputRef}
+        type="file"
+        accept="audio/*"
+        className="hidden"
+        onChange={(e) => void onBgmFileSelected(e)}
+        aria-label="选择背景音乐"
       />
 
       <StudioCoach />
@@ -1631,6 +1716,10 @@ export function StudioWorkspace({
                   }));
                   hapticLight();
                 },
+                onExtractVideoLastFrame: (item) =>
+                  void handleExtractVideoLastFrame(item),
+                onAddVideoBgm: handleAddVideoBgm,
+                videoActionBusy,
               }}
               onShareItem={async (item) => {
                 try {

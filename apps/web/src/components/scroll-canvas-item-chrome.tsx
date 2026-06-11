@@ -15,6 +15,7 @@ import type { CanvasItem } from "@/lib/canvas-tools";
 import type { StudioTool } from "@/lib/types";
 import { OverflowIconRow, type OverflowIconAction } from "@/components/overflow-icon-row";
 import { buildCanvasToolActions } from "@/components/canvas-tool-actions";
+import { CanvasVideoToolbar } from "@/components/canvas-video-toolbar";
 
 interface ScrollCanvasItemChromeProps {
   item: CanvasItem;
@@ -32,6 +33,9 @@ interface ScrollCanvasItemChromeProps {
   publishDisabled?: boolean;
   onRunTool?: (tool: StudioTool, item: CanvasItem) => void;
   onMentionItem?: (item: CanvasItem) => void;
+  onExtractVideoLastFrame?: (item: CanvasItem) => void;
+  onAddVideoBgm?: (item: CanvasItem) => void;
+  videoActionBusy?: boolean;
 }
 
 export function ScrollCanvasItemChrome({
@@ -50,6 +54,9 @@ export function ScrollCanvasItemChrome({
   publishDisabled = false,
   onRunTool,
   onMentionItem,
+  onExtractVideoLastFrame,
+  onAddVideoBgm,
+  videoActionBusy = false,
 }: ScrollCanvasItemChromeProps) {
   if (readOnly) return null;
 
@@ -94,14 +101,18 @@ export function ScrollCanvasItemChrome({
           } satisfies OverflowIconAction,
         ]
       : []),
-    {
-      id: "canvas-rerun",
-      icon: RotateCcw,
-      title: "重做",
-      tone: "blue",
-      disabled: !item.generationParams,
-      onClick: onRerun,
-    },
+    ...(isVideo
+      ? []
+      : [
+          {
+            id: "canvas-rerun",
+            icon: RotateCcw,
+            title: "重做",
+            tone: "blue",
+            disabled: !item.generationParams,
+            onClick: onRerun,
+          } satisfies OverflowIconAction,
+        ]),
     ...(onShare
       ? [
           {
@@ -160,6 +171,18 @@ export function ScrollCanvasItemChrome({
         >
           <Plus className="size-4" strokeWidth={2} />
         </button>
+      ) : null}
+      {isVideo && onExtractVideoLastFrame && onAddVideoBgm ? (
+        <div className={show}>
+          <CanvasVideoToolbar
+            visible
+            canRerun={Boolean(item.generationParams)}
+            onRerun={onRerun}
+            onExtractLastFrame={() => onExtractVideoLastFrame(item)}
+            onAddBgm={() => onAddVideoBgm(item)}
+            busy={videoActionBusy}
+          />
+        </div>
       ) : null}
       {hasToolchain ? (
         <div

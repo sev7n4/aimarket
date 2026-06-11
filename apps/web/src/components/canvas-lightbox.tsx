@@ -110,6 +110,8 @@ export function CanvasLightbox({
 
   if (!current) return null;
 
+  const isVideo = current.isVideo === true;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm"
@@ -155,44 +157,48 @@ export function CanvasLightbox({
         </div>
       </div>
 
-      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10">
-        <button
-          type="button"
-          onClick={handleRotateLeft}
-          className="rounded-lg bg-white/10 p-2 text-white/80 transition hover:bg-white/20"
-          title="逆时针旋转"
-        >
-          <RotateCcw className="size-4" />
-        </button>
-        <input
-          type="range"
-          min={ZOOM_MIN}
-          max={ZOOM_MAX}
-          step={0.1}
-          value={zoom}
-          onChange={(e) => setZoom(parseFloat(e.target.value))}
-          className="w-32 accent-orange-500"
-          title="缩放"
-        />
-        <button
-          type="button"
-          onClick={handleRotateRight}
-          className="rounded-lg bg-white/10 p-2 text-white/80 transition hover:bg-white/20"
-          title="顺时针旋转"
-        >
-          <RotateCw className="size-4" />
-        </button>
-      </div>
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
-        <button
-          type="button"
-          onClick={handleResetZoom}
-          className="rounded-lg bg-white/10 px-3 py-2 text-sm text-white/80 transition hover:bg-white/20"
-          title="重置"
-        >
-          {Math.round(zoom * 100)}%
-        </button>
-      </div>
+      {!isVideo ? (
+        <>
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10">
+            <button
+              type="button"
+              onClick={handleRotateLeft}
+              className="rounded-lg bg-white/10 p-2 text-white/80 transition hover:bg-white/20"
+              title="逆时针旋转"
+            >
+              <RotateCcw className="size-4" />
+            </button>
+            <input
+              type="range"
+              min={ZOOM_MIN}
+              max={ZOOM_MAX}
+              step={0.1}
+              value={zoom}
+              onChange={(e) => setZoom(parseFloat(e.target.value))}
+              className="w-32 accent-orange-500"
+              title="缩放"
+            />
+            <button
+              type="button"
+              onClick={handleRotateRight}
+              className="rounded-lg bg-white/10 p-2 text-white/80 transition hover:bg-white/20"
+              title="顺时针旋转"
+            >
+              <RotateCw className="size-4" />
+            </button>
+          </div>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
+            <button
+              type="button"
+              onClick={handleResetZoom}
+              className="rounded-lg bg-white/10 px-3 py-2 text-sm text-white/80 transition hover:bg-white/20"
+              title="重置"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+          </div>
+        </>
+      ) : null}
 
       {hasPrev && (
         <button
@@ -216,46 +222,47 @@ export function CanvasLightbox({
         </button>
       )}
 
-      <div
-        className="relative max-h-[85vh] max-w-[85vw] overflow-hidden"
-        style={{
-          cursor: zoom > 1 ? (dragStart ? "grabbing" : "grab") : "default",
-        }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
-      >
+      {isVideo ? (
+        <video
+          src={assetUrl(current.url)}
+          controls
+          autoPlay
+          playsInline
+          className="max-h-[85vh] max-w-[85vw] rounded-lg bg-black"
+          data-testid="lightbox-video"
+        />
+      ) : (
         <div
+          className="relative max-h-[85vh] max-w-[85vw] overflow-hidden"
           style={{
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom}) rotate(${rotation}deg)`,
-            transition: dragStart ? "none" : "transform 0.2s ease-out",
+            cursor: zoom > 1 ? (dragStart ? "grabbing" : "grab") : "default",
           }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
         >
-          {current.isVideo ? (
-            <video
-              src={assetUrl(current.url)}
-              controls
-              autoPlay
-              playsInline
-              className="max-h-[85vh] max-w-[85vw] rounded-lg bg-black"
-            />
-          ) : (
+          <div
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom}) rotate(${rotation}deg)`,
+              transition: dragStart ? "none" : "transform 0.2s ease-out",
+            }}
+          >
             <img
               src={assetUrl(current.url)}
               alt=""
               className="max-h-[85vh] max-w-[85vw] rounded-lg object-contain"
               draggable={false}
             />
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {mobile && (
+      {mobile && !isVideo ? (
         <div className="absolute bottom-20 left-1/2 -translate-x-1/2 text-xs text-white/50">
           双指缩放 · 左右滑动切换
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

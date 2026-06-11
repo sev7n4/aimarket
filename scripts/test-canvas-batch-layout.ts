@@ -40,9 +40,21 @@ const withVideo = [
   item({ id: "a", isVideo: true, height: 112 }),
   item({ id: "b" }),
 ];
+const twoVideos = [
+  item({ id: "a", isVideo: true, height: 112 }),
+  item({ id: "b", isVideo: true, height: 112 }),
+];
+const fourVideos = [
+  item({ id: "a", isVideo: true, height: 112 }),
+  item({ id: "b", isVideo: true, height: 112 }),
+  item({ id: "c", isVideo: true, height: 112 }),
+  item({ id: "d", isVideo: true, height: 112 }),
+];
 
 ok("mobile 2 images → 2-col", shouldUseMobileTwoColumnGrid(twoImages, true));
 ok("mobile 4 images → 2-col", shouldUseMobileTwoColumnGrid(fourImages, true));
+ok("mobile 2 videos → 2-col", shouldUseMobileTwoColumnGrid(twoVideos, true));
+ok("mobile 4 videos → 2-col", shouldUseMobileTwoColumnGrid(fourVideos, true));
 ok("mobile 1 image → flex", !shouldUseMobileTwoColumnGrid([item({ id: "a" })], true));
 ok("desktop 2 images → flex", !shouldUseMobileTwoColumnGrid(twoImages, false));
 ok("mixed video batch → no 2-col", !shouldUseMobileTwoColumnGrid(withVideo, true));

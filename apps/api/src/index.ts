@@ -43,6 +43,7 @@ import { agent } from "./routes/agent.js";
 import { skillInternal, skills as agentSkills } from "./routes/agent-skills.js";
 import { image } from "./routes/image.js";
 import { imageTask } from "./routes/imageTask.js";
+import { video } from "./routes/video.js";
 import { uploadCompat } from "./routes/upload-compat.js";
 
 ensureUploadDir();
@@ -137,6 +138,7 @@ authed.route("/agent/skills", agentSkills);
 authed.route("/inspiration", inspirationAuthed);
 authed.route("/image", image);
 authed.route("/imageTask", imageTask);
+authed.route("/video", video);
 
 if (process.env.COMPAT_JIAOTU_ALIASES === "true") {
   authed.route("/upload", uploadCompat);
