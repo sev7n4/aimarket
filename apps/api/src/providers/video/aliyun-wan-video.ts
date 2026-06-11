@@ -19,11 +19,19 @@ import {
   mapAspectRatioForWan,
   wanAspectRatioDegradationNote,
 } from "../../lib/video-output-presets.js";
+import { parseWanVideoErrorBody } from "../../lib/video-provider-errors.js";
 import type {
   VideoGenerateParams,
   VideoGenerateResult,
   VideoProvider,
 } from "./types.js";
+
+function throwWanVideoHttpError(status: number, errText: string): never {
+  const friendly = parseWanVideoErrorBody(errText);
+  throw new Error(
+    friendly ?? `万相视频提交失败 (${status}): ${errText.slice(0, 200)}`,
+  );
+}
 
 const WAN_MODEL_IDS = new Set(["wan-2.6", "wan-2.7"]);
 
@@ -184,14 +192,17 @@ async function submitWanVideoTask(
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    throw new Error(
-      `万相视频提交失败 (${res.status}): ${errText.slice(0, 300)}`,
-    );
+    throwWanVideoHttpError(res.status, errText);
   }
 
   const json = (await res.json()) as DashScopeTaskResponse;
   if (json.code) {
-    throw new Error(`万相视频业务错误 ${json.code}: ${json.message ?? ""}`);
+    const friendly = parseWanVideoErrorBody(
+      JSON.stringify({ code: json.code, message: json.message }),
+    );
+    throw new Error(
+      friendly ?? `万相视频业务错误 ${json.code}: ${json.message ?? ""}`,
+    );
   }
   const taskId = json.output?.task_id;
   if (!taskId) throw new Error("万相视频未返回 task_id");
@@ -214,9 +225,7 @@ async function pollWanVideoTask(taskId: string): Promise<string> {
     });
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
-      throw new Error(
-        `万相视频任务查询失败 (${res.status}): ${errText.slice(0, 200)}`,
-      );
+      throwWanVideoHttpError(res.status, errText);
     }
 
     const json = (await res.json()) as DashScopeTaskResponse & {
@@ -237,9 +246,12 @@ async function pollWanVideoTask(taskId: string): Promise<string> {
     }
 
     if (status === "FAILED" || status === "CANCELED") {
-      throw new Error(
-        json.output?.message ?? json.message ?? `万相视频任务失败 (${status})`,
+      const raw =
+        json.output?.message ?? json.message ?? `万相视频任务失败 (${status})`;
+      const friendly = parseWanVideoErrorBody(
+        typeof raw === "string" ? raw : JSON.stringify(raw),
       );
+      throw new Error(friendly ?? String(raw));
     }
 
     await new Promise((r) => setTimeout(r, intervalMs));

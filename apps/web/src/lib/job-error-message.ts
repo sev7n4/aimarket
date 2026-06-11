@@ -104,9 +104,33 @@ export function formatJobErrorMessage(
     return "生成失败：万相图生图模型不存在，请检查服务器 ALIYUN_WAN_I2I_MODEL 配置（应为 wan2.6-image）。";
   }
 
+  if (
+    /万相视频账号欠费|Arrearage|DashScope.*欠费/i.test(text) ||
+    (text.includes("万相视频") && /欠费|arrearage/i.test(text))
+  ) {
+    return "视频生成失败：万相（DashScope）账号欠费，请充值后重试。";
+  }
+
+  if (/Agnes Video 排队超时|Agnes Video 任务超时/i.test(text)) {
+    return "视频生成超时：Agnes 队列繁忙，任务长时间未完成。请稍后重试或切换万相模型。";
+  }
+
+  if (text.includes("万相视频任务超时")) {
+    return "视频生成超时：万相任务未在时限内完成，请稍后重试。";
+  }
+
   if (text.includes("DashScope") || text.includes("万相")) {
     const wan = text.match(/DashScope[^:]*:\s*(.{0,120})/i);
     const detail = wan?.[1]?.replace(/\s+/g, " ").trim();
+    if (toolType === "video" || text.includes("万相视频")) {
+      if (/万相视频：/.test(text)) {
+        const m = text.match(/万相视频：(.{0,120})/);
+        if (m?.[1]) return `视频生成失败：${m[1].trim()}`;
+      }
+      return detail
+        ? `视频生成失败：${detail}`
+        : "视频生成失败：万相服务不可用，请稍后重试。";
+    }
     if (isToolJob(toolType)) {
       return detail
         ? `${toolLabel(toolType)}失败：${detail}`

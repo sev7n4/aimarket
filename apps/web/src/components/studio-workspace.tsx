@@ -1231,12 +1231,22 @@ export function StudioWorkspace({
     try {
       await ensureSession(sessionId, mode);
       const { id } = await uploadAsset(file, sessionId);
-      await requestVideoBgmMux({
+      const { outputUrl, assetId } = await requestVideoBgmMux({
         sessionId,
         videoUrl: assetUrl(item.url),
         audioAssetId: id,
       });
-      setSelectSourceBanner("配乐任务已提交");
+      const muxedItem = {
+        ...createUploadCanvasItem(outputUrl, canvasItemsRef.current, {
+          assetId,
+          role: "output" as const,
+          label: "配乐视频",
+        }),
+        isVideo: true,
+      };
+      setCanvasItems((prev) => [...prev, muxedItem]);
+      setSelectedCanvasId(muxedItem.id);
+      setSelectSourceBanner("配乐视频已合成并加入画布");
       hapticLight();
     } catch (err) {
       setSelectSourceBanner(err instanceof Error ? err.message : "配乐失败");

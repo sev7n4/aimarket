@@ -1355,18 +1355,17 @@ export async function registerAssetFromUrl(body: {
   return res.data;
 }
 
-/** 请求服务端为视频混入 BGM（当前为占位 API，待运维接入 FFmpeg 管线） */
+/** 请求服务端为视频混入 BGM（FFmpeg 服务端合成） */
 export async function requestVideoBgmMux(body: {
   sessionId: string;
   videoUrl: string;
   audioAssetId: string;
-}): Promise<{ jobId: string }> {
-  const res = await request<{ data: { jobId: string } }>(
-    "/api/v1/video/mux-bgm",
-    {
-      method: "POST",
-      body: JSON.stringify(body),
-    },
-  );
+}): Promise<{ jobId: string; assetId: string; outputUrl: string }> {
+  const res = await request<{
+    data: { jobId: string; assetId: string; outputUrl: string };
+  }>("/api/v1/video/mux-bgm", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
   return res.data;
 }
