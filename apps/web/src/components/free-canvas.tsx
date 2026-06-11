@@ -16,6 +16,7 @@ import type {
   CanvasToolId,
   BatchSection,
 } from "@/lib/canvas-tools";
+import { CanvasVideoPlayer } from "@/components/canvas-video-player";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
 import { RefineCompareView } from "@/components/refine-compare-view";
 import { RefineFilmstrip } from "@/components/refine-filmstrip";
@@ -933,10 +934,10 @@ export const FreeCanvas = forwardRef<FreeCanvasHandle, FreeCanvasProps>(
                       </span>
                     ) : null}
                     {item.isVideo ? (
-                      <video
-                        src={assetUrl(item.url)}
-                        className="w-full object-cover"
-                        style={{ height: item.height }}
+                      <CanvasVideoPlayer
+                        url={item.url}
+                        active={selectedId === item.id}
+                        className="w-full"
                       />
                     ) : (
                       <img
