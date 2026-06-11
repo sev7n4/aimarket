@@ -16,6 +16,7 @@ import {
 import {
   coerceVideoDuration,
   mapAspectRatioForWan,
+  wanAspectRatioDegradationNote,
 } from "../../lib/video-output-presets.js";
 import type {
   VideoGenerateParams,
@@ -64,9 +65,6 @@ function wanMediaFromRef(ref: ResolvedVideoMediaRef): WanMediaItem {
   }
   if (ref.mediaType === "video") {
     return { type: "reference_video", url: ref.url };
-  }
-  if (ref.mediaType === "audio") {
-    return { type: "reference_image", url: ref.url };
   }
   return { type: "reference_image", url: ref.url };
 }
@@ -125,8 +123,15 @@ function resolveWanModelAndInput(params: VideoGenerateParams): {
   }
 
   if (mode === "omni" && (refs.length || params.referenceUrls?.length)) {
+    const notes: string[] = [];
     const media: WanMediaItem[] = refs.length
-      ? refs.map((r) => wanMediaFromRef(r))
+      ? refs.flatMap((r) => {
+          if (r.mediaType === "audio") {
+            notes.push("音频参考暂不支持，已忽略");
+            return [];
+          }
+          return [wanMediaFromRef(r)];
+        })
       : (params.referenceUrls ?? []).map((url) => ({
           type: "reference_image",
           url,
@@ -134,6 +139,7 @@ function resolveWanModelAndInput(params: VideoGenerateParams): {
     return {
       model: r2vModel(),
       input: { prompt: params.prompt, media },
+      degradationNote: notes.length ? notes.join("；") : undefined,
     };
   }
 
@@ -271,13 +277,15 @@ export const aliyunWanVideoProvider: VideoProvider = {
   async generate(params: VideoGenerateParams): Promise<VideoGenerateResult> {
     const { model, input, degradationNote } = resolveWanModelAndInput(params);
     const parameters = buildWanParameters(params);
+    const aspectNote = wanAspectRatioDegradationNote(params.aspectRatio);
     const taskId = await submitWanVideoTask({ model, input, parameters });
     console.log(`[aliyun-wan-video] task=${taskId} model=${model}`);
     const videoUrl = await pollWanVideoTask(taskId);
+    const notes = [degradationNote, aspectNote].filter(Boolean).join("；");
     return {
       urls: [videoUrl].slice(0, params.count),
       provider: "aliyun-wan-video",
-      degradationNote,
+      degradationNote: notes.length ? notes : undefined,
     };
   },
 };

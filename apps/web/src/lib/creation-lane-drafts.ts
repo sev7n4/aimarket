@@ -144,7 +144,11 @@ function parseVideoReferenceMode(value: unknown): VideoReferenceMode | null {
 }
 
 function parseVideoDurationSec(value: unknown): VideoDurationSec | null {
-  return value === 4 || value === 5 || value === 10 ? value : null;
+  const allowed: VideoDurationSec[] = [4, 5, 6, 8, 10, 12, 15];
+  return typeof value === "number" &&
+    allowed.includes(value as VideoDurationSec)
+    ? (value as VideoDurationSec)
+    : null;
 }
 
 function parseVideoResolution(value: unknown): VideoResolution | null {

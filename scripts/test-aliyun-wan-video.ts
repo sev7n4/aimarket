@@ -70,6 +70,28 @@ const r2v = buildWanVideoPayloadForTest({
 });
 ok("全能 r2v", r2v.model === "wan2.7-r2v", String(r2v.model));
 
+const omniAudio = buildWanVideoPayloadForTest({
+  prompt: "配乐",
+  modelId: "wan-2.6",
+  count: 1,
+  resolution: "1k",
+  referenceMode: "omni",
+  videoReferences: [
+    {
+      assetId: "img",
+      mediaType: "image",
+      url: "https://example.com/a.png",
+    },
+    {
+      assetId: "aud",
+      mediaType: "audio",
+      url: "https://example.com/a.mp3",
+    },
+  ],
+});
+const omniMedia = (omniAudio.input as { media?: unknown[] }).media ?? [];
+ok("全能 omni 忽略音频", omniMedia.length === 1);
+
 const smart = buildWanVideoPayloadForTest({
   prompt: "故事",
   modelId: "wan-2.6",

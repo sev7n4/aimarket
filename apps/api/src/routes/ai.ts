@@ -385,7 +385,17 @@ ai.post("/generate/video", async (c) => {
       referenceMode: z
         .enum(["omni", "first-frame", "first-last", "smart-multi-frame"])
         .default("omni"),
-      durationSec: z.union([z.literal(4), z.literal(5), z.literal(10)]).optional(),
+      durationSec: z
+        .union([
+          z.literal(4),
+          z.literal(5),
+          z.literal(6),
+          z.literal(8),
+          z.literal(10),
+          z.literal(12),
+          z.literal(15),
+        ])
+        .optional(),
       videoResolution: z.enum(["720P", "1080P"]).optional(),
       videoReferences: z.array(videoMediaRefSchema).max(12).optional(),
       smartMultiShots: z.array(smartMultiShotSchema).max(12).optional(),

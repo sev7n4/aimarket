@@ -119,8 +119,13 @@ import {
   type VideoReferenceMode,
   type VideoResolution,
 } from "@/lib/creation-dock-prefs";
-import { VideoReferenceSlots } from "@/components/video-reference-slots";
+import { VideoReferenceDockControl } from "@/components/video-reference-slots";
 import { applyModeVideoSettings } from "@/components/video-output-settings";
+import {
+  assignOmniRefLabels,
+  validateOmniVideoMentions,
+  videoRefsToMentionCandidates,
+} from "@/lib/video-mention";
 import { useCreationLaneDrafts } from "@/hooks/use-creation-lane-drafts";
 import {
   canAutoBindCanvasItem,
@@ -456,7 +461,11 @@ export function CreationPanel({
     videoDurationSec,
     videoResolution,
   } = laneSettings;
-  const [videoReferences, setVideoReferences] = useState<VideoMediaRef[]>([]);
+  const [videoReferences, setVideoReferencesState] = useState<VideoMediaRef[]>([]);
+  const setVideoReferences = (refs: VideoMediaRef[]) => {
+    setVideoReferencesState(assignOmniRefLabels(refs));
+  };
+  const [videoUploading, setVideoUploading] = useState(false);
   const [smartMultiShots, setSmartMultiShots] = useState<SmartMultiShot[]>([
     { order: 0, motionPrompt: "" },
     { order: 1, motionPrompt: "" },
@@ -548,9 +557,18 @@ export function CreationPanel({
     if (!requireAuth("登录后即可上传参考素材")) {
       throw new Error("需要登录");
     }
-    await ensureSession(sessionId, mode);
-    const data = await uploadAsset(file, sessionId, { lane: "video" });
-    return { assetId: data.id, url: data.url, mimeType: data.mimeType };
+    setVideoUploading(true);
+    try {
+      await ensureSession(sessionId, mode);
+      const data = await uploadAsset(file, sessionId, { lane: "video" });
+      const previewUrl =
+        data.url.startsWith("http") || data.url.startsWith("blob:")
+          ? data.url
+          : assetUrl(data.thumbUrl ?? data.url);
+      return { assetId: data.id, url: previewUrl, mimeType: data.mimeType };
+    } finally {
+      setVideoUploading(false);
+    }
   }
 
   function videoSubmitAspectRatio(): string {
@@ -598,6 +616,8 @@ export function CreationPanel({
     if (uploadIdx >= 0) {
       return `上传图${uploadIdx + 1}`;
     }
+    const videoRef = videoReferences.find((r) => r.assetId === assetId);
+    if (videoRef?.label) return videoRef.label;
     return undefined;
   }
 
@@ -662,6 +682,7 @@ export function CreationPanel({
     mentionedAssetPreviews,
     canvasItems,
     uploadPreviews,
+    videoReferences,
   ]);
 
   function handleRemoveReferenceChip(chip: ReferenceChipItem) {
@@ -891,7 +912,42 @@ export function CreationPanel({
     ? `${dockIconBtn} size-8`
     : "flex size-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10";
   const showStackUpload = effectiveMode !== "ecommerce";
-  const showInlineUploadStack = showStackUpload && !dockCompactLine;
+  const showInlineUploadStack =
+    showStackUpload && !dockCompactLine && creationLane !== "video";
+  const smartMultiDegraded =
+    videoReferenceMode === "smart-multi-frame" &&
+    Boolean(
+      capabilityDegradationMessage(
+        resolveVideoSubmitModelId(modelId, models, videoAutoMeta),
+      ),
+    );
+
+  const mentionUploadedAssets = useMemo(() => {
+    const fromStack = uploadPreviews
+      .filter((preview) => assetIds.includes(preview.id))
+      .map((preview, idx) => ({
+        id: preview.id,
+        url: preview.url,
+        label: `上传图${idx + 1}`,
+      }));
+    if (creationLane !== "video" || videoReferenceMode !== "omni") {
+      return fromStack;
+    }
+    const fromVideo = videoRefsToMentionCandidates(videoReferences);
+    const seen = new Set(fromStack.map((a) => a.id));
+    return [
+      ...fromStack,
+      ...fromVideo
+        .filter((v) => !seen.has(v.assetId))
+        .map((v) => ({ id: v.assetId, url: v.url, label: v.label })),
+    ];
+  }, [
+    uploadPreviews,
+    assetIds,
+    creationLane,
+    videoReferenceMode,
+    videoReferences,
+  ]);
 
   useEffect(() => {
     if (!user) {
@@ -1546,6 +1602,13 @@ export function CreationPanel({
         if (degradeHint && !window.confirm(`${degradeHint}，是否继续？`)) {
           return;
         }
+        if (videoReferenceMode === "omni" && videoReferences.length > 0) {
+          const mentionCheck = validateOmniVideoMentions(prompt, videoReferences);
+          if (!mentionCheck.ok) {
+            alert(mentionCheck.message ?? "请检查 @ 引用");
+            return;
+          }
+        }
         const videoRefs = buildReferenceSources();
         const videoAssetIds = Array.from(
           new Set([...videoRefs.assetIds, ...videoRefs.mentionedAssetIds]),
@@ -1823,13 +1886,7 @@ export function CreationPanel({
         <MentionPicker
           placement="above"
           canvasItems={canvasItems}
-          uploadedAssets={uploadPreviews
-            .filter((preview) => assetIds.includes(preview.id))
-            .map((preview, idx) => ({
-              id: preview.id,
-              url: preview.url,
-              label: `上传图${idx + 1}`,
-            }))}
+          uploadedAssets={mentionUploadedAssets}
           references={references}
           query={mentionQuery}
           open={mentionOpen}
@@ -1856,7 +1913,7 @@ export function CreationPanel({
           <div
             className={`relative flex min-w-0 gap-2 ${dockCompactLine ? "items-center" : "items-start"}`}
           >
-            {dockCompactLine ? (
+            {dockCompactLine && creationLane !== "video" ? (
               <button
                 type="button"
                 onClick={() => openUpload("general")}
@@ -1870,6 +1927,21 @@ export function CreationPanel({
                   <ImagePlus className="size-3.5" />
                 )}
               </button>
+            ) : null}
+            {isDock && creationLane === "video" ? (
+              <VideoReferenceDockControl
+                mode={videoReferenceMode}
+                videoReferences={videoReferences}
+                onVideoReferencesChange={setVideoReferences}
+                smartMultiShots={smartMultiShots}
+                onSmartMultiShotsChange={setSmartMultiShots}
+                motionPrompt={firstLastMotionPrompt}
+                onMotionPromptChange={setFirstLastMotionPrompt}
+                onUpload={uploadVideoReference}
+                disabled={readOnly || pending || streamBusy}
+                uploading={videoUploading}
+                smartMultiDegraded={smartMultiDegraded}
+              />
             ) : null}
             {dockCompactLine ? (
               <div className="min-w-0 shrink-0 scale-90">
@@ -1892,19 +1964,6 @@ export function CreationPanel({
                   setUploadPreviews((prev) => prev.filter((p) => p.id !== id));
                   setAssetIds((prev) => prev.filter((a) => a !== id));
                 }}
-              />
-            ) : null}
-            {isDock && creationLane === "video" && !dockCompactLine ? (
-              <VideoReferenceSlots
-                mode={videoReferenceMode}
-                videoReferences={videoReferences}
-                onVideoReferencesChange={setVideoReferences}
-                smartMultiShots={smartMultiShots}
-                onSmartMultiShotsChange={setSmartMultiShots}
-                motionPrompt={firstLastMotionPrompt}
-                onMotionPromptChange={setFirstLastMotionPrompt}
-                onUpload={uploadVideoReference}
-                disabled={readOnly || pending || streamBusy}
               />
             ) : null}
             <div
