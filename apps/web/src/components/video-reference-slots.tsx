@@ -15,6 +15,7 @@ import { CompactDockSheet } from "@/components/compact-dock-sheet";
 import { assetUrl } from "@/lib/api-client";
 import { VIDEO_CAMERA_TEMPLATES } from "@/lib/video-camera-templates";
 import { assignOmniRefLabels } from "@/lib/video-mention";
+import type { VideoPickCandidate } from "@/lib/canvas-video-reference-bind";
 import type {
   SmartMultiShot,
   VideoMediaRef,
@@ -58,6 +59,8 @@ export interface VideoReferenceDockControlProps {
     url: string;
     mimeType: string;
   }>;
+  pickCandidates?: VideoPickCandidate[];
+  onPickCandidate?: (pick: VideoPickCandidate, activeShotIndex?: number) => void;
   disabled?: boolean;
   uploading?: boolean;
   /** 当前模型在智能多帧下会降级合并 prompt */
@@ -74,6 +77,8 @@ export function VideoReferenceDockControl({
   motionPrompt = "",
   onMotionPromptChange,
   onUpload,
+  pickCandidates = [],
+  onPickCandidate,
   disabled = false,
   uploading = false,
   smartMultiDegraded = false,
@@ -127,6 +132,13 @@ export function VideoReferenceDockControl({
         ? "首尾帧"
         : "全能参考";
 
+  function handlePickCandidate(pick: VideoPickCandidate) {
+    onPickCandidate?.(
+      pick,
+      mode === "smart-multi-frame" ? activeShotIndex : undefined,
+    );
+  }
+
   return (
     <CompactDockSheet
       open={open}
@@ -153,6 +165,8 @@ export function VideoReferenceDockControl({
           shots={smartMultiShots}
           onChange={onSmartMultiShotsChange}
           onUpload={onUpload}
+          pickCandidates={pickCandidates}
+          onPickCandidate={handlePickCandidate}
           disabled={disabled}
           activeIndex={activeShotIndex}
           onActiveIndexChange={setActiveShotIndex}
@@ -165,6 +179,8 @@ export function VideoReferenceDockControl({
           motionPrompt={motionPrompt}
           onMotionPromptChange={onMotionPromptChange}
           onUpload={onUpload}
+          pickCandidates={pickCandidates}
+          onPickCandidate={handlePickCandidate}
           disabled={disabled}
         />
       ) : (
@@ -172,6 +188,8 @@ export function VideoReferenceDockControl({
           refs={videoReferences}
           onChange={onVideoReferencesChange}
           onUpload={onUpload}
+          pickCandidates={pickCandidates}
+          onPickCandidate={handlePickCandidate}
           disabled={disabled}
         />
       )}
@@ -240,15 +258,58 @@ function CompactRefTrigger({
 const MINI_SLOT =
   "flex size-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg border border-dashed border-white/15 bg-white/[0.03] text-[8px] text-zinc-500 transition hover:border-sky-500/40 hover:bg-white/[0.06]";
 
+function AssetPickStrip({
+  candidates,
+  onPick,
+  disabled,
+}: {
+  candidates: VideoPickCandidate[];
+  onPick?: (pick: VideoPickCandidate) => void;
+  disabled?: boolean;
+}) {
+  if (!candidates.length || !onPick || disabled) return null;
+  return (
+    <div className="space-y-1 border-t border-white/5 pt-2">
+      <p className="text-[10px] text-zinc-500">从画布/已上传选择</p>
+      <div className="flex max-h-24 flex-wrap gap-1 overflow-y-auto">
+        {candidates.map((c) => (
+          <button
+            key={c.assetId}
+            type="button"
+            title={c.label}
+            onClick={() => onPick(c)}
+            className="flex size-10 shrink-0 flex-col items-center justify-center overflow-hidden rounded-lg ring-1 ring-white/10 transition hover:ring-orange-400/50"
+          >
+            {c.mediaType === "image" ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={normalizePreviewUrl(c.previewUrl)}
+                alt=""
+                className="size-full object-cover"
+              />
+            ) : (
+              <span className="text-[8px] text-zinc-400">{c.mediaType}</span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function OmniEditor({
   refs,
   onChange,
   onUpload,
+  pickCandidates = [],
+  onPickCandidate,
   disabled,
 }: {
   refs: VideoMediaRef[];
   onChange: (refs: VideoMediaRef[]) => void;
   onUpload: VideoReferenceDockControlProps["onUpload"];
+  pickCandidates?: VideoPickCandidate[];
+  onPickCandidate?: (pick: VideoPickCandidate) => void;
   disabled?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -333,6 +394,11 @@ function OmniEditor({
           e.target.value = "";
         }}
       />
+      <AssetPickStrip
+        candidates={pickCandidates}
+        onPick={onPickCandidate}
+        disabled={disabled}
+      />
     </div>
   );
 }
@@ -343,6 +409,8 @@ function FirstLastEditor({
   motionPrompt,
   onMotionPromptChange,
   onUpload,
+  pickCandidates = [],
+  onPickCandidate,
   disabled,
 }: {
   refs: VideoMediaRef[];
@@ -350,6 +418,8 @@ function FirstLastEditor({
   motionPrompt?: string;
   onMotionPromptChange?: (v: string) => void;
   onUpload: VideoReferenceDockControlProps["onUpload"];
+  pickCandidates?: VideoPickCandidate[];
+  onPickCandidate?: (pick: VideoPickCandidate) => void;
   disabled?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -428,6 +498,11 @@ function FirstLastEditor({
           e.target.value = "";
         }}
       />
+      <AssetPickStrip
+        candidates={pickCandidates}
+        onPick={onPickCandidate}
+        disabled={disabled}
+      />
     </div>
   );
 }
@@ -481,6 +556,8 @@ function SmartMultiFrameEditor({
   shots,
   onChange,
   onUpload,
+  pickCandidates = [],
+  onPickCandidate,
   disabled,
   activeIndex,
   onActiveIndexChange,
@@ -489,6 +566,8 @@ function SmartMultiFrameEditor({
   shots: SmartMultiShot[];
   onChange: (shots: SmartMultiShot[]) => void;
   onUpload: VideoReferenceDockControlProps["onUpload"];
+  pickCandidates?: VideoPickCandidate[];
+  onPickCandidate?: (pick: VideoPickCandidate) => void;
   disabled?: boolean;
   activeIndex: number;
   onActiveIndexChange: (i: number) => void;
@@ -597,6 +676,11 @@ function SmartMultiFrameEditor({
           </button>
         ) : null}
       </div>
+      <AssetPickStrip
+        candidates={pickCandidates}
+        onPick={onPickCandidate}
+        disabled={disabled}
+      />
     </div>
   );
 }

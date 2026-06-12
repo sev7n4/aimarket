@@ -61,6 +61,10 @@ export function coerceInspirationAspect(value: string): AspectRatio {
 
 const VIDEO_COVER_RE = /\.(mp4|webm|mov)(\?|$)/i;
 
+export function isVideoCoverUrl(url: string): boolean {
+  return VIDEO_COVER_RE.test(url);
+}
+
 /** 灵感素材类型 → Studio 创作车道（图片 / 视频） */
 export function resolveInspirationCreationLane(
   detail: Pick<
@@ -71,7 +75,7 @@ export function resolveInspirationCreationLane(
   if (detail.mediaType === "video") return "video";
   if (detail.mediaType === "image") return "image";
   const cover = detail.coverUrl ?? detail.referenceAssets[0]?.url ?? "";
-  if (VIDEO_COVER_RE.test(cover)) return "video";
+  if (isVideoCoverUrl(cover)) return "video";
   return "image";
 }
 

@@ -100,7 +100,7 @@ export function CanvasVideoPlayer({
     }
   }, [active]);
 
-  const showControls = active && (playing || currentTime > 0);
+  const showProgressBar = active && (playing || currentTime > 0);
 
   return (
     <div
@@ -120,32 +120,43 @@ export function CanvasVideoPlayer({
         type="button"
         aria-label={playing ? "暂停视频" : "播放视频"}
         data-testid="canvas-video-play-toggle"
-        className={`absolute inset-0 flex items-center justify-center transition ${
-          playing && active
+        className={`absolute inset-0 z-20 flex items-center justify-center transition ${
+          playing
             ? "bg-black/0 opacity-0 hover:opacity-100 hover:bg-black/20"
             : "bg-black/20"
-        } ${showControls ? "bottom-10" : ""}`}
+        } ${showProgressBar ? "bottom-10" : ""}`}
         onClick={togglePlay}
+        onPointerDown={(e) => e.stopPropagation()}
       >
-        {!showControls ? (
-          <span
-            className={`flex size-11 items-center justify-center rounded-full border border-white/30 bg-black/55 text-white shadow-lg backdrop-blur-sm transition ${
-              active ? "scale-100" : "scale-90 opacity-90"
-            }`}
-          >
-            {playing && active ? (
-              <Pause className="size-5" fill="currentColor" />
-            ) : (
-              <Play className="size-5 translate-x-0.5" fill="currentColor" />
-            )}
-          </span>
-        ) : null}
+        <span
+          className={`pointer-events-none flex size-11 items-center justify-center rounded-full border border-white/30 bg-black/55 text-white shadow-lg backdrop-blur-sm transition ${
+            active ? "scale-100" : "scale-90 opacity-90"
+          } ${playing ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}
+        >
+          {playing ? (
+            <Pause className="size-5" fill="currentColor" />
+          ) : (
+            <Play className="size-5 translate-x-0.5" fill="currentColor" />
+          )}
+        </span>
       </button>
-      {showControls ? (
+      {showProgressBar ? (
         <div
-          className="absolute inset-x-0 bottom-0 z-10 flex items-center gap-1.5 bg-gradient-to-t from-black/85 to-transparent px-2 pb-1.5 pt-4"
+          className="absolute inset-x-0 bottom-0 z-30 flex items-center gap-1.5 bg-gradient-to-t from-black/85 to-transparent px-2 pb-1.5 pt-4"
           onClick={(e) => e.stopPropagation()}
         >
+          <button
+            type="button"
+            aria-label={playing ? "暂停" : "播放"}
+            className="flex size-7 shrink-0 items-center justify-center rounded-md text-white/90 hover:bg-white/10"
+            onClick={togglePlay}
+          >
+            {playing ? (
+              <Pause className="size-3.5" fill="currentColor" />
+            ) : (
+              <Play className="size-3.5 translate-x-0.5" fill="currentColor" />
+            )}
+          </button>
           <button
             type="button"
             aria-label={muted ? "取消静音" : "静音"}
