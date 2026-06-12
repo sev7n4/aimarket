@@ -42,6 +42,11 @@ jobs:
           docker version
           docker buildx version
           df -h / /var/lib/docker 2>/dev/null || df -h /
+          AVAIL_KB=$(df -Pk / | awk 'NR==2 {print $4}')
+          if [[ "${AVAIL_KB:-0}" -lt 4194304 ]]; then
+            echo "::error::Build runner disk < 4GB free. SSH to build host and run: sudo bash /opt/aimarket/deploy/prune-build-runner.sh && sudo bash /opt/aimarket/deploy/restart-github-runner.sh"
+            exit 1
+          fi
 
   build-push:
     name: Build ${{ matrix.image }}
@@ -121,9 +126,19 @@ jobs:
           docker image prune -f >/dev/null 2>&1
           if [[ -x /opt/aimarket/deploy/prune-build-runner.sh ]]; then
             bash /opt/aimarket/deploy/prune-build-runner.sh || true
+          elif [[ -x deploy/prune-build-runner.sh ]]; then
+            bash deploy/prune-build-runner.sh || true
+          fi
+          AVAIL_KB=$(df -Pk / | awk 'NR==2 {print $4}')
+          USE_PCT=$(df -Pk / | awk 'NR==2 {gsub(/%/,"",$5); print $5}')
+          if [[ "${AVAIL_KB:-0}" -lt 8388608 || "${USE_PCT:-0}" -gt 75 ]]; then
+            echo "Disk tight (avail=$((AVAIL_KB / 1024 / 1024))GB use=${USE_PCT}%) — builder prune -af"
+            docker builder prune -af --filter "until=24h" >/dev/null 2>&1 || true
+            docker image prune -af >/dev/null 2>&1 || true
           fi
           set -e
           df -h / /var/lib/docker 2>/dev/null || df -h /
+          docker system df 2>/dev/null || true
 
       - name: Build and push (TCR only)
         run: |

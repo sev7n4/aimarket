@@ -33,10 +33,12 @@ for REPO in "${IMAGE_REPO_PREFIX}/aimarket-api" "${IMAGE_REPO_PREFIX}/aimarket-w
 done
 
 AVAIL_KB=$(df -Pk / | awk 'NR==2 {print $4}')
-if [[ "${AVAIL_KB:-0}" -lt 2097152 ]]; then
-  echo "WARN: disk < 2GB — prune all unused images"
-  docker image prune -af >/dev/null 2>&1 || true
+USE_PCT=$(df -Pk / | awk 'NR==2 {gsub(/%/,"",$5); print $5}')
+# 构建机 40G 盘：可用 <8GB 或使用率 >75% 时激进清理（避免 Next 构建 ENOSPC / runner 掉线）
+if [[ "${AVAIL_KB:-0}" -lt 8388608 || "${USE_PCT:-0}" -gt 75 ]]; then
+  echo "WARN: disk avail=$((AVAIL_KB / 1024 / 1024))GB use=${USE_PCT}% — aggressive prune"
   docker builder prune -af --filter "until=24h" >/dev/null 2>&1 || true
+  docker image prune -af >/dev/null 2>&1 || true
 fi
 set -eu
 set -o pipefail
