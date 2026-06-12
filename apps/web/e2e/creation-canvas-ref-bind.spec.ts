@@ -1,6 +1,11 @@
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { gotoStudioAndWait, skipStudioCoach, studioWorkstation } from "./helpers/studio";
+import {
+  gotoStudioAndWait,
+  skipStudioCoach,
+  studioWorkstation,
+  waitForSessionEnsure,
+} from "./helpers/studio";
 
 const tinyImage = path.join(__dirname, "fixtures", "tiny.png");
 
@@ -31,6 +36,7 @@ test.describe("canvas reference auto-bind", () => {
     await gotoStudioAndWait(page);
     const station = studioWorkstation(page);
 
+    const ensureResponse = waitForSessionEnsure(page);
     const uploadResponse = page.waitForResponse(
       (res) =>
         res.url().includes("/api/v1/assets/upload") &&
@@ -38,6 +44,7 @@ test.describe("canvas reference auto-bind", () => {
       { timeout: 20_000 },
     );
     await station.locator('input[type="file"]').setInputFiles(tinyImage);
+    expect((await ensureResponse).ok()).toBeTruthy();
     expect((await uploadResponse).ok()).toBeTruthy();
 
     const canvasItem = page.locator('[data-testid^="canvas-item-upload-"]').first();

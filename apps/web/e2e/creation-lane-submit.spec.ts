@@ -4,6 +4,7 @@ import {
   gotoStudioAndWait,
   skipStudioCoach,
   studioWorkstation,
+  waitForSessionEnsure,
 } from "./helpers/studio";
 
 const tinyImage = path.join(__dirname, "fixtures", "tiny.png");
@@ -52,6 +53,7 @@ test.describe("creation lane submit guard", () => {
       station.getByRole("button", { name: "选择创作方式" }),
     ).toContainText("Agent 模式");
 
+    const ensureResponse = waitForSessionEnsure(page);
     const uploadResponse = page.waitForResponse(
       (res) =>
         res.url().includes("/api/v1/assets/upload") &&
@@ -59,6 +61,7 @@ test.describe("creation lane submit guard", () => {
       { timeout: 20_000 },
     );
     await station.locator('input[type="file"]').setInputFiles(tinyImage);
+    expect((await ensureResponse).ok()).toBeTruthy();
     expect((await uploadResponse).ok()).toBeTruthy();
 
     const canvasItem = page.locator('[data-testid^="canvas-item-upload-"]').first();
