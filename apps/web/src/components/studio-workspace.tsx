@@ -55,6 +55,7 @@ import {
   assetUrl,
   cancelJob,
   ensureSession,
+  fetchSession,
   exportSession,
   fetchJob,
   fetchTools,
@@ -108,6 +109,7 @@ import { formatToolProviderLabel } from "@/lib/studio-tool-meta";
 import { hapticLight } from "@/lib/haptics";
 import { type SessionKind } from "@/lib/session-kind";
 import { buildStudioUrl, studioUrlForSession } from "@/lib/studio-navigation";
+import { writeDraftSessionId } from "@/lib/studio-draft-session";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 
 type SelectionToolInteraction =
@@ -374,6 +376,30 @@ export function StudioWorkspace({
       ? currentSession.title
       : initialTitle ?? (mode === "ecommerce" ? "电商套图" : "未命名");
 
+  const applySourceInspiration = useCallback(
+    (src: NonNullable<Awaited<ReturnType<typeof ensureSession>>["sourceInspiration"]>) => {
+      const normalized = normalizePendingInspiration({
+        id: src.id,
+        title: src.title,
+        prompt: src.prompt,
+        modelId: src.modelId,
+        aspectRatio: coerceInspirationAspect(src.aspectRatio),
+        resolution: src.resolution,
+        variables: src.variables,
+        variableValues: src.variableValues ?? {},
+        referenceUrls: src.referenceUrls ?? [],
+        creationLane: src.mediaType === "video" ? "video" : undefined,
+      });
+      persistCreationLane("studio", normalized.creationLane);
+      setInspirationApply({
+        ...normalized,
+        aspectRatio: coerceInspirationAspect(normalized.aspectRatio),
+        applyKey: 1,
+      });
+    },
+    [],
+  );
+
   const initSession = useCallback(async () => {
     if (!user) return;
     const pending = consumePendingAssets(sessionId);
@@ -393,59 +419,60 @@ export function StudioWorkspace({
     }
 
     const wsId = activeWorkspaceId ?? getActiveWorkspaceId() ?? undefined;
-    const ensured = await ensureSession(sessionId, mode, {
-      title: initialTitle ?? pendingInspiration?.title,
-      kind:
-        pendingInspiration ?
-          pendingInspiration.creationLane === "video" ?
-            "canvas"
-          : "project"
-        : (initialKind ?? "canvas"),
-      workspaceId: wsId,
-      sourceInspirationId: pendingInspiration?.id,
-    });
-    setCanEdit(ensured.can_edit ?? true);
-    /**
-     * 刷新恢复灵感注入：无 pendingInspiration 时，用 ensure 返回的 sourceInspiration
-     * 重建 inspirationApply，以便 CreationPanel 继续预填 prompt / 参考图。
-     */
-    if (!pendingInspiration && ensured.sourceInspiration) {
-      const src = ensured.sourceInspiration;
-      const normalized = normalizePendingInspiration({
-        id: src.id,
-        title: src.title,
-        prompt: src.prompt,
-        modelId: src.modelId,
-        aspectRatio: coerceInspirationAspect(src.aspectRatio),
-        resolution: src.resolution,
-        variables: src.variables,
-        variableValues: src.variableValues ?? {},
-        referenceUrls: src.referenceUrls ?? [],
-        creationLane: src.mediaType === "video" ? "video" : undefined,
-      });
-      persistCreationLane("studio", normalized.creationLane);
-      setInspirationApply({
-        ...normalized,
-        aspectRatio: coerceInspirationAspect(normalized.aspectRatio),
-        applyKey: 1,
-      });
+    writeDraftSessionId(sessionId, wsId);
+
+    const mustPersist = pending.length > 0 || pendingInspiration != null;
+    let existing: Awaited<ReturnType<typeof fetchSession>> | null = null;
+    if (!mustPersist) {
+      try {
+        existing = await fetchSession(sessionId);
+      } catch {
+        existing = null;
+      }
     }
+
+    if (mustPersist) {
+      const ensured = await ensureSession(sessionId, mode, {
+        title: initialTitle ?? pendingInspiration?.title,
+        kind:
+          pendingInspiration ?
+            pendingInspiration.creationLane === "video" ?
+              "canvas"
+            : "project"
+          : (initialKind ?? "canvas"),
+        workspaceId: wsId,
+        sourceInspirationId: pendingInspiration?.id,
+      });
+      setCanEdit(ensured.can_edit ?? true);
+      if (!pendingInspiration && ensured.sourceInspiration) {
+        applySourceInspiration(ensured.sourceInspiration);
+      }
+      await loadCanvas();
+      if (pendingInspiration?.referenceUrls.length) {
+        const refItems = await importInspirationReferencesToCanvas(
+          sessionId,
+          pendingInspiration.referenceUrls,
+        );
+        setCanvasItems((prev) => [...prev, ...refItems]);
+        if (refItems[0]) setSelectedCanvasId(refItems[0].id);
+      }
+    } else if (existing) {
+      setCanEdit(existing.can_edit ?? true);
+      if (!pendingInspiration && existing.sourceInspiration) {
+        applySourceInspiration(existing.sourceInspiration);
+      }
+      await loadCanvas();
+    } else {
+      /** 本地草稿：尚未入库，避免打开空白 Studio 即创建「新建画布」 */
+      setCanEdit(true);
+    }
+
     const listPromise = listSessions(
       STUDIO_SIDEBAR_SESSION_LIMIT,
       undefined,
       wsId,
     );
     const toolsPromise = fetchTools().catch(() => []);
-
-    await loadCanvas();
-    if (pendingInspiration?.referenceUrls.length) {
-      const refItems = await importInspirationReferencesToCanvas(
-        sessionId,
-        pendingInspiration.referenceUrls,
-      );
-      setCanvasItems((prev) => [...prev, ...refItems]);
-      if (refItems[0]) setSelectedCanvasId(refItems[0].id);
-    }
     setReady(true);
     const [list, toolList] = await Promise.all([listPromise, toolsPromise]);
     setSessions(list);
@@ -460,6 +487,7 @@ export function StudioWorkspace({
     setCanvasItems,
     activeWorkspaceId,
     setCanEdit,
+    applySourceInspiration,
   ]);
 
   useEffect(() => {
@@ -552,8 +580,13 @@ export function StudioWorkspace({
       }
       setActiveJobPrompt(studioPrompt.trim() || null);
       setPollingJobId(jobId);
+      void listSessions(
+        STUDIO_SIDEBAR_SESSION_LIMIT,
+        undefined,
+        activeWorkspaceId ?? undefined,
+      ).then(setSessions);
     },
-    [registerBatchLineage, studioPrompt],
+    [registerBatchLineage, studioPrompt, activeWorkspaceId],
   );
 
   /** 仅滚动/高亮最新批次，不写入 selectedCanvasId（避免误绑定图生图参考） */

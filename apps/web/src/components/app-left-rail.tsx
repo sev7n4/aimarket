@@ -99,7 +99,9 @@ export function AppLeftRail({
   const recentCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const openStudio = useCallback(() => {
-    router.push(buildStudioUrl("canvas", { title: "未命名" }));
+    router.push(
+      buildStudioUrl("canvas", { title: "未命名", newDraft: false }),
+    );
   }, [router]);
 
   const scrollHomeSection = useCallback(

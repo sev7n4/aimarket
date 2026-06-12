@@ -21,6 +21,7 @@ import { modeTabs, placeholders } from "@/lib/modes";
 import {
   assetUrl,
   ensureSession,
+  fetchSession,
   estimatePoints,
   getToken,
   fetchModels,
@@ -1093,11 +1094,8 @@ export function CreationPanel({
     let cancelled = false;
     void (async () => {
       try {
-        if (!sessionEnsuredRef.current) {
-          await ensureSession(sessionId, mode);
-          sessionEnsuredRef.current = true;
-        }
-        if (cancelled) return;
+        const existing = await fetchSession(sessionId).catch(() => null);
+        if (!existing || cancelled) return;
         const refs = await fetchReferences(sessionId);
         if (!cancelled) setReferences(refs);
       } catch {
