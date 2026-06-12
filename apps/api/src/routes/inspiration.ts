@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import {
   createUserPublishedInspiration,
+  ensureInspirationRowCover,
   getPublishedInspirationById,
   getPublishedInspirationByLegacyId,
   listPublishedInspirations,
@@ -10,6 +11,10 @@ import {
   rowToKeywordDetail,
   rowToKeywordListItem,
 } from "../lib/inspiration.js";
+import {
+  isSuspectNonPlayableVideoUrl,
+  isVideoMediaUrl,
+} from "../lib/video-poster.js";
 import { forkProjectFromInspiration } from "../lib/inspiration-fork.js";
 import { recordAnalyticsEvent } from "../lib/analytics.js";
 import type { AuthVariables } from "../middleware/auth.js";
@@ -23,7 +28,7 @@ const pageQuery = z.object({
   fanSet: z.enum(["apparel"]).optional(),
 });
 
-inspiration.get("/page", (c) => {
+inspiration.get("/page", async (c) => {
   const q = pageQuery.parse({
     pageNum: c.req.query("pageNum"),
     pageSize: c.req.query("pageSize"),
@@ -31,10 +36,21 @@ inspiration.get("/page", (c) => {
     fanSet: c.req.query("fanSet"),
   });
   const { total, rows } = listPublishedInspirations(q);
+  const hydrated = await Promise.all(
+    rows.map(async (row) => {
+      if (
+        isVideoMediaUrl(row.cover_url) &&
+        !isSuspectNonPlayableVideoUrl(row.cover_url)
+      ) {
+        return ensureInspirationRowCover(row);
+      }
+      return row;
+    }),
+  );
   return c.json({
     data: {
       total,
-      rows: rows.map((row) => {
+      rows: hydrated.map((row) => {
         const item = rowToCanonical(row);
         return {
           id: item.id,
@@ -43,6 +59,7 @@ inspiration.get("/page", (c) => {
           coverUrl: item.coverUrl,
           aspectRatio: item.aspectRatio,
           mediaType: item.mediaType,
+          videoUrl: item.videoUrl,
           createdAt: item.createdAt,
           updatedAt: item.updatedAt,
         };
@@ -51,9 +68,15 @@ inspiration.get("/page", (c) => {
   });
 });
 
-inspiration.get("/:id", (c) => {
+inspiration.get("/:id", async (c) => {
   const id = c.req.param("id");
-  const row = getPublishedInspirationById(id);
+  let row = getPublishedInspirationById(id);
+  if (
+    isVideoMediaUrl(row.cover_url) &&
+    !isSuspectNonPlayableVideoUrl(row.cover_url)
+  ) {
+    row = await ensureInspirationRowCover(row);
+  }
   void recordAnalyticsEvent(null, "inspiration.click", {
     inspirationId: row.id,
     source: "canonical",
@@ -147,7 +170,7 @@ const publishBody = z
 inspirationAuthed.post("/publish", async (c) => {
   const userId = c.get("userId");
   const body = publishBody.parse(await c.req.json());
-  const data = createUserPublishedInspiration(userId, body);
+  const data = await createUserPublishedInspiration(userId, body);
   void recordAnalyticsEvent(userId, "inspiration.publish", {
     inspirationId: data.id,
     modelId: data.modelId,

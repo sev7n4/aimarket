@@ -5,6 +5,11 @@ import { getModel } from "./models.js";
 import { AppError } from "./errors.js";
 import { extractPublishablePrompt } from "./references.js";
 import { toPublicAssetUrl } from "./public-url.js";
+import {
+  extractVideoPosterFrame,
+  isSuspectNonPlayableVideoUrl,
+  isVideoMediaUrl,
+} from "./video-poster.js";
 
 export const inspirationVariableSchema = z.object({
   key: z.string().min(1),
@@ -90,6 +95,22 @@ export function renderPromptTemplate(
   return out;
 }
 
+function resolveInspirationVideoUrl(
+  coverUrl: string,
+  mediaType: "image" | "video",
+  referenceAssets: ReferenceAsset[],
+): string | undefined {
+  if (mediaType !== "video") return undefined;
+  const fromRefs = referenceAssets.find(
+    (a) => isVideoMediaUrl(a.url) && !isSuspectNonPlayableVideoUrl(a.url),
+  )?.url;
+  if (fromRefs) return toPublicAssetUrl(fromRefs);
+  if (isVideoMediaUrl(coverUrl) && !isSuspectNonPlayableVideoUrl(coverUrl)) {
+    return toPublicAssetUrl(coverUrl);
+  }
+  return undefined;
+}
+
 export function rowToCanonical(row: InspirationRow) {
   const variables = parseVariables(row.variables_json);
   const referenceAssets = parseReferenceAssets(
@@ -98,6 +119,19 @@ export function rowToCanonical(row: InspirationRow) {
   );
   const prompt = renderPromptTemplate(row.prompt_template, variables);
   const mediaType = getModel(row.model_id)?.type === "video" ? "video" : "image";
+  let coverUrl = toPublicAssetUrl(row.cover_url);
+  const videoUrl = resolveInspirationVideoUrl(
+    coverUrl,
+    mediaType,
+    referenceAssets,
+  );
+  if (
+    mediaType === "video" &&
+    isVideoMediaUrl(coverUrl) &&
+    isSuspectNonPlayableVideoUrl(coverUrl)
+  ) {
+    coverUrl = "";
+  }
 
   return {
     id: row.id,
@@ -109,14 +143,89 @@ export function rowToCanonical(row: InspirationRow) {
     modelId: row.model_id,
     aspectRatio: row.aspect_ratio,
     resolution: row.resolution,
-    coverUrl: row.cover_url,
+    coverUrl,
     referenceAssets,
     mediaType,
+    videoUrl,
     status: row.status,
     sortOrder: row.sort_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+/** 发布前：视频灵感用抽帧 poster 作封面，原视频写入 reference */
+export async function normalizeInspirationCoverForPublish(opts: {
+  coverUrl: string;
+  thumbUrl?: string;
+  modelId: string;
+  referenceUrls: string[];
+}): Promise<{ coverUrl: string; referenceUrls: string[] }> {
+  const model = getModel(opts.modelId);
+  const isVideo =
+    model?.type === "video" || isVideoMediaUrl(opts.coverUrl);
+  if (!isVideo) {
+    return {
+      coverUrl: opts.coverUrl,
+      referenceUrls: opts.referenceUrls,
+    };
+  }
+
+  const videoUrl = toPublicAssetUrl(opts.coverUrl);
+  if (isSuspectNonPlayableVideoUrl(videoUrl)) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "视频源地址无效，无法发布到灵感发现",
+    );
+  }
+
+  const thumb = opts.thumbUrl ? toPublicAssetUrl(opts.thumbUrl) : "";
+  let posterUrl = thumb && !isVideoMediaUrl(thumb) ? thumb : "";
+  if (!posterUrl) {
+    const poster = await extractVideoPosterFrame(videoUrl);
+    posterUrl = poster.url;
+  }
+
+  const refSet = new Set(
+    opts.referenceUrls.map((u) => toPublicAssetUrl(u)).filter(Boolean),
+  );
+  refSet.add(videoUrl);
+  return {
+    coverUrl: posterUrl,
+    referenceUrls: [...refSet],
+  };
+}
+
+/** 历史数据：cover 仍为视频 URL 时抽帧并回写 DB（一次性修复） */
+export async function ensureInspirationRowCover(
+  row: InspirationRow,
+): Promise<InspirationRow> {
+  const model = getModel(row.model_id);
+  if (model?.type !== "video") return row;
+  if (!isVideoMediaUrl(row.cover_url)) return row;
+  if (isSuspectNonPlayableVideoUrl(row.cover_url)) return row;
+
+  try {
+    const poster = await extractVideoPosterFrame(row.cover_url);
+    const videoUrl = toPublicAssetUrl(row.cover_url);
+    const refs = parseReferenceAssets(row.reference_assets_json, row.cover_url);
+    const merged = [
+      { url: videoUrl },
+      ...refs.filter((r) => r.url !== videoUrl),
+    ];
+    db.prepare(
+      `UPDATE inspiration_templates
+       SET cover_url = ?, reference_assets_json = ?, updated_at = datetime('now')
+       WHERE id = ?`,
+    ).run(poster.url, JSON.stringify(merged), row.id);
+    const updated = db
+      .prepare("SELECT * FROM inspiration_templates WHERE id = ?")
+      .get(row.id) as unknown as InspirationRow | undefined;
+    return updated ?? row;
+  } catch {
+    return row;
+  }
 }
 
 /** 椒图 keyword/detail 兼容形状 */
@@ -297,7 +406,7 @@ export function resolveCanvasOutputPublishMeta(
 ) {
   const fromMessage = db
     .prepare(
-      `SELECT mo.url, j.prompt AS job_prompt, j.model_id, j.resolution,
+      `SELECT mo.url, mo.thumb_url, j.prompt AS job_prompt, j.model_id, j.resolution,
               j.aspect_ratio, j.tool_context, u.content AS user_prompt
        FROM message_outputs mo
        JOIN messages a ON a.id = mo.message_id
@@ -309,6 +418,7 @@ export function resolveCanvasOutputPublishMeta(
     .get(outputId, userId) as
     | {
         url: string;
+        thumb_url: string | null;
         job_prompt: string | null;
         model_id: string | null;
         resolution: string | null;
@@ -336,13 +446,16 @@ export function resolveCanvasOutputPublishMeta(
           ? fromMessage.resolution
           : ("1k" as const),
       coverUrl: toPublicAssetUrl(fromMessage.url),
+      thumbUrl: fromMessage.thumb_url
+        ? toPublicAssetUrl(fromMessage.thumb_url)
+        : undefined,
       referenceUrls,
     };
   }
 
   const fromJobOutput = db
     .prepare(
-      `SELECT o.url, j.prompt AS job_prompt, j.model_id, j.resolution,
+      `SELECT o.url, o.thumb_url, j.prompt AS job_prompt, j.model_id, j.resolution,
               j.aspect_ratio, j.tool_context, u.content AS user_prompt
        FROM job_outputs o
        JOIN generation_jobs j ON j.id = o.job_id
@@ -352,6 +465,7 @@ export function resolveCanvasOutputPublishMeta(
     .get(outputId, userId) as
     | {
         url: string;
+        thumb_url: string | null;
         job_prompt: string | null;
         model_id: string | null;
         resolution: string | null;
@@ -379,6 +493,9 @@ export function resolveCanvasOutputPublishMeta(
         ? fromJobOutput.resolution
         : ("1k" as const),
     coverUrl: toPublicAssetUrl(fromJobOutput.url),
+    thumbUrl: fromJobOutput.thumb_url
+      ? toPublicAssetUrl(fromJobOutput.thumb_url)
+      : undefined,
     referenceUrls: [
       ...new Set([...extracted.referenceUrls, ...toolRefs]),
     ].map(toPublicAssetUrl),
@@ -386,7 +503,7 @@ export function resolveCanvasOutputPublishMeta(
 }
 
 /** 用户从画布发布到灵感发现（prompt 写入模板，供「制作同款」灌入工作台） */
-export function createUserPublishedInspiration(
+export async function createUserPublishedInspiration(
   userId: string,
   input: {
     coverUrl?: string;
@@ -425,7 +542,7 @@ export function createUserPublishedInspiration(
     throw new AppError(400, "VALIDATION_ERROR", "提示词不能为空");
   }
 
-  const coverUrl = toPublicAssetUrl(
+  let coverUrl = toPublicAssetUrl(
     input.coverUrl?.trim() || resolved?.coverUrl || "",
   );
   if (!/^https?:\/\//i.test(coverUrl)) {
@@ -449,8 +566,16 @@ export function createUserPublishedInspiration(
       ...(input.referenceUrls ?? []),
     ]),
   ];
+
+  const normalized = await normalizeInspirationCoverForPublish({
+    coverUrl,
+    thumbUrl: resolved?.thumbUrl,
+    modelId,
+    referenceUrls: mergedRefs,
+  });
+  coverUrl = normalized.coverUrl;
   const refs = JSON.stringify(
-    mergedRefs
+    normalized.referenceUrls
       .map((url) => ({ url: toPublicAssetUrl(url) }))
       .filter((item) => /^https?:\/\//i.test(item.url)),
   );
@@ -481,6 +606,7 @@ export function createUserPublishedInspiration(
     resolution,
     coverUrl,
     refs === "[]" ? JSON.stringify([{ url: coverUrl }]) : refs,
+    // coverUrl 为 poster 图；视频在 reference_assets_json
     "published",
     sortOrder,
   );

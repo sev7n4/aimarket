@@ -137,6 +137,7 @@ export function InspirationSlotSheet({
             coverUrl={detail.coverUrl}
             title={detail.title}
             mediaType={meta.mediaType}
+            videoUrl={detail.videoUrl}
             objectFit="contain"
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#111]/85 via-transparent to-black/15" />
@@ -163,6 +164,7 @@ export function InspirationSlotSheet({
               coverUrl={detail.coverUrl}
               title={detail.title}
               mediaType="video"
+              videoUrl={detail.videoUrl}
               objectFit="cover"
             />
           ) : (

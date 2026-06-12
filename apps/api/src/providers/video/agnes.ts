@@ -75,6 +75,14 @@ function resolveDimensions(aspectRatio?: string): { width: number; height: numbe
   return RATIO_DIMENSIONS[ratio] ?? RATIO_DIMENSIONS["16:9"]!;
 }
 
+function isPlayableVideoDownloadUrl(url: string): boolean {
+  if (!/^https?:\/\//.test(url)) return false;
+  if (/-metadata[_-]/i.test(url) || url.toLowerCase().includes("metadata_user")) {
+    return false;
+  }
+  return /\.(mp4|webm|mov)(\?|$)/i.test(url);
+}
+
 function extractVideoUrl(task: Record<string, unknown>): string | null {
   const candidates = [
     task.video_url,
@@ -82,7 +90,7 @@ function extractVideoUrl(task: Record<string, unknown>): string | null {
     task.output_url,
   ];
   for (const c of candidates) {
-    if (typeof c === "string" && /^https?:\/\//.test(c)) return c;
+    if (typeof c === "string" && isPlayableVideoDownloadUrl(c)) return c;
   }
   return null;
 }

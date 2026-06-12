@@ -5,6 +5,8 @@ export interface InspirationListItem {
   coverUrl: string;
   aspectRatio?: string;
   mediaType?: "image" | "video";
+  /** 视频灵感：悬停预览用，封面 coverUrl 为 poster 图 */
+  videoUrl?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -23,6 +25,7 @@ export interface InspirationDetail {
   referenceAssets: Array<{ url: string; fileName?: string; assetId?: string }>;
   /** 由 modelId 解析：图片灵感走图片车道，视频灵感走视频车道 */
   mediaType?: "image" | "video";
+  videoUrl?: string;
 }
 
 export interface ApiUser {
