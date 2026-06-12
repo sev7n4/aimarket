@@ -4,6 +4,7 @@ export interface InspirationListItem {
   category: string;
   coverUrl: string;
   aspectRatio?: string;
+  mediaType?: "image" | "video";
   createdAt?: string;
   updatedAt?: string;
 }

@@ -163,7 +163,9 @@ export function ScrollCanvasItemChrome({
           title="引用到工作台"
           aria-label="引用到工作台"
           data-testid="canvas-item-quick-mention"
-          className={`absolute right-2 top-1/2 z-50 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/[0.58] text-white shadow-[0_10px_28px_rgba(0,0,0,0.38)] backdrop-blur-md transition hover:scale-105 hover:border-orange-300/60 hover:bg-orange-500/80 ${show}`}
+          className={`absolute right-2 z-50 flex size-8 items-center justify-center rounded-full border border-white/20 bg-black/[0.58] text-white shadow-[0_10px_28px_rgba(0,0,0,0.38)] backdrop-blur-md transition hover:scale-105 hover:border-orange-300/60 hover:bg-orange-500/80 ${show} ${
+            isVideo ? "top-3" : "top-1/2 -translate-y-1/2"
+          }`}
           onClick={(e) => {
             e.stopPropagation();
             onMentionItem(item);

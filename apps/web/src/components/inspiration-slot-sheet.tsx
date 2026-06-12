@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Loader2, Sparkles, X } from "lucide-react";
 import type { InspirationDetail } from "@/lib/types";
+import { InspirationCoverMedia } from "@/components/inspiration-cover-media";
 import { renderInspiration, trackEvent } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { applyInspirationToStudio } from "@/lib/inspiration-studio";
@@ -100,6 +101,7 @@ export function InspirationSlotSheet({
 
   const aspect = coverAspectRatio(detail.aspectRatio);
   const meta = rendered ?? detail;
+  const isVideo = meta.mediaType === "video";
 
   return (
     <div
@@ -131,13 +133,11 @@ export function InspirationSlotSheet({
             maxHeight: "min(52dvh, 480px)",
           }}
         >
-          <Image
-            src={detail.coverUrl}
-            alt={detail.title}
-            fill
-            sizes="100vw"
-            className="object-contain"
-            unoptimized
+          <InspirationCoverMedia
+            coverUrl={detail.coverUrl}
+            title={detail.title}
+            mediaType={meta.mediaType}
+            objectFit="contain"
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#111]/85 via-transparent to-black/15" />
           <button
@@ -158,13 +158,22 @@ export function InspirationSlotSheet({
 
         {/* 桌面端：横幅封面 */}
         <div className="relative hidden aspect-[16/9] w-full shrink-0 bg-zinc-950 sm:block">
-          <Image
-            src={detail.coverUrl}
-            alt={detail.title}
-            fill
-            className="object-cover"
-            unoptimized
-          />
+          {isVideo ? (
+            <InspirationCoverMedia
+              coverUrl={detail.coverUrl}
+              title={detail.title}
+              mediaType="video"
+              objectFit="cover"
+            />
+          ) : (
+            <Image
+              src={detail.coverUrl}
+              alt={detail.title}
+              fill
+              className="object-cover"
+              unoptimized
+            />
+          )}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#111] via-transparent to-transparent" />
           <button
             type="button"

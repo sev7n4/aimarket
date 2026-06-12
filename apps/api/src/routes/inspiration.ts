@@ -42,6 +42,7 @@ inspiration.get("/page", (c) => {
           category: item.category,
           coverUrl: item.coverUrl,
           aspectRatio: item.aspectRatio,
+          mediaType: item.mediaType,
           createdAt: item.createdAt,
           updatedAt: item.updatedAt,
         };

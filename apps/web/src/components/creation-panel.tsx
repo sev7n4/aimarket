@@ -34,6 +34,7 @@ import {
   submitVideoGeneration,
   suggestModel,
   uploadAsset,
+  registerAssetFromUrl,
   trackEvent,
   optimizePromptApi,
   reversePromptFromImage,
@@ -131,6 +132,12 @@ import {
   canAutoBindCanvasItem,
   mergeReferenceSources,
 } from "@/lib/canvas-reference-bind";
+import {
+  canvasItemToVideoPickCandidate,
+  resolveCanvasItemForVideoPick,
+  routePickToVideoSlots,
+  type VideoPickCandidate,
+} from "@/lib/canvas-video-reference-bind";
 import {
   ReferenceChips,
   type ReferenceChipItem,
@@ -640,11 +647,12 @@ export function CreationPanel({
     );
   }
 
-  const canvasReferenceActive = canAutoBindCanvasItem(
-    selectedCanvasItem,
-    creationLane,
-    Boolean(focusEdit?.points.length),
-  );
+  const canvasReferenceActive =
+    canAutoBindCanvasItem(
+      selectedCanvasItem,
+      creationLane,
+      Boolean(focusEdit?.points.length),
+    ) && creationLane !== "video";
 
   const referenceChips = useMemo((): ReferenceChipItem[] => {
     const chips: ReferenceChipItem[] = [];
@@ -1288,13 +1296,94 @@ export function CreationPanel({
     setMentionQuery("");
   }
 
+  const videoPickCandidates = useMemo((): VideoPickCandidate[] => {
+    const seen = new Set<string>();
+    const out: VideoPickCandidate[] = [];
+    const push = (c: VideoPickCandidate | null) => {
+      if (!c || seen.has(c.assetId)) return;
+      seen.add(c.assetId);
+      out.push(c);
+    };
+    canvasItems.forEach((item, index) => {
+      if (item.isVideo && videoReferenceMode !== "omni") return;
+      push(canvasItemToVideoPickCandidate(item, index));
+    });
+    for (const [uploadIdx, preview] of uploadPreviews.entries()) {
+      push({
+        assetId: preview.id,
+        previewUrl: preview.url,
+        mediaType: "image",
+        label: `上传图${uploadIdx + 1}`,
+      });
+    }
+    return out;
+  }, [canvasItems, uploadPreviews, videoReferenceMode]);
+
+  function applyVideoPickCandidate(
+    pick: VideoPickCandidate,
+    activeShotIndex = 0,
+  ) {
+    const routed = routePickToVideoSlots(
+      pick,
+      videoReferenceMode,
+      videoReferences,
+      smartMultiShots,
+      activeShotIndex,
+    );
+    setVideoReferences(routed.videoReferences);
+    setSmartMultiShots(routed.smartMultiShots);
+    if (videoReferenceMode === "omni") {
+      const label = pick.label ?? "图片1";
+      if (!extractMentionLabelsFromPrompt(prompt).includes(label)) {
+        setPrompt((prev) => `${prev.trim()} @${label}`.trim());
+      }
+    }
+  }
+
   useEffect(() => {
     if (!mentionItemRequest) return;
     const index = canvasItems.findIndex(
       (item) => item.id === mentionItemRequest.item.id,
     );
+    const canvasItem = mentionItemRequest.item;
+
+    if (creationLane === "video" && sessionId) {
+      void (async () => {
+        try {
+          const pick = await resolveCanvasItemForVideoPick(
+            canvasItem,
+            index >= 0 ? index : 0,
+            sessionId,
+            registerAssetFromUrl,
+          );
+          if (!pick) return;
+          applyVideoPickCandidate(pick);
+          if (videoReferenceMode === "omni") {
+            const mention = canvasItemToMentionItem(
+              canvasItem,
+              index >= 0 ? index : 0,
+            );
+            if (mention) {
+              insertMention(mention, mentionItemRequest.promptSuffix ?? "");
+            }
+          }
+          if (mentionItemRequest.maskSelection) {
+            setMentionedMasks((prev) => [
+              ...prev.filter((m) => m.id !== mentionItemRequest.maskSelection!.id),
+              mentionItemRequest.maskSelection!,
+            ]);
+          }
+        } catch (err) {
+          onInteractionHint?.(
+            err instanceof Error ? err.message : "引用到视频参考失败",
+          );
+        }
+      })();
+      return;
+    }
+
     const mention = canvasItemToMentionItem(
-      mentionItemRequest.item,
+      canvasItem,
       index >= 0 ? index : 0,
     );
     if (!mention) return;
@@ -1938,6 +2027,8 @@ export function CreationPanel({
                 motionPrompt={firstLastMotionPrompt}
                 onMotionPromptChange={setFirstLastMotionPrompt}
                 onUpload={uploadVideoReference}
+                pickCandidates={videoPickCandidates}
+                onPickCandidate={applyVideoPickCandidate}
                 disabled={readOnly || pending || streamBusy}
                 uploading={videoUploading}
                 smartMultiDegraded={smartMultiDegraded}

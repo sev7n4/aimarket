@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import {
   inspirationCategories,
   inspirationItems,
@@ -14,6 +13,7 @@ import {
 } from "@/lib/api-client";
 import type { InspirationDetail, InspirationListItem } from "@/lib/types";
 import { InspirationSlotSheet } from "@/components/inspiration-slot-sheet";
+import { InspirationCoverMedia } from "@/components/inspiration-cover-media";
 import { LoginDialog } from "@/components/login-dialog";
 
 const PAGE_SIZE = 12;
@@ -27,6 +27,7 @@ type GalleryItem = {
   title: string;
   category: string;
   coverUrl: string;
+  mediaType?: "image" | "video";
 };
 
 function staticToGallery(): GalleryItem[] {
@@ -76,6 +77,7 @@ export function InspirationGallery() {
         title: r.title,
         category: r.category,
         coverUrl: r.coverUrl,
+        mediaType: r.mediaType,
       }));
     }
     const staticList = staticToGallery();
@@ -161,13 +163,11 @@ export function InspirationGallery() {
               className="group relative mb-3 block w-full break-inside-avoid overflow-hidden rounded-2xl border border-white/10 text-left transition hover:border-orange-500/40 disabled:opacity-60"
             >
               <div className="relative aspect-[4/5] w-full bg-zinc-900">
-                <Image
-                  src={item.coverUrl}
-                  alt={item.title}
-                  fill
+                <InspirationCoverMedia
+                  coverUrl={item.coverUrl}
+                  title={item.title}
+                  mediaType={item.mediaType}
                   sizes="(max-width: 640px) 50vw, 25vw"
-                  className="object-cover transition duration-300 group-hover:scale-[1.03]"
-                  unoptimized
                 />
                 {item.category === "创意" ? (
                   <>
