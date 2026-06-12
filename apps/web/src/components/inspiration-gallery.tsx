@@ -28,6 +28,7 @@ type GalleryItem = {
   category: string;
   coverUrl: string;
   mediaType?: "image" | "video";
+  videoUrl?: string;
 };
 
 function staticToGallery(): GalleryItem[] {
@@ -78,6 +79,7 @@ export function InspirationGallery() {
         category: r.category,
         coverUrl: r.coverUrl,
         mediaType: r.mediaType,
+        videoUrl: r.videoUrl,
       }));
     }
     const staticList = staticToGallery();
@@ -167,6 +169,7 @@ export function InspirationGallery() {
                   coverUrl={item.coverUrl}
                   title={item.title}
                   mediaType={item.mediaType}
+                  videoUrl={item.videoUrl}
                   sizes="(max-width: 640px) 50vw, 25vw"
                 />
                 {item.category === "创意" ? (

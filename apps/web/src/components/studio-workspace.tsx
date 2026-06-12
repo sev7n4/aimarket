@@ -1744,7 +1744,7 @@ export function StudioWorkspace({
               }}
               onPublishItem={async (item) => {
                 if (!item.outputId) {
-                  setSelectSourceBanner("仅支持发布已生成的图片");
+                  setSelectSourceBanner("仅支持发布已生成的图片或视频");
                   return;
                 }
                 try {
