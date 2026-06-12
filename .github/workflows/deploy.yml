@@ -47,7 +47,7 @@ jobs:
     name: Build ${{ matrix.image }}
     needs: preflight
     runs-on: [self-hosted, aimarket-build]
-    timeout-minutes: 60
+    timeout-minutes: ${{ matrix.timeout_minutes }}
     environment: production
     env:
       PUBLIC_API_URL: http://${{ secrets.TENCENT_CLOUD_IP || secrets.DEPLOY_HOST }}:4100
@@ -58,9 +58,11 @@ jobs:
         include:
           - image: aimarket-api
             file: deploy/docker/Dockerfile.api
+            timeout_minutes: 90
           - image: aimarket-web
             file: deploy/docker/Dockerfile.web
             web_image: true
+            timeout_minutes: 60
     steps:
       - name: Checkout
         run: |
