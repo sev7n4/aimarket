@@ -1,4 +1,7 @@
-import { randomUUID } from "@/lib/uuid";
+import {
+  allocateDraftSessionId,
+  getOrCreateDraftSessionId,
+} from "@/lib/studio-draft-session";
 
 export type StudioKind = "canvas" | "project";
 
@@ -11,10 +14,21 @@ export function buildStudioUrl(
     title?: string;
     prompt?: string;
     inspirationId?: string;
+    workspaceId?: string | null;
+    /**
+     * 未传 sessionId 时：true=新草稿 ID（不入库）；false=复用 localStorage 草稿。
+     * 默认 true。
+     */
+    newDraft?: boolean;
   },
 ): string {
+  const sessionId =
+    options?.sessionId ??
+    (options?.newDraft === false
+      ? getOrCreateDraftSessionId(options?.workspaceId)
+      : allocateDraftSessionId(options?.workspaceId));
   const params = new URLSearchParams({
-    sessionId: options?.sessionId ?? randomUUID(),
+    sessionId,
     mode: options?.mode ?? "image",
     kind,
   });

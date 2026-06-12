@@ -274,6 +274,15 @@ export async function ensureSession(
   return res.data;
 }
 
+export async function fetchSession(sessionId: string) {
+  const res = await request<{
+    data: ImageSession & {
+      sourceInspiration?: EnsureSessionSourceInspiration | null;
+    };
+  }>(`/api/v1/imageSession/${encodeURIComponent(sessionId)}`);
+  return res.data;
+}
+
 export async function listSessions(
   limit = 20,
   kind?: "canvas" | "project",

@@ -362,6 +362,18 @@ sessions.delete("/:sessionId", (c) => {
   return c.json({ data: { deleted: true, sessionId } });
 });
 
+sessions.get("/:sessionId", (c) => {
+  const userId = c.get("userId");
+  const sessionId = c.req.param("sessionId");
+  const session = assertSessionRead(userId, sessionId);
+  return c.json({
+    data: {
+      ...mapSessionForUser(session, userId),
+      sourceInspiration: loadSourceInspirationForSession(sessionId),
+    },
+  });
+});
+
 sessions.get("/:sessionId/canvas", (c) => {
   const userId = c.get("userId");
   const sessionId = c.req.param("sessionId");

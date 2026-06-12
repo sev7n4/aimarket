@@ -1,6 +1,11 @@
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { gotoStudioAndWait, skipStudioCoach, studioWorkstation } from "./helpers/studio";
+import {
+  gotoStudioAndWait,
+  skipStudioCoach,
+  studioWorkstation,
+  waitForSessionEnsure,
+} from "./helpers/studio";
 
 const tinyImage = path.join(__dirname, "fixtures", "tiny.png");
 
@@ -40,6 +45,7 @@ test.describe("studio upload references", () => {
 
     const station = studioWorkstation(page);
 
+    const ensureResponse = waitForSessionEnsure(page);
     const uploadResponse = page.waitForResponse(
       (res) =>
         res.url().includes("/api/v1/assets/upload") &&
@@ -47,6 +53,7 @@ test.describe("studio upload references", () => {
       { timeout: 20_000 },
     );
     await station.locator('input[type="file"]').setInputFiles(tinyImage);
+    expect((await ensureResponse).ok()).toBeTruthy();
     expect((await uploadResponse).ok()).toBeTruthy();
 
     await expect(page.getByText("素材区").first()).toBeVisible({

@@ -15,17 +15,10 @@ export async function skipStudioCoach(page: Page) {
   });
 }
 
-/** 进入 Studio 并等待会话 ensure，保证 user + sessionId 可用于上传/提交 */
+/** 进入 Studio 并等待客户端草稿 sessionId 与创作台就绪（空白打开不再自动 ensure） */
 export async function gotoStudioAndWait(page: Page, url = "/studio") {
-  const sessionReady = page.waitForResponse(
-    (res) =>
-      res.url().includes("/api/v1/imageSession/ensure") &&
-      res.request().method() === "POST" &&
-      res.ok(),
-    { timeout: 30_000 },
-  );
   await page.goto(url, { waitUntil: "domcontentloaded" });
-  await sessionReady;
+  await expect(page).toHaveURL(/sessionId=/, { timeout: 30_000 });
   const station = studioWorkstation(page);
   await expect(station.locator("textarea").first()).toBeVisible({
     timeout: 15_000,
@@ -33,4 +26,15 @@ export async function gotoStudioAndWait(page: Page, url = "/studio") {
   await expect(station.getByRole("button", { name: "开始生成" })).toBeEnabled({
     timeout: 15_000,
   });
+}
+
+/** 上传/生成前 ensure 由业务操作触发，E2E 可显式等待 */
+export function waitForSessionEnsure(page: Page) {
+  return page.waitForResponse(
+    (res) =>
+      res.url().includes("/api/v1/imageSession/ensure") &&
+      res.request().method() === "POST" &&
+      res.ok(),
+    { timeout: 30_000 },
+  );
 }

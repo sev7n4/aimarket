@@ -2,6 +2,7 @@ import { db } from "../db/index.js";
 import { isPersonalWorkspace, mapSessionForUser } from "./session-access.js";
 import { userHasWorkspaceAccess } from "./workspaces.js";
 import { AppError } from "./errors.js";
+import { HIDE_EMPTY_AUTO_TITLED_SESSIONS_SQL } from "./session-empty.js";
 
 export function listSessionsForUser(
   userId: string,
@@ -24,6 +25,7 @@ export function listSessionsForUser(
            FROM image_sessions s
            LEFT JOIN users u ON u.id = s.user_id
            WHERE s.workspace_id = ? AND s.user_id = ? AND s.kind = ?
+           ${HIDE_EMPTY_AUTO_TITLED_SESSIONS_SQL}
            ORDER BY s.updated_at DESC LIMIT ?`,
         )
         .all(workspaceId, userId, kind, limit) as Record<string, unknown>[];
@@ -34,6 +36,7 @@ export function listSessionsForUser(
            FROM image_sessions s
            LEFT JOIN users u ON u.id = s.user_id
            WHERE s.workspace_id = ? AND s.user_id = ?
+           ${HIDE_EMPTY_AUTO_TITLED_SESSIONS_SQL}
            ORDER BY s.updated_at DESC LIMIT ?`,
         )
         .all(workspaceId, userId, limit) as Record<string, unknown>[];
@@ -44,6 +47,7 @@ export function listSessionsForUser(
            FROM image_sessions s
            LEFT JOIN users u ON u.id = s.user_id
            WHERE s.workspace_id = ? AND s.kind = ?
+           ${HIDE_EMPTY_AUTO_TITLED_SESSIONS_SQL}
            ORDER BY s.updated_at DESC LIMIT ?`,
         )
         .all(workspaceId, kind, limit) as Record<string, unknown>[];
@@ -54,6 +58,7 @@ export function listSessionsForUser(
            FROM image_sessions s
            LEFT JOIN users u ON u.id = s.user_id
            WHERE s.workspace_id = ?
+           ${HIDE_EMPTY_AUTO_TITLED_SESSIONS_SQL}
            ORDER BY s.updated_at DESC LIMIT ?`,
         )
         .all(workspaceId, limit) as Record<string, unknown>[];
@@ -74,6 +79,7 @@ export function listSessionsForUser(
          FROM image_sessions s
          LEFT JOIN users u ON u.id = s.user_id
          WHERE s.user_id = ? AND s.kind = ?
+         ${HIDE_EMPTY_AUTO_TITLED_SESSIONS_SQL}
          ORDER BY s.updated_at DESC LIMIT ?`,
       )
       .all(userId, kind, limit) as Record<string, unknown>[];
@@ -84,6 +90,7 @@ export function listSessionsForUser(
          FROM image_sessions s
          LEFT JOIN users u ON u.id = s.user_id
          WHERE s.user_id = ?
+         ${HIDE_EMPTY_AUTO_TITLED_SESSIONS_SQL}
          ORDER BY s.updated_at DESC LIMIT ?`,
       )
       .all(userId, limit) as Record<string, unknown>[];

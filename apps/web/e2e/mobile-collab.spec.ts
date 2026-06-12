@@ -27,16 +27,28 @@ test.describe("mobile collab", () => {
 
   test("已登录首页展示继续编辑最近会话", async ({ page }) => {
     await registerAndLogin(page);
+    await skipStudioCoach(page);
+    await page.goto("/studio", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/sessionId=/, { timeout: 15_000 });
+    const dock = page.locator('[aria-label="创作 Dock"]');
+    await expect(dock.locator("textarea").first()).toBeVisible({
+      timeout: 15_000,
+    });
     const ensurePromise = page.waitForResponse(
       (r) =>
         r.url().includes("/api/v1/imageSession/ensure") &&
         r.request().method() === "POST" &&
         r.ok(),
-      { timeout: 20_000 },
+      { timeout: 30_000 },
     );
-    await page.goto("/studio");
-    await expect(page).toHaveURL(/\/studio/, { timeout: 15_000 });
+    const genPromise = page.waitForResponse(
+      (r) => r.url().includes("/api/v1/ai/generate") && r.ok(),
+      { timeout: 30_000 },
+    );
+    await dock.locator("textarea").first().fill("E2E 最近会话探针");
+    await dock.getByRole("button", { name: "开始生成" }).click();
     await ensurePromise;
+    await genPromise;
     await page.goto("/");
     await page.getByRole("button", { name: "打开菜单" }).click();
     await expect(page.getByText("继续编辑")).toBeVisible({
@@ -47,13 +59,27 @@ test.describe("mobile collab", () => {
   test("创作页移动默认展示画布与底部 Dock", async ({ page }) => {
     await registerAndLogin(page);
     await skipStudioCoach(page);
-    await page.goto("/studio");
-    await expect(page.getByText(/画布\s*·/).first()).toBeVisible({
-      timeout: 15_000,
-    });
+    await page.goto("/studio", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/sessionId=/, { timeout: 15_000 });
     const dock = page.locator('[aria-label="创作 Dock"]');
     await expect(dock).toBeVisible({ timeout: 15_000 });
     await expect(dock.locator("textarea").first()).toBeVisible();
+
+    const ensurePromise = page.waitForResponse(
+      (r) =>
+        r.url().includes("/api/v1/imageSession/ensure") &&
+        r.request().method() === "POST" &&
+        r.ok(),
+      { timeout: 30_000 },
+    );
+    const genPromise = page.waitForResponse(
+      (r) => r.url().includes("/api/v1/ai/generate") && r.ok(),
+      { timeout: 30_000 },
+    );
+    await dock.locator("textarea").first().fill("E2E 侧栏会话");
+    await dock.getByRole("button", { name: "开始生成" }).click();
+    await ensurePromise;
+    await genPromise;
 
     await dock.getByRole("button", { name: "专注画布" }).click();
     await expect(
