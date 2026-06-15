@@ -65,6 +65,7 @@ import {
 import type { SessionReference } from "@/lib/types";
 import { useRotatingPlaceholder } from "@/hooks/use-rotating-placeholder";
 import { randomUUID } from "@/lib/uuid";
+import { clientNavigate } from "@/lib/client-navigate";
 import { storePendingAssets, type PendingAsset } from "@/lib/pending-assets";
 import { HomeGenerationPreview } from "@/components/home-generation-preview";
 import { CanvasLightbox } from "@/components/canvas-lightbox";
@@ -1789,8 +1790,10 @@ export function CreationPanel({
       }
       if (homeDirectSubmit) {
         setNavigating(true);
-        router.replace(
-          `/studio?sessionId=${sessionId}&mode=${mode}&jobId=${jobId}`,
+        clientNavigate(
+          router,
+          `/studio?sessionId=${encodeURIComponent(sessionId)}&mode=${encodeURIComponent(mode)}&jobId=${encodeURIComponent(jobId)}`,
+          "replace",
         );
       }
       setPrompt("");

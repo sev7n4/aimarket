@@ -10,6 +10,7 @@ import {
 } from "@/lib/canvas-tools";
 import { storePendingInspiration } from "@/lib/pending-inspiration";
 import { storePendingAssets } from "@/lib/pending-assets";
+import { clientNavigate } from "@/lib/client-navigate";
 import { randomUUID } from "@/lib/uuid";
 
 type StudioRouter = {
@@ -152,7 +153,7 @@ export function applyInspirationToStudio(
       })),
     );
   }
-  router.push(buildInspirationStudioUrl(detail, sessionId));
+  clientNavigate(router, buildInspirationStudioUrl(detail, sessionId));
   return sessionId;
 }
 
