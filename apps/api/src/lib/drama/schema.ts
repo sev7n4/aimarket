@@ -167,6 +167,11 @@ export const DRAMA_PIPELINE_STEPS: DramaPipelineStep[] = [
   "concat",
 ];
 
+export interface DramaPendingBatchJob {
+  shotId: string;
+  jobId: string;
+}
+
 export interface DramaProgress {
   currentPipelineStep: DramaPipelineStep;
   charRefIndex: number;
@@ -176,5 +181,7 @@ export interface DramaProgress {
   ttsIndex: number;
   lipsyncIndex: number;
   keyframeRetries: Record<string, number>;
+  /** 同场景无尾帧依赖的关键帧可并行 */
+  pendingBatch?: DramaPendingBatchJob[];
   finalVideoUrl?: string;
 }

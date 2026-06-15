@@ -42,6 +42,7 @@ export function defaultProgress(): DramaProgress {
     ttsIndex: 0,
     lipsyncIndex: 0,
     keyframeRetries: {},
+    pendingBatch: [],
   };
 }
 
@@ -124,6 +125,21 @@ export function linkDramaRunJob(
   db.prepare(
     `INSERT OR IGNORE INTO drama_run_jobs (drama_run_id, job_id, step_id, shot_id) VALUES (?, ?, ?, ?)`,
   ).run(dramaRunId, jobId, stepId, shotId ?? null);
+}
+
+export function getDramaRunJobMeta(jobId: string) {
+  return db
+    .prepare(
+      `SELECT drama_run_id, job_id, step_id, shot_id FROM drama_run_jobs WHERE job_id = ?`,
+    )
+    .get(jobId) as
+    | {
+        drama_run_id: string;
+        job_id: string;
+        step_id: string;
+        shot_id: string | null;
+      }
+    | undefined;
 }
 
 export function updateDramaRun(

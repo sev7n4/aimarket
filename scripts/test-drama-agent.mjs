@@ -66,6 +66,15 @@ async function main() {
   }
   console.log(`✓ 规划成功：${shotCount} 镜，预估 ${planned.estimatedPoints} 分`);
 
+  const editedShots = planned.project.project.shots.slice(0, -1);
+  await request(`/api/v1/drama/projects/${planned.project.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      project: { shots: editedShots },
+    }),
+  });
+  console.log(`✓ 分镜编辑保存：${editedShots.length} 镜`);
+
   const run = await request(
     `/api/v1/drama/projects/${planned.project.id}/produce`,
     {

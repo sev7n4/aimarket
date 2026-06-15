@@ -25,6 +25,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     dramaRun,
     dramaDraftProject,
     dramaBusy,
+    saveDramaDraft,
     confirmOrchestration,
   } = useStudioOrchestration();
 
@@ -44,6 +45,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
         busy={dramaBusy}
         onConfirmProduce={() => void confirmOrchestration()}
         onRetryShot={dramaRun ? handleRetryShot : undefined}
+        onSaveDraft={dramaDraftProject ? saveDramaDraft : undefined}
       />
     ) : null;
 
