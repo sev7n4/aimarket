@@ -314,6 +314,8 @@ export interface DramaStoryboardShot {
   videoOutputId?: string;
   audioOutputId?: string;
   lipsyncOutputId?: string;
+  keyframeUrl?: string;
+  videoUrl?: string;
   auditScore?: { character?: number; style?: number };
   status: "pending" | "keyframe" | "video" | "audio" | "done" | "failed";
 }

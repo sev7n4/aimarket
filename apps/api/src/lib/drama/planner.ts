@@ -206,7 +206,7 @@ function buildRuleBasedProject(input: PlanDramaInput): DramaProjectData {
         { act: 2, sceneId: "scene_1", summary: "发展：矛盾升级" },
         { act: 3, sceneId: "scene_2", summary: "高潮与结局" },
       ],
-      narratorLines: [],
+      narratorLines: ["这是一个关于重逢与和解的故事。"],
     },
     styleBible: {
       palette: ["暖金", "深棕", "柔白"],

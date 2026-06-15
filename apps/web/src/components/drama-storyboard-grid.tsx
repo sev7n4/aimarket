@@ -40,6 +40,26 @@ export function DramaStoryboardGrid({
     [onShotsChange, shots],
   );
 
+  const addShot = useCallback(() => {
+    if (!onShotsChange || shots.length >= 15) return;
+    const last = sorted[sorted.length - 1];
+    const sceneId = last?.sceneId ?? shots[0]?.sceneId ?? "";
+    const newShot: DramaStoryboardShot = {
+      id: `shot_${Date.now()}`,
+      order: shots.length,
+      sceneId,
+      characterIds: last?.characterIds ?? shots[0]?.characterIds ?? [],
+      dialogue: [],
+      visualPrompt: "新镜头画面描述",
+      motionPrompt: "轻微运镜",
+      cameraSpec: { shotSize: "MS", movement: "固定", lighting: "自然光" },
+      durationSec: 5,
+      useLastFrameContinuity: false,
+      status: "pending",
+    };
+    onShotsChange([...shots, newShot]);
+  }, [onShotsChange, shots, sorted]);
+
   const removeShot = useCallback(
     (shotId: string) => {
       if (!onShotsChange) return;
@@ -52,12 +72,32 @@ export function DramaStoryboardGrid({
   );
 
   return (
-    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+    <div className="space-y-2">
+      {editable && onShotsChange && shots.length < 15 ? (
+        <button
+          type="button"
+          className="rounded border border-dashed border-white/15 px-2 py-1 text-[10px] text-zinc-400 hover:bg-white/5"
+          onClick={addShot}
+        >
+          + 添加镜头
+        </button>
+      ) : null}
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
       {sorted.map((shot) => (
         <div
           key={shot.id}
           className="flex flex-col rounded-lg border border-white/10 bg-white/[0.03] p-2 text-xs"
         >
+          {shot.keyframeUrl || shot.videoUrl ? (
+            <div className="mb-1 aspect-[9/16] overflow-hidden rounded bg-black/40">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={shot.videoUrl ?? shot.keyframeUrl}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            </div>
+          ) : null}
           <div className="mb-1 flex items-center justify-between gap-1">
             <span className="font-medium text-zinc-200">镜 {shot.order + 1}</span>
             <span className="text-[10px] text-zinc-500">
@@ -132,6 +172,7 @@ export function DramaStoryboardGrid({
           ) : null}
         </div>
       ))}
+      </div>
     </div>
   );
 }

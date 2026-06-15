@@ -13,6 +13,7 @@ import {
   type DramaProjectRow,
   updateDramaProject,
 } from "./projects.js";
+import { resolveReferenceUrls } from "../references.js";
 
 export interface DramaRunRow {
   id: string;
@@ -191,6 +192,18 @@ export function serializeDramaRun(row: DramaRunRow, projectRow: DramaProjectRow)
   const project = parseProjectJson(projectRow);
   const stepIndex = row.current_step_index;
 
+  const shotsWithMedia = project.shots.map((shot) => ({
+    ...shot,
+    keyframeUrl: shot.keyframeOutputId
+      ? resolveReferenceUrls([shot.keyframeOutputId])[0]
+      : undefined,
+    videoUrl: shot.lipsyncOutputId
+      ? resolveReferenceUrls([shot.lipsyncOutputId])[0]
+      : shot.videoOutputId
+        ? resolveReferenceUrls([shot.videoOutputId])[0]
+        : undefined,
+  }));
+
   return {
     id: row.id,
     projectId: row.project_id,
@@ -204,7 +217,7 @@ export function serializeDramaRun(row: DramaRunRow, projectRow: DramaProjectRow)
     finalVideoUrl: row.final_video_url,
     error: row.error,
     progress,
-    project,
+    project: { ...project, shots: shotsWithMedia },
     pipelineSteps: DRAMA_PIPELINE_STEPS.map((step, i) => ({
       id: step,
       label: pipelineStepLabel(step),
@@ -229,6 +242,7 @@ function pipelineStepLabel(step: string): string {
     shot_videos: "逐镜视频",
     tts: "对白配音",
     lipsync: "口型同步",
+    narrator_tts: "旁白配音",
     concat: "剪辑合成",
   };
   return labels[step] ?? step;
