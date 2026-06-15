@@ -27,6 +27,8 @@ export interface OrchestrationDispatchContext {
   mentionedMasksCount: number;
   submitVideo: boolean;
   hasReferenceImages: boolean;
+  /** AI 短剧内建参考图，非用户手动选图 */
+  dramaSkillActive?: boolean;
 }
 
 /** Studio orchestration 是否接管本次提交（Agent / Skill） */
@@ -35,7 +37,7 @@ export function shouldOrchestrationHandleSubmit(
 ): boolean {
   if (ctx.submitVideo) return false;
   if (ctx.focusEditActive || ctx.mentionedMasksCount > 0) return false;
-  if (ctx.hasReferenceImages) return false;
+  if (ctx.hasReferenceImages && !ctx.dramaSkillActive) return false;
 
   if (ctx.activeSkillId) return true;
   if (ctx.creationLane === "agent") return true;

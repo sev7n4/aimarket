@@ -125,3 +125,52 @@ export async function submitAgentOrchestration(input: {
   input.onStarted?.();
   return "started";
 }
+
+export type OrchestrationDramaSubmitResult =
+  | "confirm"
+  | "in_flight"
+  | "planned"
+  | "started"
+  | "validation_failed";
+
+export async function submitDramaOrchestration(input: {
+  prompt: string;
+  dramaRun: import("@/lib/types").DramaRun | null | undefined;
+  hasDraft: boolean;
+  ensureSession: () => Promise<unknown>;
+  confirmRun: () => Promise<unknown>;
+  planRun: (idea: string) => Promise<unknown>;
+  startFromDraft: () => Promise<unknown>;
+  startFullRun: (idea: string) => Promise<unknown>;
+  onValidationError?: (message: string) => void;
+  onStarted?: () => void;
+}): Promise<OrchestrationDramaSubmitResult> {
+  if (input.prompt.trim().length < 10) {
+    input.onValidationError?.("请填写至少 10 字的短剧创意");
+    return "validation_failed";
+  }
+
+  if (input.dramaRun?.status === "waiting_confirm") {
+    await input.ensureSession();
+    await input.confirmRun();
+    return "confirm";
+  }
+
+  if (
+    input.dramaRun &&
+    ["queued", "running", "waiting_job", "planning"].includes(input.dramaRun.status)
+  ) {
+    return "in_flight";
+  }
+
+  await input.ensureSession();
+
+  if (input.hasDraft) {
+    await input.startFromDraft();
+    input.onStarted?.();
+    return "started";
+  }
+
+  await input.planRun(input.prompt);
+  return "planned";
+}

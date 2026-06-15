@@ -16,7 +16,9 @@ import { assertSessionWrite } from "../lib/session-access.js";
 const skills = new Hono<{ Variables: AuthVariables }>();
 
 skills.get("/", (c) => {
-  return c.json({ data: listSkillsPublic() });
+  return c.json({
+    data: listSkillsPublic().filter((s) => s.id !== "drama-short-v1"),
+  });
 });
 
 const startBody = z.object({

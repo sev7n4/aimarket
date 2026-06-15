@@ -3,6 +3,7 @@ import { ECOMMERCE_SLIDES } from "../ecommerce.js";
 import { createGenerationJob } from "../jobs.js";
 import { inferSkillStepSourceLane } from "../source-lane.js";
 import { enrichPromptWithReferences } from "../references.js";
+import { resolveReferenceUrls } from "../references.js";
 import { suggestModel } from "../router.js";
 import { db } from "../../db/index.js";
 import { getTool } from "../tools.js";

@@ -1222,6 +1222,109 @@ export async function cancelSkillRun(runId: string) {
   return res.data;
 }
 
+export async function planDramaProject(body: {
+  sessionId: string;
+  userIdea: string;
+  targetDurationSec?: number;
+  aspectRatio?: "9:16" | "16:9";
+}) {
+  const res = await request<{
+    data: {
+      project: import("./types").DramaProject;
+      estimatedPoints: number;
+    };
+  }>("/api/v1/drama/runs", {
+    method: "POST",
+    body: JSON.stringify({ ...body, autoProduce: false }),
+  });
+  return res.data;
+}
+
+export async function startDramaProduction(body: {
+  sessionId: string;
+  projectId: string;
+  confirmed?: boolean;
+}) {
+  const res = await request<{ data: import("./types").DramaRun }>(
+    `/api/v1/drama/projects/${encodeURIComponent(body.projectId)}/produce`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+  return res.data;
+}
+
+export async function createDramaRun(body: {
+  sessionId: string;
+  userIdea: string;
+  targetDurationSec?: number;
+  aspectRatio?: "9:16" | "16:9";
+  confirmed?: boolean;
+}) {
+  const res = await request<{ data: import("./types").DramaRun }>(
+    "/api/v1/drama/runs",
+    {
+      method: "POST",
+      body: JSON.stringify({ ...body, autoProduce: true }),
+    },
+  );
+  return res.data;
+}
+
+export async function fetchDramaRun(runId: string) {
+  const res = await request<{ data: import("./types").DramaRun }>(
+    `/api/v1/drama/runs/${encodeURIComponent(runId)}`,
+  );
+  return res.data;
+}
+
+export async function confirmDramaRun(runId: string) {
+  const res = await request<{ data: import("./types").DramaRun }>(
+    `/api/v1/drama/runs/${encodeURIComponent(runId)}/confirm`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
+export async function cancelDramaRun(runId: string) {
+  const res = await request<{ data: import("./types").DramaRun }>(
+    `/api/v1/drama/runs/${encodeURIComponent(runId)}/cancel`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
+export async function retryDramaShot(
+  runId: string,
+  shotId: string,
+  stage: "keyframe" | "video" = "keyframe",
+) {
+  const res = await request<{ data: import("./types").DramaRun }>(
+    `/api/v1/drama/runs/${encodeURIComponent(runId)}/shots/${encodeURIComponent(shotId)}/retry`,
+    {
+      method: "POST",
+      body: JSON.stringify({ stage }),
+    },
+  );
+  return res.data;
+}
+
+export async function estimateDramaPoints(query?: {
+  shotCount?: number;
+  charCount?: number;
+  sceneCount?: number;
+}) {
+  const params = new URLSearchParams();
+  if (query?.shotCount) params.set("shotCount", String(query.shotCount));
+  if (query?.charCount) params.set("charCount", String(query.charCount));
+  if (query?.sceneCount) params.set("sceneCount", String(query.sceneCount));
+  const res = await request<{ data: { estimatedPoints: number } }>(
+    `/api/v1/drama/estimate?${params.toString()}`,
+  );
+  return res.data.estimatedPoints;
+}
+
 export interface PromptOptimizeContextInput {
   modelId?: string;
   aspectRatio?: string;
