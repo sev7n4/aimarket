@@ -276,6 +276,7 @@ function buildRuleBasedProject(input: PlanDramaInput): DramaProjectData {
       imageModelId: "agnes-image",
       videoModelId: "wan-2.6",
       resolution: "1k",
+      previewTier: "full",
     },
   };
 

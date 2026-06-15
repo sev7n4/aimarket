@@ -348,6 +348,14 @@ export interface DramaProjectPayload {
     refOutputId?: string;
   }>;
   shots: DramaStoryboardShot[];
+  productionParams?: {
+    aspectRatio?: "9:16" | "16:9";
+    imageModelId?: string;
+    videoModelId?: string;
+    resolution?: "1k" | "2k";
+    previewTier?: "low" | "full";
+    bgmUrl?: string;
+  };
 }
 
 export interface DramaPipelineStepView {

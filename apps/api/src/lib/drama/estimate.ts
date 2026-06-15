@@ -28,8 +28,12 @@ export function estimateDramaPoints(project: DramaProjectData): number {
   // TTS（有对白的镜头）
   const dialogueShots = project.shots.filter((s) => s.dialogue.length > 0).length;
   total += dialogueShots * (DRAMA_TOOL_POINTS.tts ?? 5);
-  // 口型同步
-  total += dialogueShots * (DRAMA_TOOL_POINTS.lipsync ?? 15);
+  const isLowPreview = project.productionParams?.previewTier === "low";
+  if (!isLowPreview) {
+    total += dialogueShots * (DRAMA_TOOL_POINTS.lipsync ?? 15);
+  } else {
+    total = Math.round(total * 0.65);
+  }
   // 剪辑合成
   total += DRAMA_TOOL_POINTS.concat ?? 10;
 

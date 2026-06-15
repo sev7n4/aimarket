@@ -136,14 +136,25 @@ function pipelineStepIndex(step: DramaPipelineStep): number {
   return DRAMA_PIPELINE_STEPS.indexOf(step);
 }
 
-function advancePipeline(progress: DramaProgress): DramaProgress | null {
+function advancePipeline(
+  progress: DramaProgress,
+  project?: DramaProjectData,
+): DramaProgress | null {
   const idx = pipelineStepIndex(progress.currentPipelineStep);
   if (idx < 0 || idx >= DRAMA_PIPELINE_STEPS.length - 1) return null;
-  const next = DRAMA_PIPELINE_STEPS[idx + 1]!;
+  let nextIdx = idx + 1;
+  if (
+    project?.productionParams?.previewTier === "low" &&
+    DRAMA_PIPELINE_STEPS[nextIdx] === "lipsync"
+  ) {
+    nextIdx += 1;
+  }
+  const next = DRAMA_PIPELINE_STEPS[nextIdx]!;
   return {
     ...defaultProgress(),
     currentPipelineStep: next,
     keyframeRetries: progress.keyframeRetries,
+    narratorAudioOutputId: progress.narratorAudioOutputId,
     finalVideoUrl: progress.finalVideoUrl,
   };
 }
@@ -501,6 +512,7 @@ function isStepComplete(
         project.shots.filter((s) => s.dialogue.length > 0).length
       );
     case "lipsync":
+      if (project.productionParams?.previewTier === "low") return true;
       return (
         progress.lipsyncIndex >=
         project.shots.filter((s) => s.dialogue.length > 0).length
@@ -542,7 +554,7 @@ export async function startDramaRunStep(
   let progress = parseProgress(row);
 
   if (isStepComplete(project, progress)) {
-    const next = advancePipeline(progress);
+    const next = advancePipeline(progress, project);
     if (!next) {
       updateDramaRun(dramaRunId, {
         status: "completed",
