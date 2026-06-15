@@ -56,6 +56,7 @@ interface StudioOrchestrationContextValue {
   skillRun: SkillRun | null;
   dramaRun: DramaRun | null;
   dramaDraftProject: ReturnType<typeof useDramaRun>["draftProject"];
+  saveDramaDraft: ReturnType<typeof useDramaRun>["saveDraftProject"];
   agentBusy: boolean;
   skillBusy: boolean;
   dramaBusy: boolean;
@@ -144,6 +145,7 @@ export function StudioOrchestrationProvider({
     startProduction: startDramaProduction,
     confirmRun: confirmDramaRunAction,
     cancelRun: cancelDramaRunAction,
+    saveDraftProject: saveDramaDraft,
     setRun: setDramaRun,
     setDraftProject: setDramaDraftProject,
   } = useDramaRun({
@@ -447,6 +449,7 @@ export function StudioOrchestrationProvider({
       skillRun,
       dramaRun,
       dramaDraftProject,
+      saveDramaDraft,
       agentBusy,
       skillBusy,
       dramaBusy,
@@ -466,6 +469,7 @@ export function StudioOrchestrationProvider({
       skillRun,
       dramaRun,
       dramaDraftProject,
+      saveDramaDraft,
       agentBusy,
       skillBusy,
       dramaBusy,

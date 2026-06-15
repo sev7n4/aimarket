@@ -1,13 +1,15 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { DramaStoryboardGrid } from "@/components/drama-storyboard-grid";
-import type { DramaProject, DramaRun } from "@/lib/types";
+import type { DramaProject, DramaProjectPayload, DramaRun } from "@/lib/types";
 
 interface DramaStudioPanelProps {
   draftProject?: DramaProject | null;
   run?: DramaRun | null;
   onConfirmProduce?: () => void;
   onRetryShot?: (shotId: string, stage: "keyframe" | "video") => void;
+  onSaveDraft?: (project: DramaProjectPayload) => Promise<unknown>;
   busy?: boolean;
   readOnly?: boolean;
 }
@@ -18,13 +20,42 @@ export function DramaStudioPanel({
   run,
   onConfirmProduce,
   onRetryShot,
+  onSaveDraft,
   busy,
   readOnly,
 }: DramaStudioPanelProps) {
-  const project = run?.project ?? draftProject?.project;
+  const isDraft = Boolean(draftProject && !run);
+  const [localProject, setLocalProject] = useState<DramaProjectPayload | null>(
+    null,
+  );
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const baseProject = run?.project ?? draftProject?.project;
+  const project = localProject ?? baseProject;
+
+  const handleShotsChange = useCallback(
+    (shots: DramaProjectPayload["shots"]) => {
+      if (!project) return;
+      setLocalProject({ ...project, shots });
+      setDirty(true);
+    },
+    [project],
+  );
+
+  const handleSave = useCallback(async () => {
+    if (!localProject || !onSaveDraft) return;
+    setSaving(true);
+    try {
+      await onSaveDraft(localProject);
+      setDirty(false);
+    } finally {
+      setSaving(false);
+    }
+  }, [localProject, onSaveDraft]);
+
   if (!project) return null;
 
-  const isDraft = Boolean(draftProject && !run);
   const pipeline = run?.pipelineSteps ?? [];
 
   return (
@@ -63,13 +94,27 @@ export function DramaStudioPanel({
       </section>
 
       <section>
-        <h4 className="mb-2 text-xs font-medium text-zinc-300">
-          分镜板（{project.shots.length} 镜）
-        </h4>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h4 className="text-xs font-medium text-zinc-300">
+            分镜板（{project.shots.length} 镜）
+          </h4>
+          {isDraft && dirty && onSaveDraft ? (
+            <button
+              type="button"
+              disabled={saving || busy}
+              onClick={() => void handleSave()}
+              className="rounded border border-violet-500/40 px-2 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/10 disabled:opacity-50"
+            >
+              {saving ? "保存中…" : "保存分镜"}
+            </button>
+          ) : null}
+        </div>
         <DramaStoryboardGrid
           shots={project.shots}
           onRetryShot={onRetryShot}
           readOnly={readOnly}
+          editable={isDraft && !readOnly}
+          onShotsChange={handleShotsChange}
         />
       </section>
 
@@ -81,7 +126,11 @@ export function DramaStudioPanel({
               <li
                 key={step.id}
                 className={`flex items-center gap-2 text-xs ${
-                  step.current ? "text-violet-300" : step.done ? "text-emerald-400/80" : "text-zinc-500"
+                  step.current
+                    ? "text-violet-300"
+                    : step.done
+                      ? "text-emerald-400/80"
+                      : "text-zinc-500"
                 }`}
               >
                 <span>{step.done ? "✓" : step.current ? "→" : "○"}</span>
@@ -109,7 +158,7 @@ export function DramaStudioPanel({
       {isDraft && onConfirmProduce ? (
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || saving}
           onClick={onConfirmProduce}
           className="w-full rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
         >

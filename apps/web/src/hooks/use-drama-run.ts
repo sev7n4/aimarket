@@ -8,8 +8,9 @@ import {
   fetchDramaRun,
   planDramaProject,
   startDramaProduction,
+  updateDramaProjectApi,
 } from "@/lib/api-client";
-import type { DramaProject, DramaRun } from "@/lib/types";
+import type { DramaProject, DramaProjectPayload, DramaRun } from "@/lib/types";
 
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);
 
@@ -144,6 +145,21 @@ export function useDramaRun({
     }
   }, [run?.id, syncRun]);
 
+  const saveDraftProject = useCallback(
+    async (project: DramaProjectPayload) => {
+      if (!draftProject?.id) return null;
+      setBusy(true);
+      try {
+        const next = await updateDramaProjectApi(draftProject.id, project);
+        setDraftProject(next);
+        return next;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [draftProject?.id],
+  );
+
   return {
     run,
     draftProject,
@@ -153,6 +169,7 @@ export function useDramaRun({
     startFullRun,
     confirmRun,
     cancelRun,
+    saveDraftProject,
     setRun,
     setDraftProject,
   };

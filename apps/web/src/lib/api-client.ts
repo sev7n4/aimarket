@@ -1310,6 +1310,20 @@ export async function retryDramaShot(
   return res.data;
 }
 
+export async function updateDramaProjectApi(
+  projectId: string,
+  project: import("./types").DramaProjectPayload,
+) {
+  const res = await request<{ data: import("./types").DramaProject }>(
+    `/api/v1/drama/projects/${encodeURIComponent(projectId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ project }),
+    },
+  );
+  return res.data;
+}
+
 export async function estimateDramaPoints(query?: {
   shotCount?: number;
   charCount?: number;

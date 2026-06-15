@@ -33,6 +33,13 @@ export async function runVlmCharacterAudit(
   }
 
   try {
+    if (process.env.DASHSCOPE_API_KEY) {
+      const { runQwenDramaCharacterAudit } = await import(
+        "./drama-character-audit.js"
+      );
+      return await runQwenDramaCharacterAudit(input);
+    }
+
     const { runVlmQualityCheck } = await import("./registry.js");
     const qc = await runVlmQualityCheck({
       prompt: `${input.styleBiblePrompt}\n保持角色与参考图一致`,

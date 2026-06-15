@@ -16,6 +16,7 @@ import {
   defaultProgress,
   getDramaRun,
   getDramaRunByJobId,
+  getDramaRunJobMeta,
   linkDramaRunJob,
   parseProgress,
   updateDramaRun,
@@ -33,6 +34,7 @@ import { buildJobObservation } from "../agent/job-observation.js";
 import { db } from "../../db/index.js";
 
 const MAX_KEYFRAME_RETRIES = 2;
+const MAX_KEYFRAME_PARALLEL = Number(process.env.DRAMA_KEYFRAME_PARALLEL ?? 3);
 
 function getProjectForRun(row: DramaRunRow): DramaProjectData {
   const projectRow = db
@@ -63,6 +65,29 @@ function collectCharacterRefUrls(
   if (!char?.refOutputIds) return [];
   const ids = Object.values(char.refOutputIds).filter(Boolean) as string[];
   return resolveReferenceUrls(ids);
+}
+
+function getReadyKeyframeShots(
+  project: DramaProjectData,
+  inFlight: Set<string>,
+): StoryboardShot[] {
+  const hasKeyframe = new Set(
+    project.shots.filter((s) => s.keyframeOutputId).map((s) => s.id),
+  );
+  return project.shots
+    .filter((shot) => {
+      if (hasKeyframe.has(shot.id) || inFlight.has(shot.id)) return false;
+      if (shot.useLastFrameContinuity && shot.order > 0) {
+        const prev = project.shots.find((s) => s.order === shot.order - 1);
+        if (!prev?.keyframeOutputId) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => a.order - b.order);
+}
+
+function countKeyframesDone(project: DramaProjectData): number {
+  return project.shots.filter((s) => s.keyframeOutputId).length;
 }
 
 function collectShotRefOutputIds(
@@ -150,13 +175,11 @@ function startSceneRefJob(
   return jobId;
 }
 
-function startKeyframeJob(
+function startKeyframeJobForShot(
   row: DramaRunRow,
   project: DramaProjectData,
-  progress: DramaProgress,
+  shot: StoryboardShot,
 ): string {
-  const shot = project.shots[progress.shotIndex];
-  if (!shot) throw new Error("镜头索引越界");
   const scene = project.scenes.find((s) => s.id === shot.sceneId);
   const prompt = buildKeyframePrompt(
     shot,
@@ -182,6 +205,41 @@ function startKeyframeJob(
   });
   linkDramaRunJob(row.id, jobId, "keyframes", shot.id);
   return jobId;
+}
+
+function startKeyframeBatch(
+  row: DramaRunRow,
+  project: DramaProjectData,
+  progress: DramaProgress,
+): { progress: DramaProgress; jobIds: string[] } {
+  const inFlight = new Set((progress.pendingBatch ?? []).map((p) => p.shotId));
+  const ready = getReadyKeyframeShots(project, inFlight);
+  const batch = ready.slice(0, MAX_KEYFRAME_PARALLEL);
+  if (!batch.length) {
+    return { progress, jobIds: [] };
+  }
+  const pendingBatch = batch.map((shot) => ({
+    shotId: shot.id,
+    jobId: startKeyframeJobForShot(row, project, shot),
+  }));
+  progress = {
+    ...progress,
+    pendingBatch,
+    shotIndex: countKeyframesDone(project),
+  };
+  return { progress, jobIds: pendingBatch.map((p) => p.jobId) };
+}
+
+function startKeyframeJob(
+  row: DramaRunRow,
+  project: DramaProjectData,
+  progress: DramaProgress,
+): string {
+  const { progress: next, jobIds } = startKeyframeBatch(row, project, progress);
+  Object.assign(progress, next);
+  const first = jobIds[0];
+  if (!first) throw new Error("无待生成关键帧镜头");
+  return first;
 }
 
 function startShotVideoJob(
@@ -346,7 +404,7 @@ function isStepComplete(
     case "scene_refs":
       return progress.sceneRefIndex >= project.scenes.length;
     case "keyframes":
-      return progress.shotIndex >= project.shots.length;
+      return project.shots.every((s) => Boolean(s.keyframeOutputId));
     case "shot_videos":
       return progress.shotIndex >= project.shots.length;
     case "tts":
@@ -375,7 +433,16 @@ export async function startDramaRunStep(
   if (!row) throw new Error("DRAMA_RUN_NOT_FOUND");
   if (row.status === "waiting_confirm") throw new Error("DRAMA_RUN_NEEDS_CONFIRM");
   if (["completed", "cancelled", "failed"].includes(row.status)) return row;
-  if (row.status === "waiting_job" && row.pending_job_id) return row;
+  if (row.status === "waiting_job") {
+    const existing = parseProgress(row);
+    if (
+      existing.currentPipelineStep === "keyframes" &&
+      (existing.pendingBatch?.length ?? 0) > 0
+    ) {
+      return row;
+    }
+    if (row.pending_job_id) return row;
+  }
 
   const project = getProjectForRun(row);
   let progress = parseProgress(row);
@@ -454,10 +521,10 @@ async function handleKeyframeComplete(
   row: DramaRunRow,
   project: DramaProjectData,
   progress: DramaProgress,
+  shot: StoryboardShot,
   outputId: string,
   outputUrl: string,
-) {
-  const shot = project.shots[progress.shotIndex]!;
+): Promise<{ progress: DramaProgress; retryShotId?: string }> {
   const refUrls = collectShotRefOutputIds(project, shot).flatMap((id) =>
     resolveReferenceUrls([id]),
   );
@@ -472,7 +539,7 @@ async function handleKeyframeComplete(
   if (!audit.pass && retries < MAX_KEYFRAME_RETRIES) {
     progress.keyframeRetries[shot.id] = retries + 1;
     saveProject(row, project);
-    return { progress, retry: true };
+    return { progress, retryShotId: shot.id };
   }
 
   shot.keyframeOutputId = outputId;
@@ -481,22 +548,25 @@ async function handleKeyframeComplete(
     style: audit.styleScore,
   };
   shot.status = "keyframe";
-  progress.shotIndex += 1;
+  progress.shotIndex = countKeyframesDone(project);
   saveProject(row, project);
-  return { progress, retry: false };
+  return { progress };
 }
 
 export async function resumeDramaRunOnJobCompleted(jobId: string) {
   const row = getDramaRunByJobId(jobId);
   if (!row) return;
-  if (row.pending_job_id !== jobId) return;
   if (row.status !== "waiting_job") return;
+
+  const progress = parseProgress(row);
+  const inBatch = progress.pendingBatch?.some((p) => p.jobId === jobId);
+  if (!inBatch && row.pending_job_id !== jobId) return;
 
   const observation = buildJobObservation(jobId);
   if (!observation) return;
 
   let project = getProjectForRun(row);
-  let progress = parseProgress(row);
+  let nextProgress = progress;
   const step = progress.currentPipelineStep;
 
   if (observation.status === "failed") {
@@ -520,14 +590,12 @@ export async function resumeDramaRunOnJobCompleted(jobId: string) {
     return;
   }
 
-  let retry = false;
-
   if (step === "char_refs") {
-    progress = await handleCharRefComplete(row, project, progress, outputId);
+    nextProgress = await handleCharRefComplete(row, project, nextProgress, outputId);
   } else if (step === "scene_refs") {
-    const scene = project.scenes[progress.sceneRefIndex]!;
+    const scene = project.scenes[nextProgress.sceneRefIndex]!;
     scene.refOutputId = outputId;
-    progress.sceneRefIndex += 1;
+    nextProgress.sceneRefIndex += 1;
     saveProject(row, project);
   } else if (step === "keyframes") {
     if (!outputUrl) {
@@ -538,40 +606,84 @@ export async function resumeDramaRunOnJobCompleted(jobId: string) {
       });
       return;
     }
+    const meta = getDramaRunJobMeta(jobId);
+    const shot =
+      project.shots.find((s) => s.id === meta?.shot_id) ??
+      project.shots[nextProgress.shotIndex];
+    if (!shot) {
+      updateDramaRun(row.id, {
+        status: "failed",
+        error: "关键帧镜头未找到",
+        pendingJobId: null,
+      });
+      return;
+    }
     const result = await handleKeyframeComplete(
       row,
       project,
-      progress,
+      nextProgress,
+      shot,
       outputId,
       outputUrl,
     );
-    progress = result.progress;
-    retry = result.retry;
+    nextProgress = result.progress;
     project = getProjectForRun(row);
+
+    if (result.retryShotId) {
+      const retryJobId = startKeyframeJobForShot(row, project, shot);
+      nextProgress.pendingBatch = [{ shotId: shot.id, jobId: retryJobId }];
+      updateDramaRun(row.id, {
+        progress: nextProgress,
+        pendingJobId: retryJobId,
+        status: "waiting_job",
+      });
+      return;
+    }
+
+    nextProgress.pendingBatch = (nextProgress.pendingBatch ?? []).filter(
+      (p) => p.jobId !== jobId,
+    );
+    if ((nextProgress.pendingBatch?.length ?? 0) > 0) {
+      updateDramaRun(row.id, {
+        progress: nextProgress,
+        pendingJobId: nextProgress.pendingBatch![0]!.jobId,
+        status: "waiting_job",
+      });
+      return;
+    }
+
+    updateDramaRun(row.id, {
+      progress: nextProgress,
+      pendingJobId: null,
+      status: "running",
+      currentStepIndex: pipelineStepIndex(nextProgress.currentPipelineStep),
+    });
+    await startDramaRunStep(row.id, row.user_id);
+    return;
   } else if (step === "shot_videos") {
-    const shot = project.shots[progress.shotIndex]!;
+    const shot = project.shots[nextProgress.shotIndex]!;
     shot.videoOutputId = outputId;
     shot.status = "video";
-    progress.shotIndex += 1;
+    nextProgress.shotIndex += 1;
     saveProject(row, project);
   } else if (step === "tts") {
     const shotsWithDialogue = project.shots.filter((s) => s.dialogue.length > 0);
-    const shot = shotsWithDialogue[progress.ttsIndex]!;
+    const shot = shotsWithDialogue[nextProgress.ttsIndex]!;
     shot.audioOutputId = outputId;
-    progress.ttsIndex += 1;
+    nextProgress.ttsIndex += 1;
     saveProject(row, project);
   } else if (step === "lipsync") {
     const shotsWithDialogue = project.shots.filter((s) => s.dialogue.length > 0);
-    const shot = shotsWithDialogue[progress.lipsyncIndex]!;
+    const shot = shotsWithDialogue[nextProgress.lipsyncIndex]!;
     shot.lipsyncOutputId = outputId;
     shot.status = "done";
-    progress.lipsyncIndex += 1;
+    nextProgress.lipsyncIndex += 1;
     saveProject(row, project);
   } else if (step === "concat") {
-    progress.finalVideoUrl = outputUrl ?? outputId;
+    nextProgress.finalVideoUrl = outputUrl ?? outputId;
     updateDramaRun(row.id, {
-      finalVideoUrl: progress.finalVideoUrl,
-      progress,
+      finalVideoUrl: nextProgress.finalVideoUrl,
+      progress: nextProgress,
       pendingJobId: null,
       status: "completed",
       currentStepIndex: DRAMA_PIPELINE_STEPS.length,
@@ -581,17 +693,13 @@ export async function resumeDramaRunOnJobCompleted(jobId: string) {
   }
 
   updateDramaRun(row.id, {
-    progress,
+    progress: nextProgress,
     pendingJobId: null,
     status: "running",
-    currentStepIndex: pipelineStepIndex(progress.currentPipelineStep),
+    currentStepIndex: pipelineStepIndex(nextProgress.currentPipelineStep),
   });
 
-  if (!retry) {
-    await startDramaRunStep(row.id, row.user_id);
-  } else {
-    await startDramaRunStep(row.id, row.user_id);
-  }
+  await startDramaRunStep(row.id, row.user_id);
 }
 
 /** 单镜重试（RHTV 局部修改不重跑全片） */

@@ -1,3 +1,9 @@
+import { concatClipsFfmpeg } from "./ffmpeg-concat.js";
+import { synthesizeCosyVoice, isCosyVoiceConfigured } from "./cosyvoice-tts.js";
+import {
+  lipSyncHeyGen,
+  isHeyGenLipSyncConfigured,
+} from "./heygen-lipsync.js";
 import type {
   ConcatParams,
   ConcatResult,
@@ -38,8 +44,52 @@ export const mockDramaProvider: DramaMediaProvider = {
   },
 };
 
+const compositeDramaProvider: DramaMediaProvider = {
+  name: "drama-composite",
+  supportsTts: () => true,
+  supportsLipSync: () => true,
+  supportsConcat: () => true,
+
+  async synthesizeSpeech(params: TtsParams): Promise<TtsResult> {
+    if (isCosyVoiceConfigured()) {
+      try {
+        return await synthesizeCosyVoice(params);
+      } catch (err) {
+        console.warn("[drama] CosyVoice failed, fallback mock:", err);
+      }
+    }
+    return mockDramaProvider.synthesizeSpeech(params);
+  },
+
+  async lipSync(params: LipSyncParams): Promise<LipSyncResult> {
+    if (isHeyGenLipSyncConfigured()) {
+      try {
+        return await lipSyncHeyGen(params);
+      } catch (err) {
+        console.warn("[drama] HeyGen lipSync failed, fallback mock:", err);
+      }
+    }
+    return mockDramaProvider.lipSync(params);
+  },
+
+  async concatClips(params: ConcatParams): Promise<ConcatResult> {
+    try {
+      return await concatClipsFfmpeg(params);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg !== "FFMPEG_UNAVAILABLE") {
+        console.warn("[drama] FFmpeg concat failed, fallback mock:", err);
+      }
+      return mockDramaProvider.concatClips(params);
+    }
+  },
+};
+
 export function resolveDramaProvider(): DramaMediaProvider {
-  return mockDramaProvider;
+  if (process.env.DRAMA_PROVIDER === "mock") {
+    return mockDramaProvider;
+  }
+  return compositeDramaProvider;
 }
 
 export async function runTts(params: TtsParams): Promise<TtsResult> {
