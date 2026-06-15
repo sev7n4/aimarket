@@ -16,6 +16,8 @@ import { assetUrl } from "@/lib/api-client";
 import { VIDEO_CAMERA_TEMPLATES } from "@/lib/video-camera-templates";
 import { assignOmniRefLabels } from "@/lib/video-mention";
 import type { VideoPickCandidate } from "@/lib/canvas-video-reference-bind";
+import { VideoRefMediaThumb } from "@/components/video-ref-media-thumb";
+import { inferMediaTypeFromUrl } from "@/lib/video-ref-media";
 import type {
   SmartMultiShot,
   VideoMediaRef,
@@ -60,6 +62,7 @@ export interface VideoReferenceDockControlProps {
     mimeType: string;
   }>;
   pickCandidates?: VideoPickCandidate[];
+  pickCandidatesLoading?: boolean;
   onPickCandidate?: (pick: VideoPickCandidate, activeShotIndex?: number) => void;
   disabled?: boolean;
   uploading?: boolean;
@@ -78,6 +81,7 @@ export function VideoReferenceDockControl({
   onMotionPromptChange,
   onUpload,
   pickCandidates = [],
+  pickCandidatesLoading = false,
   onPickCandidate,
   disabled = false,
   uploading = false,
@@ -98,6 +102,7 @@ export function VideoReferenceDockControl({
         .map((s, i) => ({
           id: s.assetId ?? `shot-${i}`,
           url: normalizePreviewUrl(s.previewUrl!),
+          mediaType: inferMediaTypeFromUrl(s.previewUrl!),
         }));
     }
     if (mode === "first-last") {
@@ -106,6 +111,7 @@ export function VideoReferenceDockControl({
         .map((r) => ({
           id: r.assetId,
           url: normalizePreviewUrl(r.previewUrl!),
+          mediaType: r.mediaType,
         }));
     }
     return labeledRefs
@@ -113,6 +119,7 @@ export function VideoReferenceDockControl({
       .map((r) => ({
         id: r.assetId,
         url: normalizePreviewUrl(r.previewUrl!),
+        mediaType: r.mediaType,
       }));
   }, [mode, labeledRefs, smartMultiShots]);
 
@@ -166,6 +173,7 @@ export function VideoReferenceDockControl({
           onChange={onSmartMultiShotsChange}
           onUpload={onUpload}
           pickCandidates={pickCandidates}
+          pickCandidatesLoading={pickCandidatesLoading}
           onPickCandidate={handlePickCandidate}
           disabled={disabled}
           activeIndex={activeShotIndex}
@@ -180,6 +188,7 @@ export function VideoReferenceDockControl({
           onMotionPromptChange={onMotionPromptChange}
           onUpload={onUpload}
           pickCandidates={pickCandidates}
+          pickCandidatesLoading={pickCandidatesLoading}
           onPickCandidate={handlePickCandidate}
           disabled={disabled}
         />
@@ -189,6 +198,7 @@ export function VideoReferenceDockControl({
           onChange={onVideoReferencesChange}
           onUpload={onUpload}
           pickCandidates={pickCandidates}
+          pickCandidatesLoading={pickCandidatesLoading}
           onPickCandidate={handlePickCandidate}
           disabled={disabled}
         />
@@ -205,7 +215,7 @@ function CompactRefTrigger({
   onClick,
   ariaLabel,
 }: {
-  items: Array<{ id: string; url: string }>;
+  items: Array<{ id: string; url: string; mediaType: VideoMediaType }>;
   badge: string;
   uploading?: boolean;
   disabled?: boolean;
@@ -225,14 +235,22 @@ function CompactRefTrigger({
       {items.slice(0, 3).map((item, i) => (
         <div
           key={item.id}
-          className="absolute left-1/2 top-1/2 size-10 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-white/20 bg-zinc-900 shadow-lg"
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-white/20 bg-zinc-900 shadow-lg"
           style={{
             transform: `translate(-50%, -50%) rotate(-12deg) translateX(${i * spread}px)`,
             zIndex: i + 10,
+            width: 40,
+            height: 40,
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={item.url} alt="" className="size-full object-cover" />
+          <VideoRefMediaThumb
+            previewUrl={item.url}
+            mediaType={item.mediaType}
+            sizeClass="size-10"
+            ringClass="ring-0"
+            previewable={false}
+            className="rounded-xl"
+          />
         </div>
       ))}
       <span
@@ -260,37 +278,42 @@ const MINI_SLOT =
 
 function AssetPickStrip({
   candidates,
+  loading = false,
   onPick,
   disabled,
 }: {
   candidates: VideoPickCandidate[];
+  loading?: boolean;
   onPick?: (pick: VideoPickCandidate) => void;
   disabled?: boolean;
 }) {
-  if (!candidates.length || !onPick || disabled) return null;
+  if (!onPick || disabled) return null;
+  if (loading) {
+    return (
+      <div className="space-y-1 border-t border-white/5 pt-2">
+        <p className="text-[10px] text-zinc-500">从画布/已上传选择</p>
+        <p className="flex items-center gap-1 text-[10px] text-zinc-600">
+          <Loader2 className="size-3 animate-spin" />
+          加载画布素材…
+        </p>
+      </div>
+    );
+  }
+  if (!candidates.length) return null;
   return (
     <div className="space-y-1 border-t border-white/5 pt-2">
       <p className="text-[10px] text-zinc-500">从画布/已上传选择</p>
       <div className="flex max-h-24 flex-wrap gap-1 overflow-y-auto">
         {candidates.map((c) => (
-          <button
+          <VideoRefMediaThumb
             key={c.assetId}
-            type="button"
-            title={c.label}
-            onClick={() => onPick(c)}
-            className="flex size-10 shrink-0 flex-col items-center justify-center overflow-hidden rounded-lg ring-1 ring-white/10 transition hover:ring-orange-400/50"
-          >
-            {c.mediaType === "image" ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={normalizePreviewUrl(c.previewUrl)}
-                alt=""
-                className="size-full object-cover"
-              />
-            ) : (
-              <span className="text-[8px] text-zinc-400">{c.mediaType}</span>
-            )}
-          </button>
+            previewUrl={c.previewUrl}
+            mediaType={c.mediaType}
+            label={c.label}
+            sizeClass="size-10"
+            ringClass="ring-1 ring-white/10 hover:ring-orange-400/50"
+            onSelect={() => onPick(c)}
+          />
         ))}
       </div>
     </div>
@@ -302,6 +325,7 @@ function OmniEditor({
   onChange,
   onUpload,
   pickCandidates = [],
+  pickCandidatesLoading = false,
   onPickCandidate,
   disabled,
 }: {
@@ -309,6 +333,7 @@ function OmniEditor({
   onChange: (refs: VideoMediaRef[]) => void;
   onUpload: VideoReferenceDockControlProps["onUpload"];
   pickCandidates?: VideoPickCandidate[];
+  pickCandidatesLoading?: boolean;
   onPickCandidate?: (pick: VideoPickCandidate) => void;
   disabled?: boolean;
 }) {
@@ -342,12 +367,12 @@ function OmniEditor({
           const Icon = mediaIcon(ref.mediaType);
           return (
             <div key={ref.assetId} className="relative">
-              {ref.previewUrl && ref.mediaType === "image" ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={normalizePreviewUrl(ref.previewUrl)}
-                  alt=""
-                  className="size-12 rounded-lg object-cover ring-1 ring-white/10"
+              {ref.previewUrl ? (
+                <VideoRefMediaThumb
+                  previewUrl={ref.previewUrl}
+                  mediaType={ref.mediaType}
+                  label={ref.label}
+                  sizeClass="size-12"
                 />
               ) : (
                 <div className="flex size-12 flex-col items-center justify-center rounded-lg bg-white/5 text-[8px] text-zinc-400 ring-1 ring-white/10">
@@ -355,7 +380,7 @@ function OmniEditor({
                   {ref.mediaType}
                 </div>
               )}
-              <span className="absolute bottom-0 left-0 rounded-br-lg rounded-tl-lg bg-black/70 px-0.5 text-[7px] text-zinc-200">
+              <span className="pointer-events-none absolute bottom-0 left-0 rounded-br-lg rounded-tl-lg bg-black/70 px-0.5 text-[7px] text-zinc-200">
                 {ref.label ?? `#${i + 1}`}
               </span>
               {!disabled ? (
@@ -396,6 +421,7 @@ function OmniEditor({
       />
       <AssetPickStrip
         candidates={pickCandidates}
+        loading={pickCandidatesLoading}
         onPick={onPickCandidate}
         disabled={disabled}
       />
@@ -410,6 +436,7 @@ function FirstLastEditor({
   onMotionPromptChange,
   onUpload,
   pickCandidates = [],
+  pickCandidatesLoading = false,
   onPickCandidate,
   disabled,
 }: {
@@ -419,6 +446,7 @@ function FirstLastEditor({
   onMotionPromptChange?: (v: string) => void;
   onUpload: VideoReferenceDockControlProps["onUpload"];
   pickCandidates?: VideoPickCandidate[];
+  pickCandidatesLoading?: boolean;
   onPickCandidate?: (pick: VideoPickCandidate) => void;
   disabled?: boolean;
 }) {
@@ -500,6 +528,7 @@ function FirstLastEditor({
       />
       <AssetPickStrip
         candidates={pickCandidates}
+        loading={pickCandidatesLoading}
         onPick={onPickCandidate}
         disabled={disabled}
       />
@@ -523,13 +552,13 @@ function FrameSlot({
   if (refItem?.previewUrl) {
     return (
       <div className="relative">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={normalizePreviewUrl(refItem.previewUrl)}
-          alt={label}
-          className="size-12 rounded-lg object-cover ring-1 ring-white/10"
+        <VideoRefMediaThumb
+          previewUrl={refItem.previewUrl}
+          mediaType={refItem.mediaType}
+          label={label}
+          sizeClass="size-12"
         />
-        <span className="absolute bottom-0 left-0 rounded-br-lg rounded-tl-lg bg-black/60 px-0.5 text-[8px] text-zinc-300">
+        <span className="pointer-events-none absolute bottom-0 left-0 rounded-br-lg rounded-tl-lg bg-black/60 px-0.5 text-[8px] text-zinc-300">
           {label}
         </span>
         {!disabled ? (
@@ -557,6 +586,7 @@ function SmartMultiFrameEditor({
   onChange,
   onUpload,
   pickCandidates = [],
+  pickCandidatesLoading = false,
   onPickCandidate,
   disabled,
   activeIndex,
@@ -567,6 +597,7 @@ function SmartMultiFrameEditor({
   onChange: (shots: SmartMultiShot[]) => void;
   onUpload: VideoReferenceDockControlProps["onUpload"];
   pickCandidates?: VideoPickCandidate[];
+  pickCandidatesLoading?: boolean;
   onPickCandidate?: (pick: VideoPickCandidate) => void;
   disabled?: boolean;
   activeIndex: number;
@@ -678,6 +709,7 @@ function SmartMultiFrameEditor({
       </div>
       <AssetPickStrip
         candidates={pickCandidates}
+        loading={pickCandidatesLoading}
         onPick={onPickCandidate}
         disabled={disabled}
       />
@@ -706,11 +738,11 @@ function ShotThumb({
   if (shot.previewUrl) {
     return (
       <div className={`relative shrink-0 ${sizeClass}`}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={normalizePreviewUrl(shot.previewUrl)}
-          alt=""
-          className={`${sizeClass} rounded-md object-cover ring-1 ring-white/10`}
+        <VideoRefMediaThumb
+          previewUrl={shot.previewUrl}
+          mediaType={inferMediaTypeFromUrl(shot.previewUrl)}
+          sizeClass={sizeClass}
+          ringClass="ring-1 ring-white/10"
         />
         {!disabled ? (
           <button

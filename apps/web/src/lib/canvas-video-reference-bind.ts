@@ -1,3 +1,4 @@
+import { assetUrl } from "@/lib/api-client";
 import type { CanvasItem } from "@/lib/canvas-tools";
 import type {
   SmartMultiShot,
@@ -13,6 +14,12 @@ export type VideoPickCandidate = {
   mediaType: VideoMediaType;
   label?: string;
 };
+
+const registeredAssetByCanvasKey = new Map<string, string>();
+
+function canvasRegisterKey(sessionId: string, item: CanvasItem): string {
+  return `${sessionId}:${item.id}:${item.url}`;
+}
 
 function inferMediaTypeFromCanvasItem(item: CanvasItem): VideoMediaType {
   if (item.isVideo) return "video";
@@ -106,20 +113,29 @@ export async function resolveCanvasItemForVideoPick(
   const direct = canvasItemToVideoPickCandidate(item, index);
   if (direct) return direct;
   if (!item.url) return null;
+
+  const cacheKey = canvasRegisterKey(sessionId, item);
+  const cachedId = registeredAssetByCanvasKey.get(cacheKey);
+  if (cachedId) {
+    return {
+      assetId: cachedId,
+      previewUrl: item.url,
+      mediaType: inferMediaTypeFromCanvasItem(item),
+      label: item.label ?? `图${index + 1}`,
+    };
+  }
+
+  const publicUrl = item.url.startsWith("http") ? item.url : assetUrl(item.url);
   const data = await registerUrl({
     sessionId,
-    url: item.url,
+    url: publicUrl,
     fileName: item.label,
   });
-  const mediaType: VideoMediaType = data.mimeType.startsWith("audio/")
-    ? "audio"
-    : data.mimeType.startsWith("video/")
-      ? "video"
-      : "image";
+  registeredAssetByCanvasKey.set(cacheKey, data.id);
   return {
     assetId: data.id,
     previewUrl: data.url,
-    mediaType,
+    mediaType: inferMediaTypeFromCanvasItem(item),
     label: item.label ?? `图${index + 1}`,
   };
 }
