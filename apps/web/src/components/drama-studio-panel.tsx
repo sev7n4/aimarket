@@ -34,13 +34,20 @@ export function DramaStudioPanel({
   const baseProject = run?.project ?? draftProject?.project;
   const project = localProject ?? baseProject;
 
-  const handleShotsChange = useCallback(
-    (shots: DramaProjectPayload["shots"]) => {
+  const patchProject = useCallback(
+    (patch: Partial<DramaProjectPayload>) => {
       if (!project) return;
-      setLocalProject({ ...project, shots });
+      setLocalProject({ ...project, ...patch });
       setDirty(true);
     },
     [project],
+  );
+
+  const handleShotsChange = useCallback(
+    (shots: DramaProjectPayload["shots"]) => {
+      patchProject({ shots });
+    },
+    [patchProject],
   );
 
   const handleSave = useCallback(async () => {
@@ -57,15 +64,44 @@ export function DramaStudioPanel({
   if (!project) return null;
 
   const pipeline = run?.pipelineSteps ?? [];
+  const previewTier = project.productionParams?.previewTier ?? "full";
 
   return (
     <div className="space-y-4 rounded-xl border border-violet-500/20 bg-violet-500/[0.04] p-4">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-medium text-zinc-100">
-            {project.script.title || "AI 短剧"}
-          </h3>
-          <p className="mt-1 text-xs text-zinc-400">{project.script.logline}</p>
+        <div className="min-w-0 flex-1">
+          {isDraft && !readOnly ? (
+            <>
+              <input
+                className="w-full rounded border border-white/10 bg-black/30 px-2 py-1 text-sm font-medium text-zinc-100"
+                value={project.script.title}
+                onChange={(e) =>
+                  patchProject({
+                    script: { ...project.script, title: e.target.value },
+                  })
+                }
+                placeholder="短剧标题"
+              />
+              <textarea
+                className="mt-2 w-full resize-none rounded border border-white/10 bg-black/30 px-2 py-1 text-xs text-zinc-400"
+                rows={2}
+                value={project.script.logline}
+                onChange={(e) =>
+                  patchProject({
+                    script: { ...project.script, logline: e.target.value },
+                  })
+                }
+                placeholder="一句话梗概"
+              />
+            </>
+          ) : (
+            <>
+              <h3 className="text-sm font-medium text-zinc-100">
+                {project.script.title || "AI 短剧"}
+              </h3>
+              <p className="mt-1 text-xs text-zinc-400">{project.script.logline}</p>
+            </>
+          )}
         </div>
         {run ? (
           <span className="shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-zinc-400">
@@ -73,6 +109,46 @@ export function DramaStudioPanel({
           </span>
         ) : null}
       </div>
+
+      {isDraft && !readOnly ? (
+        <section className="flex items-center gap-3 text-xs">
+          <span className="text-zinc-400">制作档位</span>
+          <label className="flex items-center gap-1 text-zinc-300">
+            <input
+              type="radio"
+              name="previewTier"
+              checked={previewTier === "full"}
+              onChange={() =>
+                patchProject({
+                  productionParams: {
+                    ...project.productionParams,
+                    aspectRatio: project.styleBible.aspectRatio,
+                    previewTier: "full",
+                  },
+                })
+              }
+            />
+            高清成片（含口型）
+          </label>
+          <label className="flex items-center gap-1 text-zinc-300">
+            <input
+              type="radio"
+              name="previewTier"
+              checked={previewTier === "low"}
+              onChange={() =>
+                patchProject({
+                  productionParams: {
+                    ...project.productionParams,
+                    aspectRatio: project.styleBible.aspectRatio,
+                    previewTier: "low",
+                  },
+                })
+              }
+            />
+            低清预览（跳过口型，省积分）
+          </label>
+        </section>
+      ) : null}
 
       <section>
         <h4 className="mb-2 text-xs font-medium text-zinc-300">
@@ -105,7 +181,7 @@ export function DramaStudioPanel({
               onClick={() => void handleSave()}
               className="rounded border border-violet-500/40 px-2 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/10 disabled:opacity-50"
             >
-              {saving ? "保存中…" : "保存分镜"}
+              {saving ? "保存中…" : "保存剧本"}
             </button>
           ) : null}
         </div>
@@ -163,6 +239,7 @@ export function DramaStudioPanel({
           className="w-full rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
         >
           确认分镜，开始制作
+          {previewTier === "low" ? "（低清预览）" : ""}
         </button>
       ) : null}
 

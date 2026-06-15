@@ -119,7 +119,8 @@ export const dramaProjectSchema = z.object({
       imageModelId: z.string().default("agnes-image"),
       videoModelId: z.string().default("wan-2.6"),
       resolution: z.enum(["1k", "2k"]).default("1k"),
-      /** 可选 BGM 音轨 URL（成片混音） */
+      /** 低清预览档：跳过口型同步，积分更低 */
+      previewTier: z.enum(["low", "full"]).default("full"),
       bgmUrl: z.string().url().optional(),
     })
     .optional(),
