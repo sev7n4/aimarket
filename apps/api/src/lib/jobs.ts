@@ -421,6 +421,8 @@ export async function processGenerationJob({
           subtitles: ctx.subtitles as
             | Array<{ startSec: number; endSec: number; text: string }>
             | undefined,
+          bgmUrl: ctx.bgmUrl as string | undefined,
+          narratorAudioUrl: ctx.narratorAudioUrl as string | undefined,
           jobId,
         });
         urls = [result.url];

@@ -35,6 +35,7 @@ import { db } from "../../db/index.js";
 
 const MAX_KEYFRAME_RETRIES = 2;
 const MAX_KEYFRAME_PARALLEL = Number(process.env.DRAMA_KEYFRAME_PARALLEL ?? 3);
+const MAX_SHOT_VIDEO_PARALLEL = Number(process.env.DRAMA_SHOT_VIDEO_PARALLEL ?? 2);
 
 function getProjectForRun(row: DramaRunRow): DramaProjectData {
   const projectRow = db
@@ -88,6 +89,27 @@ function getReadyKeyframeShots(
 
 function countKeyframesDone(project: DramaProjectData): number {
   return project.shots.filter((s) => s.keyframeOutputId).length;
+}
+
+function countVideosDone(project: DramaProjectData): number {
+  return project.shots.filter((s) => s.videoOutputId).length;
+}
+
+function getReadyShotVideoShots(
+  project: DramaProjectData,
+  inFlight: Set<string>,
+): StoryboardShot[] {
+  const hasVideo = new Set(
+    project.shots.filter((s) => s.videoOutputId).map((s) => s.id),
+  );
+  return project.shots
+    .filter((shot) => {
+      if (!shot.keyframeOutputId || hasVideo.has(shot.id) || inFlight.has(shot.id)) {
+        return false;
+      }
+      return true;
+    })
+    .sort((a, b) => a.order - b.order);
 }
 
 function collectShotRefOutputIds(
@@ -242,15 +264,13 @@ function startKeyframeJob(
   return first;
 }
 
-function startShotVideoJob(
+function startShotVideoJobForShot(
   row: DramaRunRow,
   project: DramaProjectData,
-  progress: DramaProgress,
+  shot: StoryboardShot,
 ): string {
-  const shot = project.shots[progress.shotIndex];
-  if (!shot?.keyframeOutputId) throw new Error("镜头缺少关键帧");
   const prompt = buildShotVideoPrompt(shot, project.characters, project.styleBible);
-  const refUrls = resolveReferenceUrls([shot.keyframeOutputId]);
+  const refUrls = resolveReferenceUrls([shot.keyframeOutputId!]);
   const params = project.productionParams;
   const { jobId } = createGenerationJob({
     sessionId: row.session_id,
@@ -272,6 +292,63 @@ function startShotVideoJob(
     },
   });
   linkDramaRunJob(row.id, jobId, "shot_videos", shot.id);
+  return jobId;
+}
+
+function startShotVideoBatch(
+  row: DramaRunRow,
+  project: DramaProjectData,
+  progress: DramaProgress,
+): { progress: DramaProgress; jobIds: string[] } {
+  const inFlight = new Set((progress.pendingBatch ?? []).map((p) => p.shotId));
+  const ready = getReadyShotVideoShots(project, inFlight);
+  const batch = ready.slice(0, MAX_SHOT_VIDEO_PARALLEL);
+  if (!batch.length) {
+    return { progress, jobIds: [] };
+  }
+  const pendingBatch = batch.map((shot) => ({
+    shotId: shot.id,
+    jobId: startShotVideoJobForShot(row, project, shot),
+  }));
+  progress = {
+    ...progress,
+    pendingBatch,
+    shotIndex: countVideosDone(project),
+  };
+  return { progress, jobIds: pendingBatch.map((p) => p.jobId) };
+}
+
+function startShotVideoJob(
+  row: DramaRunRow,
+  project: DramaProjectData,
+  progress: DramaProgress,
+): string {
+  const { progress: next, jobIds } = startShotVideoBatch(row, project, progress);
+  Object.assign(progress, next);
+  const first = jobIds[0];
+  if (!first) throw new Error("无待生成视频镜头");
+  return first;
+}
+
+function startNarratorTtsJob(
+  row: DramaRunRow,
+  project: DramaProjectData,
+): string {
+  const text = project.script.narratorLines.join("。");
+  const { jobId } = createGenerationJob({
+    sessionId: row.session_id,
+    userId: row.user_id,
+    prompt: text,
+    modelId: "agnes-image",
+    mode: "chat",
+    count: 1,
+    resolution: "1k",
+    aspectRatio: "1:1",
+    toolType: "tts",
+    sourceLane: "agent",
+    toolContext: { voiceStyle: "沉稳旁白", dramaNarrator: true },
+  });
+  linkDramaRunJob(row.id, jobId, "narrator_tts");
   return jobId;
 }
 
@@ -339,7 +416,11 @@ function startLipsyncJob(
   return jobId;
 }
 
-function startConcatJob(row: DramaRunRow, project: DramaProjectData): string {
+function startConcatJob(
+  row: DramaRunRow,
+  project: DramaProjectData,
+  progress: DramaProgress,
+): string {
   const clipIds = project.shots
     .map((s) => s.lipsyncOutputId ?? s.videoOutputId)
     .filter(Boolean) as string[];
@@ -352,6 +433,11 @@ function startConcatJob(row: DramaRunRow, project: DramaProjectData): string {
       .reduce((sum, s) => sum + s.durationSec, 0);
     return [{ startSec: start, endSec: start + shot.durationSec, text: line }];
   });
+  const narratorAudioUrl = progress.narratorAudioOutputId
+    ? resolveReferenceUrls([progress.narratorAudioOutputId])[0]
+    : undefined;
+  const bgmUrl =
+    project.productionParams?.bgmUrl ?? process.env.DRAMA_BGM_URL;
   const { jobId } = createGenerationJob({
     sessionId: row.session_id,
     userId: row.user_id,
@@ -363,7 +449,7 @@ function startConcatJob(row: DramaRunRow, project: DramaProjectData): string {
     aspectRatio: project.styleBible.aspectRatio,
     toolType: "concat",
     sourceLane: "agent",
-    toolContext: { clipUrls, subtitles },
+    toolContext: { clipUrls, subtitles, bgmUrl, narratorAudioUrl },
   });
   linkDramaRunJob(row.id, jobId, "concat");
   return jobId;
@@ -387,8 +473,10 @@ function startJobForStep(
       return startTtsJob(row, project, progress);
     case "lipsync":
       return startLipsyncJob(row, project, progress);
+    case "narrator_tts":
+      return startNarratorTtsJob(row, project);
     case "concat":
-      return startConcatJob(row, project);
+      return startConcatJob(row, project, progress);
     default:
       throw new Error(`未知流水线步骤: ${progress.currentPipelineStep}`);
   }
@@ -406,7 +494,7 @@ function isStepComplete(
     case "keyframes":
       return project.shots.every((s) => Boolean(s.keyframeOutputId));
     case "shot_videos":
-      return progress.shotIndex >= project.shots.length;
+      return project.shots.every((s) => Boolean(s.videoOutputId));
     case "tts":
       return (
         progress.ttsIndex >=
@@ -416,6 +504,11 @@ function isStepComplete(
       return (
         progress.lipsyncIndex >=
         project.shots.filter((s) => s.dialogue.length > 0).length
+      );
+    case "narrator_tts":
+      return (
+        project.script.narratorLines.length === 0 ||
+        Boolean(progress.narratorAudioOutputId)
       );
     case "concat":
       return Boolean(progress.finalVideoUrl);
@@ -436,7 +529,8 @@ export async function startDramaRunStep(
   if (row.status === "waiting_job") {
     const existing = parseProgress(row);
     if (
-      existing.currentPipelineStep === "keyframes" &&
+      (existing.currentPipelineStep === "keyframes" ||
+        existing.currentPipelineStep === "shot_videos") &&
       (existing.pendingBatch?.length ?? 0) > 0
     ) {
       return row;
@@ -661,11 +755,43 @@ export async function resumeDramaRunOnJobCompleted(jobId: string) {
     await startDramaRunStep(row.id, row.user_id);
     return;
   } else if (step === "shot_videos") {
-    const shot = project.shots[nextProgress.shotIndex]!;
+    const meta = getDramaRunJobMeta(jobId);
+    const shot =
+      project.shots.find((s) => s.id === meta?.shot_id) ??
+      project.shots[nextProgress.shotIndex];
+    if (!shot) {
+      updateDramaRun(row.id, {
+        status: "failed",
+        error: "视频镜头未找到",
+        pendingJobId: null,
+      });
+      return;
+    }
     shot.videoOutputId = outputId;
     shot.status = "video";
-    nextProgress.shotIndex += 1;
+    nextProgress.shotIndex = countVideosDone(project);
     saveProject(row, project);
+
+    nextProgress.pendingBatch = (nextProgress.pendingBatch ?? []).filter(
+      (p) => p.jobId !== jobId,
+    );
+    if ((nextProgress.pendingBatch?.length ?? 0) > 0) {
+      updateDramaRun(row.id, {
+        progress: nextProgress,
+        pendingJobId: nextProgress.pendingBatch![0]!.jobId,
+        status: "waiting_job",
+      });
+      return;
+    }
+
+    updateDramaRun(row.id, {
+      progress: nextProgress,
+      pendingJobId: null,
+      status: "running",
+      currentStepIndex: pipelineStepIndex(nextProgress.currentPipelineStep),
+    });
+    await startDramaRunStep(row.id, row.user_id);
+    return;
   } else if (step === "tts") {
     const shotsWithDialogue = project.shots.filter((s) => s.dialogue.length > 0);
     const shot = shotsWithDialogue[nextProgress.ttsIndex]!;
@@ -679,6 +805,8 @@ export async function resumeDramaRunOnJobCompleted(jobId: string) {
     shot.status = "done";
     nextProgress.lipsyncIndex += 1;
     saveProject(row, project);
+  } else if (step === "narrator_tts") {
+    nextProgress.narratorAudioOutputId = outputId;
   } else if (step === "concat") {
     nextProgress.finalVideoUrl = outputUrl ?? outputId;
     updateDramaRun(row.id, {
@@ -720,11 +848,13 @@ export async function retryDramaShot(
     progress.currentPipelineStep = "keyframes";
     progress.shotIndex = shot.order;
     progress.keyframeRetries[shotId] = 0;
+    progress.pendingBatch = [];
     shot.keyframeOutputId = undefined;
     shot.status = "pending";
   } else {
     progress.currentPipelineStep = "shot_videos";
     progress.shotIndex = shot.order;
+    progress.pendingBatch = [];
     shot.videoOutputId = undefined;
     shot.status = "keyframe";
   }

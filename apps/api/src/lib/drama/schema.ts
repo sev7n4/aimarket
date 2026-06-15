@@ -119,6 +119,8 @@ export const dramaProjectSchema = z.object({
       imageModelId: z.string().default("agnes-image"),
       videoModelId: z.string().default("wan-2.6"),
       resolution: z.enum(["1k", "2k"]).default("1k"),
+      /** 可选 BGM 音轨 URL（成片混音） */
+      bgmUrl: z.string().url().optional(),
     })
     .optional(),
 });
@@ -155,6 +157,7 @@ export type DramaPipelineStep =
   | "shot_videos"
   | "tts"
   | "lipsync"
+  | "narrator_tts"
   | "concat";
 
 export const DRAMA_PIPELINE_STEPS: DramaPipelineStep[] = [
@@ -164,6 +167,7 @@ export const DRAMA_PIPELINE_STEPS: DramaPipelineStep[] = [
   "shot_videos",
   "tts",
   "lipsync",
+  "narrator_tts",
   "concat",
 ];
 
@@ -181,7 +185,8 @@ export interface DramaProgress {
   ttsIndex: number;
   lipsyncIndex: number;
   keyframeRetries: Record<string, number>;
-  /** 同场景无尾帧依赖的关键帧可并行 */
+  /** 同场景无尾帧依赖的关键帧/视频可并行 */
   pendingBatch?: DramaPendingBatchJob[];
+  narratorAudioOutputId?: string;
   finalVideoUrl?: string;
 }

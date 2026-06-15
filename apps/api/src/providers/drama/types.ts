@@ -24,6 +24,8 @@ export interface LipSyncResult {
 export interface ConcatParams {
   clipUrls: string[];
   subtitles?: Array<{ startSec: number; endSec: number; text: string }>;
+  bgmUrl?: string;
+  narratorAudioUrl?: string;
   jobId?: string;
 }
 

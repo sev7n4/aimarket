@@ -44,7 +44,7 @@ export async function concatClipsFfmpeg(
   if (!clips.length) {
     throw new Error("无视频片段可拼接");
   }
-  if (clips.length === 1 && !params.subtitles?.length) {
+  if (clips.length === 1 && !params.subtitles?.length && !params.bgmUrl && !params.narratorAudioUrl && !process.env.DRAMA_BGM_URL) {
     return { url: clips[0]!, provider: "ffmpeg-pass-through" };
   }
 
@@ -107,6 +107,14 @@ export async function concatClipsFfmpeg(
       finalPath = burnedPath;
     }
 
+    const bgmUrl = params.bgmUrl ?? process.env.DRAMA_BGM_URL;
+    if (bgmUrl || params.narratorAudioUrl) {
+      finalPath = await mixDramaAudioTracks(workDir, finalPath, {
+        bgmUrl,
+        narratorAudioUrl: params.narratorAudioUrl,
+      });
+    }
+
     const buffer = await fs.readFile(finalPath);
     const saved = await saveUpload(
       buffer,
@@ -125,4 +133,74 @@ export async function concatClipsFfmpeg(
 
 export function isFfmpegConcatAvailable(): boolean {
   return true;
+}
+
+async function mixDramaAudioTracks(
+  workDir: string,
+  videoPath: string,
+  opts: { bgmUrl?: string; narratorAudioUrl?: string },
+): Promise<string> {
+  const localInputs: Array<{ filePath: string; cleanup: () => Promise<void> }> =
+    [];
+  const ffInputs = ["-i", videoPath];
+  const filterParts: string[] = [];
+  const mixLabels: string[] = [];
+  let idx = 1;
+
+  try {
+    if (opts.narratorAudioUrl) {
+      const narrator = await resolveLocalMediaPath(opts.narratorAudioUrl);
+      localInputs.push(narrator);
+      ffInputs.push("-i", narrator.filePath);
+      filterParts.push(`[${idx}:a]volume=1.0[narr]`);
+      mixLabels.push("[narr]");
+      idx += 1;
+    }
+
+    if (opts.bgmUrl) {
+      const bgm = await resolveLocalMediaPath(opts.bgmUrl);
+      localInputs.push(bgm);
+      ffInputs.push("-i", bgm.filePath);
+      filterParts.push(`[${idx}:a]volume=0.22[bgm]`);
+      mixLabels.push("[bgm]");
+    }
+
+    if (!mixLabels.length) return videoPath;
+
+    mixLabels.unshift("[0:a]");
+    const filter =
+      filterParts.join(";") +
+      `;${mixLabels.join("")}amix=inputs=${mixLabels.length}:duration=first:dropout_transition=2[aout]`;
+    const outPath = path.join(workDir, `mixed-${randomUUID()}.mp4`);
+
+    await execFileAsync(
+      "ffmpeg",
+      [
+        "-y",
+        ...ffInputs,
+        "-filter_complex",
+        filter,
+        "-map",
+        "0:v:0",
+        "-map",
+        "[aout]",
+        "-c:v",
+        "copy",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "192k",
+        "-shortest",
+        outPath,
+      ],
+      { timeout: 600_000 },
+    );
+    return outPath;
+  } catch {
+    return videoPath;
+  } finally {
+    for (const c of localInputs) {
+      await c.cleanup().catch(() => {});
+    }
+  }
 }

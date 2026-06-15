@@ -33,9 +33,13 @@ steps:
     sourceSteps:
       - shot_videos
       - tts
+  - id: narrator_tts
+    type: tts_batch
+    label: 旁白配音
   - id: final_edit
     type: concat
     label: 剪辑合成
     sourceStep: lipsync
     options:
       subtitles: true
+      bgm: optional
