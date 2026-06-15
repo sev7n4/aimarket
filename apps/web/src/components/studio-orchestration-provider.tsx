@@ -17,14 +17,17 @@ import {
   type OrchestrationTimelineEvent,
 } from "@/lib/canvas-timeline";
 import { useAgentRun } from "@/hooks/use-agent-run";
+import { useDramaRun } from "@/hooks/use-drama-run";
 import { useSkillRun } from "@/hooks/use-skill-run";
-import type { AgentPlan, AgentRun, SkillRun } from "@/lib/types";
+import type { AgentPlan, AgentRun, DramaRun, SkillRun } from "@/lib/types";
 import type { CreationLane } from "@/lib/creation-dock-prefs";
 import { shouldOrchestrationHandleSubmit } from "@/lib/creation-lane-submit";
 import {
   submitAgentOrchestration,
+  submitDramaOrchestration,
   submitSkillOrchestration,
 } from "@/lib/creation-orchestration-submit";
+import { DRAMA_SKILL_ID } from "@/components/creation-dock-controls";
 import { useAuth } from "@/lib/auth-context";
 
 export interface StudioOrchestrationInput {
@@ -51,8 +54,11 @@ export interface StudioOrchestrationSubmitContext {
 interface StudioOrchestrationContextValue {
   agentRun: AgentRun | null;
   skillRun: SkillRun | null;
+  dramaRun: DramaRun | null;
+  dramaDraftProject: ReturnType<typeof useDramaRun>["draftProject"];
   agentBusy: boolean;
   skillBusy: boolean;
+  dramaBusy: boolean;
   skillPackages: ReturnType<typeof useSkillRun>["skills"];
   startAgentRun: (prompt: string) => Promise<AgentRun | null>;
   startSkillRun: (
@@ -63,7 +69,7 @@ interface StudioOrchestrationContextValue {
       referenceAssetId?: string;
     },
   ) => Promise<SkillRun | null>;
-  confirmOrchestration: () => Promise<AgentRun | SkillRun | null>;
+  confirmOrchestration: () => Promise<AgentRun | SkillRun | DramaRun | null>;
   cancelOrchestration: () => Promise<void>;
   dispatchSubmit: (ctx: StudioOrchestrationSubmitContext) => Promise<boolean>;
   timelineEvent: OrchestrationTimelineEvent | null;
@@ -131,6 +137,31 @@ export function StudioOrchestrationProvider({
   }, [onClearPrompt]);
 
   const {
+    run: dramaRun,
+    draftProject: dramaDraftProject,
+    busy: dramaBusy,
+    planOnly: planDramaOnly,
+    startProduction: startDramaProduction,
+    confirmRun: confirmDramaRunAction,
+    cancelRun: cancelDramaRunAction,
+    setRun: setDramaRun,
+    setDraftProject: setDramaDraftProject,
+  } = useDramaRun({
+    sessionId,
+    enabled: orchestrationEnabled,
+    onJobStarted,
+    onRunSettled: (run) => {
+      if (run.status === "failed" && run.error) alert(run.error);
+      if (run.status === "completed") {
+        void refreshUser();
+        void trackEvent("drama_run_complete", { sessionId, runId: run.id });
+        handleOrchestrationCompleted();
+      }
+      onRunSettled?.();
+    },
+  });
+
+  const {
     skills: skillPackages,
     run: skillRun,
     busy: skillBusy,
@@ -185,9 +216,11 @@ export function StudioOrchestrationProvider({
   useEffect(() => {
     resetAgentRun();
     resetSkillRun();
+    setDramaRun(null);
+    setDramaDraftProject(null);
     setAgentPreviewPlan(null);
     setPersistedTimeline(null);
-  }, [sessionId, resetAgentRun, resetSkillRun]);
+  }, [sessionId, resetAgentRun, resetSkillRun, setDramaRun, setDramaDraftProject]);
 
   useEffect(() => {
     setInput((prev) =>
@@ -252,11 +285,15 @@ export function StudioOrchestrationProvider({
   }, [timelineEvent]);
 
   const cancelOrchestration = useCallback(async () => {
-    if (skillRun) await cancelSkillRunAction();
+    if (dramaRun) await cancelDramaRunAction();
+    else if (skillRun) await cancelSkillRunAction();
     else if (agentRun) await cancelAgentRunAction();
-  }, [skillRun, agentRun, cancelSkillRunAction, cancelAgentRunAction]);
+  }, [dramaRun, skillRun, agentRun, cancelDramaRunAction, cancelSkillRunAction, cancelAgentRunAction]);
 
   const confirmOrchestration = useCallback(async () => {
+    if (dramaRun?.status === "waiting_confirm") {
+      return confirmDramaRunAction();
+    }
     if (skillRun?.status === "waiting_confirm") {
       return confirmSkillRunAction();
     }
@@ -265,8 +302,10 @@ export function StudioOrchestrationProvider({
     }
     return null;
   }, [
+    dramaRun?.status,
     skillRun?.status,
     agentRun?.status,
+    confirmDramaRunAction,
     confirmSkillRunAction,
     confirmAgentRunAction,
   ]);
@@ -294,14 +333,40 @@ export function StudioOrchestrationProvider({
           mentionedMasksCount,
           submitVideo,
           hasReferenceImages,
+          dramaSkillActive: activeSkillId === DRAMA_SKILL_ID,
         })
       ) {
         return false;
       }
 
-      const useSkillSubmit = Boolean(activeSkillId);
+      const useDramaSubmit = activeSkillId === DRAMA_SKILL_ID;
+      const useSkillSubmit = Boolean(activeSkillId) && !useDramaSubmit;
       const useAgentSubmit =
         creationLane === "agent" && !activeSkillId;
+
+      if (useDramaSubmit) {
+        await submitDramaOrchestration({
+          prompt,
+          dramaRun,
+          hasDraft: Boolean(dramaDraftProject),
+          ensureSession: () => ensureSession(sessionId, effectiveMode),
+          confirmRun: confirmOrchestration,
+          planRun: (idea) => planDramaOnly(idea, "9:16"),
+          startFromDraft: () =>
+            dramaDraftProject
+              ? startDramaProduction(dramaDraftProject.id, true)
+              : Promise.resolve(),
+          startFullRun: (idea) =>
+            planDramaOnly(idea, "9:16").then((data) =>
+              data ? startDramaProduction(data.project.id, true) : null,
+            ),
+          onValidationError: (message) => alert(message),
+          onStarted: () => {
+            void trackEvent("drama_run_start", { sessionId });
+          },
+        });
+        return true;
+      }
 
       if (useSkillSubmit && activeSkillId) {
         await submitSkillOrchestration({
@@ -347,9 +412,13 @@ export function StudioOrchestrationProvider({
       sessionId,
       skillRun,
       agentRun,
+      dramaRun,
+      dramaDraftProject,
       confirmOrchestration,
       startSkillRun,
       startAgentRun,
+      planDramaOnly,
+      startDramaProduction,
     ],
   );
 
@@ -358,7 +427,7 @@ export function StudioOrchestrationProvider({
     return {
       onConfirm: () => void confirmOrchestration(),
       onCancel: () => void cancelOrchestration(),
-      confirmBusy: agentBusy || skillBusy,
+      confirmBusy: agentBusy || skillBusy || dramaBusy,
       readOnly,
     };
   }, [
@@ -368,6 +437,7 @@ export function StudioOrchestrationProvider({
     cancelOrchestration,
     agentBusy,
     skillBusy,
+    dramaBusy,
     readOnly,
   ]);
 
@@ -375,8 +445,11 @@ export function StudioOrchestrationProvider({
     (): StudioOrchestrationContextValue => ({
       agentRun,
       skillRun,
+      dramaRun,
+      dramaDraftProject,
       agentBusy,
       skillBusy,
+      dramaBusy,
       skillPackages,
       startAgentRun,
       startSkillRun,
@@ -391,8 +464,11 @@ export function StudioOrchestrationProvider({
     [
       agentRun,
       skillRun,
+      dramaRun,
+      dramaDraftProject,
       agentBusy,
       skillBusy,
+      dramaBusy,
       skillPackages,
       startAgentRun,
       startSkillRun,

@@ -1,6 +1,7 @@
 import type { AgentPlan, AgentSessionState } from "@aimarket/agent-core";
 import { ECOMMERCE_SLIDES } from "../ecommerce.js";
 import { createGenerationJob } from "../jobs.js";
+import { resolveReferenceUrls } from "../references.js";
 import { getTool } from "../tools.js";
 import { linkAgentRunJob } from "./runs.js";
 
@@ -8,11 +9,16 @@ export function executeAgentPlanStep(
   state: AgentSessionState,
   plan: AgentPlan,
   stepIndex: number,
+  options?: { referenceOutputIds?: string[] },
 ): { jobId: string; pointsCost: number } {
   const step = plan.steps[stepIndex];
   if (!step) {
     throw new Error(`无效步骤索引: ${stepIndex}`);
   }
+
+  const refUrls = options?.referenceOutputIds?.length
+    ? resolveReferenceUrls(options.referenceOutputIds)
+    : undefined;
 
   if (step.type === "tool") {
     if (!step.toolId) throw new Error("工具步骤缺少 toolId");
@@ -28,6 +34,7 @@ export function executeAgentPlanStep(
       resolution: plan.resolution,
       aspectRatio: plan.aspectRatio,
       toolType: step.toolId,
+      referenceUrls: refUrls,
       sourceLane: "agent",
     });
     linkAgentRunJob(state.runId, jobId, stepIndex);
@@ -39,8 +46,7 @@ export function executeAgentPlanStep(
     plan.mode === "ecommerce" && stepIndex === 0
       ? ECOMMERCE_SLIDES.map((s) => s.label)
       : undefined;
-  const count =
-    slideLabels ? ECOMMERCE_SLIDES.length : 1;
+  const count = slideLabels ? ECOMMERCE_SLIDES.length : 1;
 
   const { jobId, pointsCost } = createGenerationJob({
     sessionId: state.sessionId,
@@ -54,6 +60,7 @@ export function executeAgentPlanStep(
     toolType:
       plan.mode === "ecommerce" && slideLabels ? "ecommerce-set" : undefined,
     slideLabels,
+    referenceUrls: refUrls,
     sourceLane: "agent",
   });
   linkAgentRunJob(state.runId, jobId, stepIndex);

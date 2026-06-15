@@ -492,6 +492,47 @@ database.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_skill_runs_session ON skill_runs(session_id, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_skill_run_jobs_job ON skill_run_jobs(job_id);
+
+  CREATE TABLE IF NOT EXISTS drama_projects (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES image_sessions(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_idea TEXT NOT NULL,
+    project_json TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'drafting',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS drama_runs (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES drama_projects(id) ON DELETE CASCADE,
+    session_id TEXT NOT NULL REFERENCES image_sessions(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    skill_id TEXT NOT NULL DEFAULT 'drama-short-v1',
+    status TEXT NOT NULL DEFAULT 'planning',
+    current_step_index INTEGER NOT NULL DEFAULT 0,
+    pending_job_id TEXT,
+    progress_json TEXT,
+    step_outputs_json TEXT,
+    estimated_points INTEGER NOT NULL DEFAULT 0,
+    final_video_url TEXT,
+    error TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS drama_run_jobs (
+    drama_run_id TEXT NOT NULL REFERENCES drama_runs(id) ON DELETE CASCADE,
+    job_id TEXT NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
+    step_id TEXT NOT NULL,
+    shot_id TEXT,
+    PRIMARY KEY (drama_run_id, job_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_drama_projects_session ON drama_projects(session_id, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_drama_runs_session ON drama_runs(session_id, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_drama_run_jobs_job ON drama_run_jobs(job_id);
 `);
 
 database.exec(`

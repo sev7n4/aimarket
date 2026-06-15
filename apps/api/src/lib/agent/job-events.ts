@@ -1,6 +1,7 @@
 import { buildJobObservation } from "./job-observation.js";
 import { resumeAgentRunOnJobCompleted } from "./runner.js";
 import { resumeSkillRunOnJobCompleted } from "./skill-executor.js";
+import { resumeDramaRunOnJobCompleted } from "../drama/executor.js";
 
 export { buildJobObservation } from "./job-observation.js";
 
@@ -14,5 +15,9 @@ export function notifyAgentJobCompleted(jobId: string) {
 
   void resumeSkillRunOnJobCompleted(jobId).catch((err) => {
     console.warn("[skill] resume on job completed failed:", err);
+  });
+
+  void resumeDramaRunOnJobCompleted(jobId).catch((err) => {
+    console.warn("[drama] resume on job completed failed:", err);
   });
 }

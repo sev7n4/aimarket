@@ -126,6 +126,7 @@ interface DesignCanvasProps {
   scrollBottomInset?: string;
   orchestrationEvent?: import("@/lib/canvas-timeline").OrchestrationTimelineEvent | null;
   orchestrationActions?: import("@/lib/canvas-timeline").OrchestrationTimelineActions;
+  orchestrationExtra?: React.ReactNode;
   batchTools?: {
     tools: StudioTool[];
     pendingToolId?: string | null;
@@ -186,6 +187,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       scrollBottomInset = "",
       orchestrationEvent = null,
       orchestrationActions,
+      orchestrationExtra,
       batchTools,
       onDownloadItem,
       onShareItem,
@@ -893,6 +895,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               scrollBottomInset={scrollBottomInset}
               orchestrationEvent={orchestrationEvent}
               orchestrationActions={orchestrationActions}
+              orchestrationExtra={orchestrationExtra}
               batchTools={batchTools}
               onDownloadItem={
                 onDownloadItem ??

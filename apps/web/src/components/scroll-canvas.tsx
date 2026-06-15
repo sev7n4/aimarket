@@ -114,6 +114,7 @@ interface ScrollCanvasProps {
   /** Agent / Skill 编排卡片（对标 Cursor 主区时间线） */
   orchestrationEvent?: OrchestrationTimelineEvent | null;
   orchestrationActions?: OrchestrationTimelineActions;
+  orchestrationExtra?: React.ReactNode;
   batchTools?: {
     tools: StudioTool[];
     pendingToolId?: string | null;
@@ -161,6 +162,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
       scrollBottomInset = "",
       orchestrationEvent = null,
       orchestrationActions,
+      orchestrationExtra,
       batchTools,
     },
     ref,
@@ -728,6 +730,9 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                       event={orchestrationEvent}
                       actions={orchestrationActions}
                     />
+                    {orchestrationExtra ? (
+                      <div className="mt-3">{orchestrationExtra}</div>
+                    ) : null}
                   </div>
                 </section>
               ) : null}

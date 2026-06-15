@@ -261,6 +261,129 @@ export interface SkillRun {
   updatedAt: string;
 }
 
+export type DramaRunStatus =
+  | "planning"
+  | "waiting_confirm"
+  | "queued"
+  | "running"
+  | "waiting_job"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export interface DramaCharacterCard {
+  id: string;
+  name: string;
+  role?: string;
+  personalityTone: string;
+  promptAnchor: string;
+  voiceStyle?: string;
+  visualSignature: {
+    ageRange: string;
+    faceShape: string;
+    eyeShape: string;
+    hairStyle: string;
+    skinTone: string;
+    signatureOutfit: string;
+    distinguishingFeatures: string[];
+  };
+  refOutputIds?: Partial<{
+    front: string;
+    three_quarter: string;
+    side: string;
+  }>;
+}
+
+export interface DramaStoryboardShot {
+  id: string;
+  order: number;
+  sceneId: string;
+  characterIds: string[];
+  dialogue: Array<{ characterId: string; line: string }>;
+  visualPrompt: string;
+  motionPrompt: string;
+  cameraSpec: {
+    shotSize: string;
+    movement: string;
+    lighting: string;
+    colorTemp?: string;
+  };
+  durationSec: number;
+  useLastFrameContinuity: boolean;
+  keyframeOutputId?: string;
+  videoOutputId?: string;
+  audioOutputId?: string;
+  lipsyncOutputId?: string;
+  auditScore?: { character?: number; style?: number };
+  status: "pending" | "keyframe" | "video" | "audio" | "done" | "failed";
+}
+
+export interface DramaProjectPayload {
+  userIdea: string;
+  targetDurationSec: number;
+  script: {
+    title: string;
+    logline: string;
+    acts: Array<{ act: number; sceneId: string; summary: string; emotion?: string }>;
+    narratorLines: string[];
+  };
+  styleBible: {
+    palette: string[];
+    lightingStyle: string;
+    filmGrain?: string;
+    aspectRatio: "9:16" | "16:9";
+    negativePrompt: string;
+    globalContextBlock?: string;
+  };
+  characters: DramaCharacterCard[];
+  scenes: Array<{
+    id: string;
+    name: string;
+    location: string;
+    atmosphere: string;
+    promptAnchor: string;
+    props: string[];
+    refOutputId?: string;
+  }>;
+  shots: DramaStoryboardShot[];
+}
+
+export interface DramaPipelineStepView {
+  id: string;
+  label: string;
+  index: number;
+  done: boolean;
+  current: boolean;
+}
+
+export interface DramaRun {
+  id: string;
+  projectId: string;
+  sessionId: string;
+  skillId: string;
+  status: DramaRunStatus;
+  estimatedPoints: number;
+  confirmIfPointsOver: number;
+  currentStepIndex: number;
+  pendingJobId: string | null;
+  finalVideoUrl: string | null;
+  error: string | null;
+  project: DramaProjectPayload;
+  pipelineSteps: DramaPipelineStepView[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DramaProject {
+  id: string;
+  sessionId: string;
+  userIdea: string;
+  status: string;
+  project: DramaProjectPayload;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ProductSetInit {
   platforms: string[];
   markets: string[];
