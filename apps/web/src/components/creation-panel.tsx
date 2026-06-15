@@ -65,6 +65,7 @@ import {
 import type { SessionReference } from "@/lib/types";
 import { useRotatingPlaceholder } from "@/hooks/use-rotating-placeholder";
 import { randomUUID } from "@/lib/uuid";
+import { clientNavigate } from "@/lib/client-navigate";
 import { storePendingAssets, type PendingAsset } from "@/lib/pending-assets";
 import { HomeGenerationPreview } from "@/components/home-generation-preview";
 import { CanvasLightbox } from "@/components/canvas-lightbox";
@@ -129,12 +130,12 @@ import {
   videoRefsToMentionCandidates,
 } from "@/lib/video-mention";
 import { useCreationLaneDrafts } from "@/hooks/use-creation-lane-drafts";
+import { useVideoPickCandidates } from "@/hooks/use-video-pick-candidates";
 import {
   canAutoBindCanvasItem,
   mergeReferenceSources,
 } from "@/lib/canvas-reference-bind";
 import {
-  canvasItemToVideoPickCandidate,
   resolveCanvasItemForVideoPick,
   routePickToVideoSlots,
   type VideoPickCandidate,
@@ -1294,28 +1295,14 @@ export function CreationPanel({
     setMentionQuery("");
   }
 
-  const videoPickCandidates = useMemo((): VideoPickCandidate[] => {
-    const seen = new Set<string>();
-    const out: VideoPickCandidate[] = [];
-    const push = (c: VideoPickCandidate | null) => {
-      if (!c || seen.has(c.assetId)) return;
-      seen.add(c.assetId);
-      out.push(c);
-    };
-    canvasItems.forEach((item, index) => {
-      if (item.isVideo && videoReferenceMode !== "omni") return;
-      push(canvasItemToVideoPickCandidate(item, index));
+  const { candidates: videoPickCandidates, loading: videoPickCandidatesLoading } =
+    useVideoPickCandidates({
+      sessionId,
+      creationLane,
+      canvasItems,
+      uploadPreviews,
+      videoReferenceMode,
     });
-    for (const [uploadIdx, preview] of uploadPreviews.entries()) {
-      push({
-        assetId: preview.id,
-        previewUrl: preview.url,
-        mediaType: "image",
-        label: `上传图${uploadIdx + 1}`,
-      });
-    }
-    return out;
-  }, [canvasItems, uploadPreviews, videoReferenceMode]);
 
   function applyVideoPickCandidate(
     pick: VideoPickCandidate,
@@ -1803,8 +1790,10 @@ export function CreationPanel({
       }
       if (homeDirectSubmit) {
         setNavigating(true);
-        router.replace(
-          `/studio?sessionId=${sessionId}&mode=${mode}&jobId=${jobId}`,
+        clientNavigate(
+          router,
+          `/studio?sessionId=${encodeURIComponent(sessionId)}&mode=${encodeURIComponent(mode)}&jobId=${encodeURIComponent(jobId)}`,
+          "replace",
         );
       }
       setPrompt("");
@@ -2026,6 +2015,7 @@ export function CreationPanel({
                 onMotionPromptChange={setFirstLastMotionPrompt}
                 onUpload={uploadVideoReference}
                 pickCandidates={videoPickCandidates}
+                pickCandidatesLoading={videoPickCandidatesLoading}
                 onPickCandidate={applyVideoPickCandidate}
                 disabled={readOnly || pending || streamBusy}
                 uploading={videoUploading}

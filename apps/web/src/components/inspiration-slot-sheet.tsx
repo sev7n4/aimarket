@@ -139,6 +139,7 @@ export function InspirationSlotSheet({
             mediaType={meta.mediaType}
             videoUrl={detail.videoUrl}
             objectFit="contain"
+            interactive
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#111]/85 via-transparent to-black/15" />
           <button
@@ -166,6 +167,7 @@ export function InspirationSlotSheet({
               mediaType="video"
               videoUrl={detail.videoUrl}
               objectFit="cover"
+              interactive
             />
           ) : (
             <Image

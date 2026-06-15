@@ -5,8 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { AppError } from "./errors.js";
+import { getApiPublicBase, toPublicAssetUrl } from "./public-url.js";
 import { resolveLocalMediaPath } from "./media-path.js";
-import { toPublicAssetUrl } from "./public-url.js";
 import { saveUpload } from "./storage.js";
 
 const execFileAsync = promisify(execFile);
@@ -31,6 +31,52 @@ export async function ffmpegAvailable(): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+function isLocalUploadVideoUrl(url: string): boolean {
+  const base = getApiPublicBase().replace(/\/$/, "");
+  return url.startsWith(base) && url.includes("/uploads/") && isVideoMediaUrl(url);
+}
+
+/** 将外链视频下载到本地上传目录，便于画廊播放与抽帧 */
+export async function rehostRemoteVideo(
+  videoUrl: string,
+): Promise<{ url: string; sizeBytes: number }> {
+  if (isSuspectNonPlayableVideoUrl(videoUrl)) {
+    throw new AppError(
+      400,
+      "INVALID_VIDEO_URL",
+      "视频地址无效（疑似元数据文件），无法托管",
+    );
+  }
+  const normalized = toPublicAssetUrl(videoUrl);
+  if (isLocalUploadVideoUrl(normalized)) {
+    return { url: normalized, sizeBytes: 0 };
+  }
+
+  const media = await resolveLocalMediaPath(normalized);
+  try {
+    const buffer = await fs.readFile(media.filePath);
+    const saved = await saveUpload(
+      buffer,
+      "video/mp4",
+      `inspiration-video-${randomUUID()}.mp4`,
+      { lane: "video" },
+    );
+    return {
+      url: toPublicAssetUrl(saved.url),
+      sizeBytes: saved.sizeBytes,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new AppError(
+      400,
+      "VIDEO_REHOST_FAILED",
+      `视频托管失败：${msg.slice(0, 200)}`,
+    );
+  } finally {
+    await media.cleanup();
   }
 }
 

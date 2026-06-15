@@ -9,6 +9,7 @@ import {
   extractVideoPosterFrame,
   isSuspectNonPlayableVideoUrl,
   isVideoMediaUrl,
+  rehostRemoteVideo,
 } from "./video-poster.js";
 
 export const inspirationVariableSchema = z.object({
@@ -171,7 +172,7 @@ export async function normalizeInspirationCoverForPublish(opts: {
     };
   }
 
-  const videoUrl = toPublicAssetUrl(opts.coverUrl);
+  let videoUrl = toPublicAssetUrl(opts.coverUrl);
   if (isSuspectNonPlayableVideoUrl(videoUrl)) {
     throw new AppError(
       400,
@@ -179,6 +180,9 @@ export async function normalizeInspirationCoverForPublish(opts: {
       "视频源地址无效，无法发布到灵感发现",
     );
   }
+
+  const rehosted = await rehostRemoteVideo(videoUrl);
+  videoUrl = rehosted.url;
 
   const thumb = opts.thumbUrl ? toPublicAssetUrl(opts.thumbUrl) : "";
   let posterUrl = thumb && !isVideoMediaUrl(thumb) ? thumb : "";
@@ -207,8 +211,9 @@ export async function ensureInspirationRowCover(
   if (isSuspectNonPlayableVideoUrl(row.cover_url)) return row;
 
   try {
-    const poster = await extractVideoPosterFrame(row.cover_url);
-    const videoUrl = toPublicAssetUrl(row.cover_url);
+    const rehosted = await rehostRemoteVideo(row.cover_url);
+    const poster = await extractVideoPosterFrame(rehosted.url);
+    const videoUrl = rehosted.url;
     const refs = parseReferenceAssets(row.reference_assets_json, row.cover_url);
     const merged = [
       { url: videoUrl },
