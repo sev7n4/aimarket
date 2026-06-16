@@ -5,11 +5,16 @@ import {
   type StoryboardShot,
 } from "./schema.js";
 import { buildGlobalContextBlock } from "./prompt-builders.js";
+import { planDramaProjectMultiAgent } from "./planner/index.js";
+import { isDramaMultiAgentPlanEnabled } from "./planner/reasoning.js";
+import type { PlanDramaInput } from "./planner/types.js";
 
-export interface PlanDramaInput {
-  userIdea: string;
-  targetDurationSec?: number;
-  aspectRatio?: "9:16" | "16:9";
+export type { PlanDramaInput } from "./planner/types.js";
+
+export type DramaPlanMode = "single" | "multi_agent";
+
+export interface PlanDramaOptions {
+  planMode?: DramaPlanMode;
 }
 
 const DRAMA_JSON_SCHEMA = {
@@ -166,7 +171,7 @@ const DRAMA_JSON_SCHEMA = {
   },
 };
 
-function buildRuleBasedProject(input: PlanDramaInput): DramaProjectData {
+export function buildRuleBasedProject(input: PlanDramaInput): DramaProjectData {
   const aspectRatio = input.aspectRatio ?? "9:16";
   const shots: StoryboardShot[] = Array.from({ length: 10 }, (_, i) => ({
     id: `shot_${i + 1}`,
@@ -287,22 +292,17 @@ function buildRuleBasedProject(input: PlanDramaInput): DramaProjectData {
   return project;
 }
 
-export async function planDramaProject(
+export async function planDramaSingleLlm(
   input: PlanDramaInput,
 ): Promise<DramaProjectData> {
-  if (!isAgentLlmEnabled()) {
-    return buildRuleBasedProject(input);
-  }
-
   const duration = input.targetDurationSec ?? 90;
   const aspectRatio = input.aspectRatio ?? "9:16";
 
-  try {
-    const result = await completeWithFallback({
-      messages: [
-        {
-          role: "system",
-          content: `你是专业 AI 短剧总编剧（借鉴 RHTV / Dreamina 工作流）。
+  const result = await completeWithFallback({
+    messages: [
+      {
+        role: "system",
+        content: `你是专业 AI 短剧总编剧（借鉴 RHTV / Dreamina 工作流）。
 规则：
 1. 输出 8-15 个分镜，总时长约 ${duration} 秒，每镜 3-8 秒。
 2. 先锁定角色视觉（promptAnchor 必须具体可执行），再写分镜。
@@ -311,47 +311,79 @@ export async function planDramaProject(
 5. styleBible 需含 palette、lightingStyle、negativePrompt。
 6. 含对白镜头需在 dialogue 中写清 characterId 与 line。
 7. 只输出 JSON，不要 markdown。`,
-        },
-        {
-          role: "user",
-          content: `用户想法：${input.userIdea}\n画幅：${aspectRatio}\n目标时长：${duration}秒`,
-        },
-      ],
-      jsonSchema: DRAMA_JSON_SCHEMA,
-      temperature: 0.4,
-      maxTokens: 8192,
-    });
-
-    const parsed = JSON.parse(result.content) as Record<string, unknown>;
-    const project = dramaProjectSchema.parse({
-      userIdea: input.userIdea,
-      targetDurationSec: duration,
-      script: {
-        title: parsed.title,
-        logline: parsed.logline,
-        acts: parsed.acts ?? [],
-        narratorLines: parsed.narratorLines ?? [],
       },
-      styleBible: parsed.styleBible,
-      characters: parsed.characters,
-      scenes: parsed.scenes,
-      shots: (parsed.shots as StoryboardShot[]).map((s) => ({
-        ...s,
-        status: "pending",
-      })),
-      productionParams: {
-        aspectRatio,
-        imageModelId: "agnes-image",
-        videoModelId: "wan-2.6",
-        resolution: "1k",
+      {
+        role: "user",
+        content: `用户想法：${input.userIdea}\n画幅：${aspectRatio}\n目标时长：${duration}秒`,
       },
-    });
+    ],
+    jsonSchema: DRAMA_JSON_SCHEMA,
+    temperature: 0.4,
+    maxTokens: 8192,
+  });
 
-    project.styleBible.globalContextBlock = buildGlobalContextBlock(
-      project.styleBible,
-      project.characters,
-    );
-    return project;
+  const parsed = JSON.parse(result.content) as Record<string, unknown>;
+  const project = dramaProjectSchema.parse({
+    userIdea: input.userIdea,
+    targetDurationSec: duration,
+    script: {
+      title: parsed.title,
+      logline: parsed.logline,
+      acts: parsed.acts ?? [],
+      narratorLines: parsed.narratorLines ?? [],
+    },
+    styleBible: parsed.styleBible,
+    characters: parsed.characters,
+    scenes: parsed.scenes,
+    shots: (parsed.shots as StoryboardShot[]).map((s) => ({
+      ...s,
+      status: "pending",
+    })),
+    productionParams: {
+      aspectRatio,
+      imageModelId: "agnes-image",
+      videoModelId: "wan-2.6",
+      resolution: "1k",
+    },
+  });
+
+  project.styleBible.globalContextBlock = buildGlobalContextBlock(
+    project.styleBible,
+    project.characters,
+  );
+  return project;
+}
+
+function resolvePlanMode(options?: PlanDramaOptions): DramaPlanMode {
+  if (options?.planMode) return options.planMode;
+  return isDramaMultiAgentPlanEnabled() ? "multi_agent" : "single";
+}
+
+export async function planDramaProject(
+  input: PlanDramaInput,
+  options?: PlanDramaOptions,
+): Promise<DramaProjectData> {
+  if (!isAgentLlmEnabled()) {
+    return buildRuleBasedProject(input);
+  }
+
+  const planMode = resolvePlanMode(options);
+
+  if (planMode === "multi_agent") {
+    try {
+      return await planDramaProjectMultiAgent(input);
+    } catch (err) {
+      console.warn("[drama-plan] multi_agent failed, fallback to single:", err);
+      try {
+        return await planDramaSingleLlm(input);
+      } catch {
+        return buildRuleBasedProject(input);
+      }
+    }
+  }
+
+  try {
+    return await planDramaSingleLlm(input);
   } catch {
     return buildRuleBasedProject(input);
   }
