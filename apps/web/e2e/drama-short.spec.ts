@@ -75,11 +75,10 @@ test.describe("AI 短剧全链路", () => {
     const writerStep = page.getByTestId("drama-plan-agent-writer");
     const storyboardStep = page.getByTestId("drama-plan-agent-storyboard");
 
-    await expect(writerStep.or(timeline)).toBeVisible({ timeout: 15_000 });
-    if (await writerStep.isVisible().catch(() => false)) {
-      await expect(writerStep).toContainText("编剧");
-      await expect(storyboardStep).toContainText("分镜");
-    }
+    await expect(timeline).toBeVisible({ timeout: 15_000 });
+    await expect(writerStep).toBeVisible();
+    await expect(writerStep).toContainText("编剧");
+    await expect(storyboardStep).toContainText("分镜");
 
     await expect
       .poll(
