@@ -554,6 +554,14 @@ database.exec(`
   CREATE INDEX IF NOT EXISTS idx_drama_plan_runs_session ON drama_plan_runs(session_id, updated_at DESC);
 `);
 
+try {
+  database.exec(
+    `ALTER TABLE drama_plan_runs ADD COLUMN auto_produce INTEGER NOT NULL DEFAULT 0`,
+  );
+} catch {
+  /* column exists */
+}
+
 database.exec(`
   UPDATE invite_redemptions SET rewards_granted_at = created_at WHERE rewards_granted_at IS NULL;
 `);

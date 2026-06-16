@@ -104,3 +104,81 @@ export async function planDramaProjectMultiAgent(
 ): Promise<DramaProjectData> {
   return planDramaProjectMultiAgentWithEvents(input);
 }
+
+const AGENT_STEPS: Array<{
+  id: DramaPlanAgentId;
+  runner: (ctx: PlanningContext) => Promise<AgentStepResult<unknown>>;
+  apply: (ctx: PlanningContext, output: unknown) => void;
+}> = [
+  {
+    id: "writer",
+    runner: runWriterAgent,
+    apply: (c, o) => {
+      c.writer = o as WriterOutput;
+    },
+  },
+  {
+    id: "director",
+    runner: runDirectorAgent,
+    apply: (c, o) => {
+      c.director = o as DirectorOutput;
+    },
+  },
+  {
+    id: "character",
+    runner: runCharacterAgent,
+    apply: (c, o) => {
+      c.character = o as CharacterOutput;
+    },
+  },
+  {
+    id: "cinematographer",
+    runner: runCinematographerAgent,
+    apply: (c, o) => {
+      c.cinematographer = o as CinematographerOutput;
+    },
+  },
+  {
+    id: "storyboard",
+    runner: runStoryboardAgent,
+    apply: (c, o) => {
+      c.storyboard = o as StoryboardOutput;
+    },
+  },
+];
+
+function clearDownstreamContext(
+  ctx: PlanningContext,
+  fromAgent: DramaPlanAgentId,
+): void {
+  const startIdx = AGENT_STEPS.findIndex((s) => s.id === fromAgent);
+  for (const step of AGENT_STEPS.slice(startIdx)) {
+    delete ctx[step.id as keyof PlanningContext];
+  }
+}
+
+/** 从指定 Agent 起重跑链式规划（保留上游上下文与 id） */
+export async function planDramaProjectFromAgentWithEvents(
+  ctx: PlanningContext,
+  fromAgent: DramaPlanAgentId,
+  emit?: DramaPlanEmit,
+): Promise<DramaProjectData> {
+  const startIdx = AGENT_STEPS.findIndex((s) => s.id === fromAgent);
+  if (startIdx < 0) {
+    throw new Error(`未知 Agent: ${fromAgent}`);
+  }
+
+  clearDownstreamContext(ctx, fromAgent);
+
+  for (const step of AGENT_STEPS.slice(startIdx)) {
+    await runAgentStep(
+      step.id,
+      ctx,
+      step.runner,
+      step.apply,
+      emit,
+    );
+  }
+
+  return mergePlanningContext(ctx);
+}

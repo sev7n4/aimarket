@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type { CreationMode } from "@aimarket/ui";
-import { ensureSession, fetchAgentPlan, trackEvent } from "@/lib/api-client";
+import { ensureSession, fetchAgentPlan, fetchDramaRun, trackEvent } from "@/lib/api-client";
 import {
   buildOrchestrationTimelineEvent,
   buildDramaPlanTimelineEvent,
@@ -64,6 +64,7 @@ interface StudioOrchestrationContextValue {
   agentBusy: boolean;
   skillBusy: boolean;
   dramaBusy: boolean;
+  dramaPlanBusy: boolean;
   setDramaRun: (run: DramaRun | null) => void;
   skillPackages: ReturnType<typeof useSkillRun>["skills"];
   startAgentRun: (prompt: string) => Promise<AgentRun | null>;
@@ -77,6 +78,9 @@ interface StudioOrchestrationContextValue {
   ) => Promise<SkillRun | null>;
   confirmOrchestration: () => Promise<AgentRun | SkillRun | DramaRun | null>;
   produceDramaDraft: () => Promise<DramaRun | null>;
+  rerunDramaPlan: (fromAgent: string, projectPatch?: Record<string, unknown>) => Promise<unknown>;
+  dramaAutoProduce: boolean;
+  setDramaAutoProduce: (value: boolean) => void;
   cancelOrchestration: () => Promise<void>;
   dispatchSubmit: (ctx: StudioOrchestrationSubmitContext) => Promise<boolean>;
   timelineEvent: OrchestrationTimelineEvent | null;
@@ -137,6 +141,7 @@ export function StudioOrchestrationProvider({
   const [persistedTimeline, setPersistedTimeline] =
     useState<OrchestrationTimelineEvent | null>(null);
   const [orchestrationResetTick, setOrchestrationResetTick] = useState(0);
+  const [dramaAutoProduce, setDramaAutoProduce] = useState(false);
 
   const handleOrchestrationCompleted = useCallback(() => {
     onClearPrompt?.();
@@ -174,13 +179,17 @@ export function StudioOrchestrationProvider({
     events: dramaPlanEvents,
     busy: dramaPlanBusy,
     startPlan: startDramaPlan,
+    rerunPlan: rerunDramaPlan,
     cancelWatch: cancelDramaPlanWatch,
     resetPlan: resetDramaPlan,
   } = useDramaPlan({
     sessionId,
     enabled: orchestrationEnabled,
-    onComplete: (project) => {
+    onComplete: (project, _estimatedPoints, dramaRunId) => {
       setDramaDraftProject(project);
+      if (dramaRunId) {
+        void fetchDramaRun(dramaRunId).then((run) => setDramaRun(run));
+      }
     },
     onFailed: (error) => alert(error),
   });
@@ -304,15 +313,28 @@ export function StudioOrchestrationProvider({
   );
 
   const dramaPlanTimeline = useMemo(() => {
-    if (!dramaPlanRun || dramaPlanRun.status === "completed") return null;
-    return buildDramaPlanTimelineEvent({
-      planRunId: dramaPlanRun.id,
-      status: dramaPlanRun.status,
-      prompt: input.prompt,
-      currentAgent: dramaPlanRun.currentAgent,
-      events: dramaPlanEvents,
-      error: dramaPlanRun.error,
-    });
+    if (!dramaPlanRun) return null;
+    if (dramaPlanRun.status === "completed") {
+      return buildDramaPlanTimelineEvent({
+        planRunId: dramaPlanRun.id,
+        status: "completed",
+        prompt: input.prompt,
+        currentAgent: dramaPlanRun.currentAgent,
+        events: dramaPlanEvents,
+        error: dramaPlanRun.error,
+      });
+    }
+    if (dramaPlanRun.status === "failed" || dramaPlanRun.status === "planning") {
+      return buildDramaPlanTimelineEvent({
+        planRunId: dramaPlanRun.id,
+        status: dramaPlanRun.status,
+        prompt: input.prompt,
+        currentAgent: dramaPlanRun.currentAgent,
+        events: dramaPlanEvents,
+        error: dramaPlanRun.error,
+      });
+    }
+    return null;
   }, [dramaPlanRun, dramaPlanEvents, input.prompt]);
 
   const timelineEvent = dramaPlanTimeline ?? agentSkillTimeline;
@@ -406,7 +428,10 @@ export function StudioOrchestrationProvider({
           ensureSession: () => ensureSession(sessionId, effectiveMode),
           confirmRun: confirmOrchestration,
           planRun: (idea) =>
-            startDramaPlan(idea, { aspectRatio: "9:16" }).then(() => undefined),
+            startDramaPlan(idea, {
+              aspectRatio: "9:16",
+              autoProduce: dramaAutoProduce,
+            }).then(() => undefined),
           startFromDraft: () =>
             dramaDraftProject
               ? startDramaProduction(dramaDraftProject.id, true)
@@ -475,7 +500,15 @@ export function StudioOrchestrationProvider({
       planDramaOnly,
       startDramaPlan,
       startDramaProduction,
+      dramaAutoProduce,
     ],
+  );
+
+  const handleRerunFromAgent = useCallback(
+    (fromAgent: string) => {
+      void rerunDramaPlan(fromAgent);
+    },
+    [rerunDramaPlan],
   );
 
   const timelineActions = useMemo((): OrchestrationTimelineActions | null => {
@@ -483,6 +516,8 @@ export function StudioOrchestrationProvider({
     return {
       onConfirm: () => void confirmOrchestration(),
       onCancel: () => void cancelOrchestration(),
+      onRerunFromAgent:
+        dramaPlanRun?.status === "completed" ? handleRerunFromAgent : undefined,
       confirmBusy: agentBusy || skillBusy || dramaBusy || dramaPlanBusy,
       readOnly,
     };
@@ -491,6 +526,8 @@ export function StudioOrchestrationProvider({
     timelineEvent,
     confirmOrchestration,
     cancelOrchestration,
+    handleRerunFromAgent,
+    dramaPlanRun?.status,
     agentBusy,
     skillBusy,
     dramaBusy,
@@ -510,6 +547,7 @@ export function StudioOrchestrationProvider({
       agentBusy,
       skillBusy,
       dramaBusy,
+      dramaPlanBusy,
       setDramaRun,
       skillPackages,
       startAgentRun,
@@ -519,6 +557,9 @@ export function StudioOrchestrationProvider({
       setInput,
       confirmOrchestration,
       produceDramaDraft,
+      rerunDramaPlan,
+      dramaAutoProduce,
+      setDramaAutoProduce,
       cancelOrchestration,
       dispatchSubmit,
       orchestrationResetTick,
@@ -534,6 +575,7 @@ export function StudioOrchestrationProvider({
       agentBusy,
       skillBusy,
       dramaBusy,
+      dramaPlanBusy,
       setDramaRun,
       skillPackages,
       startAgentRun,
@@ -543,6 +585,9 @@ export function StudioOrchestrationProvider({
       timelineActions,
       confirmOrchestration,
       produceDramaDraft,
+      rerunDramaPlan,
+      dramaAutoProduce,
+      setDramaAutoProduce,
       cancelOrchestration,
       dispatchSubmit,
       orchestrationResetTick,

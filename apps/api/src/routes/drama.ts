@@ -24,7 +24,7 @@ import {
   retryDramaShot,
 } from "../lib/drama/executor.js";
 import { estimateDramaPoints } from "../lib/drama/estimate.js";
-import { dispatchDramaPlanRun } from "../lib/drama/plan-executor.js";
+import { dispatchDramaPlanRun, dispatchDramaPlanRerun } from "../lib/drama/plan-executor.js";
 import {
   getPlanEventBuffer,
   isTerminalPlanEvent,
@@ -35,7 +35,7 @@ import {
   getDramaPlanRun,
   serializeDramaPlanRun,
 } from "../lib/drama/plan-runs.js";
-import type { DramaPlanEvent } from "../lib/drama/planner/types.js";
+import type { DramaPlanAgentId, DramaPlanEvent } from "../lib/drama/planner/types.js";
 
 const drama = new Hono<{ Variables: AuthVariables }>();
 
@@ -301,6 +301,7 @@ const planCreateBody = z.object({
   userIdea: z.string().min(10).max(2000),
   targetDurationSec: z.number().int().min(60).max(180).optional(),
   aspectRatio: z.enum(["9:16", "16:9"]).optional(),
+  autoProduce: z.boolean().default(false),
 });
 
 /** 异步多 Agent 规划（SSE 进度） */
@@ -315,10 +316,48 @@ drama.post("/plan/runs", async (c) => {
     userIdea: body.userIdea,
     targetDurationSec: body.targetDurationSec,
     aspectRatio: body.aspectRatio,
+    autoProduce: body.autoProduce,
   });
   dispatchDramaPlanRun(row.id, userId);
 
   return c.json({ data: serializeDramaPlanRun(row) }, 201);
+});
+
+drama.post("/plan/runs/:id/rerun", async (c) => {
+  const userId = c.get("userId");
+  const runId = c.req.param("id");
+  const body = z
+    .object({
+      fromAgent: z.enum([
+        "writer",
+        "director",
+        "character",
+        "cinematographer",
+        "storyboard",
+      ]),
+      projectPatch: z.record(z.unknown()).optional(),
+    })
+    .parse(await c.req.json());
+
+  const row = getDramaPlanRun(userId, runId);
+  if (!row) throw new AppError(404, "NOT_FOUND", "规划 Run 不存在");
+  if (!row.project_id) {
+    throw new AppError(400, "INVALID_STATE", "规划尚未完成，无法重跑");
+  }
+  if (row.status === "planning") {
+    throw new AppError(400, "INVALID_STATE", "规划进行中，请稍后再试");
+  }
+
+  assertSessionWrite(userId, row.session_id);
+  dispatchDramaPlanRerun(
+    runId,
+    userId,
+    body.fromAgent as DramaPlanAgentId,
+    body.projectPatch,
+  );
+
+  const next = getDramaPlanRun(userId, runId)!;
+  return c.json({ data: serializeDramaPlanRun(next) });
 });
 
 drama.get("/plan/runs/:id", async (c) => {

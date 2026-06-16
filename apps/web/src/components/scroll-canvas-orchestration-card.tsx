@@ -34,8 +34,16 @@ export function ScrollCanvasOrchestrationCard({
         prompt={event.prompt}
         currentAgent={event.dramaPlanCurrentAgent}
         events={event.dramaPlanEvents ?? []}
-        status={event.status === "failed" ? "failed" : "planning"}
+        status={
+          event.status === "failed"
+            ? "failed"
+            : event.status === "completed"
+              ? "completed"
+              : "planning"
+        }
         error={event.error}
+        onRerunFromAgent={actions?.onRerunFromAgent}
+        rerunBusy={actions?.confirmBusy}
       />
     );
   }

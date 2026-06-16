@@ -1,15 +1,26 @@
 import { buildRuleBasedProject } from "./planner.js";
 import { estimateDramaPoints } from "./estimate.js";
-import { publishPlanEvent } from "./plan-events.js";
+import { clearPlanEvents, publishPlanEvent } from "./plan-events.js";
 import {
   defaultAgentsJson,
   getDramaPlanRun,
   parseAgentsJson,
   parseReasoningJson,
+  resetPlanRunForRerun,
   updateDramaPlanRun,
 } from "./plan-runs.js";
-import { createDramaProject } from "./projects.js";
-import { planDramaProjectMultiAgentWithEvents } from "./planner/index.js";
+import {
+  createDramaProject,
+  getDramaProject,
+  parseProjectJson,
+  updateDramaProject,
+} from "./projects.js";
+import {
+  planDramaProjectFromAgentWithEvents,
+  planDramaProjectMultiAgentWithEvents,
+} from "./planner/index.js";
+import { mergePlanningContext } from "./planner/merge.js";
+import { projectToPlanningContext } from "./planner/project-to-context.js";
 import { isDramaMultiAgentPlanEnabled } from "./planner/reasoning.js";
 import {
   DRAMA_PLAN_AGENT_LABELS,
@@ -19,6 +30,9 @@ import {
   type DramaPlanEmit,
   type DramaPlanEvent,
 } from "./planner/types.js";
+import { dramaProjectSchema } from "./schema.js";
+import { createDramaRun } from "./runs.js";
+import { dispatchDramaRun } from "./executor.js";
 import { isAgentLlmEnabled } from "@aimarket/agent-core";
 
 function syncAgentsFromEvent(
@@ -60,10 +74,40 @@ async function runRuleBasedWithEvents(
   return buildRuleBasedProject(input);
 }
 
+function maybeAutoProduce(
+  row: NonNullable<ReturnType<typeof getDramaPlanRun>>,
+  projectId: string,
+): string | undefined {
+  if (!row.auto_produce) return undefined;
+  const run = createDramaRun({
+    sessionId: row.session_id,
+    userId: row.user_id,
+    projectId,
+    confirmed: true,
+  });
+  if (run.status !== "waiting_confirm") {
+    dispatchDramaRun(run.id, row.user_id);
+  }
+  return run.id;
+}
+
 export function dispatchDramaPlanRun(runId: string, userId: string) {
   void executeDramaPlanRun(runId, userId).catch((err) => {
     console.error("[drama-plan] execute failed:", err);
   });
+}
+
+export function dispatchDramaPlanRerun(
+  runId: string,
+  userId: string,
+  fromAgent: DramaPlanAgentId,
+  projectPatch?: Record<string, unknown>,
+) {
+  void executeDramaPlanRerun(runId, userId, fromAgent, projectPatch).catch(
+    (err) => {
+      console.error("[drama-plan] rerun failed:", err);
+    },
+  );
 }
 
 async function executeDramaPlanRun(runId: string, userId: string) {
@@ -108,6 +152,7 @@ async function executeDramaPlanRun(runId: string, userId: string) {
       project: projectData,
     });
     const estimatedPoints = estimateDramaPoints(projectData);
+    const dramaRunId = maybeAutoProduce(row, projectRow.id);
 
     updateDramaPlanRun(runId, {
       status: "completed",
@@ -121,6 +166,7 @@ async function executeDramaPlanRun(runId: string, userId: string) {
       type: "plan_complete",
       projectId: projectRow.id,
       estimatedPoints,
+      ...(dramaRunId ? { dramaRunId } : {}),
     };
     publishPlanEvent(runId, completeEvent);
   } catch (err) {
@@ -138,6 +184,7 @@ async function executeDramaPlanRun(runId: string, userId: string) {
         project: projectData,
       });
       const estimatedPoints = estimateDramaPoints(projectData);
+      const dramaRunId = maybeAutoProduce(row, projectRow.id);
       updateDramaPlanRun(runId, {
         status: "completed",
         currentAgent: null,
@@ -149,6 +196,7 @@ async function executeDramaPlanRun(runId: string, userId: string) {
         type: "plan_complete",
         projectId: projectRow.id,
         estimatedPoints,
+        ...(dramaRunId ? { dramaRunId } : {}),
       });
     } catch (fallbackErr) {
       const fallbackMessage =
@@ -168,4 +216,106 @@ async function executeDramaPlanRun(runId: string, userId: string) {
       });
     }
   }
+}
+
+async function executeDramaPlanRerun(
+  runId: string,
+  userId: string,
+  fromAgent: DramaPlanAgentId,
+  projectPatch?: Record<string, unknown>,
+) {
+  const row = getDramaPlanRun(userId, runId);
+  if (!row?.project_id) return;
+
+  const projectRow = getDramaProject(userId, row.project_id);
+  if (!projectRow) return;
+
+  if (projectPatch) {
+    const current = parseProjectJson(projectRow);
+    const merged = { ...current, ...projectPatch };
+    const validated = dramaProjectSchema.parse(merged);
+    updateDramaProject(projectRow.id, { project: validated });
+  }
+
+  clearPlanEvents(runId);
+
+  let agents = parseAgentsJson(row);
+  let reasoning = parseReasoningJson(row);
+  resetPlanRunForRerun(runId, fromAgent, agents);
+  agents = parseAgentsJson(getDramaPlanRun(userId, runId)!);
+
+  const freshProjectRow = getDramaProject(userId, row.project_id)!;
+  const ctx = projectToPlanningContext(parseProjectJson(freshProjectRow));
+
+  const emit: DramaPlanEmit = (event) => {
+    publishPlanEvent(runId, event);
+    syncAgentsFromEvent(agents, reasoning, event);
+    if (event.type === "agent_start") {
+      updateDramaPlanRun(runId, {
+        currentAgent: event.agent,
+        agents,
+        reasoning,
+      });
+    } else if (
+      event.type === "agent_reasoning" ||
+      event.type === "agent_done"
+    ) {
+      updateDramaPlanRun(runId, { agents, reasoning });
+    }
+  };
+
+  try {
+    const projectData =
+      isAgentLlmEnabled() && isDramaMultiAgentPlanEnabled()
+        ? await planDramaProjectFromAgentWithEvents(ctx, fromAgent, emit)
+        : await runRuleBasedFromAgent(ctx, fromAgent, emit);
+
+    updateDramaProject(row.project_id, { project: projectData });
+    const estimatedPoints = estimateDramaPoints(projectData);
+    const dramaRunId = maybeAutoProduce(row, row.project_id);
+
+    updateDramaPlanRun(runId, {
+      status: "completed",
+      currentAgent: null,
+      agents,
+      reasoning,
+    });
+
+    publishPlanEvent(runId, {
+      type: "plan_complete",
+      projectId: row.project_id,
+      estimatedPoints,
+      ...(dramaRunId ? { dramaRunId } : {}),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "短剧重跑失败";
+    updateDramaPlanRun(runId, {
+      status: "failed",
+      currentAgent: null,
+      error: message,
+      agents,
+      reasoning,
+    });
+    publishPlanEvent(runId, { type: "plan_failed", error: message });
+  }
+}
+
+async function runRuleBasedFromAgent(
+  ctx: ReturnType<typeof projectToPlanningContext>,
+  fromAgent: DramaPlanAgentId,
+  emit: DramaPlanEmit,
+) {
+  const startIdx = DRAMA_PLAN_AGENT_ORDER.indexOf(fromAgent);
+  for (const agent of DRAMA_PLAN_AGENT_ORDER.slice(startIdx)) {
+    emit({ type: "agent_start", agent });
+    emit({
+      type: "agent_done",
+      agent,
+      summary: `${DRAMA_PLAN_AGENT_LABELS[agent]}完成（规则引擎）`,
+    });
+  }
+  if (fromAgent === "writer") {
+    return buildRuleBasedProject(ctx.input);
+  }
+  return mergePlanningContext(ctx);
 }
