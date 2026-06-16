@@ -36,11 +36,17 @@ test.describe("AI 短剧全链路", () => {
     await gotoStudioAndWait(page);
     const station = studioWorkstation(page);
 
-    await station.getByRole("button", { name: "创意设计" }).click();
+    const lanePicker = station.getByRole("button", { name: "选择创作方式" });
+    await expect(lanePicker).toBeVisible({ timeout: 15_000 });
+    if (!(await lanePicker.textContent())?.includes("Agent")) {
+      await lanePicker.click();
+      await page.getByRole("button", { name: "Agent 模式", exact: true }).click();
+    }
+    await expect(lanePicker).toContainText("Agent 模式");
+
+    await station.getByLabel("创意设计").click();
     await page.getByRole("button", { name: "AI 短剧", exact: true }).click();
-    await expect(station.getByRole("button", { name: "创意设计" })).toContainText(
-      "AI 短剧",
-    );
+    await expect(station.getByLabel("创意设计")).toContainText("AI 短剧");
 
     const idea =
       "都市爱情短剧：咖啡店老板与常客在雨夜重逢，三分钟讲完误会与和解";
