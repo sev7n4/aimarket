@@ -107,6 +107,7 @@ export interface BuildOrchestrationDispatchInput {
   mentionedMasksCount: number;
   submitVideo: boolean;
   referenceImageSources: ReferenceImageSources;
+  dramaSkillActive?: boolean;
 }
 
 export function buildOrchestrationDispatchContext(
@@ -119,6 +120,7 @@ export function buildOrchestrationDispatchContext(
     mentionedMasksCount: input.mentionedMasksCount,
     submitVideo: input.submitVideo,
     hasReferenceImages: hasReferenceImages(input.referenceImageSources),
+    dramaSkillActive: input.dramaSkillActive,
   };
 }
 

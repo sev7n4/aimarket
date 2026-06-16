@@ -188,6 +188,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
     const showTimeline =
       items.length > 0 ||
       Boolean(orchestrationEvent) ||
+      Boolean(orchestrationExtra) ||
       useTimelineGenerating;
 
     const scrollToGenerating = useCallback(() => {
@@ -730,10 +731,17 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
                       event={orchestrationEvent}
                       actions={orchestrationActions}
                     />
-                    {orchestrationExtra ? (
-                      <div className="mt-3">{orchestrationExtra}</div>
-                    ) : null}
                   </div>
+                </section>
+              ) : null}
+
+              {orchestrationExtra ? (
+                <section
+                  role="listitem"
+                  data-testid="orchestration-extra-section"
+                  className="relative pb-2"
+                >
+                  <div className="min-w-0 flex-1">{orchestrationExtra}</div>
                 </section>
               ) : null}
             </div>

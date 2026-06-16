@@ -6,6 +6,7 @@ import type { DramaStoryboardShot } from "@/lib/types";
 interface DramaStoryboardGridProps {
   shots: DramaStoryboardShot[];
   onRetryShot?: (shotId: string, stage: "keyframe" | "video") => void;
+  onPickKeyframe?: (shotId: string, heroIndex: number) => void;
   readOnly?: boolean;
   editable?: boolean;
   onShotsChange?: (shots: DramaStoryboardShot[]) => void;
@@ -24,6 +25,7 @@ const STATUS_LABEL: Record<DramaStoryboardShot["status"], string> = {
 export function DramaStoryboardGrid({
   shots,
   onRetryShot,
+  onPickKeyframe,
   readOnly,
   editable,
   onShotsChange,
@@ -88,7 +90,36 @@ export function DramaStoryboardGrid({
           key={shot.id}
           className="flex flex-col rounded-lg border border-white/10 bg-white/[0.03] p-2 text-xs"
         >
-          {shot.keyframeUrl || shot.videoUrl ? (
+          {shot.keyframeVariantUrls && shot.keyframeVariantUrls.length > 1 ? (
+            <div className="mb-1">
+              <div className="mb-0.5 text-[10px] text-zinc-500">关键帧选优</div>
+              <div className="flex gap-1 overflow-x-auto">
+                {shot.keyframeVariantUrls.map((url, idx) => (
+                  <button
+                    key={`${shot.id}-variant-${idx}`}
+                    type="button"
+                    disabled={readOnly || !onPickKeyframe}
+                    onClick={() => onPickKeyframe?.(shot.id, idx)}
+                    className={`relative shrink-0 overflow-hidden rounded border ${
+                      (shot.keyframeHeroIndex ?? 0) === idx
+                        ? "border-violet-400 ring-1 ring-violet-400/50"
+                        : "border-white/10 opacity-70 hover:opacity-100"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt=""
+                      className="aspect-[9/16] h-16 w-auto object-cover"
+                    />
+                    <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-center text-[8px] text-zinc-300">
+                      {idx + 1}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : shot.keyframeUrl || shot.videoUrl ? (
             <div className="mb-1 aspect-[9/16] overflow-hidden rounded bg-black/40">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img

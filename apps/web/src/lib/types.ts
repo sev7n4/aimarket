@@ -292,6 +292,8 @@ export interface DramaCharacterCard {
     three_quarter: string;
     side: string;
   }>;
+  /** 草稿态用户上传的角色参考图 */
+  refUrl?: string;
 }
 
 export interface DramaStoryboardShot {
@@ -311,6 +313,9 @@ export interface DramaStoryboardShot {
   durationSec: number;
   useLastFrameContinuity: boolean;
   keyframeOutputId?: string;
+  keyframeVariantOutputIds?: string[];
+  keyframeHeroIndex?: number;
+  keyframeVariantUrls?: string[];
   videoOutputId?: string;
   audioOutputId?: string;
   lipsyncOutputId?: string;
@@ -346,6 +351,7 @@ export interface DramaProjectPayload {
     promptAnchor: string;
     props: string[];
     refOutputId?: string;
+    refUrl?: string;
   }>;
   shots: DramaStoryboardShot[];
   productionParams?: {

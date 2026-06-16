@@ -137,6 +137,24 @@ function collectShotRefOutputIds(
   return ids;
 }
 
+function collectShotRefUrls(
+  project: DramaProjectData,
+  shot: StoryboardShot,
+): string[] {
+  const urls = resolveReferenceUrls(collectShotRefOutputIds(project, shot));
+  for (const cid of shot.characterIds) {
+    const char = project.characters.find((c) => c.id === cid);
+    if (char?.refUrl) urls.push(char.refUrl);
+  }
+  const scene = project.scenes.find((s) => s.id === shot.sceneId);
+  if (scene?.refUrl) urls.push(scene.refUrl);
+  return urls;
+}
+
+function characterHasManualRef(char: DramaProjectData["characters"][number]): boolean {
+  return Boolean(char.refUrl);
+}
+
 function pipelineStepIndex(step: DramaPipelineStep): number {
   return DRAMA_PIPELINE_STEPS.indexOf(step);
 }
@@ -226,7 +244,7 @@ function startKeyframeJobForShot(
     project.styleBible,
   );
   const refIds = collectShotRefOutputIds(project, shot);
-  const refUrls = refIds.length ? resolveReferenceUrls(refIds) : undefined;
+  const refUrls = collectShotRefUrls(project, shot);
   const params = project.productionParams;
   const { jobId } = createGenerationJob({
     sessionId: row.session_id,
@@ -237,9 +255,9 @@ function startKeyframeJobForShot(
     count: KEYFRAME_VARIANTS,
     resolution: params?.resolution ?? "1k",
     aspectRatio: params?.aspectRatio ?? "9:16",
-    referenceUrls: refUrls,
+    referenceUrls: refUrls.length ? refUrls : undefined,
     sourceLane: "agent",
-    toolContext: refUrls?.length ? { dramaShotId: shot.id } : undefined,
+    toolContext: refUrls.length ? { dramaShotId: shot.id } : undefined,
   });
   linkDramaRunJob(row.id, jobId, "keyframes", shot.id);
   return jobId;
@@ -477,10 +495,34 @@ function startJobForStep(
   progress: DramaProgress,
 ): string {
   switch (progress.currentPipelineStep) {
-    case "char_refs":
-      return startCharRefJob(row, project, progress);
-    case "scene_refs":
-      return startSceneRefJob(row, project, progress);
+    case "char_refs": {
+      let p = progress;
+      while (p.charRefIndex < project.characters.length) {
+        const char = project.characters[p.charRefIndex]!;
+        if (characterHasManualRef(char)) {
+          p = { ...p, charRefAngleIndex: 0, charRefIndex: p.charRefIndex + 1 };
+          continue;
+        }
+        if (p !== progress) updateDramaRun(row.id, { progress: p });
+        return startCharRefJob(row, project, p);
+      }
+      updateDramaRun(row.id, { progress: p });
+      throw new Error("DRAMA_STEP_COMPLETE");
+    }
+    case "scene_refs": {
+      let p = progress;
+      while (p.sceneRefIndex < project.scenes.length) {
+        const scene = project.scenes[p.sceneRefIndex]!;
+        if (scene.refUrl) {
+          p = { ...p, sceneRefIndex: p.sceneRefIndex + 1 };
+          continue;
+        }
+        if (p !== progress) updateDramaRun(row.id, { progress: p });
+        return startSceneRefJob(row, project, p);
+      }
+      updateDramaRun(row.id, { progress: p });
+      throw new Error("DRAMA_STEP_COMPLETE");
+    }
     case "keyframes":
       return startKeyframeJob(row, project, progress);
     case "shot_videos":
@@ -587,6 +629,10 @@ export async function startDramaRunStep(
     });
     return getDramaRun(userId, dramaRunId);
   } catch (err) {
+    if (err instanceof Error && err.message === "DRAMA_STEP_COMPLETE") {
+      const nextRow = getDramaRun(userId, dramaRunId)!;
+      return startDramaRunStep(dramaRunId, userId);
+    }
     const message = err instanceof Error ? err.message : "启动步骤失败";
     updateDramaRun(dramaRunId, {
       status: "failed",
@@ -744,14 +790,23 @@ export async function resumeDramaRunOnJobCompleted(jobId: string) {
     let outputId: string;
     let outputUrl: string;
     try {
-      const picked = await pickKeyframeHero(
-        jobId,
-        shot,
-        observation.outputIds,
-        observation.urls,
-      );
-      outputId = picked.outputId;
-      outputUrl = picked.outputUrl;
+      if (observation.outputIds.length > 1) {
+        shot.keyframeVariantOutputIds = observation.outputIds;
+        const variantUrls = observation.urls.filter(Boolean);
+        const picked = await pickKeyframeHero(
+          jobId,
+          shot,
+          observation.outputIds,
+          variantUrls,
+        );
+        shot.keyframeHeroIndex = observation.outputIds.indexOf(picked.outputId);
+        if (shot.keyframeHeroIndex < 0) shot.keyframeHeroIndex = 0;
+        outputId = picked.outputId;
+        outputUrl = picked.outputUrl;
+      } else {
+        outputId = observation.outputIds[0]!;
+        outputUrl = observation.urls[0]!;
+      }
     } catch {
       updateDramaRun(row.id, {
         status: "failed",
@@ -898,6 +953,8 @@ export async function retryDramaShot(
     progress.keyframeRetries[shotId] = 0;
     progress.pendingBatch = [];
     shot.keyframeOutputId = undefined;
+    shot.keyframeVariantOutputIds = undefined;
+    shot.keyframeHeroIndex = undefined;
     shot.status = "pending";
   } else {
     progress.currentPipelineStep = "shot_videos";
@@ -914,4 +971,33 @@ export async function retryDramaShot(
     error: null,
   });
   return startDramaRunStep(runId, userId);
+}
+
+/** 用户手动选择关键帧 Hero（多候选时） */
+export async function pickDramaKeyframeHero(
+  userId: string,
+  runId: string,
+  shotId: string,
+  heroIndex: number,
+): Promise<DramaRunRow | undefined> {
+  const row = getDramaRun(userId, runId);
+  if (!row) throw new Error("DRAMA_RUN_NOT_FOUND");
+  const project = getProjectForRun(row);
+  const shot = project.shots.find((s) => s.id === shotId);
+  if (!shot) throw new Error("SHOT_NOT_FOUND");
+  const variants = shot.keyframeVariantOutputIds ?? [];
+  if (variants.length < 2) throw new Error("NO_KEYFRAME_VARIANTS");
+  if (heroIndex < 0 || heroIndex >= variants.length) {
+    throw new Error("INVALID_HERO_INDEX");
+  }
+  const outputId = variants[heroIndex]!;
+  const urls = resolveReferenceUrls([outputId]);
+  const outputUrl = urls[0];
+  if (!outputUrl) throw new Error("KEYFRAME_URL_MISSING");
+
+  shot.keyframeHeroIndex = heroIndex;
+  shot.keyframeOutputId = outputId;
+  shot.status = shot.videoOutputId ? shot.status : "keyframe";
+  saveProject(row, project);
+  return row;
 }

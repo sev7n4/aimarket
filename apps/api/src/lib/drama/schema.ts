@@ -30,6 +30,8 @@ export const characterCardSchema = z.object({
       side: z.string().uuid().optional(),
     })
     .optional(),
+  /** 草稿态用户上传/替换的角色参考图 */
+  refUrl: z.string().url().optional(),
 });
 
 export const sceneCardSchema = z.object({
@@ -41,6 +43,8 @@ export const sceneCardSchema = z.object({
   props: z.array(z.string()).default([]),
   promptAnchor: z.string(),
   refOutputId: z.string().uuid().optional(),
+  /** 草稿态用户上传/替换的场景参考图 */
+  refUrl: z.string().url().optional(),
 });
 
 export const styleBibleSchema = z.object({
@@ -91,6 +95,10 @@ export const storyboardShotSchema = z.object({
   /** Dream.ai：同场景连续镜头启用尾帧衔接 */
   useLastFrameContinuity: z.boolean().default(false),
   keyframeOutputId: z.string().uuid().optional(),
+  /** 关键帧多候选 outputId（DRAMA_KEYFRAME_VARIANTS > 1） */
+  keyframeVariantOutputIds: z.array(z.string().uuid()).optional(),
+  /** 当前选中的关键帧候选索引 */
+  keyframeHeroIndex: z.number().int().min(0).optional(),
   videoOutputId: z.string().uuid().optional(),
   audioOutputId: z.string().uuid().optional(),
   lipsyncOutputId: z.string().uuid().optional(),
