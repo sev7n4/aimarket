@@ -188,6 +188,7 @@ export const ScrollCanvas = forwardRef<ScrollCanvasHandle, ScrollCanvasProps>(
     const showTimeline =
       items.length > 0 ||
       Boolean(orchestrationEvent) ||
+      Boolean(orchestrationExtra) ||
       useTimelineGenerating;
 
     const scrollToGenerating = useCallback(() => {
