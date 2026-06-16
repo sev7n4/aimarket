@@ -400,6 +400,37 @@ export interface DramaProject {
   updatedAt: string;
 }
 
+export type DramaPlanAgentStatus =
+  | "pending"
+  | "running"
+  | "done"
+  | "failed";
+
+export interface DramaPlanAgentState {
+  status: DramaPlanAgentStatus;
+  reasoning?: string;
+  summary?: string;
+  completedAt?: string;
+}
+
+export interface DramaPlanRun {
+  id: string;
+  sessionId: string;
+  userIdea: string;
+  targetDurationSec?: number;
+  aspectRatio?: "9:16" | "16:9";
+  status: "planning" | "completed" | "failed";
+  currentAgent?: string | null;
+  agents: Record<string, DramaPlanAgentState>;
+  reasoning?: Record<string, string>;
+  projectId?: string | null;
+  project?: DramaProject;
+  estimatedPoints?: number;
+  error?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ProductSetInit {
   platforms: string[];
   markets: string[];

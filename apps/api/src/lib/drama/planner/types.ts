@@ -96,3 +96,44 @@ export interface AgentStepResult<T> {
   output: T;
   reasoning?: string;
 }
+
+export type DramaPlanRunStatus = "planning" | "completed" | "failed";
+
+export type DramaPlanAgentStatus =
+  | "pending"
+  | "running"
+  | "done"
+  | "failed";
+
+export interface DramaPlanAgentState {
+  status: DramaPlanAgentStatus;
+  reasoning?: string;
+  summary?: string;
+  completedAt?: string;
+}
+
+export type DramaPlanAgentsJson = Record<
+  DramaPlanAgentId,
+  DramaPlanAgentState
+>;
+
+export type DramaPlanEvent =
+  | { type: "agent_start"; agent: DramaPlanAgentId }
+  | { type: "agent_reasoning"; agent: DramaPlanAgentId; chunk: string }
+  | { type: "agent_done"; agent: DramaPlanAgentId; summary: string }
+  | {
+      type: "plan_complete";
+      projectId: string;
+      estimatedPoints: number;
+    }
+  | { type: "plan_failed"; error: string };
+
+export type DramaPlanEmit = (event: DramaPlanEvent) => void;
+
+export const DRAMA_PLAN_AGENT_LABELS: Record<DramaPlanAgentId, string> = {
+  writer: "编剧",
+  director: "导演",
+  character: "角色",
+  cinematographer: "摄影",
+  storyboard: "分镜",
+};

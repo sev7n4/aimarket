@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { streamSSE } from "hono/streaming";
 import type { AuthVariables } from "../middleware/auth.js";
 import { AppError } from "../lib/errors.js";
 import { assertSessionWrite } from "../lib/session-access.js";
@@ -23,6 +24,18 @@ import {
   retryDramaShot,
 } from "../lib/drama/executor.js";
 import { estimateDramaPoints } from "../lib/drama/estimate.js";
+import { dispatchDramaPlanRun } from "../lib/drama/plan-executor.js";
+import {
+  getPlanEventBuffer,
+  isTerminalPlanEvent,
+  subscribePlanEvents,
+} from "../lib/drama/plan-events.js";
+import {
+  createDramaPlanRun,
+  getDramaPlanRun,
+  serializeDramaPlanRun,
+} from "../lib/drama/plan-runs.js";
+import type { DramaPlanEvent } from "../lib/drama/planner/types.js";
 
 const drama = new Hono<{ Variables: AuthVariables }>();
 
@@ -281,6 +294,104 @@ drama.post("/estimate", async (c) => {
     .parse(await c.req.json());
   const validated = dramaProjectSchema.parse(body.project);
   return c.json({ data: { estimatedPoints: estimateDramaPoints(validated) } });
+});
+
+const planCreateBody = z.object({
+  sessionId: z.string().uuid(),
+  userIdea: z.string().min(10).max(2000),
+  targetDurationSec: z.number().int().min(60).max(180).optional(),
+  aspectRatio: z.enum(["9:16", "16:9"]).optional(),
+});
+
+/** 异步多 Agent 规划（SSE 进度） */
+drama.post("/plan/runs", async (c) => {
+  const userId = c.get("userId");
+  const body = planCreateBody.parse(await c.req.json());
+  assertSessionWrite(userId, body.sessionId);
+
+  const row = createDramaPlanRun({
+    sessionId: body.sessionId,
+    userId,
+    userIdea: body.userIdea,
+    targetDurationSec: body.targetDurationSec,
+    aspectRatio: body.aspectRatio,
+  });
+  dispatchDramaPlanRun(row.id, userId);
+
+  return c.json({ data: serializeDramaPlanRun(row) }, 201);
+});
+
+drama.get("/plan/runs/:id", async (c) => {
+  const userId = c.get("userId");
+  const row = getDramaPlanRun(userId, c.req.param("id"));
+  if (!row) throw new AppError(404, "NOT_FOUND", "规划 Run 不存在");
+  return c.json({ data: serializeDramaPlanRun(row) });
+});
+
+drama.get("/plan/runs/:id/stream", (c) => {
+  const userId = c.get("userId");
+  const runId = c.req.param("id");
+  const row = getDramaPlanRun(userId, runId);
+  if (!row) throw new AppError(404, "NOT_FOUND", "规划 Run 不存在");
+
+  return streamSSE(c, async (stream) => {
+    const writeEvent = async (event: DramaPlanEvent) => {
+      await stream.writeSSE({
+        event: event.type,
+        data: JSON.stringify(event),
+      });
+    };
+
+    const replayed = getPlanEventBuffer(runId);
+    for (const event of replayed) {
+      await writeEvent(event);
+    }
+    if (replayed.some(isTerminalPlanEvent)) return;
+
+    const deadline = Date.now() + Number(process.env.DRAMA_PLAN_STREAM_MAX_MS ?? 600_000);
+
+    await new Promise<void>((resolve) => {
+      let cursor = replayed.length;
+
+      const flushNew = async () => {
+        const buf = getPlanEventBuffer(runId);
+        while (cursor < buf.length) {
+          const event = buf[cursor]!;
+          cursor += 1;
+          await writeEvent(event);
+          if (isTerminalPlanEvent(event)) {
+            cleanup();
+            resolve();
+            return;
+          }
+        }
+      };
+
+      const cleanup = subscribePlanEvents(runId, () => {
+        void flushNew();
+      });
+
+      const poll = setInterval(() => {
+        void flushNew();
+        const latest = getDramaPlanRun(userId, runId);
+        if (
+          latest &&
+          (latest.status === "completed" || latest.status === "failed")
+        ) {
+          clearInterval(poll);
+          cleanup();
+          resolve();
+        }
+        if (Date.now() > deadline) {
+          clearInterval(poll);
+          cleanup();
+          resolve();
+        }
+      }, 800);
+
+      void flushNew();
+    });
+  });
 });
 
 export { drama };

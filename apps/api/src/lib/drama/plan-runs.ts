@@ -1,0 +1,165 @@
+import { randomUUID } from "node:crypto";
+import { db } from "../../db/index.js";
+import { AppError } from "../errors.js";
+import {
+  DRAMA_PLAN_AGENT_ORDER,
+  type DramaPlanAgentId,
+  type DramaPlanAgentsJson,
+  type DramaPlanRunStatus,
+} from "./planner/types.js";
+import { estimateDramaPoints } from "./estimate.js";
+import {
+  getDramaProject,
+  serializeDramaProject,
+} from "./projects.js";
+
+export interface DramaPlanRunRow {
+  id: string;
+  session_id: string;
+  user_id: string;
+  user_idea: string;
+  target_duration_sec: number | null;
+  aspect_ratio: string | null;
+  status: DramaPlanRunStatus;
+  current_agent: string | null;
+  agents_json: string;
+  reasoning_json: string | null;
+  project_id: string | null;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function defaultAgentsJson(): DramaPlanAgentsJson {
+  return Object.fromEntries(
+    DRAMA_PLAN_AGENT_ORDER.map((id) => [id, { status: "pending" as const }]),
+  ) as DramaPlanAgentsJson;
+}
+
+export function parseAgentsJson(row: DramaPlanRunRow): DramaPlanAgentsJson {
+  try {
+    return { ...defaultAgentsJson(), ...JSON.parse(row.agents_json) };
+  } catch {
+    return defaultAgentsJson();
+  }
+}
+
+export function parseReasoningJson(
+  row: DramaPlanRunRow,
+): Partial<Record<DramaPlanAgentId, string>> {
+  if (!row.reasoning_json) return {};
+  try {
+    return JSON.parse(row.reasoning_json);
+  } catch {
+    return {};
+  }
+}
+
+export function createDramaPlanRun(input: {
+  sessionId: string;
+  userId: string;
+  userIdea: string;
+  targetDurationSec?: number;
+  aspectRatio?: "9:16" | "16:9";
+}): DramaPlanRunRow {
+  const id = randomUUID();
+  db.prepare(
+    `INSERT INTO drama_plan_runs
+     (id, session_id, user_id, user_idea, target_duration_sec, aspect_ratio,
+      status, agents_json, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'planning', ?, datetime('now'), datetime('now'))`,
+  ).run(
+    id,
+    input.sessionId,
+    input.userId,
+    input.userIdea,
+    input.targetDurationSec ?? null,
+    input.aspectRatio ?? null,
+    JSON.stringify(defaultAgentsJson()),
+  );
+  const row = getDramaPlanRun(input.userId, id);
+  if (!row) throw new AppError(500, "INTERNAL_ERROR", "创建规划 Run 失败");
+  return row;
+}
+
+export function getDramaPlanRun(
+  userId: string,
+  runId: string,
+): DramaPlanRunRow | undefined {
+  return db
+    .prepare(`SELECT * FROM drama_plan_runs WHERE id = ? AND user_id = ?`)
+    .get(runId, userId) as DramaPlanRunRow | undefined;
+}
+
+export function updateDramaPlanRun(
+  runId: string,
+  patch: Partial<{
+    status: DramaPlanRunStatus;
+    currentAgent: DramaPlanAgentId | null;
+    agents: DramaPlanAgentsJson;
+    reasoning: Partial<Record<DramaPlanAgentId, string>>;
+    projectId: string | null;
+    error: string | null;
+  }>,
+) {
+  const sets = ["updated_at = datetime('now')"];
+  const params: (string | number | null)[] = [];
+
+  if (patch.status !== undefined) {
+    sets.push("status = ?");
+    params.push(patch.status);
+  }
+  if (patch.currentAgent !== undefined) {
+    sets.push("current_agent = ?");
+    params.push(patch.currentAgent);
+  }
+  if (patch.agents !== undefined) {
+    sets.push("agents_json = ?");
+    params.push(JSON.stringify(patch.agents));
+  }
+  if (patch.reasoning !== undefined) {
+    sets.push("reasoning_json = ?");
+    params.push(JSON.stringify(patch.reasoning));
+  }
+  if (patch.projectId !== undefined) {
+    sets.push("project_id = ?");
+    params.push(patch.projectId);
+  }
+  if (patch.error !== undefined) {
+    sets.push("error = ?");
+    params.push(patch.error);
+  }
+  params.push(runId);
+  db.prepare(`UPDATE drama_plan_runs SET ${sets.join(", ")} WHERE id = ?`).run(
+    ...params,
+  );
+}
+
+export function serializeDramaPlanRun(row: DramaPlanRunRow) {
+  const agents = parseAgentsJson(row);
+  const reasoning = parseReasoningJson(row);
+  const projectRow = row.project_id
+    ? getDramaProject(row.user_id, row.project_id)
+    : undefined;
+  const estimatedPoints = projectRow
+    ? estimateDramaPoints(JSON.parse(projectRow.project_json))
+    : undefined;
+
+  return {
+    id: row.id,
+    sessionId: row.session_id,
+    userIdea: row.user_idea,
+    targetDurationSec: row.target_duration_sec ?? undefined,
+    aspectRatio: (row.aspect_ratio as "9:16" | "16:9" | null) ?? undefined,
+    status: row.status,
+    currentAgent: row.current_agent as DramaPlanAgentId | null,
+    agents,
+    reasoning,
+    projectId: row.project_id,
+    project: projectRow ? serializeDramaProject(projectRow) : undefined,
+    estimatedPoints,
+    error: row.error,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
