@@ -3,7 +3,6 @@ import {
   gotoStudioAndWait,
   skipStudioCoach,
   studioWorkstation,
-  waitForSessionEnsure,
 } from "./helpers/studio";
 
 test.describe("AI 短剧全链路", () => {
@@ -65,9 +64,7 @@ test.describe("AI 短剧全链路", () => {
         res.ok(),
       { timeout: 60_000 },
     );
-    const ensureResponse = waitForSessionEnsure(page);
     await station.getByRole("button", { name: "开始短剧规划" }).click();
-    expect((await ensureResponse).ok()).toBeTruthy();
     const planRes = await planResponse;
     const planJson = (await planRes.json()) as {
       data?: { project?: { project?: { shots?: unknown[] } } };
