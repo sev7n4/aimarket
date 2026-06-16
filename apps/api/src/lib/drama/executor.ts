@@ -1,6 +1,7 @@
 import { createGenerationJob } from "../jobs.js";
 import { resolveReferenceUrls } from "../references.js";
 import { runVlmCharacterAudit } from "../../providers/vlm/character-audit.js";
+import { pickSkillHeroIndex } from "../../providers/vlm/pick-hero.js";
 import {
   buildCharacterRefPrompt,
   buildKeyframePrompt,
@@ -36,6 +37,10 @@ import { db } from "../../db/index.js";
 const MAX_KEYFRAME_RETRIES = 2;
 const MAX_KEYFRAME_PARALLEL = Number(process.env.DRAMA_KEYFRAME_PARALLEL ?? 3);
 const MAX_SHOT_VIDEO_PARALLEL = Number(process.env.DRAMA_SHOT_VIDEO_PARALLEL ?? 2);
+const KEYFRAME_VARIANTS = Math.min(
+  3,
+  Math.max(1, Number(process.env.DRAMA_KEYFRAME_VARIANTS ?? 1)),
+);
 
 function getProjectForRun(row: DramaRunRow): DramaProjectData {
   const projectRow = db
@@ -229,7 +234,7 @@ function startKeyframeJobForShot(
     prompt,
     modelId: params?.imageModelId ?? "agnes-image",
     mode: "chat",
-    count: 1,
+    count: KEYFRAME_VARIANTS,
     resolution: params?.resolution ?? "1k",
     aspectRatio: params?.aspectRatio ?? "9:16",
     referenceUrls: refUrls,
@@ -659,6 +664,26 @@ async function handleKeyframeComplete(
   return { progress };
 }
 
+async function pickKeyframeHero(
+  jobId: string,
+  shot: StoryboardShot,
+  outputIds: string[],
+  urls: string[],
+): Promise<{ outputId: string; outputUrl: string }> {
+  if (!outputIds.length || !urls[0]) {
+    throw new Error("关键帧无输出");
+  }
+  if (outputIds.length === 1) {
+    return { outputId: outputIds[0]!, outputUrl: urls[0]! };
+  }
+  const idx = await pickSkillHeroIndex({
+    jobId,
+    urls,
+    prompt: `短剧分镜关键帧选优：${shot.visualPrompt}\n优先角色与参考一致、构图稳定`,
+  });
+  return { outputId: outputIds[idx]!, outputUrl: urls[idx]! };
+}
+
 export async function resumeDramaRunOnJobCompleted(jobId: string) {
   const row = getDramaRunByJobId(jobId);
   if (!row) return;
@@ -704,14 +729,6 @@ export async function resumeDramaRunOnJobCompleted(jobId: string) {
     nextProgress.sceneRefIndex += 1;
     saveProject(row, project);
   } else if (step === "keyframes") {
-    if (!outputUrl) {
-      updateDramaRun(row.id, {
-        status: "failed",
-        error: "关键帧无 URL",
-        pendingJobId: null,
-      });
-      return;
-    }
     const meta = getDramaRunJobMeta(jobId);
     const shot =
       project.shots.find((s) => s.id === meta?.shot_id) ??
@@ -720,6 +737,25 @@ export async function resumeDramaRunOnJobCompleted(jobId: string) {
       updateDramaRun(row.id, {
         status: "failed",
         error: "关键帧镜头未找到",
+        pendingJobId: null,
+      });
+      return;
+    }
+    let outputId: string;
+    let outputUrl: string;
+    try {
+      const picked = await pickKeyframeHero(
+        jobId,
+        shot,
+        observation.outputIds,
+        observation.urls,
+      );
+      outputId = picked.outputId;
+      outputUrl = picked.outputUrl;
+    } catch {
+      updateDramaRun(row.id, {
+        status: "failed",
+        error: "关键帧无 URL",
         pendingJobId: null,
       });
       return;
