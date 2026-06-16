@@ -5,19 +5,22 @@ import type {
   SkillRun,
   SkillRunStatus,
 } from "@/lib/types";
+import type { DramaPlanStreamEvent } from "@/lib/drama-plan-stream";
+import { DRAMA_PLAN_AGENT_META } from "@/components/drama-plan-timeline";
 
 export interface OrchestrationStepView {
   label: string;
   type: string;
   done: boolean;
   current: boolean;
+  summary?: string;
 }
 
 export interface OrchestrationTimelineEvent {
   id: string;
-  runType: "agent" | "skill";
+  runType: "agent" | "skill" | "drama_plan";
   title: string;
-  status: AgentRunStatus | SkillRunStatus | "preview";
+  status: AgentRunStatus | SkillRunStatus | "preview" | "planning" | "failed";
   prompt: string;
   steps: OrchestrationStepView[];
   estimatedPoints?: number;
@@ -28,6 +31,9 @@ export interface OrchestrationTimelineEvent {
   showCancelActive: boolean;
   planLoading?: boolean;
   updatedAt: string;
+  /** 短剧多 Agent 规划 SSE 事件 */
+  dramaPlanEvents?: DramaPlanStreamEvent[];
+  dramaPlanCurrentAgent?: string | null;
 }
 
 export interface OrchestrationTimelineActions {
@@ -157,4 +163,52 @@ export function buildOrchestrationTimelineEvent(input: {
   }
 
   return null;
+}
+
+export function buildDramaPlanTimelineEvent(input: {
+  planRunId: string;
+  status: "planning" | "completed" | "failed";
+  prompt: string;
+  currentAgent?: string | null;
+  events: DramaPlanStreamEvent[];
+  error?: string | null;
+}): OrchestrationTimelineEvent | null {
+  if (input.status !== "planning" && input.status !== "failed") {
+    return null;
+  }
+  const doneAgents = new Set(
+    input.events
+      .filter((e) => e.type === "agent_done")
+      .map((e) => (e.type === "agent_done" ? e.agent : "")),
+  );
+  const steps: OrchestrationStepView[] = DRAMA_PLAN_AGENT_META.map((meta) => {
+    const done = doneAgents.has(meta.id);
+    const current = input.currentAgent === meta.id && !done;
+    const summaryEv = [...input.events]
+      .reverse()
+      .find((e) => e.type === "agent_done" && e.agent === meta.id);
+    return {
+      label: meta.label,
+      type: meta.id,
+      done,
+      current,
+      summary:
+        summaryEv?.type === "agent_done" ? summaryEv.summary : undefined,
+    };
+  });
+
+  return {
+    id: `drama-plan-${input.planRunId}`,
+    runType: "drama_plan",
+    title: "AI 短剧 · 多 Agent 规划",
+    status: input.status === "failed" ? "failed" : "planning",
+    prompt: input.prompt,
+    steps,
+    error: input.error,
+    showConfirm: false,
+    showCancelActive: false,
+    updatedAt: new Date().toISOString(),
+    dramaPlanEvents: input.events,
+    dramaPlanCurrentAgent: input.currentAgent,
+  };
 }

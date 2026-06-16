@@ -6,7 +6,7 @@ import {
 } from "./helpers/studio";
 
 test.describe("AI 短剧全链路", () => {
-  test("Agent 模式选短剧技能 → 规划 → 分镜板", async ({ page, request }) => {
+  test("Agent 模式选短剧技能 → 规划时间线 → 分镜板", async ({ page, request }) => {
     test.setTimeout(120_000);
     await skipStudioCoach(page);
 
@@ -59,21 +59,24 @@ test.describe("AI 短剧全链路", () => {
 
     const planResponse = page.waitForResponse(
       (res) =>
-        res.url().includes("/api/v1/drama/runs") &&
+        res.url().includes("/api/v1/drama/plan/runs") &&
         res.request().method() === "POST" &&
         res.ok(),
       { timeout: 60_000 },
     );
     await station.getByRole("button", { name: "开始短剧规划" }).click();
-    const planRes = await planResponse;
-    const planJson = (await planRes.json()) as {
-      data?: { project?: { project?: { shots?: unknown[] } } };
-    };
-    expect(planJson.data?.project?.project?.shots?.length).toBeGreaterThan(7);
+    await planResponse;
+
+    const timeline = page.getByTestId("drama-plan-timeline");
+    await expect(timeline).toBeVisible({ timeout: 15_000 });
+    await expect(timeline.getByText("编剧")).toBeVisible();
+    await expect(timeline.getByText("分镜")).toBeVisible();
 
     const panel = page.getByTestId("drama-studio-panel");
-    await expect(panel).toBeVisible({ timeout: 15_000 });
-    await expect(panel.getByText(/分镜板（\d+ 镜）/)).toBeVisible();
+    await expect(panel).toBeVisible({ timeout: 60_000 });
+    await expect(panel.getByText(/分镜板（\d+ 镜）/)).toBeVisible({
+      timeout: 60_000,
+    });
     await expect(panel.getByText("角色资产")).toBeVisible();
     await expect(panel.getByTestId("drama-confirm-produce")).toBeVisible();
   });

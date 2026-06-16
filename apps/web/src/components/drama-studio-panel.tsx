@@ -9,6 +9,7 @@ interface DramaStudioPanelProps {
   sessionId?: string;
   draftProject?: DramaProject | null;
   run?: DramaRun | null;
+  planning?: boolean;
   onConfirmProduce?: () => void;
   onRetryShot?: (shotId: string, stage: "keyframe" | "video") => void;
   onPickKeyframe?: (shotId: string, heroIndex: number) => void;
@@ -22,6 +23,7 @@ export function DramaStudioPanel({
   sessionId,
   draftProject,
   run,
+  planning,
   onConfirmProduce,
   onRetryShot,
   onPickKeyframe,
@@ -110,6 +112,20 @@ export function DramaStudioPanel({
     }, 400);
     return () => window.clearTimeout(timer);
   }, [isDraft, project]);
+
+  if (planning) {
+    return (
+      <div
+        className="rounded-xl border border-violet-500/20 bg-violet-500/[0.04] p-4 text-center"
+        data-testid="drama-studio-panel"
+      >
+        <p className="text-sm text-violet-200">规划进行中…</p>
+        <p className="mt-1 text-xs text-zinc-500">
+          五 Agent 正在协作编剧、分镜，请查看时间线进度
+        </p>
+      </div>
+    );
+  }
 
   if (!project) return null;
 
