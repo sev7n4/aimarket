@@ -195,6 +195,9 @@ drama.get("/estimate", async (c) => {
   const shotCount = Number(c.req.query("shotCount") ?? "10");
   const charCount = Number(c.req.query("charCount") ?? "2");
   const sceneCount = Number(c.req.query("sceneCount") ?? "2");
+  const dialogueShots = Number(c.req.query("dialogueShots") ?? String(Math.ceil(shotCount / 2)));
+  const previewTier =
+    c.req.query("previewTier") === "low" ? ("low" as const) : ("full" as const);
   const mockProject = {
     userIdea: "",
     targetDurationSec: 90,
@@ -233,7 +236,7 @@ drama.get("/estimate", async (c) => {
       order: i,
       sceneId: "s0",
       characterIds: ["c0"],
-      dialogue: i % 2 === 0 ? [{ characterId: "c0", line: "对白" }] : [],
+      dialogue: i < dialogueShots ? [{ characterId: "c0", line: "对白" }] : [],
       visualPrompt: "",
       motionPrompt: "",
       cameraSpec: { shotSize: "MS", movement: "固定", lighting: "" },
@@ -241,8 +244,19 @@ drama.get("/estimate", async (c) => {
       useLastFrameContinuity: false,
       status: "pending" as const,
     })),
+    productionParams: { previewTier, aspectRatio: "9:16" as const },
   };
-  return c.json({ data: { estimatedPoints: estimateDramaPoints(mockProject) } });
+  const validated = dramaProjectSchema.parse(mockProject);
+  return c.json({ data: { estimatedPoints: estimateDramaPoints(validated) } });
+});
+
+/** 按完整项目结构估算积分（草稿编辑后实时预估） */
+drama.post("/estimate", async (c) => {
+  const body = z
+    .object({ project: z.record(z.unknown()) })
+    .parse(await c.req.json());
+  const validated = dramaProjectSchema.parse(body.project);
+  return c.json({ data: { estimatedPoints: estimateDramaPoints(validated) } });
 });
 
 export { drama };

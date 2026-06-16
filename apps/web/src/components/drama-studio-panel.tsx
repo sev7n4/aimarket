@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DramaStoryboardGrid } from "@/components/drama-storyboard-grid";
+import { estimateDramaProjectPoints } from "@/lib/api-client";
 import type { DramaProject, DramaProjectPayload, DramaRun } from "@/lib/types";
 
 interface DramaStudioPanelProps {
@@ -30,6 +31,7 @@ export function DramaStudioPanel({
   );
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [liveEstimate, setLiveEstimate] = useState<number | null>(null);
 
   const baseProject = run?.project ?? draftProject?.project;
   const project = localProject ?? baseProject;
@@ -60,6 +62,19 @@ export function DramaStudioPanel({
       setSaving(false);
     }
   }, [localProject, onSaveDraft]);
+
+  useEffect(() => {
+    if (!isDraft || !project) {
+      setLiveEstimate(null);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void estimateDramaProjectPoints(project)
+        .then(setLiveEstimate)
+        .catch(() => setLiveEstimate(null));
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [isDraft, project]);
 
   if (!project) return null;
 
@@ -107,11 +122,41 @@ export function DramaStudioPanel({
           <span className="shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-zinc-400">
             {run.status}
           </span>
+        ) : liveEstimate != null ? (
+          <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">
+            预估 {liveEstimate} 分
+          </span>
         ) : null}
       </div>
 
+      {isDraft && !readOnly && project.script.acts.length > 0 ? (
+        <section>
+          <h4 className="mb-2 text-xs font-medium text-zinc-300">场次大纲</h4>
+          <div className="space-y-2">
+            {project.script.acts.map((act, i) => (
+              <div
+                key={`${act.act}-${act.sceneId}`}
+                className="rounded border border-white/10 bg-black/20 p-2 text-xs"
+              >
+                <div className="mb-1 text-[10px] text-zinc-500">第 {act.act} 幕</div>
+                <textarea
+                  className="w-full resize-none rounded border border-white/10 bg-black/30 p-1 text-zinc-300"
+                  rows={2}
+                  value={act.summary}
+                  onChange={(e) => {
+                    const acts = [...project.script.acts];
+                    acts[i] = { ...act, summary: e.target.value };
+                    patchProject({ script: { ...project.script, acts } });
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {isDraft && !readOnly ? (
-        <section className="flex items-center gap-3 text-xs">
+        <section className="flex flex-wrap items-center gap-3 text-xs">
           <span className="text-zinc-400">制作档位</span>
           <label className="flex items-center gap-1 text-zinc-300">
             <input
@@ -240,6 +285,7 @@ export function DramaStudioPanel({
         >
           确认分镜，开始制作
           {previewTier === "low" ? "（低清预览）" : ""}
+          {liveEstimate != null ? ` · 约 ${liveEstimate} 分` : ""}
         </button>
       ) : null}
 
