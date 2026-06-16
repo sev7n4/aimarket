@@ -31,6 +31,7 @@ const createBody = z.object({
   userIdea: z.string().min(10).max(2000),
   targetDurationSec: z.number().int().min(60).max(180).optional(),
   aspectRatio: z.enum(["9:16", "16:9"]).optional(),
+  planMode: z.enum(["single", "multi_agent"]).optional(),
   confirmed: z.boolean().default(false),
   autoProduce: z.boolean().default(false),
 });
@@ -41,11 +42,14 @@ drama.post("/runs", async (c) => {
   const body = createBody.parse(await c.req.json());
   assertSessionWrite(userId, body.sessionId);
 
-  const projectData = await planDramaProject({
-    userIdea: body.userIdea,
-    targetDurationSec: body.targetDurationSec,
-    aspectRatio: body.aspectRatio,
-  });
+  const projectData = await planDramaProject(
+    {
+      userIdea: body.userIdea,
+      targetDurationSec: body.targetDurationSec,
+      aspectRatio: body.aspectRatio,
+    },
+    { planMode: body.planMode },
+  );
 
   const projectRow = createDramaProject({
     sessionId: body.sessionId,

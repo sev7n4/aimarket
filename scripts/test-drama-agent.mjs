@@ -53,18 +53,28 @@ async function main() {
         "都市爱情短剧：咖啡店老板与常客在雨夜重逢，三分钟讲完误会与和解",
       targetDurationSec: 90,
       aspectRatio: "9:16",
+      planMode: "multi_agent",
       autoProduce: false,
     }),
   });
 
-  if (!planned.project?.project?.shots?.length) {
+  const project = planned.project?.project;
+  if (!project?.shots?.length) {
     throw new Error("规划失败：无分镜");
   }
-  const shotCount = planned.project.project.shots.length;
+  const shotCount = project.shots.length;
   if (shotCount < 8 || shotCount > 15) {
     throw new Error(`分镜数异常: ${shotCount}`);
   }
-  console.log(`✓ 规划成功：${shotCount} 镜，预估 ${planned.estimatedPoints} 分`);
+  if (!project.characters?.length) {
+    throw new Error("规划失败：无角色");
+  }
+  if (!project.script?.acts?.length) {
+    throw new Error("规划失败：无场次 acts");
+  }
+  console.log(
+    `✓ 规划成功：${shotCount} 镜，${project.characters.length} 角色，${project.script.acts.length} 幕，预估 ${planned.estimatedPoints} 分`,
+  );
 
   const lowEst = await request(
     `/api/v1/drama/estimate?shotCount=${shotCount}&previewTier=low`,
