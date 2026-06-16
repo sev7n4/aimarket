@@ -135,11 +135,18 @@ export function useDramaPlan({
     stopRef.current = null;
   }, []);
 
+  const resetPlan = useCallback(() => {
+    cancelWatch();
+    setPlanRun(null);
+    setEvents([]);
+  }, [cancelWatch]);
+
   return {
     planRun,
     events,
     busy,
     startPlan,
     cancelWatch,
+    resetPlan,
   };
 }

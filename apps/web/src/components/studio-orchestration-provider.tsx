@@ -13,11 +13,13 @@ import type { CreationMode } from "@aimarket/ui";
 import { ensureSession, fetchAgentPlan, trackEvent } from "@/lib/api-client";
 import {
   buildOrchestrationTimelineEvent,
+  buildDramaPlanTimelineEvent,
   type OrchestrationTimelineActions,
   type OrchestrationTimelineEvent,
 } from "@/lib/canvas-timeline";
 import { useAgentRun } from "@/hooks/use-agent-run";
 import { useDramaRun } from "@/hooks/use-drama-run";
+import { useDramaPlan, type DramaPlanRunState } from "@/hooks/use-drama-plan";
 import { useSkillRun } from "@/hooks/use-skill-run";
 import type { AgentPlan, AgentRun, DramaRun, SkillRun } from "@/lib/types";
 import type { CreationLane } from "@/lib/creation-dock-prefs";
@@ -57,6 +59,7 @@ interface StudioOrchestrationContextValue {
   skillRun: SkillRun | null;
   dramaRun: DramaRun | null;
   dramaDraftProject: ReturnType<typeof useDramaRun>["draftProject"];
+  dramaPlanRun: DramaPlanRunState | null;
   saveDramaDraft: ReturnType<typeof useDramaRun>["saveDraftProject"];
   agentBusy: boolean;
   skillBusy: boolean;
@@ -167,6 +170,22 @@ export function StudioOrchestrationProvider({
   });
 
   const {
+    planRun: dramaPlanRun,
+    events: dramaPlanEvents,
+    busy: dramaPlanBusy,
+    startPlan: startDramaPlan,
+    cancelWatch: cancelDramaPlanWatch,
+    resetPlan: resetDramaPlan,
+  } = useDramaPlan({
+    sessionId,
+    enabled: orchestrationEnabled,
+    onComplete: (project) => {
+      setDramaDraftProject(project);
+    },
+    onFailed: (error) => alert(error),
+  });
+
+  const {
     skills: skillPackages,
     run: skillRun,
     busy: skillBusy,
@@ -225,7 +244,17 @@ export function StudioOrchestrationProvider({
     setDramaDraftProject(null);
     setAgentPreviewPlan(null);
     setPersistedTimeline(null);
-  }, [sessionId, resetAgentRun, resetSkillRun, setDramaRun, setDramaDraftProject]);
+    cancelDramaPlanWatch();
+    resetDramaPlan();
+  }, [
+    sessionId,
+    resetAgentRun,
+    resetSkillRun,
+    setDramaRun,
+    setDramaDraftProject,
+    cancelDramaPlanWatch,
+    resetDramaPlan,
+  ]);
 
   useEffect(() => {
     setInput((prev) =>
@@ -262,7 +291,7 @@ export function StudioOrchestrationProvider({
     return () => window.clearTimeout(t);
   }, [input, agentRun]);
 
-  const timelineEvent = useMemo(
+  const agentSkillTimeline = useMemo(
     () =>
       buildOrchestrationTimelineEvent({
         agentRun,
@@ -274,9 +303,24 @@ export function StudioOrchestrationProvider({
     [agentRun, skillRun, agentPreviewPlan, agentPreviewLoading, input.prompt],
   );
 
+  const dramaPlanTimeline = useMemo(() => {
+    if (!dramaPlanRun || dramaPlanRun.status === "completed") return null;
+    return buildDramaPlanTimelineEvent({
+      planRunId: dramaPlanRun.id,
+      status: dramaPlanRun.status,
+      prompt: input.prompt,
+      currentAgent: dramaPlanRun.currentAgent,
+      events: dramaPlanEvents,
+      error: dramaPlanRun.error,
+    });
+  }, [dramaPlanRun, dramaPlanEvents, input.prompt]);
+
+  const timelineEvent = dramaPlanTimeline ?? agentSkillTimeline;
+
   useEffect(() => {
     setPersistedTimeline((prev) => {
       if (timelineEvent) return timelineEvent;
+      if (prev?.runType === "drama_plan") return null;
       if (
         prev &&
         (prev.status === "completed" ||
@@ -361,7 +405,8 @@ export function StudioOrchestrationProvider({
           hasDraft: Boolean(dramaDraftProject),
           ensureSession: () => ensureSession(sessionId, effectiveMode),
           confirmRun: confirmOrchestration,
-          planRun: (idea) => planDramaOnly(idea, "9:16"),
+          planRun: (idea) =>
+            startDramaPlan(idea, { aspectRatio: "9:16" }).then(() => undefined),
           startFromDraft: () =>
             dramaDraftProject
               ? startDramaProduction(dramaDraftProject.id, true)
@@ -428,6 +473,7 @@ export function StudioOrchestrationProvider({
       startSkillRun,
       startAgentRun,
       planDramaOnly,
+      startDramaPlan,
       startDramaProduction,
     ],
   );
@@ -437,7 +483,7 @@ export function StudioOrchestrationProvider({
     return {
       onConfirm: () => void confirmOrchestration(),
       onCancel: () => void cancelOrchestration(),
-      confirmBusy: agentBusy || skillBusy || dramaBusy,
+      confirmBusy: agentBusy || skillBusy || dramaBusy || dramaPlanBusy,
       readOnly,
     };
   }, [
@@ -448,6 +494,7 @@ export function StudioOrchestrationProvider({
     agentBusy,
     skillBusy,
     dramaBusy,
+    dramaPlanBusy,
     readOnly,
   ]);
 
@@ -458,6 +505,7 @@ export function StudioOrchestrationProvider({
       skillRun,
       dramaRun,
       dramaDraftProject,
+      dramaPlanRun,
       saveDramaDraft,
       agentBusy,
       skillBusy,
@@ -481,6 +529,7 @@ export function StudioOrchestrationProvider({
       skillRun,
       dramaRun,
       dramaDraftProject,
+      dramaPlanRun,
       saveDramaDraft,
       agentBusy,
       skillBusy,

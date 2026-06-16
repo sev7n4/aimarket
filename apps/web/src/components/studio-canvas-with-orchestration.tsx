@@ -25,12 +25,15 @@ export const StudioCanvasWithOrchestration = forwardRef<
     sessionId,
     dramaRun,
     dramaDraftProject,
+    dramaPlanRun,
     dramaBusy,
     saveDramaDraft,
     confirmOrchestration,
     produceDramaDraft,
     setDramaRun,
   } = useStudioOrchestration();
+
+  const isDramaPlanning = dramaPlanRun?.status === "planning";
 
   const handleRetryShot = useCallback(
     (shotId: string, stage: "keyframe" | "video") => {
@@ -61,11 +64,12 @@ export const StudioCanvasWithOrchestration = forwardRef<
   }, [dramaDraftProject, produceDramaDraft, confirmOrchestration]);
 
   const dramaPanel =
-    dramaRun || dramaDraftProject ? (
+    isDramaPlanning || dramaRun || dramaDraftProject ? (
       <DramaStudioPanel
         sessionId={sessionId}
         draftProject={dramaDraftProject}
         run={dramaRun}
+        planning={isDramaPlanning}
         busy={dramaBusy}
         onConfirmProduce={handleConfirmProduce}
         onRetryShot={dramaRun ? handleRetryShot : undefined}
