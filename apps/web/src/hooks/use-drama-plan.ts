@@ -1,7 +1,11 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { createDramaPlanRun, fetchDramaPlanRun } from "@/lib/api-client";
+import { useCallback, useRef, useState, type MutableRefObject } from "react";
+import {
+  createDramaPlanRun,
+  fetchDramaPlanRun,
+  rerunDramaPlanRun,
+} from "@/lib/api-client";
 import {
   pollDramaPlanRun,
   streamDramaPlanRun,
@@ -21,8 +25,37 @@ export interface DramaPlanRunState {
 interface UseDramaPlanOptions {
   sessionId?: string;
   enabled: boolean;
-  onComplete?: (project: DramaProject, estimatedPoints: number) => void;
+  onComplete?: (
+    project: DramaProject,
+    estimatedPoints: number,
+    dramaRunId?: string,
+  ) => void;
   onFailed?: (error: string) => void;
+}
+
+function connectPlanStream(
+  runId: string,
+  onEvent: (event: DramaPlanStreamEvent) => void,
+  handleTerminal: (runId: string) => Promise<void>,
+  onFailedRef: MutableRefObject<((error: string) => void) | undefined>,
+): () => void {
+  const finish = () => {
+    void handleTerminal(runId);
+  };
+
+  return streamDramaPlanRun(
+    runId,
+    onEvent,
+    finish,
+    () => {
+      return pollDramaPlanRun(
+        runId,
+        () => {},
+        finish,
+        (err) => onFailedRef.current?.(err.message),
+      );
+    },
+  );
 }
 
 export function useDramaPlan({
@@ -37,6 +70,7 @@ export function useDramaPlan({
   const stopRef = useRef<(() => void) | null>(null);
   const onCompleteRef = useRef(onComplete);
   const onFailedRef = useRef(onFailed);
+  const dramaRunIdRef = useRef<string | undefined>(undefined);
   onCompleteRef.current = onComplete;
   onFailedRef.current = onFailed;
 
@@ -52,14 +86,47 @@ export function useDramaPlan({
         error: run.error,
       });
       if (run.status === "completed" && run.project) {
-        onCompleteRef.current?.(run.project, run.estimatedPoints ?? 0);
+        onCompleteRef.current?.(
+          run.project,
+          run.estimatedPoints ?? 0,
+          dramaRunIdRef.current,
+        );
       } else if (run.status === "failed") {
         onFailedRef.current?.(run.error ?? "规划失败");
       }
+      dramaRunIdRef.current = undefined;
     } catch {
       /* ignore */
     }
   }, []);
+
+  const watchRun = useCallback(
+    (runId: string, resetEvents: boolean) => {
+      stopRef.current?.();
+      if (resetEvents) setEvents([]);
+      dramaRunIdRef.current = undefined;
+
+      const onEvent = (event: DramaPlanStreamEvent) => {
+        setEvents((prev) => [...prev, event]);
+        if (event.type === "agent_start") {
+          setPlanRun((prev) =>
+            prev ? { ...prev, status: "planning", currentAgent: event.agent } : prev,
+          );
+        }
+        if (event.type === "plan_complete" && event.dramaRunId) {
+          dramaRunIdRef.current = event.dramaRunId;
+        }
+      };
+
+      stopRef.current = connectPlanStream(
+        runId,
+        onEvent,
+        handleTerminal,
+        onFailedRef,
+      );
+    },
+    [handleTerminal],
+  );
 
   const startPlan = useCallback(
     async (
@@ -67,6 +134,7 @@ export function useDramaPlan({
       options?: {
         targetDurationSec?: number;
         aspectRatio?: "9:16" | "16:9";
+        autoProduce?: boolean;
       },
     ) => {
       if (!sessionId || !enabled) return null;
@@ -79,55 +147,48 @@ export function useDramaPlan({
           userIdea,
           targetDurationSec: options?.targetDurationSec,
           aspectRatio: options?.aspectRatio,
+          autoProduce: options?.autoProduce,
         });
         setPlanRun({
           id: created.id,
           status: created.status,
           currentAgent: created.currentAgent,
         });
-
-        const onEvent = (event: DramaPlanStreamEvent) => {
-          setEvents((prev) => [...prev, event]);
-          if (event.type === "agent_start") {
-            setPlanRun((prev) =>
-              prev ? { ...prev, currentAgent: event.agent } : prev,
-            );
-          }
-        };
-
-        const finish = () => {
-          void handleTerminal(created.id);
-        };
-
-        stopRef.current = streamDramaPlanRun(
-          created.id,
-          onEvent,
-          finish,
-          () => {
-            stopRef.current = pollDramaPlanRun(
-              created.id,
-              (run) => {
-                setPlanRun({
-                  id: run.id,
-                  status: run.status,
-                  currentAgent: run.currentAgent,
-                  projectId: run.projectId ?? undefined,
-                  estimatedPoints: run.estimatedPoints,
-                  error: run.error,
-                });
-              },
-              finish,
-              (err) => onFailedRef.current?.(err.message),
-            );
-          },
-        );
-
+        watchRun(created.id, false);
         return created;
       } finally {
         setBusy(false);
       }
     },
-    [sessionId, enabled, handleTerminal],
+    [sessionId, enabled, watchRun],
+  );
+
+  const rerunPlan = useCallback(
+    async (
+      fromAgent: string,
+      projectPatch?: Record<string, unknown>,
+    ) => {
+      if (!planRun?.id || !enabled) return null;
+      stopRef.current?.();
+      setBusy(true);
+      try {
+        const updated = await rerunDramaPlanRun(planRun.id, {
+          fromAgent,
+          projectPatch,
+        });
+        setPlanRun({
+          id: updated.id,
+          status: updated.status,
+          currentAgent: updated.currentAgent,
+          projectId: updated.projectId ?? undefined,
+        });
+        watchRun(updated.id, true);
+        return updated;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [planRun?.id, enabled, watchRun],
   );
 
   const cancelWatch = useCallback(() => {
@@ -146,6 +207,7 @@ export function useDramaPlan({
     events,
     busy,
     startPlan,
+    rerunPlan,
     cancelWatch,
     resetPlan,
   };

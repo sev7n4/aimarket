@@ -1246,6 +1246,7 @@ export async function createDramaPlanRun(body: {
   userIdea: string;
   targetDurationSec?: number;
   aspectRatio?: "9:16" | "16:9";
+  autoProduce?: boolean;
 }) {
   const res = await request<{
     data: import("./types").DramaPlanRun;
@@ -1260,6 +1261,22 @@ export async function fetchDramaPlanRun(runId: string) {
   const res = await request<{
     data: import("./types").DramaPlanRun;
   }>(`/api/v1/drama/plan/runs/${encodeURIComponent(runId)}`);
+  return res.data;
+}
+
+export async function rerunDramaPlanRun(
+  runId: string,
+  body: {
+    fromAgent: string;
+    projectPatch?: Record<string, unknown>;
+  },
+) {
+  const res = await request<{
+    data: import("./types").DramaPlanRun;
+  }>(`/api/v1/drama/plan/runs/${encodeURIComponent(runId)}/rerun`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
   return res.data;
 }
 

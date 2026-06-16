@@ -101,6 +101,61 @@ async function main() {
   console.log(
     `✓ 规划完成：project ${finished.projectId}，${shots.length} 镜，预估 ${finished.estimatedPoints ?? "?"} 分`,
   );
+
+  const autoEmail = `drama-plan-auto-${Date.now()}@example.com`;
+  const autoReg = await request("/api/v1/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ email: autoEmail, password: "testpass123" }),
+  });
+  globalThis.__DRAMA_PLAN_TEST_TOKEN = autoReg.token;
+
+  const autoSessionId = crypto.randomUUID();
+  const autoSession = await request("/api/v1/imageSession/ensure", {
+    method: "POST",
+    body: JSON.stringify({
+      sessionId: autoSessionId,
+      mode: "chat",
+      kind: "canvas",
+      title: "短剧 autoProduce 测试",
+    }),
+  });
+  const autoSid = autoSession.sessionId ?? autoSession.id ?? autoSessionId;
+
+  const autoCreated = await request("/api/v1/drama/plan/runs", {
+    method: "POST",
+    body: JSON.stringify({
+      sessionId: autoSid,
+      userIdea:
+        "悬疑短剧：电梯里陌生人递来一张纸条，主角追查真相却发现指向自己",
+      targetDurationSec: 90,
+      aspectRatio: "9:16",
+      autoProduce: true,
+    }),
+  });
+
+  const autoFinished = await pollPlanRun(autoCreated.id);
+  if (autoFinished.status !== "completed") {
+    throw new Error(`autoProduce 规划失败: ${autoFinished.error}`);
+  }
+  if (!autoFinished.autoProduce) {
+    throw new Error("autoProduce 标记未持久化");
+  }
+
+  const produceCheck = await request(
+    `/api/v1/drama/projects/${autoFinished.projectId}`,
+  );
+  if (
+    produceCheck.status !== "producing" &&
+    produceCheck.status !== "confirmed" &&
+    produceCheck.status !== "waiting_confirm"
+  ) {
+    throw new Error(
+      `autoProduce 未触发制作，项目状态: ${produceCheck.status}`,
+    );
+  }
+  console.log(
+    `✓ autoProduce：project ${autoFinished.projectId}，状态 ${produceCheck.status}`,
+  );
 }
 
 main().catch((err) => {

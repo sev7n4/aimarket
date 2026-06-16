@@ -2494,6 +2494,24 @@ export function CreationPanel({
           )}
         </div>
         <div className={`flex shrink-0 items-center ${isDock ? "gap-1.5" : "gap-2"}`}>
+          {studioOrchestrationActive &&
+          activeSkillId === DRAMA_SKILL_ID &&
+          studioOrch ? (
+            <label
+              className="mr-1 flex items-center gap-1.5 text-[10px] text-zinc-400"
+              data-testid="drama-auto-produce-checkbox"
+            >
+              <input
+                type="checkbox"
+                checked={studioOrch.dramaAutoProduce}
+                onChange={(e) =>
+                  studioOrch.setDramaAutoProduce(e.target.checked)
+                }
+                disabled={readOnly || pending || streamBusy}
+              />
+              规划后直接制作
+            </label>
+          ) : null}
           {estimated !== null && user && getToken() ? (
             <span
               className="inline-flex items-center gap-1 text-xs text-pink-400"

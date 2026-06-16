@@ -7,7 +7,7 @@ export type DramaPlanStreamEvent =
   | { type: "agent_start"; agent: string }
   | { type: "agent_reasoning"; agent: string; chunk: string }
   | { type: "agent_done"; agent: string; summary: string }
-  | { type: "plan_complete"; projectId: string; estimatedPoints: number }
+  | { type: "plan_complete"; projectId: string; estimatedPoints: number; dramaRunId?: string }
   | { type: "plan_failed"; error: string };
 
 const TERMINAL = new Set(["plan_complete", "plan_failed"]);

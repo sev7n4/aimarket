@@ -39,6 +39,7 @@ export interface OrchestrationTimelineEvent {
 export interface OrchestrationTimelineActions {
   onConfirm?: () => void;
   onCancel?: () => void;
+  onRerunFromAgent?: (agent: string) => void;
   confirmBusy?: boolean;
   readOnly?: boolean;
 }
@@ -173,7 +174,11 @@ export function buildDramaPlanTimelineEvent(input: {
   events: DramaPlanStreamEvent[];
   error?: string | null;
 }): OrchestrationTimelineEvent | null {
-  if (input.status !== "planning" && input.status !== "failed") {
+  if (
+    input.status !== "planning" &&
+    input.status !== "failed" &&
+    input.status !== "completed"
+  ) {
     return null;
   }
   const doneAgents = new Set(
@@ -201,7 +206,12 @@ export function buildDramaPlanTimelineEvent(input: {
     id: `drama-plan-${input.planRunId}`,
     runType: "drama_plan",
     title: "AI 短剧 · 多 Agent 规划",
-    status: input.status === "failed" ? "failed" : "planning",
+    status:
+      input.status === "failed"
+        ? "failed"
+        : input.status === "completed"
+          ? "completed"
+          : "planning",
     prompt: input.prompt,
     steps,
     error: input.error,

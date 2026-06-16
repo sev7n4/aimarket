@@ -11,6 +11,8 @@ interface DramaStudioPanelProps {
   run?: DramaRun | null;
   planning?: boolean;
   onConfirmProduce?: () => void;
+  onRerunFromAgent?: (fromAgent: string) => void;
+  rerunBusy?: boolean;
   onRetryShot?: (shotId: string, stage: "keyframe" | "video") => void;
   onPickKeyframe?: (shotId: string, heroIndex: number) => void;
   onSaveDraft?: (project: DramaProjectPayload) => Promise<unknown>;
@@ -25,6 +27,8 @@ export function DramaStudioPanel({
   run,
   planning,
   onConfirmProduce,
+  onRerunFromAgent,
+  rerunBusy,
   onRetryShot,
   onPickKeyframe,
   onSaveDraft,
@@ -443,6 +447,37 @@ export function DramaStudioPanel({
               {previewTier === "low" ? "（低清预览）" : ""}
               {liveEstimate != null ? ` · 约 ${liveEstimate} 分` : ""}
             </button>
+          ) : null}
+
+          {isDraft && onRerunFromAgent && !readOnly ? (
+            <section className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-2">
+              <h4 className="mb-1.5 text-xs font-medium text-violet-200">
+                修改后重跑
+              </h4>
+              <p className="mb-2 text-[10px] leading-relaxed text-zinc-500">
+                保存剧本后，可从分镜 Agent 起重跑下游，保留上游 id
+              </p>
+              <button
+                type="button"
+                disabled={busy || saving || rerunBusy || dirty}
+                onClick={async () => {
+                  if (dirty && onSaveDraft && localProject) {
+                    await onSaveDraft(localProject);
+                    setDirty(false);
+                  }
+                  onRerunFromAgent("storyboard");
+                }}
+                className="w-full rounded border border-violet-500/40 px-3 py-1.5 text-xs text-violet-300 hover:bg-violet-500/10 disabled:opacity-50"
+                data-testid="drama-rerun-from-storyboard"
+              >
+                {rerunBusy ? "重跑中…" : "从分镜 Agent 重跑"}
+              </button>
+              {dirty ? (
+                <p className="mt-1 text-[10px] text-amber-400/80">
+                  将先保存当前编辑再重跑
+                </p>
+              ) : null}
+            </section>
           ) : null}
 
           {run?.status === "waiting_confirm" && onConfirmProduce ? (

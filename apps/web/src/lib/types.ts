@@ -426,6 +426,7 @@ export interface DramaPlanRun {
   projectId?: string | null;
   project?: DramaProject;
   estimatedPoints?: number;
+  autoProduce?: boolean;
   error?: string | null;
   createdAt: string;
   updatedAt: string;

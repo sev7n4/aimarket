@@ -25,6 +25,7 @@ export interface DramaPlanRunRow {
   agents_json: string;
   reasoning_json: string | null;
   project_id: string | null;
+  auto_produce: number;
   error: string | null;
   created_at: string;
   updated_at: string;
@@ -61,13 +62,14 @@ export function createDramaPlanRun(input: {
   userIdea: string;
   targetDurationSec?: number;
   aspectRatio?: "9:16" | "16:9";
+  autoProduce?: boolean;
 }): DramaPlanRunRow {
   const id = randomUUID();
   db.prepare(
     `INSERT INTO drama_plan_runs
      (id, session_id, user_id, user_idea, target_duration_sec, aspect_ratio,
-      status, agents_json, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'planning', ?, datetime('now'), datetime('now'))`,
+      status, agents_json, auto_produce, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'planning', ?, ?, datetime('now'), datetime('now'))`,
   ).run(
     id,
     input.sessionId,
@@ -76,6 +78,7 @@ export function createDramaPlanRun(input: {
     input.targetDurationSec ?? null,
     input.aspectRatio ?? null,
     JSON.stringify(defaultAgentsJson()),
+    input.autoProduce ? 1 : 0,
   );
   const row = getDramaPlanRun(input.userId, id);
   if (!row) throw new AppError(500, "INTERNAL_ERROR", "创建规划 Run 失败");
@@ -158,8 +161,35 @@ export function serializeDramaPlanRun(row: DramaPlanRunRow) {
     projectId: row.project_id,
     project: projectRow ? serializeDramaProject(projectRow) : undefined,
     estimatedPoints,
+    autoProduce: Boolean(row.auto_produce),
     error: row.error,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+export function resetDownstreamAgents(
+  agents: DramaPlanAgentsJson,
+  fromAgent: DramaPlanAgentId,
+): DramaPlanAgentsJson {
+  const startIdx = DRAMA_PLAN_AGENT_ORDER.indexOf(fromAgent);
+  const next = { ...agents };
+  for (let i = startIdx; i < DRAMA_PLAN_AGENT_ORDER.length; i++) {
+    const id = DRAMA_PLAN_AGENT_ORDER[i]!;
+    next[id] = { status: "pending" };
+  }
+  return next;
+}
+
+export function resetPlanRunForRerun(
+  runId: string,
+  fromAgent: DramaPlanAgentId,
+  agents: DramaPlanAgentsJson,
+) {
+  updateDramaPlanRun(runId, {
+    status: "planning",
+    currentAgent: fromAgent,
+    agents: resetDownstreamAgents(agents, fromAgent),
+    error: null,
+  });
 }

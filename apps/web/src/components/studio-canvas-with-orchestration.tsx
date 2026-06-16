@@ -30,10 +30,19 @@ export const StudioCanvasWithOrchestration = forwardRef<
     saveDramaDraft,
     confirmOrchestration,
     produceDramaDraft,
+    rerunDramaPlan,
+    dramaPlanBusy,
     setDramaRun,
   } = useStudioOrchestration();
 
   const isDramaPlanning = dramaPlanRun?.status === "planning";
+
+  const handleRerunFromAgent = useCallback(
+    (fromAgent: string) => {
+      void rerunDramaPlan(fromAgent);
+    },
+    [rerunDramaPlan],
+  );
 
   const handleRetryShot = useCallback(
     (shotId: string, stage: "keyframe" | "video") => {
@@ -70,7 +79,13 @@ export const StudioCanvasWithOrchestration = forwardRef<
         draftProject={dramaDraftProject}
         run={dramaRun}
         planning={isDramaPlanning}
-        busy={dramaBusy}
+        busy={dramaBusy || dramaPlanBusy}
+        onRerunFromAgent={
+          dramaDraftProject && dramaPlanRun?.status === "completed"
+            ? handleRerunFromAgent
+            : undefined
+        }
+        rerunBusy={dramaPlanBusy}
         onConfirmProduce={handleConfirmProduce}
         onRetryShot={dramaRun ? handleRetryShot : undefined}
         onPickKeyframe={dramaRun ? handlePickKeyframe : undefined}

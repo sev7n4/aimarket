@@ -20,6 +20,8 @@ interface DramaPlanTimelineProps {
   events: DramaPlanStreamEvent[];
   status?: "planning" | "completed" | "failed";
   error?: string | null;
+  onRerunFromAgent?: (agent: string) => void;
+  rerunBusy?: boolean;
 }
 
 function agentDoneSummary(
@@ -77,6 +79,8 @@ export function DramaPlanTimeline({
   events,
   status = "planning",
   error,
+  onRerunFromAgent,
+  rerunBusy,
 }: DramaPlanTimelineProps) {
   const [expandedReasoning, setExpandedReasoning] = useState<Set<string>>(
     () => new Set(),
@@ -161,11 +165,28 @@ export function DramaPlanTimeline({
                 >
                   {meta.label}
                 </span>
-                {summary && done ? (
-                  <span className="ml-auto truncate text-[10px] text-zinc-600">
-                    {summary}
-                  </span>
-                ) : null}
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                  {summary && done && status !== "completed" ? (
+                    <span className="truncate text-[10px] text-zinc-600">
+                      {summary}
+                    </span>
+                  ) : null}
+                  {status === "completed" && done && onRerunFromAgent ? (
+                    <button
+                      type="button"
+                      disabled={rerunBusy}
+                      className="rounded border border-violet-500/30 px-1.5 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/10 disabled:opacity-50"
+                      data-testid={`drama-plan-rerun-${meta.id}`}
+                      onClick={() => onRerunFromAgent(meta.id)}
+                    >
+                      从此步重跑
+                    </button>
+                  ) : summary && done ? (
+                    <span className="truncate text-[10px] text-zinc-600">
+                      {summary}
+                    </span>
+                  ) : null}
+                </div>
               </div>
 
               {done && summary ? (
