@@ -50,7 +50,7 @@ test.describe("AI 短剧全链路", () => {
     });
 
     await station.getByLabel("创意设计").click();
-    await page.getByRole("button", { name: "AI 短剧", exact: true }).click();
+    await page.getByRole("button", { name: /AI 短剧/ }).click();
     await expect(station.getByLabel("创意设计")).toContainText("AI 短剧");
 
     const idea =
