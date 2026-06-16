@@ -19,7 +19,8 @@ test.describe("AI 短剧全链路", () => {
     });
     expect(register.ok()).toBeTruthy();
     const body = (await register.json()) as { data?: { token?: string } };
-    expect(body.data?.token).toBeTruthy();
+    const token = body.data?.token;
+    expect(token).toBeTruthy();
 
     await page.addInitScript(() => {
       localStorage.setItem("aimarket.studio.lane", "agent");
@@ -28,9 +29,9 @@ test.describe("AI 短剧全链路", () => {
     page.on("dialog", (dialog) => dialog.accept());
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await page.evaluate((token) => {
-      localStorage.setItem("aimarket_token", token);
-    }, body.data!.token!);
+    await page.evaluate((t) => {
+      localStorage.setItem("aimarket_token", t);
+    }, token!);
 
     await gotoStudioAndWait(page);
     const station = studioWorkstation(page);
@@ -65,17 +66,51 @@ test.describe("AI 短剧全链路", () => {
       { timeout: 60_000 },
     );
     await station.getByRole("button", { name: "开始短剧规划" }).click();
-    await planResponse;
+    const planRes = await planResponse;
+    const planJson = (await planRes.json()) as { data?: { id?: string } };
+    const planId = planJson.data?.id;
+    expect(planId).toBeTruthy();
 
     const timeline = page.getByTestId("drama-plan-timeline");
-    await expect(timeline).toBeVisible({ timeout: 15_000 });
-    await expect(timeline.getByText("编剧")).toBeVisible();
-    await expect(timeline.getByText("分镜")).toBeVisible();
+    const writerStep = page.getByTestId("drama-plan-agent-writer");
+    const storyboardStep = page.getByTestId("drama-plan-agent-storyboard");
+
+    await expect(writerStep.or(timeline)).toBeVisible({ timeout: 15_000 });
+    if (await writerStep.isVisible().catch(() => false)) {
+      await expect(writerStep).toContainText("编剧");
+      await expect(storyboardStep).toContainText("分镜");
+    }
+
+    await expect
+      .poll(
+        async () => {
+          const res = await request.get(
+            `${apiBase}/api/v1/drama/plan/runs/${planId}`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          const json = (await res.json()) as {
+            data?: { status?: string; agents?: Record<string, { status?: string }> };
+          };
+          return json.data?.status;
+        },
+        { timeout: 60_000 },
+      )
+      .toBe("completed");
+
+    const agentsRes = await request.get(
+      `${apiBase}/api/v1/drama/plan/runs/${planId}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    const agentsBody = (await agentsRes.json()) as {
+      data?: { agents?: Record<string, { status?: string }> };
+    };
+    expect(agentsBody.data?.agents?.writer?.status).toBe("done");
+    expect(agentsBody.data?.agents?.storyboard?.status).toBe("done");
 
     const panel = page.getByTestId("drama-studio-panel");
-    await expect(panel).toBeVisible({ timeout: 60_000 });
+    await expect(panel).toBeVisible({ timeout: 30_000 });
     await expect(panel.getByText(/分镜板（\d+ 镜）/)).toBeVisible({
-      timeout: 60_000,
+      timeout: 30_000,
     });
     await expect(panel.getByText("角色资产")).toBeVisible();
     await expect(panel.getByTestId("drama-confirm-produce")).toBeVisible();
