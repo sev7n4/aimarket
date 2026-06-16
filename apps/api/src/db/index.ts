@@ -533,6 +533,25 @@ database.exec(`
   CREATE INDEX IF NOT EXISTS idx_drama_projects_session ON drama_projects(session_id, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_drama_runs_session ON drama_runs(session_id, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_drama_run_jobs_job ON drama_run_jobs(job_id);
+
+  CREATE TABLE IF NOT EXISTS drama_plan_runs (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES image_sessions(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_idea TEXT NOT NULL,
+    target_duration_sec INTEGER,
+    aspect_ratio TEXT,
+    status TEXT NOT NULL DEFAULT 'planning',
+    current_agent TEXT,
+    agents_json TEXT NOT NULL DEFAULT '{}',
+    reasoning_json TEXT,
+    project_id TEXT REFERENCES drama_projects(id) ON DELETE SET NULL,
+    error TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_drama_plan_runs_session ON drama_plan_runs(session_id, updated_at DESC);
 `);
 
 database.exec(`
