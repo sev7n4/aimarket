@@ -44,6 +44,11 @@ test.describe("AI 短剧全链路", () => {
     }
     await expect(lanePicker).toContainText("Agent 模式");
 
+    await station.locator("textarea").first().click();
+    await expect(station.getByLabel("创意设计")).toBeVisible({
+      timeout: 10_000,
+    });
+
     await station.getByLabel("创意设计").click();
     await page.getByRole("button", { name: "AI 短剧", exact: true }).click();
     await expect(station.getByLabel("创意设计")).toContainText("AI 短剧");
