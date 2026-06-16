@@ -52,6 +52,7 @@ export interface StudioOrchestrationSubmitContext {
 }
 
 interface StudioOrchestrationContextValue {
+  sessionId: string;
   agentRun: AgentRun | null;
   skillRun: SkillRun | null;
   dramaRun: DramaRun | null;
@@ -60,6 +61,7 @@ interface StudioOrchestrationContextValue {
   agentBusy: boolean;
   skillBusy: boolean;
   dramaBusy: boolean;
+  setDramaRun: (run: DramaRun | null) => void;
   skillPackages: ReturnType<typeof useSkillRun>["skills"];
   startAgentRun: (prompt: string) => Promise<AgentRun | null>;
   startSkillRun: (
@@ -71,6 +73,7 @@ interface StudioOrchestrationContextValue {
     },
   ) => Promise<SkillRun | null>;
   confirmOrchestration: () => Promise<AgentRun | SkillRun | DramaRun | null>;
+  produceDramaDraft: () => Promise<DramaRun | null>;
   cancelOrchestration: () => Promise<void>;
   dispatchSubmit: (ctx: StudioOrchestrationSubmitContext) => Promise<boolean>;
   timelineEvent: OrchestrationTimelineEvent | null;
@@ -312,6 +315,11 @@ export function StudioOrchestrationProvider({
     confirmAgentRunAction,
   ]);
 
+  const produceDramaDraft = useCallback(async () => {
+    if (!dramaDraftProject?.id) return null;
+    return startDramaProduction(dramaDraftProject.id, true);
+  }, [dramaDraftProject?.id, startDramaProduction]);
+
   const dispatchSubmit = useCallback(
     async (ctx: StudioOrchestrationSubmitContext): Promise<boolean> => {
       const {
@@ -445,6 +453,7 @@ export function StudioOrchestrationProvider({
 
   const value = useMemo(
     (): StudioOrchestrationContextValue => ({
+      sessionId,
       agentRun,
       skillRun,
       dramaRun,
@@ -453,6 +462,7 @@ export function StudioOrchestrationProvider({
       agentBusy,
       skillBusy,
       dramaBusy,
+      setDramaRun,
       skillPackages,
       startAgentRun,
       startSkillRun,
@@ -460,11 +470,13 @@ export function StudioOrchestrationProvider({
       timelineActions,
       setInput,
       confirmOrchestration,
+      produceDramaDraft,
       cancelOrchestration,
       dispatchSubmit,
       orchestrationResetTick,
     }),
     [
+      sessionId,
       agentRun,
       skillRun,
       dramaRun,
@@ -473,6 +485,7 @@ export function StudioOrchestrationProvider({
       agentBusy,
       skillBusy,
       dramaBusy,
+      setDramaRun,
       skillPackages,
       startAgentRun,
       startSkillRun,
@@ -480,6 +493,7 @@ export function StudioOrchestrationProvider({
       timelineEvent,
       timelineActions,
       confirmOrchestration,
+      produceDramaDraft,
       cancelOrchestration,
       dispatchSubmit,
       orchestrationResetTick,

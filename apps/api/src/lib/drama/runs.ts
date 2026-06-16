@@ -197,6 +197,12 @@ export function serializeDramaRun(row: DramaRunRow, projectRow: DramaProjectRow)
     keyframeUrl: shot.keyframeOutputId
       ? resolveReferenceUrls([shot.keyframeOutputId])[0]
       : undefined,
+    keyframeVariantUrls: shot.keyframeVariantOutputIds?.length
+      ? shot.keyframeVariantOutputIds.flatMap((id) => {
+          const url = resolveReferenceUrls([id])[0];
+          return url ? [url] : [];
+        })
+      : undefined,
     videoUrl: shot.lipsyncOutputId
       ? resolveReferenceUrls([shot.lipsyncOutputId])[0]
       : shot.videoOutputId

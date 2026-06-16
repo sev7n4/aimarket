@@ -1310,6 +1310,21 @@ export async function retryDramaShot(
   return res.data;
 }
 
+export async function pickDramaKeyframe(
+  runId: string,
+  shotId: string,
+  heroIndex: number,
+) {
+  const res = await request<{ data: import("./types").DramaRun }>(
+    `/api/v1/drama/runs/${encodeURIComponent(runId)}/shots/${encodeURIComponent(shotId)}/pick-keyframe`,
+    {
+      method: "POST",
+      body: JSON.stringify({ heroIndex }),
+    },
+  );
+  return res.data;
+}
+
 export async function updateDramaProjectApi(
   projectId: string,
   project: import("./types").DramaProjectPayload,

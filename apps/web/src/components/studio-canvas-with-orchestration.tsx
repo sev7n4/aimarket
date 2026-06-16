@@ -7,7 +7,7 @@ import {
 } from "@/components/design-canvas";
 import { DramaStudioPanel } from "@/components/drama-studio-panel";
 import { useStudioOrchestration } from "@/components/studio-orchestration-provider";
-import { retryDramaShot } from "@/lib/api-client";
+import { retryDramaShot, pickDramaKeyframe } from "@/lib/api-client";
 
 type StudioCanvasProps = Omit<
   ComponentProps<typeof DesignCanvas>,
@@ -22,29 +22,54 @@ export const StudioCanvasWithOrchestration = forwardRef<
   const {
     timelineEvent,
     timelineActions,
+    sessionId,
     dramaRun,
     dramaDraftProject,
     dramaBusy,
     saveDramaDraft,
     confirmOrchestration,
+    produceDramaDraft,
+    setDramaRun,
   } = useStudioOrchestration();
 
   const handleRetryShot = useCallback(
     (shotId: string, stage: "keyframe" | "video") => {
       if (!dramaRun?.id) return;
-      void retryDramaShot(dramaRun.id, shotId, stage);
+      void retryDramaShot(dramaRun.id, shotId, stage).then((next) => {
+        if (next) setDramaRun(next);
+      });
     },
-    [dramaRun?.id],
+    [dramaRun?.id, setDramaRun],
   );
+
+  const handlePickKeyframe = useCallback(
+    (shotId: string, heroIndex: number) => {
+      if (!dramaRun?.id) return;
+      void pickDramaKeyframe(dramaRun.id, shotId, heroIndex).then((next) => {
+        if (next) setDramaRun(next);
+      });
+    },
+    [dramaRun?.id, setDramaRun],
+  );
+
+  const handleConfirmProduce = useCallback(() => {
+    if (dramaDraftProject) {
+      void produceDramaDraft();
+      return;
+    }
+    void confirmOrchestration();
+  }, [dramaDraftProject, produceDramaDraft, confirmOrchestration]);
 
   const dramaPanel =
     dramaRun || dramaDraftProject ? (
       <DramaStudioPanel
+        sessionId={sessionId}
         draftProject={dramaDraftProject}
         run={dramaRun}
         busy={dramaBusy}
-        onConfirmProduce={() => void confirmOrchestration()}
+        onConfirmProduce={handleConfirmProduce}
         onRetryShot={dramaRun ? handleRetryShot : undefined}
+        onPickKeyframe={dramaRun ? handlePickKeyframe : undefined}
         onSaveDraft={dramaDraftProject ? saveDramaDraft : undefined}
       />
     ) : null;

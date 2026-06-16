@@ -19,6 +19,7 @@ import {
 } from "../lib/drama/runs.js";
 import {
   dispatchDramaRun,
+  pickDramaKeyframeHero,
   retryDramaShot,
 } from "../lib/drama/executor.js";
 import { estimateDramaPoints } from "../lib/drama/estimate.js";
@@ -188,6 +189,25 @@ drama.post("/runs/:id/shots/:shotId/retry", async (c) => {
   const next = await retryDramaShot(userId, runId, shotId, body.stage);
   if (!next) throw new AppError(404, "NOT_FOUND", "短剧 Run 不存在");
   const projectRow = getDramaProject(userId, next.project_id)!;
+  return c.json({ data: serializeDramaRun(next, projectRow) });
+});
+
+drama.post("/runs/:id/shots/:shotId/pick-keyframe", async (c) => {
+  const userId = c.get("userId");
+  const runId = c.req.param("id");
+  const shotId = c.req.param("shotId");
+  const body = z
+    .object({ heroIndex: z.number().int().min(0) })
+    .parse(await c.req.json());
+  const row = await pickDramaKeyframeHero(
+    userId,
+    runId,
+    shotId,
+    body.heroIndex,
+  );
+  if (!row) throw new AppError(404, "NOT_FOUND", "短剧 Run 不存在");
+  const projectRow = getDramaProject(userId, row.project_id)!;
+  const next = getDramaRun(userId, runId)!;
   return c.json({ data: serializeDramaRun(next, projectRow) });
 });
 

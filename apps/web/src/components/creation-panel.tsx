@@ -107,6 +107,7 @@ import {
   CreationDockToolbar,
   CreationLanePicker,
   buildDockSkillOptions,
+  DRAMA_SKILL_ID,
   ECOMMERCE_SET_SKILL_ID,
   normalizeDockSkillId,
 } from "@/components/creation-dock-controls";
@@ -880,7 +881,9 @@ export function CreationPanel({
     ? "确认执行套餐"
     : agentAwaitingConfirm
       ? "确认执行"
-      : activeSkillId === ECOMMERCE_SET_SKILL_ID
+      : activeSkillId === DRAMA_SKILL_ID
+        ? "开始短剧规划"
+        : activeSkillId === ECOMMERCE_SET_SKILL_ID
         ? "开始电商套图"
         : activeSkillId
           ? "开始套餐"
@@ -1429,7 +1432,7 @@ export function CreationPanel({
       textareaRef.current?.focus();
       return;
     }
-    if (submitEcommerce || activeSkillId) {
+    if (submitEcommerce || (activeSkillId && activeSkillId !== DRAMA_SKILL_ID)) {
       if (prompt.trim().length < 10) {
         alert("请填写至少 10 字的产品卖点/描述");
         return;
@@ -1521,6 +1524,7 @@ export function CreationPanel({
           mentionedMasksCount: mentionedMasks.length,
           submitVideo,
           referenceImageSources: referenceImageSources,
+          dramaSkillActive: activeSkillId === DRAMA_SKILL_ID,
         }),
       );
     const submitPath = resolveCreationSubmitPath({
