@@ -1328,13 +1328,30 @@ export async function estimateDramaPoints(query?: {
   shotCount?: number;
   charCount?: number;
   sceneCount?: number;
+  dialogueShots?: number;
+  previewTier?: "low" | "full";
 }) {
   const params = new URLSearchParams();
   if (query?.shotCount) params.set("shotCount", String(query.shotCount));
   if (query?.charCount) params.set("charCount", String(query.charCount));
   if (query?.sceneCount) params.set("sceneCount", String(query.sceneCount));
+  if (query?.dialogueShots) params.set("dialogueShots", String(query.dialogueShots));
+  if (query?.previewTier) params.set("previewTier", query.previewTier);
   const res = await request<{ data: { estimatedPoints: number } }>(
     `/api/v1/drama/estimate?${params.toString()}`,
+  );
+  return res.data.estimatedPoints;
+}
+
+export async function estimateDramaProjectPoints(
+  project: import("./types").DramaProjectPayload,
+) {
+  const res = await request<{ data: { estimatedPoints: number } }>(
+    "/api/v1/drama/estimate",
+    {
+      method: "POST",
+      body: JSON.stringify({ project }),
+    },
   );
   return res.data.estimatedPoints;
 }

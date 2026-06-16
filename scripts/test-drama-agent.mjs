@@ -66,6 +66,32 @@ async function main() {
   }
   console.log(`✓ 规划成功：${shotCount} 镜，预估 ${planned.estimatedPoints} 分`);
 
+  const lowEst = await request(
+    `/api/v1/drama/estimate?shotCount=${shotCount}&previewTier=low`,
+  );
+  const fullEst = await request(
+    `/api/v1/drama/estimate?shotCount=${shotCount}&previewTier=full`,
+  );
+  if (lowEst.estimatedPoints >= fullEst.estimatedPoints) {
+    throw new Error(
+      `低清预估应低于高清: low=${lowEst.estimatedPoints} full=${fullEst.estimatedPoints}`,
+    );
+  }
+  console.log(
+    `✓ 档位预估：低清 ${lowEst.estimatedPoints} / 高清 ${fullEst.estimatedPoints}`,
+  );
+
+  const postEst = await request("/api/v1/drama/estimate", {
+    method: "POST",
+    body: JSON.stringify({ project: planned.project.project }),
+  });
+  if (postEst.estimatedPoints !== planned.estimatedPoints) {
+    throw new Error(
+      `POST 预估与规划不一致: ${postEst.estimatedPoints} vs ${planned.estimatedPoints}`,
+    );
+  }
+  console.log(`✓ POST 项目预估：${postEst.estimatedPoints} 分`);
+
   const editedShots = planned.project.project.shots.slice(0, -1);
   await request(`/api/v1/drama/projects/${planned.project.id}`, {
     method: "PATCH",
