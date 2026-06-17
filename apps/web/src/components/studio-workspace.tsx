@@ -229,6 +229,10 @@ export function StudioWorkspace({
     setMode(initialMode);
   }, [initialMode]);
 
+  useEffect(() => {
+    setFetchedSessionTitle(null);
+  }, [sessionId]);
+
 
   useEffect(() => {
     const saved = readStudioDockMode();
@@ -267,6 +271,10 @@ export function StudioWorkspace({
   loadCanvasRef.current = loadCanvas;
   canvasItemsRef.current = canvasItems;
   const [sessions, setSessions] = useState<ImageSession[]>([]);
+  /** fetchSession 已返回、侧栏 list 尚未就绪时的标题回退 */
+  const [fetchedSessionTitle, setFetchedSessionTitle] = useState<string | null>(
+    null,
+  );
   const [tools, setTools] = useState<StudioTool[]>([]);
   const [ready, setReady] = useState(false);
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
@@ -374,7 +382,9 @@ export function StudioWorkspace({
   const sessionTitle =
     currentSession?.title && currentSession.title !== "未命名"
       ? currentSession.title
-      : initialTitle ?? (mode === "ecommerce" ? "电商套图" : "未命名");
+      : fetchedSessionTitle && fetchedSessionTitle !== "未命名"
+        ? fetchedSessionTitle
+        : initialTitle ?? (mode === "ecommerce" ? "电商套图" : "未命名");
 
   const applySourceInspiration = useCallback(
     (src: NonNullable<Awaited<ReturnType<typeof ensureSession>>["sourceInspiration"]>) => {
@@ -458,6 +468,7 @@ export function StudioWorkspace({
       }
     } else if (existing) {
       setCanEdit(existing.can_edit ?? true);
+      if (existing.title) setFetchedSessionTitle(existing.title);
       if (!pendingInspiration && existing.sourceInspiration) {
         applySourceInspiration(existing.sourceInspiration);
       }

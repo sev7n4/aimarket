@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
-import { skipStudioCoach } from "./helpers/studio";
+import { skipStudioCoach, studioWorkstation } from "./helpers/studio";
+
+const MOCK_WORKSPACE_ID = "ws-switch-personal";
 
 const SESSION_A = {
   id: "sess-switch-a",
@@ -23,10 +25,15 @@ const SESSION_B = {
 
 async function mockStudioSessionSwitch(page: Page) {
   await skipStudioCoach(page);
-  await page.addInitScript(() => {
-    localStorage.setItem("aimarket_token", "e2e-session-switch-token");
-    localStorage.setItem("aimarket_studio_dock_mode_v1", "expanded");
-  });
+  await page.addInitScript(
+    ({ workspaceId, userId }) => {
+      localStorage.setItem("aimarket_token", "e2e-session-switch-token");
+      localStorage.setItem("aimarket_studio_dock_mode_v1", "expanded");
+      localStorage.setItem("aimarket_active_workspace_id", workspaceId);
+      localStorage.setItem(`aimarket_drama_coach_v1:${userId}`, "1");
+    },
+    { workspaceId: MOCK_WORKSPACE_ID, userId: "switch-user-1" },
+  );
 
   await page.route("**/api/v1/user/getInfo", (route) =>
     route.fulfill({
@@ -38,6 +45,23 @@ async function mockStudioSessionSwitch(page: Page) {
           credits: 100,
           created_at: "2024-01-01T00:00:00.000Z",
         },
+      }),
+    }),
+  );
+
+  await page.route("**/api/v1/workspaces/list", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [
+          {
+            id: MOCK_WORKSPACE_ID,
+            name: "个人空间",
+            is_personal: 1,
+            role: "owner",
+            created_at: "2024-01-01T00:00:00.000Z",
+          },
+        ],
       }),
     }),
   );
@@ -56,6 +80,8 @@ async function mockStudioSessionSwitch(page: Page) {
   await page.route("**/api/v1/agent/skills", (route) =>
     route.fulfill({ contentType: "application/json", body: JSON.stringify({ data: [] }) }),
   );
+
+  await page.route("**/api/v1/events", (route) => route.fulfill({ status: 204, body: "" }));
 
   for (const session of [SESSION_A, SESSION_B]) {
     await page.route(`**/api/v1/imageSession/${session.id}`, (route) =>
@@ -113,16 +139,21 @@ test.describe("studio session switch", () => {
     await expect(page).toHaveURL(
       new RegExp(`sessionId=${SESSION_A.id.replace(/-/g, "\\-")}`),
     );
-    await expect(page.getByText("画布 Alpha", { exact: false }).first()).toBeVisible({
+
+    const station = studioWorkstation(page);
+    await expect(station.locator("textarea").first()).toBeVisible({
       timeout: 15_000,
     });
+
+    const alphaLink = page.getByRole("link", { name: /画布 Alpha/ });
+    await expect(alphaLink.first()).toBeVisible({ timeout: 15_000 });
 
     await page.getByRole("link", { name: /画布 Beta/ }).click();
 
     await expect(page).toHaveURL(
       new RegExp(`sessionId=${SESSION_B.id.replace(/-/g, "\\-")}`),
     );
-    await expect(page.getByText("画布 Beta", { exact: false }).first()).toBeVisible({
+    await expect(page.getByRole("link", { name: /画布 Beta/ }).first()).toBeVisible({
       timeout: 15_000,
     });
 
@@ -130,5 +161,6 @@ test.describe("studio session switch", () => {
     await expect(page).toHaveURL(
       new RegExp(`sessionId=${SESSION_A.id.replace(/-/g, "\\-")}`),
     );
+    await expect(alphaLink.first()).toBeVisible({ timeout: 15_000 });
   });
 });
