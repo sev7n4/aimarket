@@ -278,7 +278,7 @@ export function buildRuleBasedProject(input: PlanDramaInput): DramaProjectData {
     shots,
     productionParams: {
       aspectRatio,
-      imageModelId: "agnes-image",
+      imageModelId: "omni-v2",
       videoModelId: "wan-2.6",
       resolution: "1k",
       previewTier: "full",
@@ -341,7 +341,7 @@ export async function planDramaSingleLlm(
     })),
     productionParams: {
       aspectRatio,
-      imageModelId: "agnes-image",
+      imageModelId: "omni-v2",
       videoModelId: "wan-2.6",
       resolution: "1k",
     },

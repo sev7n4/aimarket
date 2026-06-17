@@ -13,7 +13,7 @@ export function estimateDramaPoints(project: DramaProjectData): number {
   const charCount = project.characters.length;
   const sceneCount = project.scenes.length;
   const res = project.productionParams?.resolution ?? "1k";
-  const imageModel = project.productionParams?.imageModelId ?? "agnes-image";
+  const imageModel = project.productionParams?.imageModelId ?? "omni-v2";
   const videoModel = project.productionParams?.videoModelId ?? "wan-2.6";
 
   let total = 0;
