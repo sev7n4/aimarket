@@ -943,6 +943,66 @@ export async function resumeDramaRunOnJobCompleted(jobId: string) {
   await startDramaRunStep(row.id, row.user_id);
 }
 
+/** 从指定流水线步骤重置 progress 索引（供重试使用） */
+export function resetProgressFromStep(
+  step: DramaPipelineStep,
+  prior: DramaProgress,
+): DramaProgress {
+  const base: DramaProgress = {
+    ...defaultProgress(),
+    currentPipelineStep: step,
+    keyframeRetries: { ...prior.keyframeRetries },
+    narratorAudioOutputId: prior.narratorAudioOutputId,
+    finalVideoUrl: prior.finalVideoUrl,
+  };
+  switch (step) {
+    case "char_refs":
+      return { ...base, charRefIndex: 0, charRefAngleIndex: 0 };
+    case "scene_refs":
+      return { ...base, sceneRefIndex: 0 };
+    case "keyframes":
+      return { ...base, shotIndex: 0, pendingBatch: [] };
+    case "shot_videos":
+      return { ...base, shotIndex: 0, pendingBatch: [] };
+    case "tts":
+      return { ...base, ttsIndex: 0 };
+    case "lipsync":
+      return { ...base, lipsyncIndex: 0 };
+    case "narrator_tts":
+      return { ...base, narratorAudioOutputId: undefined };
+    case "concat":
+      return { ...base, finalVideoUrl: undefined };
+    default:
+      return base;
+  }
+}
+
+/** 失败后重试制作：默认从失败步骤续跑；fromStep 可指定从某步重来 */
+export async function retryDramaRun(
+  userId: string,
+  runId: string,
+  fromStep?: DramaPipelineStep,
+): Promise<DramaRunRow | undefined> {
+  const row = getDramaRun(userId, runId);
+  if (!row) throw new Error("DRAMA_RUN_NOT_FOUND");
+  if (row.status !== "failed") throw new Error("DRAMA_RUN_NOT_FAILED");
+
+  let progress = parseProgress(row);
+  if (fromStep) {
+    progress = resetProgressFromStep(fromStep, progress);
+  }
+
+  updateDramaRun(runId, {
+    progress,
+    status: "queued",
+    pendingJobId: null,
+    error: null,
+    currentStepIndex: pipelineStepIndex(progress.currentPipelineStep),
+  });
+  updateDramaProject(row.project_id, { status: "producing" });
+  return startDramaRunStep(runId, userId);
+}
+
 /** 单镜重试（RHTV 局部修改不重跑全片） */
 export async function retryDramaShot(
   userId: string,

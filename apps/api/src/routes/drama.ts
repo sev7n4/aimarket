@@ -21,8 +21,10 @@ import {
 import {
   dispatchDramaRun,
   pickDramaKeyframeHero,
+  retryDramaRun,
   retryDramaShot,
 } from "../lib/drama/executor.js";
+import { DRAMA_PIPELINE_STEPS } from "../lib/drama/schema.js";
 import { estimateDramaPoints } from "../lib/drama/estimate.js";
 import { assertDramaCreditsAffordable } from "../lib/drama/credits-gate.js";
 import { dispatchDramaPlanRun, dispatchDramaPlanRerun } from "../lib/drama/plan-executor.js";
@@ -196,6 +198,37 @@ drama.post("/runs/:id/cancel", async (c) => {
   const projectRow = getDramaProject(userId, run.project_id)!;
   const next = getDramaRun(userId, runId)!;
   return c.json({ data: serializeDramaRun(next, projectRow) });
+});
+
+drama.post("/runs/:id/retry", async (c) => {
+  const userId = c.get("userId");
+  const runId = c.req.param("id");
+  const body = z
+    .object({
+      fromStep: z.enum(DRAMA_PIPELINE_STEPS as [string, ...string[]]).optional(),
+    })
+    .parse(await c.req.json().catch(() => ({})));
+  const run = getDramaRun(userId, runId);
+  if (!run) throw new AppError(404, "NOT_FOUND", "短剧 Run 不存在");
+  if (run.status !== "failed") {
+    throw new AppError(400, "INVALID_STATE", "仅失败状态可重试制作");
+  }
+  assertSessionWrite(userId, run.session_id);
+  try {
+    const next = await retryDramaRun(
+      userId,
+      runId,
+      body.fromStep as (typeof DRAMA_PIPELINE_STEPS)[number] | undefined,
+    );
+    if (!next) throw new AppError(404, "NOT_FOUND", "短剧 Run 不存在");
+    const projectRow = getDramaProject(userId, next.project_id)!;
+    return c.json({ data: serializeDramaRun(next, projectRow) });
+  } catch (err) {
+    if (err instanceof Error && err.message === "DRAMA_RUN_NOT_FAILED") {
+      throw new AppError(400, "INVALID_STATE", "仅失败状态可重试制作");
+    }
+    throw err;
+  }
 });
 
 drama.post("/runs/:id/shots/:shotId/retry", async (c) => {

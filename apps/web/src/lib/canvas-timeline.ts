@@ -2,6 +2,7 @@ import type {
   AgentPlan,
   AgentRun,
   AgentRunStatus,
+  DramaRun,
   SkillRun,
   SkillRunStatus,
 } from "@/lib/types";
@@ -18,7 +19,7 @@ export interface OrchestrationStepView {
 
 export interface OrchestrationTimelineEvent {
   id: string;
-  runType: "agent" | "skill" | "drama_plan";
+  runType: "agent" | "skill" | "drama_plan" | "drama_run";
   title: string;
   status: AgentRunStatus | SkillRunStatus | "preview" | "planning" | "failed";
   prompt: string;
@@ -220,5 +221,44 @@ export function buildDramaPlanTimelineEvent(input: {
     updatedAt: new Date().toISOString(),
     dramaPlanEvents: input.events,
     dramaPlanCurrentAgent: input.currentAgent,
+  };
+}
+
+const DRAMA_RUN_TERMINAL = new Set(["completed", "failed", "cancelled"]);
+
+export function buildDramaRunTimelineEvent(input: {
+  run: DramaRun;
+  prompt: string;
+}): OrchestrationTimelineEvent | null {
+  const { run, prompt } = input;
+  if (run.status === "waiting_confirm") return null;
+
+  const active = !DRAMA_RUN_TERMINAL.has(run.status);
+  const steps: OrchestrationStepView[] = run.pipelineSteps.map((step) => ({
+    label: step.label,
+    type: step.id,
+    done: step.done,
+    current: step.current || (run.status === "failed" && step.index === run.currentStepIndex),
+  }));
+
+  return {
+    id: `drama-run-${run.id}`,
+    runType: "drama_run",
+    title: "AI 短剧 · 制作",
+    status:
+      run.status === "failed"
+        ? "failed"
+        : run.status === "completed"
+          ? "completed"
+          : run.status === "waiting_job"
+            ? "waiting_job"
+            : "running",
+    prompt: prompt.trim() || run.project.script.logline || run.project.script.title,
+    steps,
+    estimatedPoints: run.estimatedPoints,
+    error: run.error,
+    showConfirm: false,
+    showCancelActive: active,
+    updatedAt: run.updatedAt,
   };
 }

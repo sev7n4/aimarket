@@ -14,6 +14,7 @@ import { ensureSession, fetchAgentPlan, fetchDramaRun, trackEvent } from "@/lib/
 import {
   buildOrchestrationTimelineEvent,
   buildDramaPlanTimelineEvent,
+  buildDramaRunTimelineEvent,
   type OrchestrationTimelineActions,
   type OrchestrationTimelineEvent,
 } from "@/lib/canvas-timeline";
@@ -81,6 +82,8 @@ interface StudioOrchestrationContextValue {
   rerunDramaPlan: (fromAgent: string, projectPatch?: Record<string, unknown>) => Promise<unknown>;
   dramaAutoProduce: boolean;
   setDramaAutoProduce: (value: boolean) => void;
+  dramaProduceHint: string | null;
+  retryDramaProduction: (fromStep?: string) => Promise<DramaRun | null>;
   cancelOrchestration: () => Promise<void>;
   dispatchSubmit: (ctx: StudioOrchestrationSubmitContext) => Promise<boolean>;
   timelineEvent: OrchestrationTimelineEvent | null;
@@ -142,6 +145,7 @@ export function StudioOrchestrationProvider({
     useState<OrchestrationTimelineEvent | null>(null);
   const [orchestrationResetTick, setOrchestrationResetTick] = useState(0);
   const [dramaAutoProduce, setDramaAutoProduce] = useState(false);
+  const [dramaProduceHint, setDramaProduceHint] = useState<string | null>(null);
 
   const handleOrchestrationCompleted = useCallback(() => {
     onClearPrompt?.();
@@ -157,6 +161,7 @@ export function StudioOrchestrationProvider({
     confirmRun: confirmDramaRunAction,
     cancelRun: cancelDramaRunAction,
     saveDraftProject: saveDramaDraft,
+    retryProduction: retryDramaProductionAction,
     setRun: setDramaRun,
     setDraftProject: setDramaDraftProject,
   } = useDramaRun({
@@ -164,7 +169,11 @@ export function StudioOrchestrationProvider({
     enabled: orchestrationEnabled,
     onJobStarted,
     onRunSettled: (run) => {
-      if (run.status === "failed" && run.error) alert(run.error);
+      if (run.status === "failed" && run.error) {
+        setDramaProduceHint(run.error);
+      } else if (run.status === "completed") {
+        setDramaProduceHint(null);
+      }
       if (run.status === "completed") {
         void refreshUser();
         void trackEvent("drama_run_complete", { sessionId, runId: run.id });
@@ -188,13 +197,18 @@ export function StudioOrchestrationProvider({
     onComplete: (project, _estimatedPoints, dramaRunId, produceSkippedReason) => {
       setDramaDraftProject(project);
       if (dramaRunId) {
-        void fetchDramaRun(dramaRunId).then((run) => setDramaRun(run));
+        void fetchDramaRun(dramaRunId).then((run) => {
+          setDramaRun(run);
+          if (run.status === "failed" && run.error) {
+            setDramaProduceHint(run.error);
+          }
+        });
       }
       if (produceSkippedReason) {
-        alert(produceSkippedReason);
+        setDramaProduceHint(produceSkippedReason);
       }
     },
-    onFailed: (error) => alert(error),
+    onFailed: (error) => setDramaProduceHint(error),
   });
 
   const {
@@ -254,6 +268,7 @@ export function StudioOrchestrationProvider({
     resetSkillRun();
     setDramaRun(null);
     setDramaDraftProject(null);
+    setDramaProduceHint(null);
     setAgentPreviewPlan(null);
     setPersistedTimeline(null);
     cancelDramaPlanWatch();
@@ -315,6 +330,15 @@ export function StudioOrchestrationProvider({
     [agentRun, skillRun, agentPreviewPlan, agentPreviewLoading, input.prompt],
   );
 
+  const dramaRunTimeline = useMemo(() => {
+    if (!dramaRun) return null;
+    if (dramaPlanRun?.status === "planning") return null;
+    return buildDramaRunTimelineEvent({
+      run: dramaRun,
+      prompt: input.prompt,
+    });
+  }, [dramaRun, dramaPlanRun?.status, input.prompt]);
+
   const dramaPlanTimeline = useMemo(() => {
     if (!dramaPlanRun) return null;
     if (dramaPlanRun.status === "completed") {
@@ -340,7 +364,7 @@ export function StudioOrchestrationProvider({
     return null;
   }, [dramaPlanRun, dramaPlanEvents, input.prompt]);
 
-  const timelineEvent = dramaPlanTimeline ?? agentSkillTimeline;
+  const timelineEvent = dramaRunTimeline ?? dramaPlanTimeline ?? agentSkillTimeline;
 
   useEffect(() => {
     setPersistedTimeline((prev) => {
@@ -507,6 +531,14 @@ export function StudioOrchestrationProvider({
     ],
   );
 
+  const retryDramaProduction = useCallback(
+    async (fromStep?: string) => {
+      setDramaProduceHint(null);
+      return retryDramaProductionAction(fromStep);
+    },
+    [retryDramaProductionAction],
+  );
+
   const handleRerunFromAgent = useCallback(
     (fromAgent: string) => {
       void rerunDramaPlan(fromAgent);
@@ -563,6 +595,8 @@ export function StudioOrchestrationProvider({
       rerunDramaPlan,
       dramaAutoProduce,
       setDramaAutoProduce,
+      dramaProduceHint,
+      retryDramaProduction,
       cancelOrchestration,
       dispatchSubmit,
       orchestrationResetTick,
@@ -591,6 +625,8 @@ export function StudioOrchestrationProvider({
       rerunDramaPlan,
       dramaAutoProduce,
       setDramaAutoProduce,
+      dramaProduceHint,
+      retryDramaProduction,
       cancelOrchestration,
       dispatchSubmit,
       orchestrationResetTick,
