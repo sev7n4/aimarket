@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type { CreationMode } from "@aimarket/ui";
-import { ensureSession, fetchAgentPlan, fetchDramaRun, trackEvent } from "@/lib/api-client";
+import { ensureSession, fetchAgentPlan, fetchDramaRun, fetchDramaSessionState, trackEvent } from "@/lib/api-client";
 import {
   buildOrchestrationTimelineEvent,
   buildDramaPlanTimelineEvent,
@@ -191,6 +191,7 @@ export function StudioOrchestrationProvider({
     rerunPlan: rerunDramaPlan,
     cancelWatch: cancelDramaPlanWatch,
     resetPlan: resetDramaPlan,
+    restorePlan: restoreDramaPlan,
   } = useDramaPlan({
     sessionId,
     enabled: orchestrationEnabled,
@@ -290,6 +291,50 @@ export function StudioOrchestrationProvider({
     setDramaDraftProject,
     cancelDramaPlanWatch,
     resetDramaPlan,
+  ]);
+
+  useEffect(() => {
+    if (!orchestrationEnabled || !sessionId) return;
+    let cancelled = false;
+
+    void fetchDramaSessionState(sessionId).then((state) => {
+      if (cancelled) return;
+
+      if (state.dramaRun) {
+        setDramaRun(state.dramaRun);
+        if (state.dramaRun.status === "failed" && state.dramaRun.error) {
+          setDramaProduceHint(state.dramaRun.error);
+        } else if (state.dramaRun.status === "waiting_confirm") {
+          setDramaProduceHint(null);
+        }
+      }
+
+      if (state.draftProject) {
+        setDramaDraftProject(state.draftProject);
+      }
+
+      if (state.planRun) {
+        restoreDramaPlan(state.planRun);
+        if (state.planRun.userIdea) {
+          setInput((prev) => ({
+            ...prev,
+            prompt: state.planRun!.userIdea,
+            creationLane: "agent",
+            activeSkillId: DRAMA_SKILL_ID,
+          }));
+        }
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    sessionId,
+    orchestrationEnabled,
+    setDramaRun,
+    setDramaDraftProject,
+    restoreDramaPlan,
   ]);
 
   useEffect(() => {

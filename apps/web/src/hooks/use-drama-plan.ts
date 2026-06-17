@@ -218,6 +218,23 @@ export function useDramaPlan({
     setEvents([]);
   }, [cancelWatch]);
 
+  const restorePlan = useCallback(
+    (run: import("@/lib/types").DramaPlanRun) => {
+      setPlanRun({
+        id: run.id,
+        status: run.status,
+        currentAgent: run.currentAgent,
+        projectId: run.projectId ?? undefined,
+        estimatedPoints: run.estimatedPoints,
+        error: run.error,
+      });
+      if (run.status === "planning") {
+        watchRun(run.id, true);
+      }
+    },
+    [watchRun],
+  );
+
   return {
     planRun,
     events,
@@ -226,5 +243,6 @@ export function useDramaPlan({
     rerunPlan,
     cancelWatch,
     resetPlan,
+    restorePlan,
   };
 }

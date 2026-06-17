@@ -27,7 +27,7 @@ import {
 import { DRAMA_PIPELINE_STEPS } from "../lib/drama/schema.js";
 import { estimateDramaPoints } from "../lib/drama/estimate.js";
 import { assertDramaCreditsAffordable } from "../lib/drama/credits-gate.js";
-import { dispatchDramaPlanRun, dispatchDramaPlanRerun } from "../lib/drama/plan-executor.js";
+import { dispatchDramaPlanRun, dispatchDramaPlanRerun, prepareDramaPlanRerun } from "../lib/drama/plan-executor.js";
 import {
   getPlanEventBuffer,
   isTerminalPlanEvent,
@@ -38,6 +38,8 @@ import {
   getDramaPlanRun,
   serializeDramaPlanRun,
 } from "../lib/drama/plan-runs.js";
+import { mergeDramaProjectPatch } from "../lib/drama/merge-patch.js";
+import { serializeDramaSessionState } from "../lib/drama/session-state.js";
 import type { DramaPlanAgentId, DramaPlanEvent } from "../lib/drama/planner/types.js";
 
 const drama = new Hono<{ Variables: AuthVariables }>();
@@ -150,7 +152,7 @@ drama.patch("/projects/:id", async (c) => {
     .parse(await c.req.json());
   if (body.project) {
     const current = JSON.parse(row.project_json);
-    const merged = { ...current, ...body.project };
+    const merged = mergeDramaProjectPatch(current, body.project);
     const validated = dramaProjectSchema.parse(merged);
     updateDramaProject(row.id, { project: validated });
   }
@@ -384,15 +386,28 @@ drama.post("/plan/runs/:id/rerun", async (c) => {
   }
 
   assertSessionWrite(userId, row.session_id);
-  dispatchDramaPlanRerun(
-    runId,
-    userId,
-    body.fromAgent as DramaPlanAgentId,
-    body.projectPatch,
-  );
+  if (
+    !prepareDramaPlanRerun(
+      runId,
+      userId,
+      body.fromAgent as DramaPlanAgentId,
+      body.projectPatch,
+    )
+  ) {
+    throw new AppError(400, "INVALID_STATE", "无法重跑规划");
+  }
+  dispatchDramaPlanRerun(runId, userId, body.fromAgent as DramaPlanAgentId);
 
   const next = getDramaPlanRun(userId, runId)!;
   return c.json({ data: serializeDramaPlanRun(next) });
+});
+
+/** 会话短剧状态（刷新 Studio 时恢复规划/制作态） */
+drama.get("/sessions/:sessionId/state", async (c) => {
+  const userId = c.get("userId");
+  const sessionId = c.req.param("sessionId");
+  assertSessionWrite(userId, sessionId);
+  return c.json({ data: serializeDramaSessionState(userId, sessionId) });
 });
 
 drama.get("/plan/runs/:id", async (c) => {

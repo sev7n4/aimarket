@@ -1264,6 +1264,18 @@ export async function fetchDramaPlanRun(runId: string) {
   return res.data;
 }
 
+export async function fetchDramaSessionState(sessionId: string) {
+  const res = await request<{
+    data: {
+      sessionId: string;
+      planRun?: import("./types").DramaPlanRun;
+      dramaRun?: import("./types").DramaRun;
+      draftProject?: import("./types").DramaProject;
+    };
+  }>(`/api/v1/drama/sessions/${encodeURIComponent(sessionId)}/state`);
+  return res.data;
+}
+
 export async function rerunDramaPlanRun(
   runId: string,
   body: {
