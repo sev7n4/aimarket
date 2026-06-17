@@ -124,7 +124,7 @@ export const dramaProjectSchema = z.object({
   productionParams: z
     .object({
       aspectRatio: z.enum(["9:16", "16:9"]).default("9:16"),
-      imageModelId: z.string().default("agnes-image"),
+      imageModelId: z.string().default("omni-v2"),
       videoModelId: z.string().default("wan-2.6"),
       resolution: z.enum(["1k", "2k"]).default("1k"),
       /** 低清预览档：跳过口型同步，积分更低 */

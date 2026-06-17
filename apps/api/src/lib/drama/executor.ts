@@ -33,6 +33,7 @@ import {
 } from "./schema.js";
 import { buildJobObservation } from "../agent/job-observation.js";
 import { db } from "../../db/index.js";
+import { dramaImageGenerationJobParams } from "./image-job.js";
 
 const MAX_KEYFRAME_RETRIES = 2;
 const MAX_KEYFRAME_PARALLEL = Number(process.env.DRAMA_KEYFRAME_PARALLEL ?? 3);
@@ -192,11 +193,14 @@ function startCharRefJob(
   const angle = CHARACTER_REF_ANGLES[progress.charRefAngleIndex] ?? "front";
   const prompt = buildCharacterRefPrompt(char, angle as CharacterAngle, project.styleBible);
   const params = project.productionParams;
+  const imageRouting = dramaImageGenerationJobParams(project);
   const { jobId } = createGenerationJob({
     sessionId: row.session_id,
     userId: row.user_id,
     prompt,
-    modelId: params?.imageModelId ?? "agnes-image",
+    modelId: imageRouting.modelId,
+    routingMode: imageRouting.routingMode,
+    autoRoute: imageRouting.autoRoute,
     mode: "chat",
     count: 1,
     resolution: params?.resolution ?? "1k",
@@ -216,11 +220,14 @@ function startSceneRefJob(
   if (!scene) throw new Error("场景索引越界");
   const prompt = buildSceneRefPrompt(scene, project.styleBible);
   const params = project.productionParams;
+  const imageRouting = dramaImageGenerationJobParams(project);
   const { jobId } = createGenerationJob({
     sessionId: row.session_id,
     userId: row.user_id,
     prompt,
-    modelId: params?.imageModelId ?? "agnes-image",
+    modelId: imageRouting.modelId,
+    routingMode: imageRouting.routingMode,
+    autoRoute: imageRouting.autoRoute,
     mode: "chat",
     count: 1,
     resolution: params?.resolution ?? "1k",
@@ -246,11 +253,14 @@ function startKeyframeJobForShot(
   const refIds = collectShotRefOutputIds(project, shot);
   const refUrls = collectShotRefUrls(project, shot);
   const params = project.productionParams;
+  const imageRouting = dramaImageGenerationJobParams(project);
   const { jobId } = createGenerationJob({
     sessionId: row.session_id,
     userId: row.user_id,
     prompt,
-    modelId: params?.imageModelId ?? "agnes-image",
+    modelId: imageRouting.modelId,
+    routingMode: imageRouting.routingMode,
+    autoRoute: imageRouting.autoRoute,
     mode: "chat",
     count: KEYFRAME_VARIANTS,
     resolution: params?.resolution ?? "1k",

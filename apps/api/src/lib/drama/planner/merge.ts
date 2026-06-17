@@ -46,7 +46,7 @@ export function mergePlanningContext(ctx: PlanningContext): DramaProjectData {
     shots,
     productionParams: {
       aspectRatio,
-      imageModelId: "agnes-image",
+      imageModelId: "omni-v2",
       videoModelId: "wan-2.6",
       resolution: "1k",
       previewTier: "full",
