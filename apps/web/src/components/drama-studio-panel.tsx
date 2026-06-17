@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DramaStoryboardGrid } from "@/components/drama-storyboard-grid";
 import { estimateDramaProjectPoints, uploadAsset } from "@/lib/api-client";
+import { useAuth } from "@/lib/auth-context";
 import type { DramaProject, DramaProjectPayload, DramaRun } from "@/lib/types";
+
+const DRAMA_CONFIRM_POINTS_THRESHOLD = 200;
 
 interface DramaStudioPanelProps {
   sessionId?: string;
@@ -35,6 +38,7 @@ export function DramaStudioPanel({
   busy,
   readOnly,
 }: DramaStudioPanelProps) {
+  const { user } = useAuth();
   const isDraft = Boolean(draftProject && !run);
   const [localProject, setLocalProject] = useState<DramaProjectPayload | null>(
     null,
@@ -135,6 +139,16 @@ export function DramaStudioPanel({
 
   const pipeline = run?.pipelineSteps ?? [];
   const previewTier = project.productionParams?.previewTier ?? "full";
+  const confirmThreshold =
+    run?.confirmIfPointsOver ?? DRAMA_CONFIRM_POINTS_THRESHOLD;
+  const gatePoints = isDraft ? liveEstimate : run?.estimatedPoints;
+  const insufficientCredits =
+    user != null &&
+    gatePoints != null &&
+    user.credits < gatePoints;
+  const needsHighCostConfirm = isDraft
+    ? (liveEstimate ?? 0) >= confirmThreshold
+    : run?.status === "waiting_confirm";
 
   return (
     <div
@@ -436,17 +450,38 @@ export function DramaStudioPanel({
           ) : null}
 
           {isDraft && onConfirmProduce ? (
-            <button
-              type="button"
-              disabled={busy || saving}
-              onClick={onConfirmProduce}
-              className="w-full rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
-              data-testid="drama-confirm-produce"
-            >
-              确认分镜，开始制作
-              {previewTier === "low" ? "（低清预览）" : ""}
-              {liveEstimate != null ? ` · 约 ${liveEstimate} 分` : ""}
-            </button>
+            <>
+              <button
+                type="button"
+                disabled={busy || saving || insufficientCredits}
+                onClick={onConfirmProduce}
+                className={`w-full rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50 ${
+                  needsHighCostConfirm
+                    ? "bg-amber-600 hover:bg-amber-500"
+                    : "bg-violet-600 hover:bg-violet-500"
+                }`}
+                data-testid="drama-confirm-produce"
+              >
+                {needsHighCostConfirm
+                  ? `确认积分预估（${liveEstimate ?? "…"} 分）并开始制作`
+                  : "确认分镜，开始制作"}
+                {!needsHighCostConfirm && previewTier === "low"
+                  ? "（低清预览）"
+                  : ""}
+                {!needsHighCostConfirm && liveEstimate != null
+                  ? ` · 约 ${liveEstimate} 分`
+                  : ""}
+              </button>
+              {insufficientCredits && gatePoints != null ? (
+                <p
+                  className="text-[11px] text-amber-400/90"
+                  data-testid="drama-insufficient-credits"
+                >
+                  积分不足：本次约需 {gatePoints} 分，当前余额 {user!.credits}{" "}
+                  分，请充值后再制作
+                </p>
+              ) : null}
+            </>
           ) : null}
 
           {isDraft && onRerunFromAgent && !readOnly ? (
@@ -481,14 +516,25 @@ export function DramaStudioPanel({
           ) : null}
 
           {run?.status === "waiting_confirm" && onConfirmProduce ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={onConfirmProduce}
-              className="w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
-            >
-              确认积分预估（{run.estimatedPoints} 分）并开始制作
-            </button>
+            <>
+              <button
+                type="button"
+                disabled={busy || insufficientCredits}
+                onClick={onConfirmProduce}
+                className="w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+              >
+                确认积分预估（{run.estimatedPoints} 分）并开始制作
+              </button>
+              {insufficientCredits ? (
+                <p
+                  className="text-[11px] text-amber-400/90"
+                  data-testid="drama-insufficient-credits"
+                >
+                  积分不足：本次约需 {run.estimatedPoints} 分，当前余额{" "}
+                  {user!.credits} 分，请充值后再制作
+                </p>
+              ) : null}
+            </>
           ) : null}
         </div>
       </div>

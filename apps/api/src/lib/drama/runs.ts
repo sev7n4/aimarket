@@ -14,6 +14,7 @@ import {
   updateDramaProject,
 } from "./projects.js";
 import { resolveReferenceUrls } from "../references.js";
+import { assertDramaCreditsAffordable } from "./credits-gate.js";
 
 export interface DramaRunRow {
   id: string;
@@ -70,6 +71,10 @@ export function createDramaRun(input: {
   const estimated = estimateDramaPoints(project);
   const requiresConfirm =
     estimated >= DRAMA_CONFIRM_POINTS_THRESHOLD && !input.confirmed;
+
+  if (!requiresConfirm) {
+    assertDramaCreditsAffordable(input.userId, estimated);
+  }
 
   const id = randomUUID();
   const status: DramaRunStatus = requiresConfirm ? "waiting_confirm" : "queued";

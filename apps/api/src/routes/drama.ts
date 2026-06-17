@@ -24,6 +24,7 @@ import {
   retryDramaShot,
 } from "../lib/drama/executor.js";
 import { estimateDramaPoints } from "../lib/drama/estimate.js";
+import { assertDramaCreditsAffordable } from "../lib/drama/credits-gate.js";
 import { dispatchDramaPlanRun, dispatchDramaPlanRerun } from "../lib/drama/plan-executor.js";
 import {
   getPlanEventBuffer,
@@ -173,6 +174,7 @@ drama.post("/runs/:id/confirm", async (c) => {
     throw new AppError(400, "INVALID_STATE", "当前不在待确认状态");
   }
   assertSessionWrite(userId, run.session_id);
+  assertDramaCreditsAffordable(userId, run.estimated_points);
   updateDramaRun(runId, { status: "queued" });
   updateDramaProject(run.project_id, { status: "producing" });
   dispatchDramaRun(runId, userId);
