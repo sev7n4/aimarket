@@ -269,12 +269,21 @@ export function StudioOrchestrationProvider({
     setDramaRun(null);
     setDramaDraftProject(null);
     setDramaProduceHint(null);
+    setDramaAutoProduce(false);
     setAgentPreviewPlan(null);
     setPersistedTimeline(null);
+    setInput({
+      prompt: "",
+      creationLane: "agent",
+      activeSkillId: null,
+      effectiveMode: mode,
+      focusEditActive: false,
+    });
     cancelDramaPlanWatch();
     resetDramaPlan();
   }, [
     sessionId,
+    mode,
     resetAgentRun,
     resetSkillRun,
     setDramaRun,
