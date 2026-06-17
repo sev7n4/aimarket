@@ -37,8 +37,9 @@ import {
 } from "./credits-gate.js";
 import { createDramaRun } from "./runs.js";
 import { dispatchDramaRun } from "./executor.js";
-import { formatDramaPlanError } from "./plan-errors.js";
+import { mergeDramaProjectPatch } from "./merge-patch.js";
 import { isAgentLlmEnabled } from "@aimarket/agent-core";
+import { formatDramaPlanError } from "./plan-errors.js";
 
 function syncAgentsFromEvent(
   agents: DramaPlanAgentsJson,
@@ -117,17 +118,40 @@ export function dispatchDramaPlanRun(runId: string, userId: string) {
   });
 }
 
-export function dispatchDramaPlanRerun(
+export function prepareDramaPlanRerun(
   runId: string,
   userId: string,
   fromAgent: DramaPlanAgentId,
   projectPatch?: Record<string, unknown>,
+): boolean {
+  const row = getDramaPlanRun(userId, runId);
+  if (!row?.project_id) return false;
+  if (row.status === "planning") return false;
+
+  const projectRow = getDramaProject(userId, row.project_id);
+  if (!projectRow) return false;
+
+  if (projectPatch) {
+    const current = parseProjectJson(projectRow);
+    const merged = mergeDramaProjectPatch(current, projectPatch);
+    const validated = dramaProjectSchema.parse(merged);
+    updateDramaProject(projectRow.id, { project: validated });
+  }
+
+  clearPlanEvents(runId);
+  const agents = parseAgentsJson(row);
+  resetPlanRunForRerun(runId, fromAgent, agents);
+  return true;
+}
+
+export function dispatchDramaPlanRerun(
+  runId: string,
+  userId: string,
+  fromAgent: DramaPlanAgentId,
 ) {
-  void executeDramaPlanRerun(runId, userId, fromAgent, projectPatch).catch(
-    (err) => {
-      console.error("[drama-plan] rerun failed:", err);
-    },
-  );
+  void executeDramaPlanRerun(runId, userId, fromAgent).catch((err) => {
+    console.error("[drama-plan] rerun failed:", err);
+  });
 }
 
 async function executeDramaPlanRun(runId: string, userId: string) {
@@ -249,27 +273,15 @@ async function executeDramaPlanRerun(
   runId: string,
   userId: string,
   fromAgent: DramaPlanAgentId,
-  projectPatch?: Record<string, unknown>,
 ) {
   const row = getDramaPlanRun(userId, runId);
-  if (!row?.project_id) return;
+  if (!row?.project_id || row.status !== "planning") return;
 
   const projectRow = getDramaProject(userId, row.project_id);
   if (!projectRow) return;
 
-  if (projectPatch) {
-    const current = parseProjectJson(projectRow);
-    const merged = { ...current, ...projectPatch };
-    const validated = dramaProjectSchema.parse(merged);
-    updateDramaProject(projectRow.id, { project: validated });
-  }
-
-  clearPlanEvents(runId);
-
   let agents = parseAgentsJson(row);
   let reasoning = parseReasoningJson(row);
-  resetPlanRunForRerun(runId, fromAgent, agents);
-  agents = parseAgentsJson(getDramaPlanRun(userId, runId)!);
 
   const freshProjectRow = getDramaProject(userId, row.project_id)!;
   const ctx = projectToPlanningContext(parseProjectJson(freshProjectRow));
