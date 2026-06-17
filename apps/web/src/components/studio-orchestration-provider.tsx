@@ -185,10 +185,13 @@ export function StudioOrchestrationProvider({
   } = useDramaPlan({
     sessionId,
     enabled: orchestrationEnabled,
-    onComplete: (project, _estimatedPoints, dramaRunId) => {
+    onComplete: (project, _estimatedPoints, dramaRunId, produceSkippedReason) => {
       setDramaDraftProject(project);
       if (dramaRunId) {
         void fetchDramaRun(dramaRunId).then((run) => setDramaRun(run));
+      }
+      if (produceSkippedReason) {
+        alert(produceSkippedReason);
       }
     },
     onFailed: (error) => alert(error),

@@ -19,6 +19,7 @@ export interface DramaPlanRunState {
   currentAgent?: string | null;
   projectId?: string;
   estimatedPoints?: number;
+  produceSkippedReason?: string;
   error?: string | null;
 }
 
@@ -29,6 +30,7 @@ interface UseDramaPlanOptions {
     project: DramaProject,
     estimatedPoints: number,
     dramaRunId?: string,
+    produceSkippedReason?: string,
   ) => void;
   onFailed?: (error: string) => void;
 }
@@ -71,6 +73,7 @@ export function useDramaPlan({
   const onCompleteRef = useRef(onComplete);
   const onFailedRef = useRef(onFailed);
   const dramaRunIdRef = useRef<string | undefined>(undefined);
+  const produceSkippedReasonRef = useRef<string | undefined>(undefined);
   onCompleteRef.current = onComplete;
   onFailedRef.current = onFailed;
 
@@ -90,11 +93,13 @@ export function useDramaPlan({
           run.project,
           run.estimatedPoints ?? 0,
           dramaRunIdRef.current,
+          produceSkippedReasonRef.current,
         );
       } else if (run.status === "failed") {
         onFailedRef.current?.(run.error ?? "规划失败");
       }
       dramaRunIdRef.current = undefined;
+      produceSkippedReasonRef.current = undefined;
     } catch {
       /* ignore */
     }
@@ -105,6 +110,7 @@ export function useDramaPlan({
       stopRef.current?.();
       if (resetEvents) setEvents([]);
       dramaRunIdRef.current = undefined;
+      produceSkippedReasonRef.current = undefined;
 
       const onEvent = (event: DramaPlanStreamEvent) => {
         setEvents((prev) => [...prev, event]);
@@ -113,8 +119,18 @@ export function useDramaPlan({
             prev ? { ...prev, status: "planning", currentAgent: event.agent } : prev,
           );
         }
-        if (event.type === "plan_complete" && event.dramaRunId) {
-          dramaRunIdRef.current = event.dramaRunId;
+        if (event.type === "plan_complete") {
+          if (event.dramaRunId) {
+            dramaRunIdRef.current = event.dramaRunId;
+          }
+          if (event.produceSkippedReason) {
+            produceSkippedReasonRef.current = event.produceSkippedReason;
+            setPlanRun((prev) =>
+              prev
+                ? { ...prev, produceSkippedReason: event.produceSkippedReason }
+                : prev,
+            );
+          }
         }
       };
 

@@ -126,6 +126,7 @@ export type DramaPlanEvent =
       projectId: string;
       estimatedPoints: number;
       dramaRunId?: string;
+      produceSkippedReason?: string;
     }
   | { type: "plan_failed"; error: string };
 

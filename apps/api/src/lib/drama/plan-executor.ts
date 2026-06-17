@@ -31,6 +31,10 @@ import {
   type DramaPlanEvent,
 } from "./planner/types.js";
 import { dramaProjectSchema } from "./schema.js";
+import {
+  dramaCreditsAffordability,
+  formatDramaInsufficientCreditsMessage,
+} from "./credits-gate.js";
 import { createDramaRun } from "./runs.js";
 import { dispatchDramaRun } from "./executor.js";
 import { formatDramaPlanError } from "./plan-errors.js";
@@ -78,8 +82,23 @@ async function runRuleBasedWithEvents(
 function maybeAutoProduce(
   row: NonNullable<ReturnType<typeof getDramaPlanRun>>,
   projectId: string,
-): string | undefined {
-  if (!row.auto_produce) return undefined;
+  estimatedPoints: number,
+): { dramaRunId?: string; produceSkippedReason?: string } {
+  if (!row.auto_produce) return {};
+
+  const { ok, balance } = dramaCreditsAffordability(
+    row.user_id,
+    estimatedPoints,
+  );
+  if (!ok) {
+    return {
+      produceSkippedReason: formatDramaInsufficientCreditsMessage(
+        estimatedPoints,
+        balance,
+      ),
+    };
+  }
+
   const run = createDramaRun({
     sessionId: row.session_id,
     userId: row.user_id,
@@ -89,7 +108,7 @@ function maybeAutoProduce(
   if (run.status !== "waiting_confirm") {
     dispatchDramaRun(run.id, row.user_id);
   }
-  return run.id;
+  return { dramaRunId: run.id };
 }
 
 export function dispatchDramaPlanRun(runId: string, userId: string) {
@@ -153,7 +172,7 @@ async function executeDramaPlanRun(runId: string, userId: string) {
       project: projectData,
     });
     const estimatedPoints = estimateDramaPoints(projectData);
-    const dramaRunId = maybeAutoProduce(row, projectRow.id);
+    const autoProduce = maybeAutoProduce(row, projectRow.id, estimatedPoints);
 
     updateDramaPlanRun(runId, {
       status: "completed",
@@ -167,7 +186,10 @@ async function executeDramaPlanRun(runId: string, userId: string) {
       type: "plan_complete",
       projectId: projectRow.id,
       estimatedPoints,
-      ...(dramaRunId ? { dramaRunId } : {}),
+      ...(autoProduce.dramaRunId ? { dramaRunId: autoProduce.dramaRunId } : {}),
+      ...(autoProduce.produceSkippedReason
+        ? { produceSkippedReason: autoProduce.produceSkippedReason }
+        : {}),
     };
     publishPlanEvent(runId, completeEvent);
   } catch (err) {
@@ -185,7 +207,7 @@ async function executeDramaPlanRun(runId: string, userId: string) {
         project: projectData,
       });
       const estimatedPoints = estimateDramaPoints(projectData);
-      const dramaRunId = maybeAutoProduce(row, projectRow.id);
+      const autoProduce = maybeAutoProduce(row, projectRow.id, estimatedPoints);
       updateDramaPlanRun(runId, {
         status: "completed",
         currentAgent: null,
@@ -197,7 +219,10 @@ async function executeDramaPlanRun(runId: string, userId: string) {
         type: "plan_complete",
         projectId: projectRow.id,
         estimatedPoints,
-        ...(dramaRunId ? { dramaRunId } : {}),
+        ...(autoProduce.dramaRunId ? { dramaRunId: autoProduce.dramaRunId } : {}),
+        ...(autoProduce.produceSkippedReason
+          ? { produceSkippedReason: autoProduce.produceSkippedReason }
+          : {}),
       });
     } catch (fallbackErr) {
       const fallbackMessage =
@@ -274,7 +299,7 @@ async function executeDramaPlanRerun(
 
     updateDramaProject(row.project_id, { project: projectData });
     const estimatedPoints = estimateDramaPoints(projectData);
-    const dramaRunId = maybeAutoProduce(row, row.project_id);
+    const autoProduce = maybeAutoProduce(row, row.project_id, estimatedPoints);
 
     updateDramaPlanRun(runId, {
       status: "completed",
@@ -287,7 +312,10 @@ async function executeDramaPlanRerun(
       type: "plan_complete",
       projectId: row.project_id,
       estimatedPoints,
-      ...(dramaRunId ? { dramaRunId } : {}),
+      ...(autoProduce.dramaRunId ? { dramaRunId: autoProduce.dramaRunId } : {}),
+      ...(autoProduce.produceSkippedReason
+        ? { produceSkippedReason: autoProduce.produceSkippedReason }
+        : {}),
     });
   } catch (err) {
     const message =
@@ -301,7 +329,7 @@ async function executeDramaPlanRerun(
 
       updateDramaProject(row.project_id, { project: projectData });
       const estimatedPoints = estimateDramaPoints(projectData);
-      const dramaRunId = maybeAutoProduce(row, row.project_id);
+      const autoProduce = maybeAutoProduce(row, row.project_id, estimatedPoints);
 
       updateDramaPlanRun(runId, {
         status: "completed",
@@ -314,7 +342,10 @@ async function executeDramaPlanRerun(
         type: "plan_complete",
         projectId: row.project_id,
         estimatedPoints,
-        ...(dramaRunId ? { dramaRunId } : {}),
+        ...(autoProduce.dramaRunId ? { dramaRunId: autoProduce.dramaRunId } : {}),
+        ...(autoProduce.produceSkippedReason
+          ? { produceSkippedReason: autoProduce.produceSkippedReason }
+          : {}),
       });
     } catch (fallbackErr) {
       const fallbackMessage =
