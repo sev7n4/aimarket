@@ -8,6 +8,16 @@ import type { DramaProject, DramaProjectPayload, DramaRun } from "@/lib/types";
 
 const DRAMA_CONFIRM_POINTS_THRESHOLD = 200;
 
+const DRAMA_RUN_STATUS_LABEL: Record<string, string> = {
+  queued: "排队中",
+  running: "制作中",
+  waiting_job: "等待生成任务",
+  waiting_confirm: "待确认积分",
+  completed: "已完成",
+  failed: "制作失败",
+  cancelled: "已取消",
+};
+
 interface DramaStudioPanelProps {
   sessionId?: string;
   draftProject?: DramaProject | null;
@@ -19,6 +29,9 @@ interface DramaStudioPanelProps {
   onRetryShot?: (shotId: string, stage: "keyframe" | "video") => void;
   onPickKeyframe?: (shotId: string, heroIndex: number) => void;
   onSaveDraft?: (project: DramaProjectPayload) => Promise<unknown>;
+  onRetryProduction?: (fromStep?: string) => void;
+  produceHint?: string | null;
+  retryBusy?: boolean;
   busy?: boolean;
   readOnly?: boolean;
 }
@@ -35,6 +48,9 @@ export function DramaStudioPanel({
   onRetryShot,
   onPickKeyframe,
   onSaveDraft,
+  onRetryProduction,
+  produceHint,
+  retryBusy,
   busy,
   readOnly,
 }: DramaStudioPanelProps) {
@@ -150,6 +166,18 @@ export function DramaStudioPanel({
     ? (liveEstimate ?? 0) >= confirmThreshold
     : run?.status === "waiting_confirm";
 
+  const isProducing =
+    run != null &&
+    !["completed", "failed", "cancelled", "waiting_confirm"].includes(
+      run.status,
+    );
+  const isFailed = run?.status === "failed";
+  const activePipelineStep =
+    pipeline.find((s) => s.current) ??
+    (isFailed && run
+      ? pipeline.find((s) => s.index === run.currentStepIndex)
+      : undefined);
+
   return (
     <div
       className="rounded-xl border border-violet-500/20 bg-violet-500/[0.04] p-3"
@@ -158,8 +186,17 @@ export function DramaStudioPanel({
       <div className="mb-3 flex items-center justify-between gap-2 border-b border-white/5 pb-2">
         <h3 className="text-sm font-medium text-violet-200">AI 短剧 Studio</h3>
         {run ? (
-          <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-zinc-400">
-            {run.status}
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] ${
+              isFailed
+                ? "bg-red-500/15 text-red-300"
+                : isProducing
+                  ? "bg-violet-500/20 text-violet-200"
+                  : "bg-white/5 text-zinc-400"
+            }`}
+            data-testid="drama-run-status-badge"
+          >
+            {DRAMA_RUN_STATUS_LABEL[run.status] ?? run.status}
           </span>
         ) : liveEstimate != null ? (
           <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">
@@ -167,6 +204,15 @@ export function DramaStudioPanel({
           </span>
         ) : null}
       </div>
+
+      {produceHint ? (
+        <div
+          className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90"
+          data-testid="drama-produce-hint"
+        >
+          {produceHint}
+        </div>
+      ) : null}
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,0.9fr)]">
         {/* 左栏：剧本 / 角色 / 场景 */}
@@ -415,6 +461,20 @@ export function DramaStudioPanel({
               <h4 className="mb-2 text-xs font-medium text-zinc-300">
                 制作进度
               </h4>
+              {isProducing && activePipelineStep ? (
+                <p className="mb-2 text-[10px] text-violet-300/90">
+                  当前步骤：{activePipelineStep.label}
+                  {run?.status === "waiting_job" ? " · 等待任务完成" : ""}
+                </p>
+              ) : null}
+              {isProducing && run?.pendingJobId ? (
+                <p
+                  className="mb-2 font-mono text-[10px] text-zinc-500"
+                  data-testid="drama-pending-job"
+                >
+                  任务 {run.pendingJobId.slice(0, 8)}…
+                </p>
+              ) : null}
               <ol className="space-y-1">
                 {pipeline.map((step) => (
                   <li
@@ -426,12 +486,51 @@ export function DramaStudioPanel({
                           ? "text-emerald-400/80"
                           : "text-zinc-500"
                     }`}
+                    data-testid={
+                      step.current ? "drama-pipeline-step-current" : undefined
+                    }
                   >
                     <span>{step.done ? "✓" : step.current ? "→" : "○"}</span>
                     <span>{step.label}</span>
                   </li>
                 ))}
               </ol>
+            </section>
+          ) : null}
+
+          {isFailed && run?.error ? (
+            <section
+              className="rounded-lg border border-red-500/30 bg-red-500/10 p-3"
+              data-testid="drama-produce-error"
+            >
+              <h4 className="mb-1 text-xs font-medium text-red-300">制作失败</h4>
+              <p className="text-[11px] leading-relaxed text-red-200/80">
+                {run.error}
+              </p>
+              {onRetryProduction ? (
+                <div className="mt-3 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    disabled={busy || retryBusy}
+                    onClick={() => onRetryProduction()}
+                    className="w-full rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+                    data-testid="drama-retry-production"
+                  >
+                    {retryBusy ? "重试中…" : "重试制作"}
+                  </button>
+                  {activePipelineStep ? (
+                    <button
+                      type="button"
+                      disabled={busy || retryBusy}
+                      onClick={() => onRetryProduction(activePipelineStep.id)}
+                      className="w-full rounded border border-violet-500/40 px-3 py-1.5 text-xs text-violet-300 hover:bg-violet-500/10 disabled:opacity-50"
+                      data-testid="drama-retry-from-step"
+                    >
+                      从「{activePipelineStep.label}」重试
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
             </section>
           ) : null}
 

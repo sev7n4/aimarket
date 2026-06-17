@@ -48,6 +48,8 @@ export function ScrollCanvasOrchestrationCard({
     );
   }
 
+  const isDramaRun = event.runType === "drama_run";
+
   const statusLabel = STATUS_LABEL[event.status] ?? event.status;
   const readOnly = actions?.readOnly ?? false;
   const confirmBusy = actions?.confirmBusy ?? false;
@@ -106,14 +108,16 @@ export function ScrollCanvasOrchestrationCard({
                 )}
               </span>
               <span>
-                {step.type === "tool"
-                  ? "工具"
-                  : step.type === "video"
-                    ? "视频"
-                    : step.type === "generate_set"
-                      ? "套图"
-                      : "生成"}
-                · {step.label}
+                {isDramaRun
+                  ? step.label
+                  : step.type === "tool"
+                    ? "工具"
+                    : step.type === "video"
+                      ? "视频"
+                      : step.type === "generate_set"
+                        ? "套图"
+                        : "生成"}
+                {!isDramaRun ? ` · ${step.label}` : ""}
               </span>
             </li>
           ))}

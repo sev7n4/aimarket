@@ -1335,6 +1335,20 @@ export async function cancelDramaRun(runId: string) {
   return res.data;
 }
 
+export async function retryDramaProduction(
+  runId: string,
+  fromStep?: string,
+) {
+  const res = await request<{ data: import("./types").DramaRun }>(
+    `/api/v1/drama/runs/${encodeURIComponent(runId)}/retry`,
+    {
+      method: "POST",
+      body: JSON.stringify(fromStep ? { fromStep } : {}),
+    },
+  );
+  return res.data;
+}
+
 export async function retryDramaShot(
   runId: string,
   shotId: string,

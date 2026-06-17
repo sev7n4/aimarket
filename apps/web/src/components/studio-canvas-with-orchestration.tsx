@@ -33,6 +33,8 @@ export const StudioCanvasWithOrchestration = forwardRef<
     rerunDramaPlan,
     dramaPlanBusy,
     setDramaRun,
+    dramaProduceHint,
+    retryDramaProduction,
   } = useStudioOrchestration();
 
   const isDramaPlanning = dramaPlanRun?.status === "planning";
@@ -64,6 +66,16 @@ export const StudioCanvasWithOrchestration = forwardRef<
     [dramaRun?.id, setDramaRun],
   );
 
+  const handleRetryProduction = useCallback(
+    (fromStep?: string) => {
+      if (!dramaRun?.id) return;
+      void retryDramaProduction(fromStep).then((next) => {
+        if (next) setDramaRun(next);
+      });
+    },
+    [dramaRun?.id, retryDramaProduction, setDramaRun],
+  );
+
   const handleConfirmProduce = useCallback(() => {
     if (dramaDraftProject) {
       void produceDramaDraft();
@@ -90,6 +102,9 @@ export const StudioCanvasWithOrchestration = forwardRef<
         onRetryShot={dramaRun ? handleRetryShot : undefined}
         onPickKeyframe={dramaRun ? handlePickKeyframe : undefined}
         onSaveDraft={dramaDraftProject ? saveDramaDraft : undefined}
+        produceHint={dramaProduceHint}
+        onRetryProduction={dramaRun?.status === "failed" ? handleRetryProduction : undefined}
+        retryBusy={dramaBusy}
       />
     ) : null;
 

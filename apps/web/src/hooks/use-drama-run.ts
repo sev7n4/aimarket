@@ -7,6 +7,7 @@ import {
   createDramaRun,
   fetchDramaRun,
   planDramaProject,
+  retryDramaProduction,
   startDramaProduction,
   updateDramaProjectApi,
 } from "@/lib/api-client";
@@ -160,6 +161,21 @@ export function useDramaRun({
     [draftProject?.id],
   );
 
+  const retryProduction = useCallback(
+    async (fromStep?: string) => {
+      if (!run?.id || !enabled) return null;
+      setBusy(true);
+      try {
+        const next = await retryDramaProduction(run.id, fromStep);
+        syncRun(next);
+        return next;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [run?.id, enabled, syncRun],
+  );
+
   return {
     run,
     draftProject,
@@ -170,6 +186,7 @@ export function useDramaRun({
     confirmRun,
     cancelRun,
     saveDraftProject,
+    retryProduction,
     setRun,
     setDraftProject,
   };
