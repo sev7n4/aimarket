@@ -229,6 +229,7 @@ export function AppLeftRail({
                   sessions={sessions}
                   variant="list"
                   showHeading={false}
+                  useRouterPush
                   onNavigate={() => setRecentOpen(false)}
                 />
               ) : (

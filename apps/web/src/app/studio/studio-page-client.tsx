@@ -41,6 +41,9 @@ export function StudioPageClient() {
 
   const mode = parseMode(searchParams.get("mode"));
   const kindParam = searchParams.get("kind");
+  const workspaceKey =
+    searchParams.toString() ||
+    `${sessionIdFromUrl ?? sessionId}-${mode}-${kindParam ?? "canvas"}`;
   const initialTitle =
     searchParams.get("title") ??
     (kindParam === "project"
@@ -52,7 +55,7 @@ export function StudioPageClient() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-[#030303]">
       <StudioWorkspace
-        key={sessionId}
+        key={workspaceKey}
         sessionId={sessionId}
         initialMode={mode}
         initialPrompt={searchParams.get("q") ?? ""}

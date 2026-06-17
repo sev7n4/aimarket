@@ -1577,7 +1577,17 @@ export function StudioWorkspace({
                   })}
                   onMouseEnter={() => prefetchSessionCanvasBundle(s.id)}
                   onFocus={() => prefetchSessionCanvasBundle(s.id)}
-                  onClick={() => setSidebarOpen(false)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setSidebarOpen(false);
+                    router.push(
+                      studioUrlForSession({
+                        id: s.id,
+                        mode: s.mode,
+                        kind: s.kind,
+                      }),
+                    );
+                  }}
                   className={`block rounded-lg px-3 py-2 text-sm transition ${
                     s.id === sessionId
                       ? "bg-white/10 text-white"

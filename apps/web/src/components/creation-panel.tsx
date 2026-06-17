@@ -103,9 +103,11 @@ import { useSkillRun } from "@/hooks/use-skill-run";
 import type { AgentRunStatus, SkillRunStatus } from "@/lib/types";
 import { useStudioOrchestrationOptional } from "@/components/studio-orchestration-provider";
 import { StudioDockFocusButton } from "@/components/studio-dock-controls";
+import { DramaCoach } from "@/components/drama-coach";
 import {
   CreationDockToolbar,
   CreationLanePicker,
+  SkillDockPicker,
   buildDockSkillOptions,
   DRAMA_SKILL_ID,
   ECOMMERCE_SET_SKILL_ID,
@@ -1916,6 +1918,10 @@ export function CreationPanel({
         </div>
       ) : null}
 
+      {activeSkillId === DRAMA_SKILL_ID && agentLaneAvailable ? (
+        <DramaCoach active />
+      ) : null}
+
       {!effectiveCollapsed && inspirationApply && (inspirationApply.variables?.length ?? 0) > 0 ? (
         <div className="mb-3 rounded-xl border border-orange-500/20 bg-orange-500/5 p-3">
           <p className="mb-2 text-xs font-medium text-orange-200/90">
@@ -2033,6 +2039,17 @@ export function CreationPanel({
                   onChange={handleCreationLaneChange}
                   agentAvailable={agentLaneAvailable}
                   disabled={readOnly || pending || streamBusy}
+                />
+              </div>
+            ) : null}
+            {dockCompactLine && creationLane === "agent" && agentLaneAvailable ? (
+              <div className="min-w-0 shrink-0 scale-90">
+                <SkillDockPicker
+                  options={dockSkillOptions}
+                  value={dockSkillId}
+                  onChange={handleDockSkillChange}
+                  disabled={readOnly || pending || streamBusy}
+                  triggerLabel={isStudioDock ? "创意设计" : "使用技能"}
                 />
               </div>
             ) : null}

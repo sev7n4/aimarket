@@ -1,6 +1,8 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { studioUrlForSession } from "@/lib/studio-navigation";
 import type { ImageSession } from "@/lib/types";
 
@@ -12,6 +14,8 @@ interface RecentSessionsListProps {
   sessions: ImageSession[];
   variant?: "chips" | "list";
   onNavigate?: () => void;
+  /** 使用 router.push 显式导航，避免同页 query 软导航不刷新 */
+  useRouterPush?: boolean;
   showHeading?: boolean;
   className?: string;
 }
@@ -20,9 +24,31 @@ export function RecentSessionsList({
   sessions,
   variant = "chips",
   onNavigate,
+  useRouterPush = false,
   showHeading = true,
   className = "",
 }: RecentSessionsListProps) {
+  const router = useRouter();
+
+  function handleSessionClick(
+    e: MouseEvent,
+    session: ImageSession,
+  ) {
+    if (!useRouterPush) {
+      onNavigate?.();
+      return;
+    }
+    e.preventDefault();
+    onNavigate?.();
+    router.push(
+      studioUrlForSession({
+        id: session.id,
+        mode: session.mode,
+        kind: session.kind,
+      }),
+    );
+  }
+
   if (sessions.length === 0) return null;
 
   if (variant === "list") {
@@ -36,7 +62,7 @@ export function RecentSessionsList({
                 mode: s.mode,
                 kind: s.kind,
               })}
-              onClick={onNavigate}
+              onClick={(e) => handleSessionClick(e, s)}
               className="block rounded-lg px-2.5 py-2 text-sm text-zinc-400 transition hover:bg-white/5 hover:text-zinc-200"
             >
               <span className="line-clamp-1">{sessionLabel(s.title)}</span>
@@ -62,7 +88,7 @@ export function RecentSessionsList({
               mode: s.mode,
               kind: s.kind,
             })}
-            onClick={onNavigate}
+            onClick={(e) => handleSessionClick(e, s)}
             className="shrink-0 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-400 transition hover:border-orange-500/30 hover:text-zinc-200"
           >
             {sessionLabel(s.title)}

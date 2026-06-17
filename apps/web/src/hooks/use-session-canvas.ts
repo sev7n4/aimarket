@@ -135,6 +135,15 @@ export function useSessionCanvas(
 
   const autoLoad = options?.autoLoad ?? true;
 
+  useEffect(() => {
+    activeSessionRef.current = sessionId;
+    setItems([]);
+    setMessages([]);
+    setCanEdit(true);
+    persistReady.current = false;
+    skipNextSave.current = true;
+  }, [sessionId]);
+
   const load = useCallback(async (opts?: { force?: boolean }) => {
     activeSessionRef.current = sessionId;
     const bundle = await loadCanvasBundle(sessionId, opts?.force ?? false);
