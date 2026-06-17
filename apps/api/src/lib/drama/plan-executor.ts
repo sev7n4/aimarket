@@ -33,6 +33,7 @@ import {
 import { dramaProjectSchema } from "./schema.js";
 import { createDramaRun } from "./runs.js";
 import { dispatchDramaRun } from "./executor.js";
+import { formatDramaPlanError } from "./plan-errors.js";
 import { isAgentLlmEnabled } from "@aimarket/agent-core";
 
 function syncAgentsFromEvent(
@@ -203,16 +204,17 @@ async function executeDramaPlanRun(runId: string, userId: string) {
         fallbackErr instanceof Error
           ? fallbackErr.message
           : "短剧规划回退失败";
+      const userError = formatDramaPlanError(fallbackMessage);
       updateDramaPlanRun(runId, {
         status: "failed",
         currentAgent: null,
-        error: fallbackMessage,
+        error: userError,
         agents,
         reasoning,
       });
       publishPlanEvent(runId, {
         type: "plan_failed",
-        error: fallbackMessage,
+        error: userError,
       });
     }
   }
@@ -288,15 +290,45 @@ async function executeDramaPlanRerun(
       ...(dramaRunId ? { dramaRunId } : {}),
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "短剧重跑失败";
-    updateDramaPlanRun(runId, {
-      status: "failed",
-      currentAgent: null,
-      error: message,
-      agents,
-      reasoning,
-    });
-    publishPlanEvent(runId, { type: "plan_failed", error: message });
+    const message =
+      err instanceof Error ? err.message : "短剧重跑失败";
+    console.warn("[drama-plan] rerun LLM failed, fallback rule-based:", message);
+
+    try {
+      resetPlanRunForRerun(runId, fromAgent, agents);
+      agents = parseAgentsJson(getDramaPlanRun(userId, runId)!);
+      const projectData = await runRuleBasedFromAgent(ctx, fromAgent, emit);
+
+      updateDramaProject(row.project_id, { project: projectData });
+      const estimatedPoints = estimateDramaPoints(projectData);
+      const dramaRunId = maybeAutoProduce(row, row.project_id);
+
+      updateDramaPlanRun(runId, {
+        status: "completed",
+        currentAgent: null,
+        agents,
+        reasoning,
+      });
+
+      publishPlanEvent(runId, {
+        type: "plan_complete",
+        projectId: row.project_id,
+        estimatedPoints,
+        ...(dramaRunId ? { dramaRunId } : {}),
+      });
+    } catch (fallbackErr) {
+      const fallbackMessage =
+        fallbackErr instanceof Error ? fallbackErr.message : "短剧重跑回退失败";
+      const userError = formatDramaPlanError(fallbackMessage);
+      updateDramaPlanRun(runId, {
+        status: "failed",
+        currentAgent: null,
+        error: userError,
+        agents,
+        reasoning,
+      });
+      publishPlanEvent(runId, { type: "plan_failed", error: userError });
+    }
   }
 }
 
