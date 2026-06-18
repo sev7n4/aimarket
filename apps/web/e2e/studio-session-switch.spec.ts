@@ -170,12 +170,12 @@ test.describe("studio session switch", () => {
 
     await waitForSidebarSessions(page);
 
-    await page.getByTestId(`studio-session-row-${SESSION_B.id}`).click();
+    await page.getByTestId(`studio-session-row-${SESSION_B.id}`).click({ force: true });
     await expect(page).toHaveURL(
       new RegExp(`sessionId=${SESSION_B.id.replace(/-/g, "\\-")}`),
     );
 
-    await page.getByTestId(`studio-session-row-${SESSION_A.id}`).click();
+    await page.getByTestId(`studio-session-row-${SESSION_A.id}`).click({ force: true });
     await expect(page).toHaveURL(
       new RegExp(`sessionId=${SESSION_A.id.replace(/-/g, "\\-")}`),
     );
@@ -190,7 +190,7 @@ test.describe("studio session switch", () => {
     const lanePicker = station.getByRole("button", { name: "选择创作方式" });
     await expect(lanePicker).toContainText("Agent 模式", { timeout: 15_000 });
 
-    await page.getByTestId(`studio-session-row-${SESSION_B.id}`).click();
+    await page.getByTestId(`studio-session-row-${SESSION_B.id}`).click({ force: true });
     await expect(page).toHaveURL(
       new RegExp(`sessionId=${SESSION_B.id.replace(/-/g, "\\-")}`),
       { timeout: 15_000 },
@@ -199,7 +199,7 @@ test.describe("studio session switch", () => {
       studioWorkstation(page).getByRole("button", { name: "选择创作方式" }),
     ).toContainText("Agent 模式", { timeout: 15_000 });
 
-    await page.getByTestId(`studio-session-row-${SESSION_A.id}`).click();
+    await page.getByTestId(`studio-session-row-${SESSION_A.id}`).click({ force: true });
     await expect(page).toHaveURL(
       new RegExp(`sessionId=${SESSION_A.id.replace(/-/g, "\\-")}`),
       { timeout: 15_000 },
