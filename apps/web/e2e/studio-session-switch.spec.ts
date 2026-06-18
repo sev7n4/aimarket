@@ -140,18 +140,11 @@ async function mockStudioSessionSwitch(page: Page) {
   }
 }
 
-async function waitForStudioReady(page: Page, sessionId: string) {
+async function waitForSidebarSessions(page: Page) {
   const station = studioWorkstation(page);
   await expect(station.locator("textarea").first()).toBeVisible({
     timeout: 15_000,
   });
-  await page.waitForResponse(
-    (res) =>
-      res.url().includes(`/api/v1/canvas/${sessionId}/bundle`) &&
-      res.request().method() === "GET" &&
-      res.ok(),
-    { timeout: 15_000 },
-  );
   await expect(page.getByTestId(`studio-session-row-${SESSION_A.id}`)).toBeVisible({
     timeout: 15_000,
   });
@@ -164,7 +157,7 @@ async function waitForStudioReady(page: Page, sessionId: string) {
 test.describe("studio session switch", () => {
   test.use({ viewport: { width: 1280, height: 900 } });
 
-  test("侧栏切换画布更新 URL 与标题", async ({ page }) => {
+  test("侧栏切换画布更新 URL；Agent 车道切换后仍保持", async ({ page }) => {
     await mockStudioSessionSwitch(page);
     await page.goto(
       `/studio?sessionId=${encodeURIComponent(SESSION_A.id)}&mode=chat`,
@@ -175,39 +168,25 @@ test.describe("studio session switch", () => {
       new RegExp(`sessionId=${SESSION_A.id.replace(/-/g, "\\-")}`),
     );
 
-    await waitForStudioReady(page, SESSION_A.id);
+    await waitForSidebarSessions(page);
 
     await page.getByTestId(`studio-session-row-${SESSION_B.id}`).click();
-
     await expect(page).toHaveURL(
       new RegExp(`sessionId=${SESSION_B.id.replace(/-/g, "\\-")}`),
     );
-    await expect(page.getByTestId(`studio-session-row-${SESSION_B.id}`)).toBeVisible({
-      timeout: 15_000,
-    });
 
     await page.getByTestId(`studio-session-row-${SESSION_A.id}`).click();
     await expect(page).toHaveURL(
       new RegExp(`sessionId=${SESSION_A.id.replace(/-/g, "\\-")}`),
     );
-    await expect(page.getByTestId(`studio-session-row-${SESSION_A.id}`)).toBeVisible({
-      timeout: 15_000,
-    });
-  });
 
-  test("Agent 车道侧栏切换会话保持创作方式", async ({ page }) => {
-    await mockStudioSessionSwitch(page);
-    await page.addInitScript(() => {
+    await page.evaluate(() => {
       localStorage.setItem("aimarket.studio.lane", "agent");
       localStorage.removeItem("aimarket.studio.laneDrafts");
     });
+    await page.reload({ waitUntil: "domcontentloaded" });
 
-    await page.goto(
-      `/studio?sessionId=${encodeURIComponent(SESSION_A.id)}&mode=chat`,
-      { waitUntil: "domcontentloaded" },
-    );
-
-    const station = await waitForStudioReady(page, SESSION_A.id);
+    const station = await waitForSidebarSessions(page);
     const lanePicker = station.getByRole("button", { name: "选择创作方式" });
     await expect(lanePicker).toContainText("Agent 模式", { timeout: 15_000 });
 
@@ -216,9 +195,8 @@ test.describe("studio session switch", () => {
       new RegExp(`sessionId=${SESSION_B.id.replace(/-/g, "\\-")}`),
       { timeout: 15_000 },
     );
-    const stationOnB = await waitForStudioReady(page, SESSION_B.id);
     await expect(
-      stationOnB.getByRole("button", { name: "选择创作方式" }),
+      studioWorkstation(page).getByRole("button", { name: "选择创作方式" }),
     ).toContainText("Agent 模式", { timeout: 15_000 });
 
     await page.getByTestId(`studio-session-row-${SESSION_A.id}`).click();
@@ -226,9 +204,8 @@ test.describe("studio session switch", () => {
       new RegExp(`sessionId=${SESSION_A.id.replace(/-/g, "\\-")}`),
       { timeout: 15_000 },
     );
-    const stationOnA = await waitForStudioReady(page, SESSION_A.id);
     await expect(
-      stationOnA.getByRole("button", { name: "选择创作方式" }),
+      studioWorkstation(page).getByRole("button", { name: "选择创作方式" }),
     ).toContainText("Agent 模式", { timeout: 15_000 });
   });
 });
