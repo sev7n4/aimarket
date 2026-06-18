@@ -352,21 +352,6 @@ export function StudioWorkspace({
     [sessionId, router],
   );
 
-  const navigateToSession = useCallback(
-    (s: ImageSession) => {
-      if (s.id === sessionId) return;
-      setSidebarOpen(false);
-      router.push(
-        studioUrlForSession({
-          id: s.id,
-          mode: s.mode,
-          kind: s.kind,
-        }),
-      );
-    },
-    [sessionId, router],
-  );
-
   useEffect(() => {
     if (!user || sessions.length === 0) return;
     for (const s of sessions.slice(0, 8)) {
@@ -1610,18 +1595,21 @@ export function StudioWorkspace({
           <ul className="mt-2 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain">
             {sessions.map((s) => (
               <li key={s.id} className="group">
-                <div
-                  role="button"
-                  tabIndex={0}
+                <Link
+                  href={studioUrlForSession({
+                    id: s.id,
+                    mode: s.mode,
+                    kind: s.kind,
+                  })}
                   data-testid={`studio-session-row-${s.id}`}
                   onMouseEnter={() => prefetchSessionCanvasBundle(s.id)}
                   onFocus={() => prefetchSessionCanvasBundle(s.id)}
-                  onClick={() => navigateToSession(s)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
+                  onClick={(e) => {
+                    if (s.id === sessionId) {
                       e.preventDefault();
-                      navigateToSession(s);
+                      return;
                     }
+                    setSidebarOpen(false);
                   }}
                   className={`block w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm transition ${
                     s.id === sessionId
@@ -1646,7 +1634,7 @@ export function StudioWorkspace({
                   <div className="text-[10px] text-zinc-600">
                     画布 · {s.mode}
                   </div>
-                </div>
+                </Link>
               </li>
             ))}
           </ul>
