@@ -818,7 +818,11 @@ export function CreationPanel({
     ? studioOrch!.agentBusy
     : agentBusy;
 
+  const sessionResetKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    const resetKey = sessionId ?? "";
+    if (sessionResetKeyRef.current === resetKey) return;
+    sessionResetKeyRef.current = resetKey;
     sessionEnsuredRef.current = false;
     if (!studioOrchestrationActive) {
       resetAgentRun();

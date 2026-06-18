@@ -226,9 +226,15 @@ test.describe("studio session switch", () => {
     );
 
     const station = await waitForSidebarSessions(page);
+    await page.waitForResponse(
+      (res) =>
+        res.url().includes(`/api/v1/canvas/${SESSION_A.id}/bundle`) && res.ok(),
+      { timeout: 15_000 },
+    );
     const textarea = station.locator("textarea").first();
+    await textarea.click();
     await textarea.fill("旧会话 Agent 提示词，切换后不应残留");
-    await expect(textarea).toHaveValue(/旧会话 Agent/);
+    await expect(textarea).toHaveValue(/旧会话 Agent/, { timeout: 10_000 });
 
     await navigateToSessionRow(page, SESSION_B.id);
 

@@ -269,7 +269,11 @@ export function StudioOrchestrationProvider({
     },
   });
 
+  const orchestrationResetKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    const resetKey = `${sessionId}:${mode}`;
+    if (orchestrationResetKeyRef.current === resetKey) return;
+    orchestrationResetKeyRef.current = resetKey;
     resetAgentRun();
     resetSkillRun();
     setDramaRun(null);
