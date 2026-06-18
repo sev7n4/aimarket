@@ -824,9 +824,18 @@ export function CreationPanel({
       resetAgentRun();
       resetSkillRun();
     }
+    setPrompt("");
+    setAssetIds([]);
+    setUploadPreviews([]);
+    setProductAssetId(null);
+    setReferenceAssetId(null);
+    setSelectedRefs([]);
+    setMentionedAssetIds([]);
+    setMentionedAssetPreviews([]);
+    setMentionedMasks([]);
     setSelectedSkillId(null);
     setDockSkillId(null);
-  }, [sessionId, resetAgentRun, resetSkillRun, studioOrchestrationActive]);
+  }, [sessionId, resetAgentRun, resetSkillRun, studioOrchestrationActive, setPrompt]);
 
   useEffect(() => {
     if (!studioOrchestrationActive || !studioOrch) return;

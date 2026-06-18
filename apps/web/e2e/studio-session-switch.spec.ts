@@ -225,4 +225,44 @@ test.describe("studio session switch", () => {
       studioWorkstation(page).getByRole("button", { name: "选择创作方式" }),
     ).toContainText("Agent 模式", { timeout: 15_000 });
   });
+
+  test("Agent 车道有 prompt 时切换会话清空输入并展示目标画布", async ({
+    page,
+  }) => {
+    await mockStudioSessionSwitch(page);
+    await page.addInitScript(() => {
+      localStorage.setItem("aimarket.studio.lane", "agent");
+      localStorage.removeItem("aimarket.studio.laneDrafts");
+    });
+
+    await page.goto(
+      `/studio?sessionId=${encodeURIComponent(SESSION_A.id)}&mode=chat`,
+      { waitUntil: "domcontentloaded" },
+    );
+
+    const station = await waitForSidebarSessions(page);
+    await expect(
+      page.getByTestId(`canvas-item-item-${SESSION_A.id}`),
+    ).toBeVisible({ timeout: 15_000 });
+
+    const textarea = station.locator("textarea").first();
+    await textarea.fill("旧会话 Agent 提示词，切换后不应残留");
+    await expect(textarea).toHaveValue(/旧会话 Agent/);
+
+    await page.getByTestId(`studio-session-row-${SESSION_B.id}`).click();
+    await expect(page).toHaveURL(
+      new RegExp(`sessionId=${SESSION_B.id.replace(/-/g, "\\-")}`),
+      { timeout: 15_000 },
+    );
+
+    await expect(station.locator("textarea").first()).toHaveValue("", {
+      timeout: 15_000,
+    });
+    await expect(
+      page.getByTestId(`canvas-item-item-${SESSION_B.id}`),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("orchestration-timeline-section")).toHaveCount(
+      0,
+    );
+  });
 });

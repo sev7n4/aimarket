@@ -285,6 +285,7 @@ export function StudioOrchestrationProvider({
       effectiveMode: mode,
       focusEditActive: false,
     }));
+    setOrchestrationResetTick((t) => t + 1);
     cancelDramaPlanWatch();
     resetDramaPlan();
   }, [
