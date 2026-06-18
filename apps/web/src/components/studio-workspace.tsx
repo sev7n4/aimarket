@@ -1613,6 +1613,7 @@ export function StudioWorkspace({
                 <div
                   role="button"
                   tabIndex={0}
+                  data-testid={`studio-session-row-${s.id}`}
                   onMouseEnter={() => prefetchSessionCanvasBundle(s.id)}
                   onFocus={() => prefetchSessionCanvasBundle(s.id)}
                   onClick={() => navigateToSession(s)}
