@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -23,7 +24,10 @@ import { useDramaRun } from "@/hooks/use-drama-run";
 import { useDramaPlan, type DramaPlanRunState } from "@/hooks/use-drama-plan";
 import { useSkillRun } from "@/hooks/use-skill-run";
 import type { AgentPlan, AgentRun, DramaRun, SkillRun } from "@/lib/types";
-import type { CreationLane } from "@/lib/creation-dock-prefs";
+import {
+  defaultCreationLaneForScope,
+  type CreationLane,
+} from "@/lib/creation-dock-prefs";
 import { shouldOrchestrationHandleSubmit } from "@/lib/creation-lane-submit";
 import {
   submitAgentOrchestration,
@@ -132,11 +136,12 @@ export function StudioOrchestrationProvider({
   const orchestrationEnabled = Boolean(user) && !readOnly;
   const [input, setInput] = useState<StudioOrchestrationInput>({
     prompt: "",
-    creationLane: "agent",
+    creationLane: defaultCreationLaneForScope("studio"),
     activeSkillId: null,
     effectiveMode: mode,
     focusEditActive: false,
   });
+  const timelineSessionRef = useRef(sessionId);
   const [agentPreviewPlan, setAgentPreviewPlan] = useState<AgentPlan | null>(
     null,
   );
@@ -273,13 +278,13 @@ export function StudioOrchestrationProvider({
     setDramaAutoProduce(false);
     setAgentPreviewPlan(null);
     setPersistedTimeline(null);
-    setInput({
+    setInput((prev) => ({
+      ...prev,
       prompt: "",
-      creationLane: "agent",
       activeSkillId: null,
       effectiveMode: mode,
       focusEditActive: false,
-    });
+    }));
     cancelDramaPlanWatch();
     resetDramaPlan();
   }, [
@@ -319,7 +324,6 @@ export function StudioOrchestrationProvider({
           setInput((prev) => ({
             ...prev,
             prompt: state.planRun!.userIdea,
-            creationLane: "agent",
             activeSkillId: DRAMA_SKILL_ID,
           }));
         }
@@ -421,6 +425,11 @@ export function StudioOrchestrationProvider({
   const timelineEvent = dramaRunTimeline ?? dramaPlanTimeline ?? agentSkillTimeline;
 
   useEffect(() => {
+    if (timelineSessionRef.current !== sessionId) {
+      timelineSessionRef.current = sessionId;
+      setPersistedTimeline(null);
+      return;
+    }
     setPersistedTimeline((prev) => {
       if (timelineEvent) return timelineEvent;
       if (prev?.runType === "drama_plan") return null;
@@ -434,7 +443,7 @@ export function StudioOrchestrationProvider({
       }
       return null;
     });
-  }, [timelineEvent]);
+  }, [timelineEvent, sessionId]);
 
   const cancelOrchestration = useCallback(async () => {
     if (dramaRun) await cancelDramaRunAction();

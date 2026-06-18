@@ -83,6 +83,13 @@ async function mockStudioSessionSwitch(page: Page) {
 
   await page.route("**/api/v1/events", (route) => route.fulfill({ status: 204, body: "" }));
 
+  await page.route("**/api/v1/drama/sessions/*/state", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ data: {} }),
+    }),
+  );
+
   for (const session of [SESSION_A, SESSION_B]) {
     await page.route(`**/api/v1/imageSession/${session.id}`, (route) =>
       route.fulfill({
@@ -162,5 +169,37 @@ test.describe("studio session switch", () => {
       new RegExp(`sessionId=${SESSION_A.id.replace(/-/g, "\\-")}`),
     );
     await expect(alphaRow.first()).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("Agent 车道侧栏切换会话保持创作方式", async ({ page }) => {
+    await mockStudioSessionSwitch(page);
+    await page.addInitScript(() => {
+      localStorage.setItem("aimarket.studio.lane", "agent");
+    });
+
+    await page.goto(
+      `/studio?sessionId=${encodeURIComponent(SESSION_A.id)}&mode=chat`,
+      { waitUntil: "domcontentloaded" },
+    );
+
+    const station = studioWorkstation(page);
+    await expect(station.locator("textarea").first()).toBeVisible({
+      timeout: 15_000,
+    });
+
+    const lanePicker = station.getByRole("button", { name: "选择创作方式" });
+    await expect(lanePicker).toContainText("Agent 模式", { timeout: 15_000 });
+
+    await page.getByRole("button", { name: /画布 Beta/ }).click();
+    await expect(page).toHaveURL(
+      new RegExp(`sessionId=${SESSION_B.id.replace(/-/g, "\\-")}`),
+    );
+    await expect(lanePicker).toContainText("Agent 模式", { timeout: 15_000 });
+
+    await page.getByRole("button", { name: /画布 Alpha/ }).click();
+    await expect(page).toHaveURL(
+      new RegExp(`sessionId=${SESSION_A.id.replace(/-/g, "\\-")}`),
+    );
+    await expect(lanePicker).toContainText("Agent 模式", { timeout: 15_000 });
   });
 });
