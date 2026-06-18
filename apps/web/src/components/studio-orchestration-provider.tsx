@@ -269,7 +269,11 @@ export function StudioOrchestrationProvider({
     },
   });
 
+  const orchestrationResetKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    const resetKey = `${sessionId}:${mode}`;
+    if (orchestrationResetKeyRef.current === resetKey) return;
+    orchestrationResetKeyRef.current = resetKey;
     resetAgentRun();
     resetSkillRun();
     setDramaRun(null);
@@ -285,6 +289,7 @@ export function StudioOrchestrationProvider({
       effectiveMode: mode,
       focusEditActive: false,
     }));
+    setOrchestrationResetTick((t) => t + 1);
     cancelDramaPlanWatch();
     resetDramaPlan();
   }, [

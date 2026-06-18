@@ -231,6 +231,7 @@ export function StudioWorkspace({
 
   useEffect(() => {
     setFetchedSessionTitle(null);
+    setStudioPrompt("");
   }, [sessionId]);
 
 

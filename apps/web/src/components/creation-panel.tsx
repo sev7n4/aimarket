@@ -818,15 +818,28 @@ export function CreationPanel({
     ? studioOrch!.agentBusy
     : agentBusy;
 
+  const sessionResetKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    const resetKey = sessionId ?? "";
+    if (sessionResetKeyRef.current === resetKey) return;
+    sessionResetKeyRef.current = resetKey;
     sessionEnsuredRef.current = false;
     if (!studioOrchestrationActive) {
       resetAgentRun();
       resetSkillRun();
     }
+    setPrompt("");
+    setAssetIds([]);
+    setUploadPreviews([]);
+    setProductAssetId(null);
+    setReferenceAssetId(null);
+    setSelectedRefs([]);
+    setMentionedAssetIds([]);
+    setMentionedAssetPreviews([]);
+    setMentionedMasks([]);
     setSelectedSkillId(null);
     setDockSkillId(null);
-  }, [sessionId, resetAgentRun, resetSkillRun, studioOrchestrationActive]);
+  }, [sessionId, resetAgentRun, resetSkillRun, studioOrchestrationActive, setPrompt]);
 
   useEffect(() => {
     if (!studioOrchestrationActive || !studioOrch) return;
