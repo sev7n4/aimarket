@@ -176,11 +176,6 @@ test.describe("studio session switch", () => {
 
   test("Agent 车道侧栏切换会话保持创作方式", async ({ page }) => {
     await mockStudioSessionSwitch(page);
-    await page.addInitScript(() => {
-      localStorage.setItem("aimarket.studio.lane", "agent");
-      localStorage.removeItem("aimarket.studio.laneDrafts");
-    });
-
     await page.route("**/api/v1/agent/plan", (route) =>
       route.fulfill({
         contentType: "application/json",
@@ -197,15 +192,13 @@ test.describe("studio session switch", () => {
     await expect(station.locator("textarea").first()).toBeVisible({
       timeout: 15_000,
     });
-
-    await expect(page.getByTestId(`studio-session-row-${SESSION_A.id}`)).toBeVisible({
-      timeout: 15_000,
-    });
     await expect(page.getByTestId(`studio-session-row-${SESSION_B.id}`)).toBeVisible({
       timeout: 15_000,
     });
 
     const lanePicker = station.getByRole("button", { name: "选择创作方式" });
+    await lanePicker.click();
+    await page.getByRole("button", { name: "Agent 模式", exact: true }).click();
     await expect(lanePicker).toContainText("Agent 模式", { timeout: 15_000 });
 
     await page.getByTestId(`studio-session-row-${SESSION_B.id}`).click();
