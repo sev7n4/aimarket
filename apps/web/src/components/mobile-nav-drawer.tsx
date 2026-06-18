@@ -1,9 +1,12 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/brand-logo";
 import { X } from "lucide-react";
 import { HomeRecentSessions } from "@/components/home-recent-sessions";
+import { clientNavigate } from "@/lib/client-navigate";
 import { LABELS } from "@/lib/mobile-labels";
 
 interface MobileNavDrawerProps {
@@ -21,7 +24,15 @@ const links = [
 ];
 
 export function MobileNavDrawer({ open, onClose }: MobileNavDrawerProps) {
+  const router = useRouter();
+
   if (!open) return null;
+
+  function handleNavClick(e: MouseEvent, href: string) {
+    e.preventDefault();
+    onClose();
+    clientNavigate(router, href);
+  }
 
   return (
     <>
@@ -48,7 +59,7 @@ export function MobileNavDrawer({ open, onClose }: MobileNavDrawerProps) {
             <li key={l.href}>
               <Link
                 href={l.href}
-                onClick={onClose}
+                onClick={(e) => handleNavClick(e, l.href)}
                 className="block rounded-lg px-3 py-2 text-sm text-zinc-400 hover:bg-white/5 hover:text-white"
               >
                 {l.label}

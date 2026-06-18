@@ -1505,7 +1505,7 @@ export function CreationPanel({
           assetIds.map((aid) => ({ id: aid, url: "" })),
         );
       }
-      router.push(`/studio?${params.toString()}`);
+      clientNavigate(router, `/studio?${params.toString()}`);
       return;
     }
 

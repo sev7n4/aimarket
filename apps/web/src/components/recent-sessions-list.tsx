@@ -3,6 +3,7 @@
 import type { MouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { clientNavigate } from "@/lib/client-navigate";
 import { studioUrlForSession } from "@/lib/studio-navigation";
 import type { ImageSession } from "@/lib/types";
 
@@ -34,13 +35,10 @@ export function RecentSessionsList({
     e: MouseEvent,
     session: ImageSession,
   ) {
-    if (!useRouterPush) {
-      onNavigate?.();
-      return;
-    }
     e.preventDefault();
     onNavigate?.();
-    router.push(
+    clientNavigate(
+      router,
       studioUrlForSession({
         id: session.id,
         mode: session.mode,
