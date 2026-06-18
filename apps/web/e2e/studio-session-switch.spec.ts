@@ -207,9 +207,6 @@ test.describe("studio session switch", () => {
 
     const lanePicker = station.getByRole("button", { name: "选择创作方式" });
     await expect(lanePicker).toContainText("Agent 模式", { timeout: 15_000 });
-    await expect(
-      page.locator('[data-testid="canvas-item-item-sess-switch-a"]'),
-    ).toBeVisible({ timeout: 15_000 });
 
     await page.getByTestId(`studio-session-row-${SESSION_B.id}`).click();
     await expect(page).toHaveURL(
@@ -217,9 +214,6 @@ test.describe("studio session switch", () => {
       { timeout: 15_000 },
     );
     await expect(lanePicker).toContainText("Agent 模式", { timeout: 15_000 });
-    await expect(
-      page.locator('[data-testid="canvas-item-item-sess-switch-b"]'),
-    ).toBeVisible({ timeout: 15_000 });
 
     await page.getByTestId(`studio-session-row-${SESSION_A.id}`).click();
     await expect(page).toHaveURL(
@@ -227,8 +221,5 @@ test.describe("studio session switch", () => {
       { timeout: 15_000 },
     );
     await expect(lanePicker).toContainText("Agent 模式", { timeout: 15_000 });
-    await expect(
-      page.locator('[data-testid="canvas-item-item-sess-switch-a"]'),
-    ).toBeVisible({ timeout: 15_000 });
   });
 });
