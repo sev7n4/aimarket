@@ -134,14 +134,6 @@ export function AppLeftRail({
     setRecentOpen(true);
   }, []);
 
-  const toggleRecent = useCallback(() => {
-    if (recentCloseTimer.current) {
-      clearTimeout(recentCloseTimer.current);
-      recentCloseTimer.current = null;
-    }
-    setRecentOpen((open) => !open);
-  }, []);
-
   const scheduleCloseRecent = useCallback(() => {
     if (recentCloseTimer.current) clearTimeout(recentCloseTimer.current);
     recentCloseTimer.current = setTimeout(() => setRecentOpen(false), 180);
@@ -216,7 +208,7 @@ export function AppLeftRail({
             label="最近"
             active={recentOpen}
             testId="home-recent-rail-btn"
-            onClick={toggleRecent}
+            onClick={openRecent}
           >
             <span className="flex size-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03]">
               <Clock className="size-4" />
