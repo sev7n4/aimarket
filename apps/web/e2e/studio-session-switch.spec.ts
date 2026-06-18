@@ -145,22 +145,22 @@ test.describe("studio session switch", () => {
       timeout: 15_000,
     });
 
-    const alphaLink = page.getByRole("link", { name: /画布 Alpha/ });
-    await expect(alphaLink.first()).toBeVisible({ timeout: 15_000 });
+    const alphaRow = page.getByRole("button", { name: /画布 Alpha/ });
+    await expect(alphaRow.first()).toBeVisible({ timeout: 15_000 });
 
-    await page.getByRole("link", { name: /画布 Beta/ }).click();
+    await page.getByRole("button", { name: /画布 Beta/ }).click();
 
     await expect(page).toHaveURL(
       new RegExp(`sessionId=${SESSION_B.id.replace(/-/g, "\\-")}`),
     );
-    await expect(page.getByRole("link", { name: /画布 Beta/ }).first()).toBeVisible({
+    await expect(page.getByRole("button", { name: /画布 Beta/ }).first()).toBeVisible({
       timeout: 15_000,
     });
 
-    await page.getByRole("link", { name: /画布 Alpha/ }).click();
+    await page.getByRole("button", { name: /画布 Alpha/ }).click();
     await expect(page).toHaveURL(
       new RegExp(`sessionId=${SESSION_A.id.replace(/-/g, "\\-")}`),
     );
-    await expect(alphaLink.first()).toBeVisible({ timeout: 15_000 });
+    await expect(alphaRow.first()).toBeVisible({ timeout: 15_000 });
   });
 });

@@ -331,12 +331,41 @@ export function StudioWorkspace({
   );
   const [toolConfirmPending, setToolConfirmPending] = useState(false);
 
-  const handleWorkspaceChange = useCallback((id: string) => {
-    setActiveWorkspaceId(id);
-    void listSessions(STUDIO_SIDEBAR_SESSION_LIMIT, undefined, id).then(
-      setSessions,
-    );
-  }, []);
+  const handleWorkspaceChange = useCallback(
+    (id: string) => {
+      setActiveWorkspaceId(id);
+      void listSessions(STUDIO_SIDEBAR_SESSION_LIMIT, undefined, id).then(
+        (list) => {
+          setSessions(list);
+          if (list.length > 0 && !list.some((s) => s.id === sessionId)) {
+            router.push(
+              studioUrlForSession({
+                id: list[0]!.id,
+                mode: list[0]!.mode,
+                kind: list[0]!.kind,
+              }),
+            );
+          }
+        },
+      );
+    },
+    [sessionId, router],
+  );
+
+  const navigateToSession = useCallback(
+    (s: ImageSession) => {
+      if (s.id === sessionId) return;
+      setSidebarOpen(false);
+      router.push(
+        studioUrlForSession({
+          id: s.id,
+          mode: s.mode,
+          kind: s.kind,
+        }),
+      );
+    },
+    [sessionId, router],
+  );
 
   useEffect(() => {
     if (!user || sessions.length === 0) return;
@@ -510,8 +539,9 @@ export function StudioWorkspace({
     }
     const stored = getActiveWorkspaceId();
     if (stored) setActiveWorkspaceId(stored);
+    setReady(false);
     initSession().catch(() => setReady(true));
-  }, [authLoading, user, initSession]);
+  }, [authLoading, user, sessionId, initSession]);
 
   useEffect(() => {
     if (!initialJobId || !user) return;
@@ -1580,26 +1610,19 @@ export function StudioWorkspace({
           <ul className="mt-2 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain">
             {sessions.map((s) => (
               <li key={s.id} className="group">
-                <Link
-                  href={studioUrlForSession({
-                    id: s.id,
-                    mode: s.mode,
-                    kind: s.kind,
-                  })}
+                <div
+                  role="button"
+                  tabIndex={0}
                   onMouseEnter={() => prefetchSessionCanvasBundle(s.id)}
                   onFocus={() => prefetchSessionCanvasBundle(s.id)}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setSidebarOpen(false);
-                    router.push(
-                      studioUrlForSession({
-                        id: s.id,
-                        mode: s.mode,
-                        kind: s.kind,
-                      }),
-                    );
+                  onClick={() => navigateToSession(s)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      navigateToSession(s);
+                    }
                   }}
-                  className={`block rounded-lg px-3 py-2 text-sm transition ${
+                  className={`block w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm transition ${
                     s.id === sessionId
                       ? "bg-white/10 text-white"
                       : "text-zinc-500 hover:bg-white/5"
@@ -1622,7 +1645,7 @@ export function StudioWorkspace({
                   <div className="text-[10px] text-zinc-600">
                     画布 · {s.mode}
                   </div>
-                </Link>
+                </div>
               </li>
             ))}
           </ul>
