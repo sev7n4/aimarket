@@ -10,6 +10,7 @@ import { RecentSessionsList } from "@/components/recent-sessions-list";
 import { StudioWorkspaceFooter } from "@/components/studio-workspace-footer";
 import { useRecentSessions } from "@/hooks/use-recent-sessions";
 import { BRAND_NAME } from "@/lib/brand";
+import { clientNavigate } from "@/lib/client-navigate";
 import { buildStudioUrl } from "@/lib/studio-navigation";
 
 /** 全局左轨宽度（与 pl-14 / left-14 一致） */
@@ -99,7 +100,8 @@ export function AppLeftRail({
   const recentCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const openStudio = useCallback(() => {
-    router.push(
+    clientNavigate(
+      router,
       buildStudioUrl("canvas", { title: "未命名", newDraft: false }),
     );
   }, [router]);
@@ -108,7 +110,7 @@ export function AppLeftRail({
     (sectionId: string, expandKits?: boolean) => {
       if (pathname !== "/") {
         const hash = sectionId === "inspiration-kits" ? "#inspiration-kits" : "#inspiration";
-        router.push(`/${hash}`);
+        clientNavigate(router, `/${hash}`);
         return;
       }
       if (expandKits) {
@@ -130,6 +132,14 @@ export function AppLeftRail({
       recentCloseTimer.current = null;
     }
     setRecentOpen(true);
+  }, []);
+
+  const toggleRecent = useCallback(() => {
+    if (recentCloseTimer.current) {
+      clearTimeout(recentCloseTimer.current);
+      recentCloseTimer.current = null;
+    }
+    setRecentOpen((open) => !open);
   }, []);
 
   const scheduleCloseRecent = useCallback(() => {
@@ -206,6 +216,7 @@ export function AppLeftRail({
             label="最近"
             active={recentOpen}
             testId="home-recent-rail-btn"
+            onClick={toggleRecent}
           >
             <span className="flex size-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03]">
               <Clock className="size-4" />

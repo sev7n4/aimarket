@@ -17,6 +17,18 @@ test.describe("mobile collab", () => {
     await expect(page.getByRole("button", { name: "打开菜单" })).toBeVisible();
   });
 
+  test("移动抽屉创作页与项目库可跳转", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "打开菜单" }).click();
+    await page.getByRole("link", { name: "创作页" }).click();
+    await expect(page).toHaveURL(/\/studio/, { timeout: 15_000 });
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "打开菜单" }).click();
+    await page.getByRole("link", { name: "项目库" }).click();
+    await expect(page).toHaveURL(/\/projects/, { timeout: 15_000 });
+  });
+
   test("首页移动 dock 下滑到底部为伸展态", async ({ page }) => {
     await page.goto("/");
     const dock = page.locator('[data-home-floating-dock="true"]');

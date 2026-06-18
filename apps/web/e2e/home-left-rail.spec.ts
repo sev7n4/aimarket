@@ -72,6 +72,28 @@ test.describe("home left rail", () => {
     ).toBeVisible();
   });
 
+  test("开始创作跳转到创作页", async ({ page }) => {
+    await mockSignedInHome(page);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+
+    await page
+      .getByTestId("app-left-rail")
+      .getByRole("button", { name: "开始创作" })
+      .click();
+    await expect(page).toHaveURL(/\/studio\?.*sessionId=/, { timeout: 15_000 });
+  });
+
+  test("最近列表项点击跳转到对应画布", async ({ page }) => {
+    await mockSignedInHome(page);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+
+    await page.getByTestId("home-recent-rail-btn").click();
+    const popover = page.getByTestId("home-recent-popover");
+    await expect(popover).toBeVisible();
+    await popover.getByRole("link", { name: "春季主图" }).click();
+    await expect(page).toHaveURL(/sessionId=sess-rail-1/, { timeout: 15_000 });
+  });
+
   test("未登录用户桌面端展示左轨且无汉堡菜单", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("app-left-rail")).toBeVisible();
