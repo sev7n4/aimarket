@@ -36,6 +36,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "zh_CN",
     siteName: BRAND_NAME,
+    images: [{ url: "/brand/mascot-256.png", width: 256, height: 256, alt: BRAND_NAME }],
   },
   twitter: {
     card: "summary_large_image",

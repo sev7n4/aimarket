@@ -1,112 +1,66 @@
 "use client";
 
-import { useId } from "react";
+import Image from "next/image";
+import { BRAND_MASCOT } from "@/lib/brand";
 
 const sizes = {
   sm: 28,
   md: 32,
   lg: 48,
+  xl: 72,
+  hero: 140,
 } as const;
 
+type BrandMarkSize = keyof typeof sizes;
+
+function mascotSrcForPx(px: number): string {
+  if (px <= 32) return BRAND_MASCOT.xs;
+  if (px <= 48) return BRAND_MASCOT.sm;
+  if (px <= 72) return BRAND_MASCOT.md;
+  if (px <= 140) return BRAND_MASCOT.lg;
+  return BRAND_MASCOT.full;
+}
+
 interface BrandMarkIconProps {
-  size?: keyof typeof sizes;
+  size?: BrandMarkSize;
   className?: string;
+  /** mark：导航/侧栏小标；hero：首页主视觉 */
+  presentation?: "mark" | "hero";
 }
 
 /**
- * 墨鱼科技图形标：墨鱼穹顶 + π 触须 + 墨滴涟漪（深海墨蓝 → 创意紫）
+ * 墨鱼π 图形标：3D 墨鱼吉祥物（透明底）
  */
 export function BrandMarkIcon({
   size = "md",
   className = "",
+  presentation = "mark",
 }: BrandMarkIconProps) {
-  const uid = useId().replace(/:/g, "");
-  const inkId = `moyu-ink-${uid}`;
-  const glowId = `moyu-glow-${uid}`;
   const px = sizes[size];
+  const src = mascotSrcForPx(px);
+  const isHero = presentation === "hero";
 
   return (
-    <svg
-      width={px}
-      height={px}
-      viewBox="0 0 32 32"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={`shrink-0 ${className}`}
-      aria-hidden
+    <span
+      className={`relative inline-flex shrink-0 items-center justify-center ${
+        isHero ? "brand-mascot-hero" : ""
+      } ${className}`}
+      style={{ width: px, height: px }}
     >
-      <defs>
-        <linearGradient
-          id={inkId}
-          x1="4"
-          y1="3"
-          x2="28"
-          y2="29"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor="#22D3EE" />
-          <stop offset="0.45" stopColor="#6366F1" />
-          <stop offset="1" stopColor="#A855F7" />
-        </linearGradient>
-        <radialGradient
-          id={glowId}
-          cx="0"
-          cy="0"
-          r="1"
-          gradientUnits="userSpaceOnUse"
-          gradientTransform="translate(16 17) rotate(90) scale(14)"
-        >
-          <stop stopColor="#22D3EE" stopOpacity="0.35" />
-          <stop offset="1" stopColor="#22D3EE" stopOpacity="0" />
-        </radialGradient>
-      </defs>
-      {/* 墨滴底晕 */}
-      <circle cx="16" cy="17" r="14" fill={`url(#${glowId})`} />
-      {/* 墨鱼穹顶 */}
-      <path
-        d="M16 4.5c5.2 0 9.5 3.4 9.5 7.6 0 2.2-1.1 4.2-2.9 5.4-.8.5-1.7.8-2.7 1h-7.8c-1 0-1.9-.3-2.7-.8-1.8-1.2-2.9-3.2-2.9-5.6C6.5 7.9 10.8 4.5 16 4.5Z"
-        fill={`url(#${inkId})`}
+      <Image
+        src={src}
+        alt=""
+        width={px}
+        height={px}
+        sizes={`${px}px`}
+        priority={isHero}
+        className={
+          isHero
+            ? "size-full object-contain drop-shadow-[0_8px_24px_rgba(147,112,219,0.4)]"
+            : "size-full object-contain drop-shadow-[0_2px_8px_rgba(147,112,219,0.25)]"
+        }
+        aria-hidden
       />
-      <ellipse
-        cx="18.6"
-        cy="9.2"
-        rx="1.35"
-        ry="1.1"
-        fill="white"
-        fillOpacity="0.92"
-      />
-      <circle cx="19" cy="8.95" r="0.42" fill="#0F172A" />
-      {/* π 触须（左环 + 竖笔 + 右足） */}
-      <path
-        d="M10.8 13.8h4.1c2.05 0 3.55 1.25 3.55 3.05 0 1.55-1.15 2.75-2.95 2.95h-1.35v5.6"
-        stroke="white"
-        strokeWidth="2.15"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M19.6 13.8v11.75"
-        stroke="white"
-        strokeWidth="2.15"
-        strokeLinecap="round"
-      />
-      {/* 副触须 / 墨溅 */}
-      <path
-        d="M7.5 24.2c1.4-1.6 2.8-1.1 3.6.2"
-        stroke="#67E8F9"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-        opacity="0.65"
-      />
-      <path
-        d="M24.8 22.8c-1.3 1.5-2.7 1-3.4-.3"
-        stroke="#C4B5FD"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-        opacity="0.55"
-      />
-      <circle cx="7" cy="26.2" r="1.05" fill="#22D3EE" fillOpacity="0.55" />
-      <circle cx="25.5" cy="25.8" r="0.75" fill="#A855F7" fillOpacity="0.45" />
-    </svg>
+    </span>
   );
 }
