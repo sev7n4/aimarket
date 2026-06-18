@@ -9,6 +9,7 @@ import { getStorageStatus } from "../lib/object-storage/index.js";
 import { sqlAnalyticsSinceDays, sqlNow } from "../db/dialect.js";
 import { randomUUID } from "node:crypto";
 import {
+  archiveInspirationById,
   assertValidModelId,
   rowToCanonical,
   inspirationVariableSchema,
@@ -362,4 +363,10 @@ admin.put("/inspiration/:id", async (c) => {
   return c.json({
     data: rowToCanonical(row as unknown as InspirationRow),
   });
+});
+
+admin.delete("/inspiration/:id", (c) => {
+  const id = c.req.param("id");
+  const data = archiveInspirationById(id);
+  return c.json({ data });
 });

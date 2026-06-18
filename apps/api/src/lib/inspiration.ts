@@ -34,6 +34,9 @@ export interface InspirationRow {
   reference_assets_json: string | null;
   status: string;
   sort_order: number;
+  published_by_user_id?: string | null;
+  source_output_id?: string | null;
+  source_asset_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -150,6 +153,9 @@ export function rowToCanonical(row: InspirationRow) {
     videoUrl,
     status: row.status,
     sortOrder: row.sort_order,
+    publishedByUserId: row.published_by_user_id ?? undefined,
+    sourceOutputId: row.source_output_id ?? undefined,
+    sourceAssetId: row.source_asset_id ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -265,6 +271,16 @@ export function rowToKeywordListItem(row: InspirationRow) {
   };
 }
 
+export function getInspirationRowById(id: string) {
+  const row = db
+    .prepare(`SELECT * FROM inspiration_templates WHERE id = ?`)
+    .get(id) as InspirationRow | undefined;
+  if (!row) {
+    throw new AppError(404, "NOT_FOUND", "灵感不存在");
+  }
+  return row;
+}
+
 export function getPublishedInspirationById(id: string) {
   const row = db
     .prepare(
@@ -321,6 +337,89 @@ export function listPublishedInspirations(opts: {
     .all(...params, opts.pageSize, offset) as unknown as InspirationRow[];
 
   return { total: totalRow.c, rows };
+}
+
+export function listUserPublishedInspirations(
+  userId: string,
+  opts: { pageNum: number; pageSize: number },
+) {
+  const offset = (opts.pageNum - 1) * opts.pageSize;
+  const totalRow = db
+    .prepare(
+      `SELECT COUNT(*) as c FROM inspiration_templates
+       WHERE published_by_user_id = ? AND status = 'published'`,
+    )
+    .get(userId) as { c: number };
+
+  const rows = db
+    .prepare(
+      `SELECT * FROM inspiration_templates
+       WHERE published_by_user_id = ? AND status = 'published'
+       ORDER BY created_at DESC
+       LIMIT ? OFFSET ?`,
+    )
+    .all(userId, opts.pageSize, offset) as unknown as InspirationRow[];
+
+  return { total: totalRow.c, rows };
+}
+
+function findActivePublishedBySource(
+  userId: string,
+  source: { outputId?: string; assetId?: string },
+) {
+  if (source.outputId) {
+    return db
+      .prepare(
+        `SELECT id FROM inspiration_templates
+         WHERE published_by_user_id = ? AND source_output_id = ? AND status = 'published'`,
+      )
+      .get(userId, source.outputId) as { id: string } | undefined;
+  }
+  if (source.assetId) {
+    return db
+      .prepare(
+        `SELECT id FROM inspiration_templates
+         WHERE published_by_user_id = ? AND source_asset_id = ? AND status = 'published'`,
+      )
+      .get(userId, source.assetId) as { id: string } | undefined;
+  }
+  return undefined;
+}
+
+export function assertUserOwnsPublishedInspiration(userId: string, id: string) {
+  const row = getInspirationRowById(id);
+  if (row.published_by_user_id !== userId) {
+    throw new AppError(403, "FORBIDDEN", "无权操作该灵感");
+  }
+  return row;
+}
+
+/** 用户撤回画廊发布（软删 status=archived） */
+export function archiveUserPublishedInspiration(userId: string, id: string) {
+  const row = assertUserOwnsPublishedInspiration(userId, id);
+  if (row.status !== "published") {
+    throw new AppError(409, "CONFLICT", "该灵感已撤回");
+  }
+  db.prepare(
+    `UPDATE inspiration_templates
+     SET status = 'archived', updated_at = datetime('now')
+     WHERE id = ?`,
+  ).run(id);
+  return { id, status: "archived" as const };
+}
+
+/** Admin / 运维：归档任意灵感（含历史无发布者记录） */
+export function archiveInspirationById(id: string) {
+  const row = getInspirationRowById(id);
+  if (row.status === "archived") {
+    throw new AppError(409, "CONFLICT", "该灵感已归档");
+  }
+  db.prepare(
+    `UPDATE inspiration_templates
+     SET status = 'archived', updated_at = datetime('now')
+     WHERE id = ?`,
+  ).run(id);
+  return { id, status: "archived" as const };
 }
 
 export function assertValidModelId(modelId: string) {
@@ -534,6 +633,14 @@ export async function createUserPublishedInspiration(
     assetId: input.assetId,
   });
 
+  const existing = findActivePublishedBySource(userId, {
+    outputId: input.outputId,
+    assetId: input.assetId,
+  });
+  if (existing) {
+    throw new AppError(409, "CONFLICT", "该画布产出已发布到灵感发现");
+  }
+
   const resolved = input.outputId
     ? resolveCanvasOutputPublishMeta(userId, input.outputId)
     : null;
@@ -597,8 +704,8 @@ export async function createUserPublishedInspiration(
     `INSERT INTO inspiration_templates (
       id, legacy_id, title, category, prompt_template, variables_json,
       model_id, aspect_ratio, resolution, cover_url, reference_assets_json,
-      status, sort_order
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      status, sort_order, published_by_user_id, source_output_id, source_asset_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     legacyId,
@@ -611,9 +718,11 @@ export async function createUserPublishedInspiration(
     resolution,
     coverUrl,
     refs === "[]" ? JSON.stringify([{ url: coverUrl }]) : refs,
-    // coverUrl 为 poster 图；视频在 reference_assets_json
     "published",
     sortOrder,
+    userId,
+    input.outputId ?? null,
+    input.assetId ?? null,
   );
 
   const row = db

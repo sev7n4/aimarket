@@ -270,6 +270,12 @@ ALTER TABLE message_outputs ADD COLUMN IF NOT EXISTS thumb_url TEXT;
 ALTER TABLE job_outputs ADD COLUMN IF NOT EXISTS thumb_url TEXT;
 ALTER TABLE assets ADD COLUMN IF NOT EXISTS thumb_url TEXT;
 
+ALTER TABLE inspiration_templates ADD COLUMN IF NOT EXISTS published_by_user_id TEXT REFERENCES users(id);
+ALTER TABLE inspiration_templates ADD COLUMN IF NOT EXISTS source_output_id TEXT;
+ALTER TABLE inspiration_templates ADD COLUMN IF NOT EXISTS source_asset_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_inspiration_publisher
+  ON inspiration_templates(published_by_user_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS agent_runs (
   id TEXT PRIMARY KEY,
   session_id TEXT NOT NULL REFERENCES image_sessions(id) ON DELETE CASCADE,

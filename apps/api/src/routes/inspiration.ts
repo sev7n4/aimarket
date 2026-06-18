@@ -1,11 +1,13 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import {
+  archiveUserPublishedInspiration,
   createUserPublishedInspiration,
   ensureInspirationRowCover,
   getPublishedInspirationById,
   getPublishedInspirationByLegacyId,
   listPublishedInspirations,
+  listUserPublishedInspirations,
   renderInspirationWithVariables,
   rowToCanonical,
   rowToKeywordDetail,
@@ -17,9 +19,9 @@ import {
 } from "../lib/video-poster.js";
 import { forkProjectFromInspiration } from "../lib/inspiration-fork.js";
 import { recordAnalyticsEvent } from "../lib/analytics.js";
-import type { AuthVariables } from "../middleware/auth.js";
+import { requireAuth, type AuthVariables } from "../middleware/auth.js";
 
-const inspiration = new Hono();
+const inspiration = new Hono<{ Variables: AuthVariables }>();
 
 const pageQuery = z.object({
   pageNum: z.coerce.number().int().min(1).default(1),
@@ -60,6 +62,42 @@ inspiration.get("/page", async (c) => {
           aspectRatio: item.aspectRatio,
           mediaType: item.mediaType,
           videoUrl: item.videoUrl,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
+        };
+      }),
+    },
+  });
+});
+
+const mineQuery = z.object({
+  pageNum: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+/** 须在 /:id 之前注册，避免被当成灵感 ID */
+inspiration.get("/mine", requireAuth, (c) => {
+  const userId = c.get("userId");
+  const q = mineQuery.parse({
+    pageNum: c.req.query("pageNum"),
+    pageSize: c.req.query("pageSize"),
+  });
+  const { total, rows } = listUserPublishedInspirations(userId, q);
+  return c.json({
+    data: {
+      total,
+      rows: rows.map((row) => {
+        const item = rowToCanonical(row);
+        return {
+          id: item.id,
+          title: item.title,
+          category: item.category,
+          coverUrl: item.coverUrl,
+          aspectRatio: item.aspectRatio,
+          mediaType: item.mediaType,
+          videoUrl: item.videoUrl,
+          sourceOutputId: item.sourceOutputId,
+          sourceAssetId: item.sourceAssetId,
           createdAt: item.createdAt,
           updatedAt: item.updatedAt,
         };
@@ -176,6 +214,16 @@ inspirationAuthed.post("/publish", async (c) => {
     modelId: data.modelId,
   });
   return c.json({ data }, 201);
+});
+
+inspirationAuthed.delete("/:id", (c) => {
+  const userId = c.get("userId");
+  const id = c.req.param("id");
+  const data = archiveUserPublishedInspiration(userId, id);
+  void recordAnalyticsEvent(userId, "inspiration.unpublish", {
+    inspirationId: id,
+  });
+  return c.json({ data });
 });
 
 inspirationAuthed.post("/:id/fork-project", async (c) => {

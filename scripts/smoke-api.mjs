@@ -953,6 +953,39 @@ async function main() {
         ? `id=${publishInsp.json?.data?.id}`
         : (publishInsp.json?.error?.message ?? `status=${publishInsp.res.status}`),
     );
+
+    const publishedId = publishInsp.json?.data?.id;
+    if (publishedId) {
+      const mine = await req("/api/v1/inspiration/mine?pageSize=10", {
+        headers: authH,
+      });
+      ok(
+        "GET inspiration/mine",
+        mine.res.ok &&
+          mine.json?.data?.rows?.some((r) => r.id === publishedId),
+        `total=${mine.json?.data?.total}`,
+      );
+
+      const unpublish = await req(
+        `/api/v1/inspiration/${publishedId}`,
+        { method: "DELETE", headers: authH },
+      );
+      ok(
+        "DELETE inspiration/:id",
+        unpublish.res.ok &&
+          unpublish.json?.data?.status === "archived",
+        `id=${publishedId}`,
+      );
+
+      const afterDetail = await req(`/api/v1/inspiration/${publishedId}`, {
+        headers: { auth: false },
+      });
+      ok(
+        "GET inspiration/:id after unpublish",
+        afterDetail.res.status === 404,
+        `status=${afterDetail.res.status}`,
+      );
+    }
   }
 
   const agentPlan = await req("/api/v1/agent/plan", {
