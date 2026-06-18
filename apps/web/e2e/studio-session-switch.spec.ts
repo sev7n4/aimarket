@@ -81,6 +81,13 @@ async function mockStudioSessionSwitch(page: Page) {
     route.fulfill({ contentType: "application/json", body: JSON.stringify({ data: [] }) }),
   );
 
+  await page.route("**/api/v1/agent/plan", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ data: { steps: [] } }),
+    }),
+  );
+
   await page.route("**/api/v1/events", (route) => route.fulfill({ status: 204, body: "" }));
 
   await page.route("**/api/v1/drama/sessions/*/state", (route) =>
@@ -133,6 +140,27 @@ async function mockStudioSessionSwitch(page: Page) {
   }
 }
 
+async function waitForStudioReady(page: Page, sessionId: string) {
+  const station = studioWorkstation(page);
+  await expect(station.locator("textarea").first()).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.waitForResponse(
+    (res) =>
+      res.url().includes(`/api/v1/canvas/${sessionId}/bundle`) &&
+      res.request().method() === "GET" &&
+      res.ok(),
+    { timeout: 15_000 },
+  );
+  await expect(page.getByTestId(`studio-session-row-${SESSION_A.id}`)).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByTestId(`studio-session-row-${SESSION_B.id}`)).toBeVisible({
+    timeout: 15_000,
+  });
+  return station;
+}
+
 test.describe("studio session switch", () => {
   test.use({ viewport: { width: 1280, height: 900 } });
 
@@ -147,14 +175,7 @@ test.describe("studio session switch", () => {
       new RegExp(`sessionId=${SESSION_A.id.replace(/-/g, "\\-")}`),
     );
 
-    const station = studioWorkstation(page);
-    await expect(station.locator("textarea").first()).toBeVisible({
-      timeout: 15_000,
-    });
-
-    await expect(page.getByTestId(`studio-session-row-${SESSION_A.id}`)).toBeVisible({
-      timeout: 15_000,
-    });
+    await waitForStudioReady(page, SESSION_A.id);
 
     await page.getByTestId(`studio-session-row-${SESSION_B.id}`).click();
 
@@ -176,29 +197,18 @@ test.describe("studio session switch", () => {
 
   test("Agent 车道侧栏切换会话保持创作方式", async ({ page }) => {
     await mockStudioSessionSwitch(page);
-    await page.route("**/api/v1/agent/plan", (route) =>
-      route.fulfill({
-        contentType: "application/json",
-        body: JSON.stringify({ data: { steps: [] } }),
-      }),
-    );
+    await page.addInitScript(() => {
+      localStorage.setItem("aimarket.studio.lane", "agent");
+      localStorage.removeItem("aimarket.studio.laneDrafts");
+    });
 
     await page.goto(
       `/studio?sessionId=${encodeURIComponent(SESSION_A.id)}&mode=chat`,
       { waitUntil: "domcontentloaded" },
     );
 
-    const station = studioWorkstation(page);
-    await expect(station.locator("textarea").first()).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(page.getByTestId(`studio-session-row-${SESSION_B.id}`)).toBeVisible({
-      timeout: 15_000,
-    });
-
+    const station = await waitForStudioReady(page, SESSION_A.id);
     const lanePicker = station.getByRole("button", { name: "选择创作方式" });
-    await lanePicker.click();
-    await page.getByRole("button", { name: "Agent 模式", exact: true }).click();
     await expect(lanePicker).toContainText("Agent 模式", { timeout: 15_000 });
 
     await page.getByTestId(`studio-session-row-${SESSION_B.id}`).click();
@@ -206,13 +216,19 @@ test.describe("studio session switch", () => {
       new RegExp(`sessionId=${SESSION_B.id.replace(/-/g, "\\-")}`),
       { timeout: 15_000 },
     );
-    await expect(lanePicker).toContainText("Agent 模式", { timeout: 15_000 });
+    const stationOnB = await waitForStudioReady(page, SESSION_B.id);
+    await expect(
+      stationOnB.getByRole("button", { name: "选择创作方式" }),
+    ).toContainText("Agent 模式", { timeout: 15_000 });
 
     await page.getByTestId(`studio-session-row-${SESSION_A.id}`).click();
     await expect(page).toHaveURL(
       new RegExp(`sessionId=${SESSION_A.id.replace(/-/g, "\\-")}`),
       { timeout: 15_000 },
     );
-    await expect(lanePicker).toContainText("Agent 模式", { timeout: 15_000 });
+    const stationOnA = await waitForStudioReady(page, SESSION_A.id);
+    await expect(
+      stationOnA.getByRole("button", { name: "选择创作方式" }),
+    ).toContainText("Agent 模式", { timeout: 15_000 });
   });
 });
