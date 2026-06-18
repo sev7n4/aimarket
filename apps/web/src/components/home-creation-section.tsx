@@ -82,7 +82,7 @@ export function HomeCreationSection({
         className="relative z-40 scroll-mt-20 px-3 pb-4 pt-10 sm:pt-12 lg:px-4 lg:pb-6 lg:pt-16 xl:pt-20"
       >
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.14),rgba(99,102,241,0.08)_42%,transparent_68%)] sm:h-56 lg:h-64"
+          className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(ellipse_at_top,rgba(168,139,235,0.16),rgba(147,112,219,0.08)_42%,transparent_68%)] sm:h-56 lg:h-64"
           aria-hidden
         />
         <div className="relative mx-auto max-w-3xl">

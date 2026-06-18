@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandMarkIcon } from "@/components/brand-mark-icon";
 import { BRAND_SLOGAN } from "@/lib/brand";
 
 function splitSlogan(text: string): [string, string] {
@@ -19,9 +20,20 @@ export function BrandSloganHeading({ className = "" }: BrandSloganHeadingProps) 
   const [lead, tail] = splitSlogan(BRAND_SLOGAN);
 
   return (
-    <div className={`relative px-1 ${className}`}>
+    <div className={`brand-slogan-hero relative px-1 ${className}`}>
       <div
-        className="brand-slogan-ornament mx-auto mb-5 sm:mb-6"
+        className="brand-slogan-hero__lights pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+        aria-hidden
+      >
+        <div className="brand-slogan-hero__spot" />
+        <div className="brand-slogan-hero__beam" />
+        <div className="brand-slogan-hero__flare" />
+      </div>
+      <div className="relative mb-4 flex justify-center sm:mb-5">
+        <BrandMarkIcon size="hero" presentation="hero" />
+      </div>
+      <div
+        className="brand-slogan-ornament relative z-[1] mx-auto mb-5 sm:mb-6"
         aria-hidden
       />
       <h1
