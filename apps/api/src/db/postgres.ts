@@ -71,6 +71,29 @@ async function runMigrations(client: pg.PoolClient) {
     );
     console.log("[db:postgres] migration 002_provider_task_id applied");
   }
+
+  const row3 = await client.query(
+    `SELECT id FROM schema_migrations WHERE id = '003_inspiration_publisher'`,
+  );
+  if (!row3.rowCount) {
+    await client.query(
+      `ALTER TABLE inspiration_templates ADD COLUMN IF NOT EXISTS published_by_user_id TEXT REFERENCES users(id)`,
+    );
+    await client.query(
+      `ALTER TABLE inspiration_templates ADD COLUMN IF NOT EXISTS source_output_id TEXT`,
+    );
+    await client.query(
+      `ALTER TABLE inspiration_templates ADD COLUMN IF NOT EXISTS source_asset_id TEXT`,
+    );
+    await client.query(
+      `CREATE INDEX IF NOT EXISTS idx_inspiration_publisher
+       ON inspiration_templates(published_by_user_id, created_at DESC)`,
+    );
+    await client.query(
+      `INSERT INTO schema_migrations (id) VALUES ('003_inspiration_publisher')`,
+    );
+    console.log("[db:postgres] migration 003_inspiration_publisher applied");
+  }
 }
 
 export function createPostgresDb(): DbHandle {

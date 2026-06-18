@@ -1091,6 +1091,29 @@ export async function publishCanvasToInspiration(body: {
   return res.data;
 }
 
+/** 当前用户已发布到灵感画廊的条目 */
+export async function fetchMyInspirations(opts?: {
+  pageNum?: number;
+  pageSize?: number;
+}) {
+  const q = new URLSearchParams();
+  if (opts?.pageNum) q.set("pageNum", String(opts.pageNum));
+  if (opts?.pageSize) q.set("pageSize", String(opts.pageSize));
+  const res = await request<{
+    data: { total: number; rows: InspirationListItem[] };
+  }>(`/api/v1/inspiration/mine${q.size ? `?${q}` : ""}`);
+  return res.data;
+}
+
+/** 撤回灵感画廊发布（软删） */
+export async function unpublishInspiration(id: string) {
+  const res = await request<{ data: { id: string; status: string } }>(
+    `/api/v1/inspiration/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
+  return res.data;
+}
+
 export async function forkInspirationProject(
   id: string,
   body?: {

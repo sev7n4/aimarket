@@ -426,6 +426,9 @@ const productMigrations = [
   `ALTER TABLE message_outputs ADD COLUMN thumb_url TEXT`,
   `ALTER TABLE job_outputs ADD COLUMN thumb_url TEXT`,
   `ALTER TABLE assets ADD COLUMN thumb_url TEXT`,
+  `ALTER TABLE inspiration_templates ADD COLUMN published_by_user_id TEXT REFERENCES users(id)`,
+  `ALTER TABLE inspiration_templates ADD COLUMN source_output_id TEXT`,
+  `ALTER TABLE inspiration_templates ADD COLUMN source_asset_id TEXT`,
 ];
 
 for (const sql of productMigrations) {
@@ -434,6 +437,15 @@ for (const sql of productMigrations) {
   } catch {
     /* column exists */
   }
+}
+
+try {
+  database.exec(
+    `CREATE INDEX IF NOT EXISTS idx_inspiration_publisher
+     ON inspiration_templates(published_by_user_id, created_at DESC)`,
+  );
+} catch {
+  /* index exists */
 }
 
 database.exec(`
