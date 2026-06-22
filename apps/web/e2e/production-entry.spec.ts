@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { registerViaEmail } from "./helpers/auth";
 
 test.describe("production entry", () => {
   test("首页展示制片 Hero 与三入口", async ({ page }) => {
@@ -14,14 +15,16 @@ test.describe("production entry", () => {
 
   test("点击开始制片进入 Studio production 模式", async ({ page }) => {
     await page.goto("/");
-    await page.getByTestId("home-entry-production").click();
-    await expect(page).toHaveURL(/\/studio\?.*mode=production/, {
-      timeout: 15_000,
-    });
+    await page.getByTestId("home-entry-production").scrollIntoViewIfNeeded();
+    await Promise.all([
+      page.waitForURL(/\/studio\?.*mode=production/, { timeout: 20_000 }),
+      page.getByTestId("home-entry-production").click(),
+    ]);
     await expect(page).toHaveURL(/sessionId=/);
   });
 
   test("制片 Studio 展示短剧规划占位", async ({ page }) => {
+    await registerViaEmail(page, { emailPrefix: "e2e_prod_entry" });
     await page.goto("/studio?mode=production");
     const textarea = page.locator("textarea").first();
     await expect(textarea).toBeVisible({ timeout: 15_000 });
