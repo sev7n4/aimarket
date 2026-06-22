@@ -1,0 +1,81 @@
+# 运维：归档灵感画廊中无法播放的视频（metadata_user 坏链等）
+name: Cleanup broken inspiration videos (prod)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    name: Archive broken video inspirations
+    runs-on: [self-hosted, aimarket-build]
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - name: Archive broken inspirations via local admin API
+        run: |
+          set -euo pipefail
+          AIMARKET_DIR="/opt/aimarket"
+          if [[ ! -f "$AIMARKET_DIR/.env" ]]; then
+            echo "::error::Missing $AIMARKET_DIR/.env"
+            exit 1
+          fi
+          set -a
+          # shellcheck disable=SC1091
+          source "$AIMARKET_DIR/.env"
+          set +a
+          export API_URL="http://127.0.0.1:4100"
+          node <<'NODE'
+          const API = process.env.API_URL;
+          const ADMIN = process.env.ADMIN_SECRET;
+          function suspect(url) {
+            if (!url || typeof url !== "string") return false;
+            return /metadata_user|metadata_/i.test(url);
+          }
+          async function api(path, opts = {}) {
+            const res = await fetch(`${API}${path}`, {
+              ...opts,
+              headers: {
+                "Content-Type": "application/json",
+                "x-admin-secret": ADMIN,
+                ...(opts.headers ?? {}),
+              },
+            });
+            const json = await res.json().catch(() => ({}));
+            return { res, json };
+          }
+          async function main() {
+            const list = await api("/api/v1/admin/inspiration");
+            if (!list.res.ok) {
+              console.error("admin list failed", list.res.status, list.json?.error?.message ?? list.json);
+              process.exit(1);
+            }
+            const rows = list.json?.data ?? [];
+            const broken = rows.filter(
+              (r) =>
+                r.status === "published" &&
+                (r.mediaType === "video" || /\.mp4/i.test(r.coverUrl ?? "")) &&
+                (!r.videoUrl || suspect(r.videoUrl) || suspect(r.coverUrl)),
+            );
+            if (!broken.length) {
+              console.log("No broken video inspirations to archive.");
+              return;
+            }
+            console.log(`Found ${broken.length} broken video inspiration(s):`);
+            for (const row of broken) {
+              console.log(`  - ${row.id}  ${row.title}`);
+              const del = await api(`/api/v1/admin/inspiration/${row.id}`, { method: "DELETE" });
+              if (!del.res.ok) {
+                console.error(`    failed ${del.res.status}`, del.json?.error?.message);
+                process.exit(1);
+              }
+              console.log("    archived");
+            }
+          }
+          main().catch((e) => {
+            console.error(e);
+            process.exit(1);
+          });
+          NODE
