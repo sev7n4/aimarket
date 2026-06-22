@@ -87,6 +87,10 @@ interface StudioOrchestrationContextValue {
   rerunDramaPlan: (fromAgent: string, projectPatch?: Record<string, unknown>) => Promise<unknown>;
   dramaAutoProduce: boolean;
   setDramaAutoProduce: (value: boolean) => void;
+  dramaTargetDurationSec: number;
+  setDramaTargetDurationSec: (value: number) => void;
+  dramaAspectRatio: "9:16" | "16:9";
+  setDramaAspectRatio: (value: "9:16" | "16:9") => void;
   dramaProduceHint: string | null;
   retryDramaProduction: (fromStep?: string) => Promise<DramaRun | null>;
   cancelOrchestration: () => Promise<void>;
@@ -151,6 +155,10 @@ export function StudioOrchestrationProvider({
     useState<OrchestrationTimelineEvent | null>(null);
   const [orchestrationResetTick, setOrchestrationResetTick] = useState(0);
   const [dramaAutoProduce, setDramaAutoProduce] = useState(false);
+  const [dramaTargetDurationSec, setDramaTargetDurationSec] = useState(90);
+  const [dramaAspectRatio, setDramaAspectRatio] = useState<"9:16" | "16:9">(
+    "9:16",
+  );
   const [dramaProduceHint, setDramaProduceHint] = useState<string | null>(null);
 
   const handleOrchestrationCompleted = useCallback(() => {
@@ -541,12 +549,14 @@ export function StudioOrchestrationProvider({
         await submitDramaOrchestration({
           prompt,
           dramaRun,
+          planRunState: dramaPlanRun,
           hasDraft: Boolean(dramaDraftProject),
           ensureSession: () => ensureSession(sessionId, effectiveMode),
           confirmRun: confirmOrchestration,
           planRun: (idea) =>
             startDramaPlan(idea, {
-              aspectRatio: "9:16",
+              targetDurationSec: dramaTargetDurationSec,
+              aspectRatio: dramaAspectRatio,
               autoProduce: dramaAutoProduce,
             }).then(() => undefined),
           startFromDraft: () =>
@@ -618,6 +628,9 @@ export function StudioOrchestrationProvider({
       startDramaPlan,
       startDramaProduction,
       dramaAutoProduce,
+      dramaPlanRun,
+      dramaTargetDurationSec,
+      dramaAspectRatio,
     ],
   );
 
@@ -642,7 +655,10 @@ export function StudioOrchestrationProvider({
       onConfirm: () => void confirmOrchestration(),
       onCancel: () => void cancelOrchestration(),
       onRerunFromAgent:
-        dramaPlanRun?.status === "completed" ? handleRerunFromAgent : undefined,
+        dramaPlanRun?.status === "completed" ||
+        dramaPlanRun?.status === "failed"
+          ? handleRerunFromAgent
+          : undefined,
       confirmBusy: agentBusy || skillBusy || dramaBusy || dramaPlanBusy,
       readOnly,
     };
@@ -685,6 +701,10 @@ export function StudioOrchestrationProvider({
       rerunDramaPlan,
       dramaAutoProduce,
       setDramaAutoProduce,
+      dramaTargetDurationSec,
+      setDramaTargetDurationSec,
+      dramaAspectRatio,
+      setDramaAspectRatio,
       dramaProduceHint,
       retryDramaProduction,
       cancelOrchestration,
@@ -715,6 +735,10 @@ export function StudioOrchestrationProvider({
       rerunDramaPlan,
       dramaAutoProduce,
       setDramaAutoProduce,
+      dramaTargetDurationSec,
+      setDramaTargetDurationSec,
+      dramaAspectRatio,
+      setDramaAspectRatio,
       dramaProduceHint,
       retryDramaProduction,
       cancelOrchestration,

@@ -104,6 +104,7 @@ import type { AgentRunStatus, SkillRunStatus } from "@/lib/types";
 import { useStudioOrchestrationOptional } from "@/components/studio-orchestration-provider";
 import { StudioDockFocusButton } from "@/components/studio-dock-controls";
 import { DramaCoach } from "@/components/drama-coach";
+import { DramaProductionDockParams } from "@/components/drama-production-dock-params";
 import {
   CreationDockToolbar,
   CreationLanePicker,
@@ -2538,6 +2539,18 @@ export function CreationPanel({
           )}
         </div>
         <div className={`flex shrink-0 items-center ${isDock ? "gap-1.5" : "gap-2"}`}>
+          {isProductionStudio &&
+          studioOrchestrationActive &&
+          activeSkillId === DRAMA_SKILL_ID &&
+          studioOrch ? (
+            <DramaProductionDockParams
+              targetDurationSec={studioOrch.dramaTargetDurationSec}
+              aspectRatio={studioOrch.dramaAspectRatio}
+              onTargetDurationSecChange={studioOrch.setDramaTargetDurationSec}
+              onAspectRatioChange={studioOrch.setDramaAspectRatio}
+              disabled={readOnly || pending || streamBusy}
+            />
+          ) : null}
           {studioOrchestrationActive &&
           activeSkillId === DRAMA_SKILL_ID &&
           studioOrch ? (

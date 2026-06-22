@@ -136,6 +136,7 @@ export type OrchestrationDramaSubmitResult =
 export async function submitDramaOrchestration(input: {
   prompt: string;
   dramaRun: import("@/lib/types").DramaRun | null | undefined;
+  planRunState?: { status: string } | null;
   hasDraft: boolean;
   ensureSession: () => Promise<unknown>;
   confirmRun: () => Promise<unknown>;
@@ -160,6 +161,10 @@ export async function submitDramaOrchestration(input: {
     input.dramaRun &&
     ["queued", "running", "waiting_job", "planning"].includes(input.dramaRun.status)
   ) {
+    return "in_flight";
+  }
+
+  if (input.planRunState?.status === "planning") {
     return "in_flight";
   }
 

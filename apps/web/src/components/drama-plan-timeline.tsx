@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Check, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import type { DramaPlanStreamEvent } from "@/lib/drama-plan-stream";
 
@@ -24,6 +24,10 @@ interface DramaPlanTimelineProps {
   rerunBusy?: boolean;
 }
 
+function agentLabel(agent: string): string {
+  return DRAMA_PLAN_AGENT_META.find((m) => m.id === agent)?.label ?? agent;
+}
+
 function agentDoneSummary(
   events: DramaPlanStreamEvent[],
   agent: string,
@@ -42,6 +46,54 @@ function agentReasoning(
     .filter((e) => e.type === "agent_reasoning" && e.agent === agent)
     .map((e) => (e.type === "agent_reasoning" ? e.chunk : ""));
   return chunks.length ? chunks.join("\n") : undefined;
+}
+
+export function buildDramaPlanEventFeed(
+  events: DramaPlanStreamEvent[],
+  status: "planning" | "completed" | "failed",
+): { id: string; timeLabel: string; text: string }[] {
+  const items: { id: string; timeLabel: string; text: string }[] = [];
+  let seq = 0;
+
+  for (const ev of events) {
+    if (ev.type === "agent_start") {
+      seq += 1;
+      items.push({
+        id: `start-${ev.agent}-${seq}`,
+        timeLabel: `10:${String(seq).padStart(2, "0")}`,
+        text: `${agentLabel(ev.agent)} 进行中…`,
+      });
+    } else if (ev.type === "agent_done") {
+      seq += 1;
+      const summary =
+        ev.summary.length > 48 ? `${ev.summary.slice(0, 48)}…` : ev.summary;
+      items.push({
+        id: `done-${ev.agent}-${seq}`,
+        timeLabel: `10:${String(seq).padStart(2, "0")}`,
+        text: summary
+          ? `${agentLabel(ev.agent)} 完成 — ${summary}`
+          : `${agentLabel(ev.agent)} 完成`,
+      });
+    } else if (ev.type === "plan_failed") {
+      seq += 1;
+      items.push({
+        id: `failed-${seq}`,
+        timeLabel: `10:${String(seq).padStart(2, "0")}`,
+        text: `规划失败 — ${ev.error}`,
+      });
+    }
+  }
+
+  if (status === "completed" && !events.some((e) => e.type === "plan_failed")) {
+    seq += 1;
+    items.push({
+      id: "plan-complete",
+      timeLabel: `10:${String(seq).padStart(2, "0")}`,
+      text: "规划完成",
+    });
+  }
+
+  return items;
 }
 
 function AgentPreview({
@@ -92,6 +144,13 @@ export function DramaPlanTimeline({
       .map((e) => (e.type === "agent_done" ? e.agent : "")),
   );
 
+  const canRerun = status === "completed" || status === "failed";
+
+  const eventFeed = useMemo(
+    () => buildDramaPlanEventFeed(events, status),
+    [events, status],
+  );
+
   return (
     <article
       data-testid="drama-plan-timeline"
@@ -114,6 +173,79 @@ export function DramaPlanTimeline({
         <p className="mb-3 line-clamp-3 text-[12px] leading-relaxed text-zinc-500">
           {prompt}
         </p>
+      ) : null}
+
+      <nav
+        className="mb-3 flex items-start gap-0 overflow-x-auto pb-1"
+        data-testid="drama-plan-stepper"
+        aria-label="规划进度"
+      >
+        {DRAMA_PLAN_AGENT_META.map((meta, i) => {
+          const done = doneAgents.has(meta.id);
+          const current = currentAgent === meta.id && !done;
+          return (
+            <div key={meta.id} className="flex min-w-0 flex-1 items-center">
+              <div
+                className="flex flex-col items-center gap-1"
+                data-testid={`drama-plan-step-${meta.id}`}
+              >
+                <span
+                  className={`flex size-3 shrink-0 items-center justify-center rounded-full ${
+                    current
+                      ? "bg-orange-500 ring-2 ring-orange-500/30"
+                      : done
+                        ? "bg-emerald-500"
+                        : "bg-white/15"
+                  }`}
+                  aria-hidden
+                />
+                <span
+                  className={`max-w-[3.5rem] truncate text-center text-[9px] leading-tight ${
+                    current
+                      ? "font-medium text-orange-200"
+                      : done
+                        ? "text-emerald-300/90"
+                        : "text-zinc-600"
+                  }`}
+                >
+                  {meta.label}
+                </span>
+              </div>
+              {i < DRAMA_PLAN_AGENT_META.length - 1 ? (
+                <div
+                  className={`mx-0.5 mt-1.5 h-px min-w-2 flex-1 ${
+                    done ? "bg-emerald-500/40" : "bg-white/10"
+                  }`}
+                  aria-hidden
+                />
+              ) : null}
+            </div>
+          );
+        })}
+      </nav>
+
+      {eventFeed.length > 0 ? (
+        <section className="mb-3 rounded-lg border border-white/5 bg-black/20 px-2.5 py-2">
+          <h4 className="mb-1.5 text-[10px] font-medium text-zinc-500">
+            事件流
+          </h4>
+          <ul
+            className="space-y-1"
+            data-testid="drama-plan-event-feed"
+          >
+            {eventFeed.map((item) => (
+              <li
+                key={item.id}
+                className="flex gap-2 text-[10px] leading-relaxed text-zinc-500"
+              >
+                <span className="shrink-0 font-mono text-zinc-600">
+                  {item.timeLabel}
+                </span>
+                <span className="min-w-0 text-zinc-400">{item.text}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
 
       <ol className="space-y-2" data-testid="drama-plan-agent-steps">
@@ -166,12 +298,7 @@ export function DramaPlanTimeline({
                   {meta.label}
                 </span>
                 <div className="ml-auto flex shrink-0 items-center gap-2">
-                  {summary && done && status !== "completed" ? (
-                    <span className="truncate text-[10px] text-zinc-600">
-                      {summary}
-                    </span>
-                  ) : null}
-                  {status === "completed" && done && onRerunFromAgent ? (
+                  {canRerun && done && onRerunFromAgent ? (
                     <button
                       type="button"
                       disabled={rerunBusy}
