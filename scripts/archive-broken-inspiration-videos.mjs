@@ -35,7 +35,7 @@ async function main() {
     (r) =>
       r.status === "published" &&
       (r.mediaType === "video" || /\.mp4/i.test(r.coverUrl ?? "")) &&
-      (!r.videoUrl || suspect(r.videoUrl) || suspect(r.coverUrl)),
+      (!r.videoUrl || suspect(r.videoUrl) || suspect(r.coverUrl) || !r.coverUrl),
   );
 
   if (!broken.length) {

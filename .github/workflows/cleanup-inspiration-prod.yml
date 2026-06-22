@@ -17,7 +17,7 @@ jobs:
       - name: Archive broken inspirations via local admin API
         run: |
           set -euo pipefail
-          sudo docker exec aimarket-api node <<'NODE'
+          sudo docker exec -i aimarket-api node <<'NODE'
           const API = "http://127.0.0.1:4000";
           const ADMIN = process.env.ADMIN_SECRET;
           if (!ADMIN) {
@@ -27,6 +27,19 @@ jobs:
           function suspect(url) {
             if (!url || typeof url !== "string") return false;
             return /metadata_user|metadata_/i.test(url);
+          }
+          function isBrokenVideo(row) {
+            if (row.status !== "published") return false;
+            const cover = row.coverUrl ?? "";
+            const video = row.videoUrl ?? "";
+            const refs = Array.isArray(row.referenceAssets) ? row.referenceAssets : [];
+            const isVideo =
+              row.mediaType === "video" ||
+              /\.mp4/i.test(cover) ||
+              refs.some((a) => /\.mp4/i.test(a?.url ?? ""));
+            if (!isVideo) return false;
+            if (!cover || !video) return true;
+            return suspect(cover) || suspect(video) || refs.some((a) => suspect(a?.url));
           }
           async function api(path, opts = {}) {
             const res = await fetch(`${API}${path}`, {
@@ -47,12 +60,7 @@ jobs:
               process.exit(1);
             }
             const rows = list.json?.data ?? [];
-            const broken = rows.filter(
-              (r) =>
-                r.status === "published" &&
-                (r.mediaType === "video" || /\.mp4/i.test(r.coverUrl ?? "")) &&
-                (!r.videoUrl || suspect(r.videoUrl) || suspect(r.coverUrl)),
-            );
+            const broken = rows.filter(isBrokenVideo);
             if (!broken.length) {
               console.log("No broken video inspirations to archive.");
               return;
