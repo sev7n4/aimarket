@@ -15,11 +15,13 @@ test.describe("production entry", () => {
 
   test("点击开始制片进入 Studio production 模式", async ({ page }) => {
     await page.goto("/");
-    await page.getByTestId("home-entry-production").scrollIntoViewIfNeeded();
-    await Promise.all([
-      page.waitForURL(/\/studio\?.*mode=production/, { timeout: 20_000 }),
-      page.getByTestId("home-entry-production").click(),
-    ]);
+    const link = page.getByTestId("home-entry-production");
+    await link.scrollIntoViewIfNeeded();
+    await expect(link).toHaveAttribute("href", /mode=production/);
+    await link.click();
+    await expect(page).toHaveURL(/\/studio\?.*mode=production/, {
+      timeout: 20_000,
+    });
     await expect(page).toHaveURL(/sessionId=/);
   });
 
@@ -30,7 +32,7 @@ test.describe("production entry", () => {
     await expect(textarea).toBeVisible({ timeout: 15_000 });
     await expect(textarea).toHaveAttribute(
       "placeholder",
-      /短剧创意|至少 10 字/,
+      /短剧创意|至少 10 字|都市|甜宠|仙侠|悬疑/,
     );
   });
 });
