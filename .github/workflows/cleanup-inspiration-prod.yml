@@ -17,16 +17,13 @@ jobs:
       - name: Archive broken inspirations via local admin API
         run: |
           set -euo pipefail
-          ADMIN_SECRET="$(sudo docker exec aimarket-api printenv ADMIN_SECRET)"
-          if [[ -z "${ADMIN_SECRET}" ]]; then
-            echo "::error::ADMIN_SECRET not found in aimarket-api container"
-            exit 1
-          fi
-          export API_URL="http://127.0.0.1:4100"
-          export ADMIN_SECRET
-          node <<'NODE'
-          const API = process.env.API_URL;
+          sudo docker exec aimarket-api node <<'NODE'
+          const API = "http://127.0.0.1:4000";
           const ADMIN = process.env.ADMIN_SECRET;
+          if (!ADMIN) {
+            console.error("ADMIN_SECRET missing in api container");
+            process.exit(1);
+          }
           function suspect(url) {
             if (!url || typeof url !== "string") return false;
             return /metadata_user|metadata_/i.test(url);
