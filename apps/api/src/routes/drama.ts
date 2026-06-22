@@ -275,7 +275,12 @@ drama.get("/estimate", async (c) => {
   const mockProject = {
     userIdea: "",
     targetDurationSec: 90,
-    script: { title: "", logline: "", acts: [], narratorLines: [] },
+    script: {
+      title: "",
+      logline: "",
+      acts: [{ act: 1, sceneId: "s0", summary: "预估占位场次" }],
+      narratorLines: [],
+    },
     styleBible: {
       palette: ["a"],
       lightingStyle: "",

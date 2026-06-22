@@ -11,6 +11,12 @@ export const BRAND_NAME = "墨鱼π";
 /** 完整 Slogan：Hero、关于页、登录弹窗副标 */
 export const BRAND_SLOGAN = "开始你的创意，创造无限可能";
 
+/** 制片工作台 Hero 主标（首页「开始制片」入口） */
+export const PRODUCTION_HERO_SLOGAN = "Agent 制片，画布交付";
+
+/** 制片工作台 Hero 副标 */
+export const PRODUCTION_HERO_TAGLINE = "短剧 · 创意片 · 商业片";
+
 /** 公司主体（图形标版权归属） */
 export const BRAND_COMPANY = "墨鱼科技";
 

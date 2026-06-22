@@ -5,6 +5,17 @@ import {
 
 export type StudioKind = "canvas" | "project";
 
+/** 制片模式 Studio 入口（PROD-A01） */
+export function buildProductionStudioUrl(
+  options?: Omit<NonNullable<Parameters<typeof buildStudioUrl>[1]>, "mode" | "title">,
+): string {
+  return buildStudioUrl("canvas", {
+    ...options,
+    mode: "production",
+    title: "未命名制片",
+  });
+}
+
 /** 统一新建画布 / 新建项目的跳转参数（与左侧栏、顶栏一致） */
 export function buildStudioUrl(
   kind: StudioKind,

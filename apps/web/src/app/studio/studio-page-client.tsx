@@ -10,7 +10,7 @@ import {
   writeDraftSessionId,
 } from "@/lib/studio-draft-session";
 
-const modes: CreationMode[] = ["chat", "image", "ecommerce"];
+const modes: CreationMode[] = ["chat", "image", "ecommerce", "production"];
 
 function parseMode(value: string | null): CreationMode {
   if (value && modes.includes(value as CreationMode)) {

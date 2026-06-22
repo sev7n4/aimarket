@@ -9,6 +9,7 @@ import {
 } from "@/lib/api-client";
 import type { CreationMode } from "@aimarket/ui";
 import type { AgentRun } from "@/lib/types";
+import { toApiCreationMode } from "@/lib/modes";
 
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);
 
@@ -67,7 +68,7 @@ export function useAgentRun({
         const created = await createAgentRun({
           sessionId,
           prompt: prompt.trim(),
-          mode,
+          mode: toApiCreationMode(mode),
         });
         syncRun(created);
         return created;

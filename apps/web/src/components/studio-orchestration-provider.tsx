@@ -36,6 +36,7 @@ import {
 } from "@/lib/creation-orchestration-submit";
 import { DRAMA_SKILL_ID } from "@/components/creation-dock-controls";
 import { useAuth } from "@/lib/auth-context";
+import { toApiCreationMode } from "@/lib/modes";
 
 export interface StudioOrchestrationInput {
   prompt: string;
@@ -285,9 +286,10 @@ export function StudioOrchestrationProvider({
     setInput((prev) => ({
       ...prev,
       prompt: "",
-      activeSkillId: null,
+      activeSkillId: mode === "production" ? DRAMA_SKILL_ID : null,
       effectiveMode: mode,
       focusEditActive: false,
+      ...(mode === "production" ? { creationLane: "agent" as const } : {}),
     }));
     setOrchestrationResetTick((t) => t + 1);
     cancelDramaPlanWatch();
@@ -312,6 +314,11 @@ export function StudioOrchestrationProvider({
 
       if (state.dramaRun) {
         setDramaRun(state.dramaRun);
+        setInput((prev) => ({
+          ...prev,
+          activeSkillId: DRAMA_SKILL_ID,
+          creationLane: "agent",
+        }));
         if (state.dramaRun.status === "failed" && state.dramaRun.error) {
           setDramaProduceHint(state.dramaRun.error);
         } else if (state.dramaRun.status === "waiting_confirm") {
@@ -321,6 +328,11 @@ export function StudioOrchestrationProvider({
 
       if (state.draftProject) {
         setDramaDraftProject(state.draftProject);
+        setInput((prev) => ({
+          ...prev,
+          activeSkillId: DRAMA_SKILL_ID,
+          creationLane: "agent",
+        }));
       }
 
       if (state.planRun) {
@@ -330,6 +342,13 @@ export function StudioOrchestrationProvider({
             ...prev,
             prompt: state.planRun!.userIdea,
             activeSkillId: DRAMA_SKILL_ID,
+            creationLane: "agent",
+          }));
+        } else {
+          setInput((prev) => ({
+            ...prev,
+            activeSkillId: DRAMA_SKILL_ID,
+            creationLane: "agent",
           }));
         }
       }
@@ -373,7 +392,10 @@ export function StudioOrchestrationProvider({
     }
     setAgentPreviewLoading(true);
     const t = window.setTimeout(() => {
-      void fetchAgentPlan({ prompt: prompt.trim(), mode: effectiveMode })
+      void fetchAgentPlan({
+        prompt: prompt.trim(),
+        mode: toApiCreationMode(effectiveMode),
+      })
         .then(setAgentPreviewPlan)
         .catch(() => setAgentPreviewPlan(null))
         .finally(() => setAgentPreviewLoading(false));

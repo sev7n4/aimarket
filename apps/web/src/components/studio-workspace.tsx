@@ -399,7 +399,7 @@ export function StudioWorkspace({
       ? currentSession.title
       : fetchedSessionTitle && fetchedSessionTitle !== "未命名"
         ? fetchedSessionTitle
-        : initialTitle ?? (mode === "ecommerce" ? "电商套图" : "未命名");
+        : initialTitle ?? (mode === "production" ? "未命名制片" : mode === "ecommerce" ? "电商套图" : "未命名");
 
   const applySourceInspiration = useCallback(
     (src: NonNullable<Awaited<ReturnType<typeof ensureSession>>["sourceInspiration"]>) => {
