@@ -72,16 +72,16 @@ test.describe("production plan SSE", () => {
     expect(planId).toBeTruthy();
     expect(planJson.data?.status).toBe("planning");
 
-    await expect(station.getByTestId("drama-plan-timeline")).toBeVisible({
+    await expect(page.getByTestId("drama-plan-timeline")).toBeVisible({
       timeout: 30_000,
     });
-    await expect(station.getByTestId("drama-plan-stepper")).toBeVisible();
-    await expect(station.getByTestId("drama-plan-event-feed")).toBeVisible();
+    await expect(page.getByTestId("drama-plan-stepper")).toBeVisible();
+    await expect(page.getByTestId("drama-plan-event-feed")).toBeVisible();
 
     await expect
       .poll(
         async () => {
-          const timeline = station.getByTestId("drama-plan-timeline");
+          const timeline = page.getByTestId("drama-plan-timeline");
           if (await timeline.isVisible().catch(() => false)) {
             const text = await timeline.innerText();
             if (text.includes("编剧") && text.includes("分镜")) {
@@ -111,7 +111,7 @@ test.describe("production plan SSE", () => {
       )
       .toBe("completed");
 
-    const panel = station.getByTestId("drama-studio-panel");
+    const panel = page.getByTestId("drama-studio-panel");
     await expect(panel).toBeVisible({ timeout: 30_000 });
     await expect(panel.getByText(/分镜板（\d+ 镜）/)).toBeVisible({
       timeout: 30_000,
