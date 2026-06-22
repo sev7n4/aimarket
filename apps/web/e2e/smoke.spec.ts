@@ -9,7 +9,7 @@ test.describe("smoke", () => {
     ).toBeVisible();
     await expect(
       page.getByRole("heading", {
-        name: "开始你的创意，创造无限可能",
+        name: "Agent 制片，画布交付",
       }),
     ).toBeVisible();
   });

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { CreationPanel } from "@/components/creation-panel";
 import { LoginDialog } from "@/components/login-dialog";
 import { BrandSloganHeading } from "@/components/brand-slogan-heading";
+import { HomeProductionEntry } from "@/components/home-production-entry";
 import { randomUUID } from "@/lib/uuid";
 
 interface HomeCreationSectionProps {
@@ -86,7 +87,9 @@ export function HomeCreationSection({
           aria-hidden
         />
         <div className="relative mx-auto max-w-3xl">
-          <BrandSloganHeading className="mb-5 sm:mb-6" />
+          <BrandSloganHeading className="mb-5 sm:mb-6" variant="production" />
+          <HomeProductionEntry />
+          <div className="mt-6 sm:mt-7" />
           {dockPinned ? (
             <div
               style={{ height: dockSpacerH }}

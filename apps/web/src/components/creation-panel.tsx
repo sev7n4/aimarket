@@ -17,7 +17,7 @@ import {
   ModeTabs,
   type CreationMode,
 } from "@aimarket/ui";
-import { modeTabs, placeholders } from "@/lib/modes";
+import { modeTabs, placeholders, PRODUCTION_DOCK_PLACEHOLDER, toApiCreationMode } from "@/lib/modes";
 import {
   assetUrl,
   ensureSession,
@@ -436,6 +436,7 @@ export function CreationPanel({
    * 不再渲染电商 Agent 表单 / 走电商套图提交分支。
    */
   const effectiveMode: CreationMode = isDock && mode === "ecommerce" ? "chat" : mode;
+  const isProductionStudio = isStudioDock && mode === "production";
   const agentEnabled =
     agentOrchestration &&
     Boolean(sessionId) &&
@@ -838,8 +839,11 @@ export function CreationPanel({
     setMentionedAssetPreviews([]);
     setMentionedMasks([]);
     setSelectedSkillId(null);
-    setDockSkillId(null);
-  }, [sessionId, resetAgentRun, resetSkillRun, studioOrchestrationActive, setPrompt]);
+    setDockSkillId(isProductionStudio ? DRAMA_SKILL_ID : null);
+    if (isProductionStudio) {
+      setCreationLane("agent");
+    }
+  }, [sessionId, resetAgentRun, resetSkillRun, studioOrchestrationActive, setPrompt, isProductionStudio, setCreationLane]);
 
   useEffect(() => {
     if (!studioOrchestrationActive || !studioOrch) return;
@@ -860,6 +864,12 @@ export function CreationPanel({
     focusEdit,
   ]);
 
+  useEffect(() => {
+    if (!isProductionStudio) return;
+    setDockSkillId(DRAMA_SKILL_ID);
+    setCreationLane("agent");
+  }, [isProductionStudio, setCreationLane]);
+
   const orchestrationResetTick = studioOrch?.orchestrationResetTick ?? 0;
   const lastOrchestrationResetRef = useRef(0);
   useEffect(() => {
@@ -876,8 +886,11 @@ export function CreationPanel({
     setMentionedAssetPreviews([]);
     setMentionedMasks([]);
     setSelectedSkillId(null);
-    setDockSkillId(null);
-  }, [studioOrchestrationActive, orchestrationResetTick, setPrompt]);
+    setDockSkillId(mode === "production" ? DRAMA_SKILL_ID : null);
+    if (mode === "production") {
+      setCreationLane("agent");
+    }
+  }, [studioOrchestrationActive, orchestrationResetTick, setPrompt, mode, setCreationLane]);
 
   const skillAwaitingConfirm = isSkillAwaitingConfirm(orchSkillRun);
   const skillInFlight = isSkillRunInFlight(orchSkillRun);
@@ -897,7 +910,9 @@ export function CreationPanel({
     : agentAwaitingConfirm
       ? "确认执行"
       : activeSkillId === DRAMA_SKILL_ID
-        ? "开始短剧规划"
+        ? isProductionStudio
+          ? "开始规划"
+          : "开始短剧规划"
         : activeSkillId === ECOMMERCE_SET_SKILL_ID
         ? "开始电商套图"
         : activeSkillId
@@ -2127,9 +2142,13 @@ export function CreationPanel({
                 }}
                 placeholder={
                   isDock && !prompt.trim()
-                    ? creationLane === "image" && rotatingPlaceholder
-                      ? rotatingText
-                      : CREATION_LANE_PLACEHOLDERS[creationLane]
+                    ? mode === "production"
+                      ? rotatingPlaceholder
+                        ? rotatingText
+                        : PRODUCTION_DOCK_PLACEHOLDER
+                      : creationLane === "image" && rotatingPlaceholder
+                        ? rotatingText
+                        : CREATION_LANE_PLACEHOLDERS[creationLane]
                     : effectiveMode === "ecommerce"
                       ? placeholders.ecommerce
                       : mode === "chat"
@@ -2194,12 +2213,7 @@ export function CreationPanel({
                   onClick={() => {
                     const raw = prompt.trim();
                     if (!raw || polishBusy) return;
-                    const polishApiMode: "chat" | "image" | "ecommerce" =
-                      effectiveMode === "ecommerce"
-                        ? "ecommerce"
-                        : effectiveMode === "chat"
-                          ? "chat"
-                          : "image";
+                    const polishApiMode = toApiCreationMode(effectiveMode);
                     const hasRefs =
                       referenceChips.length > 0 ||
                       assetIds.length > 0 ||

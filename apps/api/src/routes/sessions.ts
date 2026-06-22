@@ -78,7 +78,7 @@ function loadSourceInspirationForSession(sessionId: string) {
 }
 
 const sessions = new Hono<{ Variables: AuthVariables }>();
-const sessionModeSchema = z.enum(["chat", "image", "ecommerce"]);
+const sessionModeSchema = z.enum(["chat", "image", "ecommerce", "production"]);
 
 function loadSessionRow(sessionId: string) {
   return db

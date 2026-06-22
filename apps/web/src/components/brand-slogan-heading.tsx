@@ -1,7 +1,11 @@
 "use client";
 
 import { BrandMarkIcon } from "@/components/brand-mark-icon";
-import { BRAND_SLOGAN } from "@/lib/brand";
+import {
+  BRAND_SLOGAN,
+  PRODUCTION_HERO_SLOGAN,
+  PRODUCTION_HERO_TAGLINE,
+} from "@/lib/brand";
 
 function splitSlogan(text: string): [string, string] {
   const comma = text.indexOf("，");
@@ -11,13 +15,20 @@ function splitSlogan(text: string): [string, string] {
 
 interface BrandSloganHeadingProps {
   className?: string;
+  /** 首页制片 Hero 使用制片工作台主标 */
+  variant?: "default" | "production";
 }
 
 /**
  * 首页 Hero Slogan：衬线展示字 + 墨鱼π 品牌渐变与微光动效
  */
-export function BrandSloganHeading({ className = "" }: BrandSloganHeadingProps) {
-  const [lead, tail] = splitSlogan(BRAND_SLOGAN);
+export function BrandSloganHeading({
+  className = "",
+  variant = "production",
+}: BrandSloganHeadingProps) {
+  const slogan =
+    variant === "production" ? PRODUCTION_HERO_SLOGAN : BRAND_SLOGAN;
+  const [lead, tail] = splitSlogan(slogan);
 
   return (
     <div className={`brand-slogan-hero relative px-1 ${className}`}>
@@ -38,7 +49,7 @@ export function BrandSloganHeading({ className = "" }: BrandSloganHeadingProps) 
       />
       <h1
         className="brand-slogan-heading text-center"
-        aria-label={BRAND_SLOGAN}
+        aria-label={slogan}
       >
         <span className="brand-slogan-line brand-slogan-line--lead block">
           {lead}
@@ -49,6 +60,11 @@ export function BrandSloganHeading({ className = "" }: BrandSloganHeadingProps) 
           </span>
         ) : null}
       </h1>
+      {variant === "production" ? (
+        <p className="mt-3 text-center text-sm text-zinc-400 sm:text-base">
+          {PRODUCTION_HERO_TAGLINE}
+        </p>
+      ) : null}
       <div
         className="brand-slogan-glow pointer-events-none absolute inset-x-8 top-1/2 -z-10 h-24 -translate-y-1/2 rounded-full blur-3xl sm:inset-x-12 sm:h-28"
         aria-hidden
