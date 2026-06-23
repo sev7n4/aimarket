@@ -95,7 +95,7 @@ export const storyboardShotSchema = z.object({
   cameraSpec: cameraSpecSchema,
   durationSec: z.number().min(2).max(10),
   /** Dream.ai：同场景连续镜头启用尾帧衔接 */
-  useLastFrameContinuity: z.boolean().default(false),
+  useLastFrameContinuity: z.coerce.boolean().default(false),
   keyframeOutputId: z.string().uuid().optional(),
   /** 关键帧多候选 outputId（DRAMA_KEYFRAME_VARIANTS > 1） */
   keyframeVariantOutputIds: z.array(z.string().uuid()).optional(),

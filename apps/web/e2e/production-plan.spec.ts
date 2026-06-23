@@ -238,32 +238,22 @@ test.describe("production plan SSE", () => {
       { headers: { Authorization: `Bearer ${token}` } },
     );
     const projectJson = (await projectRes.json()) as {
-      data?: { project?: { shots?: unknown[]; productionParams?: object } };
-    };
-    const normalizeShot = (shot: Record<string, unknown>) => ({
-      ...shot,
-      useLastFrameContinuity:
-        shot.useLastFrameContinuity === true ||
-        shot.useLastFrameContinuity === "true",
-    });
-    const trimmedProject = {
-      ...projectJson.data?.project,
-      shots: (projectJson.data?.project?.shots ?? []).map((shot) =>
-        normalizeShot(shot as Record<string, unknown>),
-      ),
-      productionParams: {
-        ...(projectJson.data?.project?.productionParams ?? {}),
-        previewTier: "low",
-      },
+      data?: { project?: Record<string, unknown> };
     };
     const patchRes = await request.patch(
       `${apiBase}/api/v1/drama/projects/${projectId}`,
       {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+        headers: { Authorization: `Bearer ${token}` },
+        data: {
+          project: {
+            ...projectJson.data?.project,
+            productionParams: {
+              ...(projectJson.data?.project as { productionParams?: object })
+                ?.productionParams,
+              previewTier: "low",
+            },
+          },
         },
-        data: JSON.stringify({ project: trimmedProject }),
       },
     );
     if (!patchRes.ok()) {
@@ -272,22 +262,20 @@ test.describe("production plan SSE", () => {
       );
     }
 
-    const produceApi = await request.post(
-      `${apiBase}/api/v1/drama/projects/${projectId}/produce`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        data: JSON.stringify({ sessionId, confirmed: true }),
-      },
+    const produceResponse = page.waitForResponse(
+      (res) =>
+        res.url().includes("/produce") &&
+        res.request().method() === "POST",
+      { timeout: 60_000 },
     );
-    if (!produceApi.ok()) {
+    await panelAfterLock.getByTestId("drama-confirm-produce").click();
+    const produceRes = await produceResponse;
+    if (!produceRes.ok()) {
       throw new Error(
-        `produce failed (${produceApi.status()}): ${await produceApi.text()}`,
+        `produce failed (${produceRes.status()}): ${await produceRes.text()}`,
       );
     }
-    const produceJson = (await produceApi.json()) as {
+    const produceJson = (await produceRes.json()) as {
       data?: { id?: string; status?: string };
     };
     const runId = produceJson.data?.id;
