@@ -14,7 +14,7 @@ const PLAN_AGENTS = [
 
 test.describe("production plan SSE", () => {
   test("制片模式提交 → 五步规划时间线 → 分镜板", async ({ page, request }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(360_000);
     await skipStudioCoach(page);
 
     const apiBase = process.env.E2E_API_URL ?? "http://127.0.0.1:4000";
@@ -223,5 +223,68 @@ test.describe("production plan SSE", () => {
     await expect(page.getByTestId("drama-shot-card-1")).toBeVisible();
     await expect(page.getByTestId("drama-shot-detail")).toBeVisible();
     await expect(panelAfterLock.getByTestId("drama-storyboard-timeline-hint")).toBeVisible();
+
+    const projectRes = await request.get(
+      `${apiBase}/api/v1/drama/projects/${projectId}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    const projectJson = (await projectRes.json()) as {
+      data?: { project?: Record<string, unknown> };
+    };
+    await request.patch(`${apiBase}/api/v1/drama/projects/${projectId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: {
+        project: {
+          ...projectJson.data?.project,
+          productionParams: {
+            ...(projectJson.data?.project as { productionParams?: object })
+              ?.productionParams,
+            previewTier: "low",
+          },
+        },
+      },
+    });
+
+    const produceResponse = page.waitForResponse(
+      (res) =>
+        res.url().includes("/produce") &&
+        res.request().method() === "POST" &&
+        res.ok(),
+      { timeout: 60_000 },
+    );
+    await panelAfterLock.getByTestId("drama-confirm-produce").click();
+    const produceRes = await produceResponse;
+    const produceJson = (await produceRes.json()) as {
+      data?: { id?: string; status?: string };
+    };
+    const runId = produceJson.data?.id;
+    expect(runId).toBeTruthy();
+
+    const productionTimeline = page.getByTestId("drama-production-timeline");
+    await expect(productionTimeline).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("drama-production-progress-bar")).toBeVisible();
+    await expect(page.getByTestId("drama-production-shot-track")).toBeVisible();
+    await expect(
+      panelAfterLock.getByTestId("drama-production-timeline-hint"),
+    ).toBeVisible();
+    await expect(
+      panelAfterLock.getByTestId("drama-production-panel-progress"),
+    ).toBeVisible();
+
+    await expect
+      .poll(
+        async () => {
+          const res = await request.get(
+            `${apiBase}/api/v1/drama/runs/${runId}`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          const json = (await res.json()) as {
+            data?: { status?: string };
+          };
+          return json.data?.status ?? "running";
+        },
+        { timeout: 180_000, intervals: [1000, 2000, 3000] },
+      )
+      .toMatch(/completed|failed|waiting_confirm/);
   });
 });

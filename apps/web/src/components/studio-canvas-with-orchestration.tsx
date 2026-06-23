@@ -5,6 +5,7 @@ import {
   DesignCanvas,
   type DesignCanvasHandle,
 } from "@/components/design-canvas";
+import { DramaProductionTimeline } from "@/components/drama-production-timeline";
 import { DramaShotTimeline } from "@/components/drama-shot-timeline";
 import { DramaStudioPanel } from "@/components/drama-studio-panel";
 import { useStudioOrchestration } from "@/components/studio-orchestration-provider";
@@ -41,10 +42,15 @@ export const StudioCanvasWithOrchestration = forwardRef<
   } = useStudioOrchestration();
 
   const isDramaPlanning = dramaPlanRun?.status === "planning";
+  const showProductionTimeline =
+    studioMode === "production" &&
+    dramaRun != null &&
+    dramaRun.status !== "waiting_confirm";
   const showShotTimeline =
     studioMode === "production" &&
     Boolean(dramaDraftProject?.project.shots.length) &&
-    !isDramaPlanning;
+    !isDramaPlanning &&
+    !showProductionTimeline;
 
   const [timelineProject, setTimelineProject] =
     useState<DramaProjectPayload | null>(null);
@@ -125,6 +131,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
         planning={isDramaPlanning}
         busy={dramaBusy || dramaPlanBusy}
         shotTimelineOnCanvas={showShotTimeline}
+        productionTimelineOnCanvas={showProductionTimeline}
         storyboardView={storyboardView}
         onStoryboardViewChange={setStoryboardView}
         onRerunFromAgent={
@@ -146,7 +153,14 @@ export const StudioCanvasWithOrchestration = forwardRef<
     ) : null;
 
   const alternateCanvasContent =
-    showShotTimeline && timelineProject ? (
+    showProductionTimeline && dramaRun ? (
+      <DramaProductionTimeline
+        run={dramaRun}
+        busy={dramaBusy}
+        onRetryShot={handleRetryShot}
+        onPickKeyframe={handlePickKeyframe}
+      />
+    ) : showShotTimeline && timelineProject ? (
       <DramaShotTimeline
         project={timelineProject}
         readOnly={props.readOnly}
