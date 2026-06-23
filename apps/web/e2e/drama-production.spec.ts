@@ -17,6 +17,13 @@ test.describe("drama production export & publish", () => {
     const studioPanel = page.getByTestId("drama-studio-panel");
     await expect(studioPanel.getByTestId("drama-final-video-hint")).toBeVisible();
 
+    const nodeGraph = studioPanel.getByTestId("drama-node-graph");
+    await expect(nodeGraph).toBeVisible({ timeout: 15_000 });
+    await expect(studioPanel.getByTestId("drama-node-concat")).toHaveAttribute(
+      "data-status",
+      "done",
+    );
+
     const publishResponse = page.waitForResponse(
       (res) =>
         res.url().includes("/api/v1/inspiration/publish") &&
