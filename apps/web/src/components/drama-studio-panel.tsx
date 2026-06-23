@@ -23,6 +23,9 @@ interface DramaStudioPanelProps {
   draftProject?: DramaProject | null;
   run?: DramaRun | null;
   planning?: boolean;
+  shotTimelineOnCanvas?: boolean;
+  storyboardView?: "timeline" | "grid";
+  onStoryboardViewChange?: (view: "timeline" | "grid") => void;
   onConfirmProduce?: () => void;
   onRerunFromAgent?: (fromAgent: string) => void;
   rerunBusy?: boolean;
@@ -42,6 +45,9 @@ export function DramaStudioPanel({
   draftProject,
   run,
   planning,
+  shotTimelineOnCanvas,
+  storyboardView = "grid",
+  onStoryboardViewChange,
   onConfirmProduce,
   onRerunFromAgent,
   rerunBusy,
@@ -389,10 +395,41 @@ export function DramaStudioPanel({
 
         {/* 中栏：分镜板 */}
         <div className="min-w-0 border-x border-white/5 px-0 lg:px-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h4 className="text-xs font-medium text-zinc-300">
-              分镜板（{project.shots.length} 镜）
-            </h4>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <h4 className="text-xs font-medium text-zinc-300">
+                分镜板（{project.shots.length} 镜）
+              </h4>
+              {shotTimelineOnCanvas && onStoryboardViewChange ? (
+                <div
+                  className="flex rounded border border-white/10 p-0.5 text-[10px]"
+                  data-testid="drama-storyboard-view-toggle"
+                >
+                  <button
+                    type="button"
+                    className={`rounded px-1.5 py-0.5 ${
+                      storyboardView === "timeline"
+                        ? "bg-violet-500/20 text-violet-200"
+                        : "text-zinc-500 hover:text-zinc-300"
+                    }`}
+                    onClick={() => onStoryboardViewChange("timeline")}
+                  >
+                    时间线
+                  </button>
+                  <button
+                    type="button"
+                    className={`rounded px-1.5 py-0.5 ${
+                      storyboardView === "grid"
+                        ? "bg-violet-500/20 text-violet-200"
+                        : "text-zinc-500 hover:text-zinc-300"
+                    }`}
+                    onClick={() => onStoryboardViewChange("grid")}
+                  >
+                    网格
+                  </button>
+                </div>
+              ) : null}
+            </div>
             {isDraft && dirty && onSaveDraft ? (
               <button
                 type="button"
@@ -404,14 +441,23 @@ export function DramaStudioPanel({
               </button>
             ) : null}
           </div>
-          <DramaStoryboardGrid
-            shots={project.shots}
-            onRetryShot={onRetryShot}
-            onPickKeyframe={onPickKeyframe}
-            readOnly={readOnly}
-            editable={isDraft && !readOnly}
-            onShotsChange={handleShotsChange}
-          />
+          {shotTimelineOnCanvas && storyboardView === "timeline" ? (
+            <p
+              className="rounded-lg border border-white/5 bg-black/20 px-3 py-6 text-center text-xs text-zinc-500"
+              data-testid="drama-storyboard-timeline-hint"
+            >
+              镜头轨已在主画布展示，可拖拽排序与编辑详情；切换「网格」查看九宫格视图。
+            </p>
+          ) : (
+            <DramaStoryboardGrid
+              shots={project.shots}
+              onRetryShot={onRetryShot}
+              onPickKeyframe={onPickKeyframe}
+              readOnly={readOnly}
+              editable={isDraft && !readOnly}
+              onShotsChange={handleShotsChange}
+            />
+          )}
         </div>
 
         {/* 右栏：设置 / 进度 / 操作 */}

@@ -133,5 +133,12 @@ test.describe("production plan SSE", () => {
     });
     await expect(panel.getByText("角色资产")).toBeVisible();
     await expect(panel.getByTestId("drama-confirm-produce")).toBeVisible();
+
+    const shotTimeline = page.getByTestId("drama-shot-timeline");
+    await expect(shotTimeline).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("drama-shot-track")).toBeVisible();
+    await expect(page.getByTestId("drama-shot-card-1")).toBeVisible();
+    await expect(page.getByTestId("drama-shot-detail")).toBeVisible();
+    await expect(panel.getByTestId("drama-storyboard-timeline-hint")).toBeVisible();
   });
 });

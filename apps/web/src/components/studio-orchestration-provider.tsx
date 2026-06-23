@@ -61,6 +61,7 @@ export interface StudioOrchestrationSubmitContext {
 
 interface StudioOrchestrationContextValue {
   sessionId: string;
+  studioMode: CreationMode;
   agentRun: AgentRun | null;
   skillRun: SkillRun | null;
   dramaRun: DramaRun | null;
@@ -679,6 +680,7 @@ export function StudioOrchestrationProvider({
   const value = useMemo(
     (): StudioOrchestrationContextValue => ({
       sessionId,
+      studioMode: mode,
       agentRun,
       skillRun,
       dramaRun,
@@ -713,6 +715,7 @@ export function StudioOrchestrationProvider({
     }),
     [
       sessionId,
+      mode,
       agentRun,
       skillRun,
       dramaRun,
