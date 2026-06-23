@@ -123,7 +123,10 @@ drama.post("/projects/:projectId/produce", async (c) => {
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
   const body = z
-    .object({ sessionId: z.string().uuid(), confirmed: z.boolean().default(true) })
+    .object({
+      sessionId: z.string().uuid(),
+      confirmed: z.coerce.boolean().default(true),
+    })
     .parse(await c.req.json());
   assertSessionWrite(userId, body.sessionId);
 

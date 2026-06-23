@@ -263,7 +263,7 @@ test.describe("production plan SSE", () => {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        data: { project: trimmedProject },
+        data: JSON.stringify({ project: trimmedProject }),
       },
     );
     if (!patchRes.ok()) {
@@ -279,7 +279,7 @@ test.describe("production plan SSE", () => {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        data: { sessionId, confirmed: true },
+        data: JSON.stringify({ sessionId, confirmed: true }),
       },
     );
     if (!produceApi.ok()) {
