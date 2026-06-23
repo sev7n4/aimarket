@@ -104,6 +104,7 @@ import type { AgentRunStatus, SkillRunStatus } from "@/lib/types";
 import { useStudioOrchestrationOptional } from "@/components/studio-orchestration-provider";
 import { StudioDockFocusButton } from "@/components/studio-dock-controls";
 import { DramaCoach } from "@/components/drama-coach";
+import { DramaProductionDockParams } from "@/components/drama-production-dock-params";
 import {
   CreationDockToolbar,
   CreationLanePicker,
@@ -1912,6 +1913,36 @@ export function CreationPanel({
         ? `已用时 ${Math.max(1, Math.floor(jobElapsedMs / 1000))} 秒`
         : null;
 
+  const showDramaProductionDock =
+    isProductionStudio &&
+    studioOrchestrationActive &&
+    activeSkillId === DRAMA_SKILL_ID &&
+    studioOrch;
+
+  const dramaProductionDockControls = showDramaProductionDock ? (
+    <>
+      <DramaProductionDockParams
+        targetDurationSec={studioOrch!.dramaTargetDurationSec}
+        aspectRatio={studioOrch!.dramaAspectRatio}
+        onTargetDurationSecChange={studioOrch!.setDramaTargetDurationSec}
+        onAspectRatioChange={studioOrch!.setDramaAspectRatio}
+        disabled={readOnly || pending || streamBusy}
+      />
+      <label
+        className="mr-1 flex items-center gap-1.5 text-[10px] text-zinc-400"
+        data-testid="drama-auto-produce-checkbox"
+      >
+        <input
+          type="checkbox"
+          checked={studioOrch!.dramaAutoProduce}
+          onChange={(e) => studioOrch!.setDramaAutoProduce(e.target.checked)}
+          disabled={readOnly || pending || streamBusy}
+        />
+        规划后直接制作
+      </label>
+    </>
+  ) : null;
+
   const body = (
     <>
       {showDockJobStatusBar ? (
@@ -2268,19 +2299,22 @@ export function CreationPanel({
               </div>
             </div>
             {dockCompactLine ? (
-              <Button
-                variant="primary"
-                className="size-8 shrink-0 rounded-full p-0"
-                onClick={handleSubmitAttempt}
-                disabled={readOnly || pending || streamBusy}
-                aria-label={submitAriaLabel}
-              >
-                {pending ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <ArrowUp className="size-4" />
-                )}
-              </Button>
+              <>
+                {dramaProductionDockControls}
+                <Button
+                  variant="primary"
+                  className="size-8 shrink-0 rounded-full p-0"
+                  onClick={handleSubmitAttempt}
+                  disabled={readOnly || pending || streamBusy}
+                  aria-label={submitAriaLabel}
+                >
+                  {pending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <ArrowUp className="size-4" />
+                  )}
+                </Button>
+              </>
             ) : null}
           </div>
         {!dockCompactLine && referenceChips.length > 0 ? (
@@ -2538,24 +2572,7 @@ export function CreationPanel({
           )}
         </div>
         <div className={`flex shrink-0 items-center ${isDock ? "gap-1.5" : "gap-2"}`}>
-          {studioOrchestrationActive &&
-          activeSkillId === DRAMA_SKILL_ID &&
-          studioOrch ? (
-            <label
-              className="mr-1 flex items-center gap-1.5 text-[10px] text-zinc-400"
-              data-testid="drama-auto-produce-checkbox"
-            >
-              <input
-                type="checkbox"
-                checked={studioOrch.dramaAutoProduce}
-                onChange={(e) =>
-                  studioOrch.setDramaAutoProduce(e.target.checked)
-                }
-                disabled={readOnly || pending || streamBusy}
-              />
-              规划后直接制作
-            </label>
-          ) : null}
+          {dramaProductionDockControls}
           {estimated !== null && user && getToken() ? (
             <span
               className="inline-flex items-center gap-1 text-xs text-pink-400"

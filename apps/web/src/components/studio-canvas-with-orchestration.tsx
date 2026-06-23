@@ -93,7 +93,9 @@ export const StudioCanvasWithOrchestration = forwardRef<
         planning={isDramaPlanning}
         busy={dramaBusy || dramaPlanBusy}
         onRerunFromAgent={
-          dramaDraftProject && dramaPlanRun?.status === "completed"
+          dramaDraftProject &&
+          (dramaPlanRun?.status === "completed" ||
+            dramaPlanRun?.status === "failed")
             ? handleRerunFromAgent
             : undefined
         }
