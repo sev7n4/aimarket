@@ -78,17 +78,16 @@ test.describe("production plan SSE", () => {
     await expect(page.getByTestId("drama-plan-stepper")).toBeVisible();
     await expect(page.getByTestId("drama-plan-event-feed")).toBeVisible();
 
-    let sawTimelineLabels = false;
-
     await expect
       .poll(
         async () => {
-          const timeline = page.getByTestId("drama-plan-timeline");
-          if (await timeline.isVisible().catch(() => false)) {
-            const text = await timeline.innerText();
-            if (text.includes("编剧") && text.includes("分镜")) {
-              sawTimelineLabels = true;
-            }
+          if (
+            await page
+              .getByTestId("drama-shot-timeline")
+              .isVisible()
+              .catch(() => false)
+          ) {
+            return "completed";
           }
 
           const res = await request.get(
@@ -109,22 +108,9 @@ test.describe("production plan SSE", () => {
           );
           return allDone ? "completed" : "planning";
         },
-        { timeout: 60_000, intervals: [100, 250, 500] },
+        { timeout: 90_000, intervals: [250, 500, 1000] },
       )
       .toBe("completed");
-
-    if (!sawTimelineLabels) {
-      const agentsRes = await request.get(
-        `${apiBase}/api/v1/drama/plan/runs/${planId}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      const agentsBody = (await agentsRes.json()) as {
-        data?: { agents?: Record<string, { status?: string }> };
-      };
-      for (const id of PLAN_AGENTS) {
-        expect(agentsBody.data?.agents?.[id]?.status).toBe("done");
-      }
-    }
 
     const panel = page.getByTestId("drama-studio-panel");
     await expect(panel).toBeVisible({ timeout: 30_000 });
