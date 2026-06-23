@@ -248,24 +248,32 @@ test.describe("production plan SSE", () => {
     });
     const trimmedProject = {
       ...projectJson.data?.project,
-      shots: (projectJson.data?.project?.shots ?? [])
-        .slice(0, 2)
-        .map((shot) => normalizeShot(shot as Record<string, unknown>)),
+      shots: (projectJson.data?.project?.shots ?? []).map((shot) =>
+        normalizeShot(shot as Record<string, unknown>),
+      ),
       productionParams: {
         ...(projectJson.data?.project?.productionParams ?? {}),
         previewTier: "low",
       },
     };
-    await request.patch(`${apiBase}/api/v1/drama/projects/${projectId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      data: { project: trimmedProject },
-    });
+    const patchRes = await request.patch(
+      `${apiBase}/api/v1/drama/projects/${projectId}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        json: { project: trimmedProject },
+      },
+    );
+    if (!patchRes.ok()) {
+      throw new Error(
+        `patch failed (${patchRes.status()}): ${await patchRes.text()}`,
+      );
+    }
 
     const produceApi = await request.post(
       `${apiBase}/api/v1/drama/projects/${projectId}/produce`,
       {
         headers: { Authorization: `Bearer ${token}` },
-        data: { sessionId, confirmed: true },
+        json: { sessionId, confirmed: true },
       },
     );
     if (!produceApi.ok()) {
