@@ -26,12 +26,23 @@ async function request(path, init = {}) {
 }
 
 async function main() {
-  const email = `drama-test-${Date.now()}@example.com`;
+  const email = `drama-test-${Date.now()}@test.local`;
   const reg = await request("/api/v1/auth/register", {
     method: "POST",
     body: JSON.stringify({ email, password: "testpass123" }),
   });
   globalThis.__DRAMA_TEST_TOKEN = reg.token;
+
+  const packages = await request("/api/v1/product/packages");
+  const largestPackage = packages
+    ?.slice()
+    ?.sort((a, b) => (b.credits ?? 0) - (a.credits ?? 0))?.[0];
+  if (largestPackage?.id) {
+    await request("/api/v1/product/purchase", {
+      method: "POST",
+      body: JSON.stringify({ packageId: largestPackage.id }),
+    });
+  }
 
   const sessionId = crypto.randomUUID();
   const session = await request("/api/v1/imageSession/ensure", {
@@ -111,8 +122,72 @@ async function main() {
   });
   console.log(`✓ 分镜编辑保存：${editedShots.length} 镜`);
 
+  const projectId = planned.project.id;
+
+  const blockedRes = await fetch(
+    `${API}/api/v1/drama/projects/${projectId}/produce`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${globalThis.__DRAMA_TEST_TOKEN}`,
+      },
+      body: JSON.stringify({ sessionId: sid, confirmed: true }),
+    },
+  );
+  const blockedJson = await blockedRes.json().catch(() => ({}));
+  if (blockedRes.ok) {
+    throw new Error("未定稿角色应阻止 produce");
+  }
+  if (blockedJson?.error?.code !== "CHARACTERS_NOT_LOCKED") {
+    throw new Error(
+      `期望 CHARACTERS_NOT_LOCKED，实际: ${blockedJson?.error?.code ?? blockedRes.status}`,
+    );
+  }
+  console.log("✓ 未定稿角色阻止制作");
+
+  for (const char of planned.project.project.characters) {
+    const gen = await request(
+      `/api/v1/drama/projects/${projectId}/characters/${char.id}/turnaround`,
+      { method: "POST" },
+    );
+    if (!gen.jobIds?.length) {
+      throw new Error(`三视图 job 未创建: ${char.name}`);
+    }
+    const jobDeadline = Date.now() + 60_000;
+    let ready = false;
+    while (Date.now() < jobDeadline) {
+      const refreshed = await request(`/api/v1/drama/projects/${projectId}`);
+      const nextChar = refreshed.project.characters.find((c) => c.id === char.id);
+      const ids = nextChar?.refOutputIds;
+      if (ids?.front && ids?.three_quarter && ids?.side) {
+        ready = true;
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+    if (!ready) throw new Error(`三视图生成超时: ${char.name}`);
+
+    const refreshed = await request(`/api/v1/drama/projects/${projectId}`);
+    const locked = await request(`/api/v1/drama/projects/${projectId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        project: {
+          characters: refreshed.project.characters.map((c) =>
+            c.id === char.id ? { ...c, turnaroundStatus: "locked" } : c,
+          ),
+        },
+      }),
+    });
+    const lockedChar = locked.project.characters.find((c) => c.id === char.id);
+    if (lockedChar?.turnaroundStatus !== "locked") {
+      throw new Error(`角色定稿失败: ${char.name}`);
+    }
+    console.log(`✓ 角色三视图定稿：${char.name}`);
+  }
+
   const run = await request(
-    `/api/v1/drama/projects/${planned.project.id}/produce`,
+    `/api/v1/drama/projects/${projectId}/produce`,
     {
       method: "POST",
       body: JSON.stringify({

@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { DramaCharacterCardView } from "@/components/drama-character-card";
 import { DramaStoryboardGrid } from "@/components/drama-storyboard-grid";
 import { estimateDramaProjectPoints, uploadAsset } from "@/lib/api-client";
+import { allCharactersLockedForProduce } from "@/lib/drama-character-helpers";
 import { useAuth } from "@/lib/auth-context";
 import type { DramaProject, DramaProjectPayload, DramaRun } from "@/lib/types";
 
@@ -130,6 +132,33 @@ export function DramaStudioPanel({
     [sessionId, project, patchProject],
   );
 
+  const handleCharacterProjectUpdate = useCallback(
+    (updated: DramaProjectPayload) => {
+      setLocalProject(updated);
+    },
+    [],
+  );
+
+  const handleLockCharacter = useCallback(
+    async (characterId: string, status: "draft" | "locked") => {
+      if (!project) return;
+      const next: DramaProjectPayload = {
+        ...project,
+        characters: project.characters.map((c) =>
+          c.id === characterId ? { ...c, turnaroundStatus: status } : c,
+        ),
+      };
+      setLocalProject(next);
+      if (onSaveDraft) {
+        await onSaveDraft(next);
+        setDirty(false);
+      } else {
+        setDirty(true);
+      }
+    },
+    [project, onSaveDraft],
+  );
+
   useEffect(() => {
     if (!isDraft || !project) {
       setLiveEstimate(null);
@@ -171,6 +200,7 @@ export function DramaStudioPanel({
   const needsHighCostConfirm = isDraft
     ? (liveEstimate ?? 0) >= confirmThreshold
     : run?.status === "waiting_confirm";
+  const charactersLocked = allCharactersLockedForProduce(project.characters);
 
   const isProducing =
     run != null &&
@@ -290,54 +320,34 @@ export function DramaStudioPanel({
             </section>
           ) : null}
 
-          <section>
+          <section data-testid="drama-characters-section">
             <h4 className="mb-2 text-xs font-medium text-zinc-300">
-              角色资产
+              角色资产（{project.characters.length}）
             </h4>
             <div className="space-y-2">
               {project.characters.map((c) => (
-                <div
+                <DramaCharacterCardView
                   key={c.id}
-                  className="rounded-lg border border-white/10 bg-black/20 p-2 text-xs"
-                >
-                  <div className="flex items-start gap-2">
-                    {c.refUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={c.refUrl}
-                        alt=""
-                        className="size-12 shrink-0 rounded object-cover"
-                      />
-                    ) : (
-                      <div className="flex size-12 shrink-0 items-center justify-center rounded bg-white/5 text-[10px] text-zinc-600">
-                        无图
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-zinc-200">{c.name}</div>
-                      <div className="mt-0.5 line-clamp-2 text-zinc-500">
-                        {c.promptAnchor}
-                      </div>
-                    </div>
-                  </div>
-                  {isDraft && !readOnly && sessionId ? (
-                    <button
-                      type="button"
-                      disabled={busy || uploadingRef === `character:${c.id}`}
-                      className="mt-2 text-[10px] text-violet-300 hover:text-violet-200 disabled:opacity-50"
-                      onClick={() => {
-                        pendingCharId.current = c.id;
-                        charFileRef.current?.click();
-                      }}
-                    >
-                      {uploadingRef === `character:${c.id}`
-                        ? "上传中…"
-                        : c.refUrl
-                          ? "替换参考图"
-                          : "上传参考图"}
-                    </button>
-                  ) : null}
-                </div>
+                  character={c}
+                  projectId={draftProject?.id ?? ""}
+                  readOnly={!isDraft || readOnly || !draftProject?.id}
+                  busy={busy || saving}
+                  onProjectUpdate={handleCharacterProjectUpdate}
+                  onLockCharacter={
+                    isDraft && !readOnly && onSaveDraft
+                      ? handleLockCharacter
+                      : undefined
+                  }
+                  onUploadRef={
+                    isDraft && !readOnly && sessionId
+                      ? () => {
+                          pendingCharId.current = c.id;
+                          charFileRef.current?.click();
+                        }
+                      : undefined
+                  }
+                  uploadingRef={uploadingRef === `character:${c.id}`}
+                />
               ))}
             </div>
           </section>
@@ -596,9 +606,19 @@ export function DramaStudioPanel({
 
           {isDraft && onConfirmProduce ? (
             <>
+              {!charactersLocked ? (
+                <p
+                  className="text-[11px] text-amber-400/90"
+                  data-testid="drama-characters-lock-hint"
+                >
+                  请为所有角色生成三视图并确认定稿后再开始制作
+                </p>
+              ) : null}
               <button
                 type="button"
-                disabled={busy || saving || insufficientCredits}
+                disabled={
+                  busy || saving || insufficientCredits || !charactersLocked
+                }
                 onClick={onConfirmProduce}
                 className={`w-full rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50 ${
                   needsHighCostConfirm

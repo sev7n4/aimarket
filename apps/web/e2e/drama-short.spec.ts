@@ -132,7 +132,7 @@ test.describe("AI 短剧全链路", () => {
     await expect(panel.getByText(/分镜板（\d+ 镜）/)).toBeVisible({
       timeout: 30_000,
     });
-    await expect(panel.getByText("角色资产")).toBeVisible();
+    await expect(panel.getByText(/角色资产（\d+）/)).toBeVisible();
     await expect(panel.getByTestId("drama-confirm-produce")).toBeVisible();
   });
 });

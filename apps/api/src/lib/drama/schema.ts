@@ -32,6 +32,8 @@ export const characterCardSchema = z.object({
     .optional(),
   /** 草稿态用户上传/替换的角色参考图 */
   refUrl: z.string().url().optional(),
+  /** 三视图定稿状态（制片前须 locked） */
+  turnaroundStatus: z.enum(["draft", "locked"]).optional(),
 });
 
 export const sceneCardSchema = z.object({

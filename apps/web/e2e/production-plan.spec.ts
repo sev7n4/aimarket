@@ -14,7 +14,7 @@ const PLAN_AGENTS = [
 
 test.describe("production plan SSE", () => {
   test("制片模式提交 → 五步规划时间线 → 分镜板", async ({ page, request }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(180_000);
     await skipStudioCoach(page);
 
     const apiBase = process.env.E2E_API_URL ?? "http://127.0.0.1:4000";
@@ -117,8 +117,29 @@ test.describe("production plan SSE", () => {
     await expect(panel.getByText(/分镜板（\d+ 镜）/)).toBeVisible({
       timeout: 30_000,
     });
-    await expect(panel.getByText("角色资产")).toBeVisible();
-    await expect(panel.getByTestId("drama-confirm-produce")).toBeVisible();
+    await expect(panel.getByText(/角色资产（\d+）/)).toBeVisible();
+    await expect(panel.getByTestId("drama-characters-lock-hint")).toBeVisible();
+    await expect(panel.getByTestId("drama-confirm-produce")).toBeDisabled();
+
+    const characterCards = panel.locator('[data-testid^="drama-character-card-"]');
+    const charCount = await characterCards.count();
+    expect(charCount).toBeGreaterThan(0);
+
+    for (let i = 0; i < charCount; i++) {
+      const card = characterCards.nth(i);
+      await card.getByTestId("drama-character-turnaround-generate").click();
+      await expect(card.getByTestId("drama-character-turnaround-lock")).toBeVisible({
+        timeout: 90_000,
+      });
+      await card.getByTestId("drama-character-turnaround-lock").click();
+      await expect(card.getByTestId("drama-character-turnaround-status")).toHaveText(
+        "已定稿",
+        { timeout: 15_000 },
+      );
+    }
+
+    await expect(panel.getByTestId("drama-characters-lock-hint")).toBeHidden();
+    await expect(panel.getByTestId("drama-confirm-produce")).toBeEnabled();
 
     const shotTimeline = page.getByTestId("drama-shot-timeline");
     await expect(shotTimeline).toBeVisible({ timeout: 30_000 });

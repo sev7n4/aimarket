@@ -1414,6 +1414,31 @@ export async function pickDramaKeyframe(
   return res.data;
 }
 
+export async function fetchDramaProject(projectId: string) {
+  const res = await request<{ data: import("./types").DramaProject }>(
+    `/api/v1/drama/projects/${encodeURIComponent(projectId)}`,
+  );
+  return res.data;
+}
+
+export async function generateDramaCharacterTurnaround(
+  projectId: string,
+  characterId: string,
+) {
+  const res = await request<{
+    data: {
+      status: "generating";
+      jobIds: string[];
+      characterId: string;
+      project: import("./types").DramaProject;
+    };
+  }>(
+    `/api/v1/drama/projects/${encodeURIComponent(projectId)}/characters/${encodeURIComponent(characterId)}/turnaround`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
 export async function updateDramaProjectApi(
   projectId: string,
   project: import("./types").DramaProjectPayload,
