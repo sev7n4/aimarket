@@ -240,9 +240,17 @@ test.describe("production plan SSE", () => {
     const projectJson = (await projectRes.json()) as {
       data?: { project?: { shots?: unknown[]; productionParams?: object } };
     };
+    const normalizeShot = (shot: Record<string, unknown>) => ({
+      ...shot,
+      useLastFrameContinuity:
+        shot.useLastFrameContinuity === true ||
+        shot.useLastFrameContinuity === "true",
+    });
     const trimmedProject = {
       ...projectJson.data?.project,
-      shots: (projectJson.data?.project?.shots ?? []).slice(0, 2),
+      shots: (projectJson.data?.project?.shots ?? [])
+        .slice(0, 2)
+        .map((shot) => normalizeShot(shot as Record<string, unknown>)),
       productionParams: {
         ...(projectJson.data?.project?.productionParams ?? {}),
         previewTier: "low",
