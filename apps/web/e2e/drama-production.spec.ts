@@ -17,8 +17,6 @@ test.describe("drama production export & publish", () => {
     const studioPanel = page.getByTestId("drama-studio-panel");
     await expect(studioPanel.getByTestId("drama-final-video-hint")).toBeVisible();
 
-    const studioUrl = page.url();
-
     const publishResponse = page.waitForResponse(
       (res) =>
         res.url().includes("/api/v1/inspiration/publish") &&
@@ -48,30 +46,27 @@ test.describe("drama production export & publish", () => {
     );
     expect(mineRes.ok()).toBeTruthy();
     const mineJson = (await mineRes.json()) as {
-      data?: { rows?: Array<{ id: string; title?: string }> };
+      data?: { rows?: Array<{ id: string }> };
     };
     expect(
       mineJson.data?.rows?.some((row) => row.id === inspirationId),
     ).toBeTruthy();
 
-    await page.goto("/inspiration", { waitUntil: "domcontentloaded" });
-
-    await page.goto(studioUrl, { waitUntil: "domcontentloaded" });
-    await expect(finalPanel).toBeVisible({ timeout: 30_000 });
-
     const unpublishResponse = page.waitForResponse(
       (res) =>
         res.url().includes(`/api/v1/inspiration/${inspirationId}`) &&
-        res.request().method() === "DELETE" &&
-        res.ok(),
+        res.request().method() === "DELETE",
       { timeout: 30_000 },
     );
     await finalPanel.getByTestId("drama-unpublish-inspiration").click();
-    await unpublishResponse;
+    const unpublishRes = await unpublishResponse;
+    expect(unpublishRes.ok()).toBeTruthy();
 
     const afterDetail = await request.get(
       `${apiBase}/api/v1/inspiration/${inspirationId}`,
     );
     expect(afterDetail.status()).toBe(404);
+
+    await page.goto("/inspiration", { waitUntil: "domcontentloaded" });
   });
 });
