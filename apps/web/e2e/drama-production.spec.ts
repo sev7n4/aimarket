@@ -42,10 +42,19 @@ test.describe("drama production export & publish", () => {
       studioPanel.getByTestId("drama-inspiration-published-panel"),
     ).toBeVisible();
 
+    const mineRes = await request.get(
+      `${apiBase}/api/v1/inspiration/mine?pageSize=20`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    expect(mineRes.ok()).toBeTruthy();
+    const mineJson = (await mineRes.json()) as {
+      data?: { rows?: Array<{ id: string; title?: string }> };
+    };
+    expect(
+      mineJson.data?.rows?.some((row) => row.id === inspirationId),
+    ).toBeTruthy();
+
     await page.goto("/inspiration", { waitUntil: "domcontentloaded" });
-    await expect(page.getByText(/E2E 短剧|咖啡|重逢/i).first()).toBeVisible({
-      timeout: 15_000,
-    });
 
     await page.goto(studioUrl, { waitUntil: "domcontentloaded" });
     await expect(finalPanel).toBeVisible({ timeout: 30_000 });
