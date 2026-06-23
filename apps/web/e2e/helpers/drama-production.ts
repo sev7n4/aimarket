@@ -1,5 +1,6 @@
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import { skipStudioCoach, studioWorkstation } from "./studio";
+import type { DramaRun } from "../../src/lib/types";
 
 const PLAN_AGENTS = [
   "writer",
@@ -22,6 +23,185 @@ export async function registerE2EUser(request: APIRequestContext) {
   const token = body.data?.token;
   expect(token).toBeTruthy();
   return { apiBase, token: token! };
+}
+
+/** 生成一张图作为成片 output，供发布灵感 E2E 使用 */
+export async function generateCanvasOutput(
+  request: APIRequestContext,
+  apiBase: string,
+  token: string,
+  sessionId: string,
+) {
+  const gen = await request.post(`${apiBase}/api/v1/ai/generate`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: {
+      sessionId,
+      prompt: "E2E 短剧成片封面",
+      mode: "image",
+      count: 1,
+      resolution: "1k",
+    },
+  });
+  expect(gen.ok()).toBeTruthy();
+  const genJson = (await gen.json()) as { data?: { jobId?: string } };
+  const jobId = genJson.data?.jobId;
+  expect(jobId).toBeTruthy();
+
+  let outputId: string | undefined;
+  let outputUrl: string | undefined;
+  await expect
+    .poll(
+      async () => {
+        const jobRes = await request.get(`${apiBase}/api/v1/ai/jobs/${jobId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const jobJson = (await jobRes.json()) as {
+          data?: {
+            status?: string;
+            outputs?: Array<{ id?: string; url?: string }>;
+          };
+        };
+        if (jobJson.data?.status === "succeeded") {
+          outputId = jobJson.data.outputs?.[0]?.id;
+          outputUrl = jobJson.data.outputs?.[0]?.url;
+          return Boolean(outputId && outputUrl);
+        }
+        return jobJson.data?.status === "failed" ? "failed" : "pending";
+      },
+      { timeout: 120_000 },
+    )
+    .not.toBe("failed");
+
+  expect(outputId).toBeTruthy();
+  expect(outputUrl).toBeTruthy();
+  return { outputId: outputId!, outputUrl: outputUrl! };
+}
+
+export function buildCompletedDramaRunMock(opts: {
+  sessionId: string;
+  outputId: string;
+  outputUrl: string;
+}): DramaRun {
+  const now = new Date().toISOString();
+  return {
+    id: `e2e-run-${Date.now()}`,
+    projectId: `e2e-project-${Date.now()}`,
+    sessionId: opts.sessionId,
+    skillId: "drama-short-v1",
+    status: "completed",
+    estimatedPoints: 50,
+    confirmIfPointsOver: 200,
+    currentStepIndex: 8,
+    pendingJobId: null,
+    finalVideoUrl: opts.outputUrl,
+    finalVideoOutputId: opts.outputId,
+    error: null,
+    project: {
+      userIdea: "E2E 短剧发布测试",
+      targetDurationSec: 90,
+      script: {
+        title: "E2E 短剧成片",
+        logline: "咖啡店老板与常客雨夜重逢",
+        acts: [],
+        narratorLines: [],
+      },
+      styleBible: {
+        palette: ["#333"],
+        lightingStyle: "soft",
+        aspectRatio: "9:16",
+        negativePrompt: "",
+      },
+      characters: [],
+      scenes: [],
+      shots: [
+        {
+          id: "shot-1",
+          order: 0,
+          sceneId: "scene-1",
+          characterIds: [],
+          dialogue: [],
+          visualPrompt: "咖啡店雨夜",
+          motionPrompt: "静态",
+          cameraSpec: {
+            shotSize: "medium",
+            movement: "static",
+            lighting: "soft",
+          },
+          durationSec: 5,
+          useLastFrameContinuity: false,
+          keyframeUrl: opts.outputUrl,
+          status: "done",
+        },
+      ],
+      productionParams: { previewTier: "low", aspectRatio: "9:16" },
+    },
+    pipelineSteps: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export async function openStudioWithCompletedDramaRun(
+  page: Page,
+  request: APIRequestContext,
+  apiBase: string,
+  token: string,
+) {
+  await skipStudioCoach(page);
+  const sessionId = crypto.randomUUID();
+  await request.post(`${apiBase}/api/v1/imageSession/ensure`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: {
+      sessionId,
+      mode: "chat",
+      kind: "canvas",
+      title: "drama-publish-e2e",
+    },
+  });
+
+  const { outputId, outputUrl } = await generateCanvasOutput(
+    request,
+    apiBase,
+    token,
+    sessionId,
+  );
+  const mockRun = buildCompletedDramaRunMock({
+    sessionId,
+    outputId,
+    outputUrl,
+  });
+
+  await page.route(
+    `**/api/v1/drama/sessions/${sessionId}/state`,
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            dramaRun: mockRun,
+            draftProject: null,
+            planRun: null,
+          },
+        }),
+      });
+    },
+  );
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.evaluate((t) => {
+    localStorage.setItem("aimarket_token", t);
+  }, token);
+
+  await page.goto(
+    `/studio?mode=production&sessionId=${sessionId}`,
+    { waitUntil: "domcontentloaded" },
+  );
+  await expect(page).toHaveURL(/sessionId=/, { timeout: 30_000 });
+  const station = studioWorkstation(page);
+  await expect(station).toBeVisible({ timeout: 15_000 });
+
+  return { sessionId, mockRun, outputUrl };
 }
 
 export async function planAndLockCharacters(
