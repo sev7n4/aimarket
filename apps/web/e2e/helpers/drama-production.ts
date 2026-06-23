@@ -248,16 +248,24 @@ export async function openStudioWithCompletedDramaRun(
     localStorage.setItem("aimarket_token", t);
   }, token);
 
-  await page.goto(
-    `/studio?mode=production&sessionId=${sessionId}`,
-    { waitUntil: "domcontentloaded" },
-  );
-  await page.waitForResponse(
+  const stateResponse = page.waitForResponse(
     (res) =>
       res.url().includes(`/api/v1/drama/sessions/${sessionId}/state`) &&
       res.ok(),
     { timeout: 30_000 },
   );
+  const graphResponse = page.waitForResponse(
+    (res) =>
+      res.url().includes(`/api/v1/drama/runs/${mockRun.id}/graph`) && res.ok(),
+    { timeout: 30_000 },
+  );
+
+  await page.goto(
+    `/studio?mode=production&sessionId=${sessionId}`,
+    { waitUntil: "domcontentloaded" },
+  );
+  await stateResponse;
+  await graphResponse;
   await expect(page).toHaveURL(/sessionId=/, { timeout: 30_000 });
   const station = studioWorkstation(page);
   await expect(station).toBeVisible({ timeout: 15_000 });
