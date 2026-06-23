@@ -546,6 +546,16 @@ database.exec(`
   CREATE INDEX IF NOT EXISTS idx_drama_runs_session ON drama_runs(session_id, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_drama_run_jobs_job ON drama_run_jobs(job_id);
 
+  CREATE TABLE IF NOT EXISTS drama_turnaround_jobs (
+    job_id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES drama_projects(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    character_id TEXT NOT NULL,
+    angle TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_drama_turnaround_jobs_project ON drama_turnaround_jobs(project_id);
+
   CREATE TABLE IF NOT EXISTS drama_plan_runs (
     id TEXT PRIMARY KEY,
     session_id TEXT NOT NULL REFERENCES image_sessions(id) ON DELETE CASCADE,

@@ -4,7 +4,36 @@ import { AppError } from "../errors.js";
 import type {
   DramaProjectData,
   DramaProjectStatus,
+  CharacterCard,
 } from "./schema.js";
+import { resolveReferenceUrls } from "../references.js";
+
+function enrichCharacterCard(char: CharacterCard) {
+  const ids = char.refOutputIds;
+  const refUrls = ids
+    ? {
+        front: ids.front
+          ? resolveReferenceUrls([ids.front])[0]
+          : undefined,
+        three_quarter: ids.three_quarter
+          ? resolveReferenceUrls([ids.three_quarter])[0]
+          : undefined,
+        side: ids.side ? resolveReferenceUrls([ids.side])[0] : undefined,
+      }
+    : undefined;
+  return {
+    ...char,
+    turnaroundStatus: char.turnaroundStatus ?? "draft",
+    refUrls,
+  };
+}
+
+function enrichProjectCharacters(project: DramaProjectData): DramaProjectData {
+  return {
+    ...project,
+    characters: project.characters.map(enrichCharacterCard),
+  };
+}
 
 export interface DramaProjectRow {
   id: string;
@@ -77,7 +106,7 @@ export function updateDramaProject(
 }
 
 export function serializeDramaProject(row: DramaProjectRow) {
-  const project = parseProjectJson(row);
+  const project = enrichProjectCharacters(parseProjectJson(row));
   return {
     id: row.id,
     sessionId: row.session_id,

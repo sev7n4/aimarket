@@ -294,6 +294,14 @@ export interface DramaCharacterCard {
   }>;
   /** 草稿态用户上传的角色参考图 */
   refUrl?: string;
+  /** 三视图定稿状态（制片前须 locked） */
+  turnaroundStatus?: "draft" | "locked";
+  /** 序列化后的三视图 URL（只读） */
+  refUrls?: Partial<{
+    front: string;
+    three_quarter: string;
+    side: string;
+  }>;
 }
 
 export interface DramaStoryboardShot {

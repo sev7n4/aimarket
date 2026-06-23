@@ -8,6 +8,7 @@ import { planDramaProject } from "../lib/drama/planner.js";
 import {
   createDramaProject,
   getDramaProject,
+  parseProjectJson,
   serializeDramaProject,
   updateDramaProject,
 } from "../lib/drama/projects.js";
@@ -39,6 +40,10 @@ import {
   serializeDramaPlanRun,
 } from "../lib/drama/plan-runs.js";
 import { mergeDramaProjectPatch } from "../lib/drama/merge-patch.js";
+import {
+  assertAllCharactersLockedForProduce,
+  dispatchCharacterTurnaround,
+} from "../lib/drama/character-turnaround.js";
 import { serializeDramaSessionState } from "../lib/drama/session-state.js";
 import type { DramaPlanAgentId, DramaPlanEvent } from "../lib/drama/planner/types.js";
 
@@ -120,6 +125,8 @@ drama.post("/projects/:projectId/produce", async (c) => {
     throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
   }
 
+  assertAllCharactersLockedForProduce(parseProjectJson(projectRow));
+
   updateDramaProject(projectId, { status: "confirmed" });
 
   const run = createDramaRun({
@@ -142,6 +149,30 @@ drama.get("/projects/:id", async (c) => {
   if (!row) throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
   return c.json({ data: serializeDramaProject(row) });
 });
+
+drama.post(
+  "/projects/:projectId/characters/:characterId/turnaround",
+  async (c) => {
+    const userId = c.get("userId");
+    const projectId = c.req.param("projectId");
+    const characterId = c.req.param("characterId");
+    const row = getDramaProject(userId, projectId);
+    if (!row) throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
+    assertSessionWrite(userId, row.session_id);
+
+    const result = dispatchCharacterTurnaround(userId, projectId, characterId);
+    const next = getDramaProject(userId, projectId)!;
+    return c.json(
+      {
+        data: {
+          ...result,
+          project: serializeDramaProject(next),
+        },
+      },
+      202,
+    );
+  },
+);
 
 drama.patch("/projects/:id", async (c) => {
   const userId = c.get("userId");
@@ -304,7 +335,7 @@ drama.get("/estimate", async (c) => {
     })),
     scenes: Array.from({ length: sceneCount }, (_, i) => ({
       id: `s${i}`,
-      name: "",
+      name: `场景${i}`,
       location: "",
       atmosphere: "",
       promptAnchor: "",
