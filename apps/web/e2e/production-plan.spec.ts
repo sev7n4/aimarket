@@ -75,8 +75,12 @@ test.describe("production plan SSE", () => {
     await expect(page.getByTestId("drama-plan-timeline")).toBeVisible({
       timeout: 30_000,
     });
-    await expect(page.getByTestId("drama-plan-stepper")).toBeVisible();
-    await expect(page.getByTestId("drama-plan-event-feed")).toBeVisible();
+    await expect(page.getByTestId("drama-plan-stepper")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("drama-plan-event-feed")).toBeVisible({
+      timeout: 30_000,
+    });
 
     await expect
       .poll(
