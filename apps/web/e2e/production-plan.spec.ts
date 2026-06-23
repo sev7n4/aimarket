@@ -262,36 +262,22 @@ test.describe("production plan SSE", () => {
       );
     }
 
-    const produceResponse = page.waitForResponse(
-      (res) =>
-        res.url().includes("/produce") &&
-        res.request().method() === "POST" &&
-        res.ok(),
-      { timeout: 60_000 },
-    );
-    const runId = await page.evaluate(
-      async ({ projectId, sessionId }) => {
-        const token = localStorage.getItem("aimarket_token");
-        const res = await fetch(
-          `/api/v1/drama/projects/${encodeURIComponent(projectId)}/produce`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ sessionId, confirmed: true }),
-          },
-        );
-        if (!res.ok) {
-          throw new Error(await res.text());
-        }
-        const json = (await res.json()) as { data?: { id?: string } };
-        return json.data?.id ?? null;
+    const produceRes = await request.post(
+      `${apiBase}/api/v1/drama/projects/${projectId}/produce`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        data: { sessionId, confirmed: true },
       },
-      { projectId: projectId!, sessionId: sessionId! },
     );
-    await produceResponse;
+    if (!produceRes.ok()) {
+      throw new Error(
+        `produce failed (${produceRes.status()}): ${await produceRes.text()}`,
+      );
+    }
+    const produceJson = (await produceRes.json()) as {
+      data?: { id?: string; status?: string };
+    };
+    const runId = produceJson.data?.id;
     expect(runId).toBeTruthy();
 
     await page.reload({ waitUntil: "domcontentloaded" });
