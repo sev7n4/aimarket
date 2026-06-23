@@ -47,7 +47,6 @@ export async function generateCanvasOutput(
   const jobId = genJson.data?.jobId;
   expect(jobId).toBeTruthy();
 
-  let outputId: string | undefined;
   let outputUrl: string | undefined;
   await expect
     .poll(
@@ -58,28 +57,27 @@ export async function generateCanvasOutput(
         const jobJson = (await jobRes.json()) as {
           data?: {
             status?: string;
-            outputs?: Array<{ id?: string; url?: string }>;
+            outputs?: Array<{ url?: string }>;
           };
         };
-        if (jobJson.data?.status === "succeeded") {
-          outputId = jobJson.data.outputs?.[0]?.id;
-          outputUrl = jobJson.data.outputs?.[0]?.url;
-          return Boolean(outputId && outputUrl);
+        const status = jobJson.data?.status;
+        if (status === "succeeded") {
+          outputUrl = jobJson.data?.outputs?.[0]?.url;
+          return outputUrl ? "ready" : "no-outputs";
         }
-        return jobJson.data?.status === "failed" ? "failed" : "pending";
+        if (status === "failed") return "failed";
+        return "pending";
       },
       { timeout: 120_000 },
     )
-    .not.toBe("failed");
+    .toBe("ready");
 
-  expect(outputId).toBeTruthy();
   expect(outputUrl).toBeTruthy();
-  return { outputId: outputId!, outputUrl: outputUrl! };
+  return { outputUrl: outputUrl! };
 }
 
 export function buildCompletedDramaRunMock(opts: {
   sessionId: string;
-  outputId: string;
   outputUrl: string;
 }): DramaRun {
   const now = new Date().toISOString();
@@ -94,7 +92,7 @@ export function buildCompletedDramaRunMock(opts: {
     currentStepIndex: 8,
     pendingJobId: null,
     finalVideoUrl: opts.outputUrl,
-    finalVideoOutputId: opts.outputId,
+    finalVideoOutputId: null,
     error: null,
     project: {
       userIdea: "E2E 短剧发布测试",
@@ -159,7 +157,7 @@ export async function openStudioWithCompletedDramaRun(
     },
   });
 
-  const { outputId, outputUrl } = await generateCanvasOutput(
+  const { outputUrl } = await generateCanvasOutput(
     request,
     apiBase,
     token,
@@ -167,7 +165,6 @@ export async function openStudioWithCompletedDramaRun(
   );
   const mockRun = buildCompletedDramaRunMock({
     sessionId,
-    outputId,
     outputUrl,
   });
 
