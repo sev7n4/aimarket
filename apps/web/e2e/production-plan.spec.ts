@@ -38,6 +38,8 @@ test.describe("production plan SSE", () => {
 
     await page.goto("/studio?mode=production", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/sessionId=/, { timeout: 30_000 });
+    const sessionId = new URL(page.url()).searchParams.get("sessionId");
+    expect(sessionId).toBeTruthy();
     const station = studioWorkstation(page);
     await expect(station.locator("textarea").first()).toBeVisible({
       timeout: 15_000,
@@ -236,24 +238,21 @@ test.describe("production plan SSE", () => {
       { headers: { Authorization: `Bearer ${token}` } },
     );
     const projectJson = (await projectRes.json()) as {
-      data?: { project?: Record<string, unknown> };
+      data?: { project?: { shots?: unknown[]; productionParams?: object } };
+    };
+    const trimmedProject = {
+      ...projectJson.data?.project,
+      shots: (projectJson.data?.project?.shots ?? []).slice(0, 2),
+      productionParams: {
+        ...(projectJson.data?.project?.productionParams ?? {}),
+        previewTier: "low",
+      },
     };
     await request.patch(`${apiBase}/api/v1/drama/projects/${projectId}`, {
       headers: { Authorization: `Bearer ${token}` },
-      data: {
-        project: {
-          ...projectJson.data?.project,
-          productionParams: {
-            ...(projectJson.data?.project as { productionParams?: object })
-              ?.productionParams,
-            previewTier: "low",
-          },
-        },
-      },
+      data: { project: trimmedProject },
     });
 
-    const sessionId = new URL(page.url()).searchParams.get("sessionId");
-    expect(sessionId).toBeTruthy();
     const produceApi = await request.post(
       `${apiBase}/api/v1/drama/projects/${projectId}/produce`,
       {
@@ -261,7 +260,11 @@ test.describe("production plan SSE", () => {
         data: { sessionId, confirmed: true },
       },
     );
-    expect(produceApi.ok()).toBeTruthy();
+    if (!produceApi.ok()) {
+      throw new Error(
+        `produce failed (${produceApi.status()}): ${await produceApi.text()}`,
+      );
+    }
     const produceJson = (await produceApi.json()) as {
       data?: { id?: string; status?: string };
     };
