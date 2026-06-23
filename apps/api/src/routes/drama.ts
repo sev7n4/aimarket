@@ -35,6 +35,12 @@ import {
   subscribePlanEvents,
 } from "../lib/drama/plan-events.js";
 import {
+  getRunEventBuffer,
+  isTerminalRunEvent,
+  subscribeRunEvents,
+} from "../lib/drama/run-events.js";
+import type { DramaRunStreamEvent } from "../lib/drama/run-events.js";
+import {
   createDramaPlanRun,
   getDramaPlanRun,
   serializeDramaPlanRun,
@@ -208,6 +214,75 @@ drama.get("/runs/:id/graph", async (c) => {
   const projectRow = getDramaProject(userId, run.project_id);
   if (!projectRow) throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
   return c.json({ data: buildDramaRunGraph(run, projectRow) });
+});
+
+drama.get("/runs/:id/stream", (c) => {
+  const userId = c.get("userId");
+  const runId = c.req.param("id");
+  const run = getDramaRun(userId, runId);
+  if (!run) throw new AppError(404, "NOT_FOUND", "短剧 Run 不存在");
+
+  return streamSSE(c, async (stream) => {
+    const writeEvent = async (event: DramaRunStreamEvent) => {
+      await stream.writeSSE({
+        event: event.type,
+        data: JSON.stringify(event),
+      });
+    };
+
+    const replayed = getRunEventBuffer(runId);
+    for (const event of replayed) {
+      await writeEvent(event);
+    }
+    if (replayed.some(isTerminalRunEvent)) return;
+
+    const deadline =
+      Date.now() + Number(process.env.DRAMA_RUN_STREAM_MAX_MS ?? 3_600_000);
+
+    await new Promise<void>((resolve) => {
+      let cursor = replayed.length;
+
+      const flushNew = async () => {
+        const buf = getRunEventBuffer(runId);
+        while (cursor < buf.length) {
+          const event = buf[cursor]!;
+          cursor += 1;
+          await writeEvent(event);
+          if (isTerminalRunEvent(event)) {
+            cleanup();
+            resolve();
+            return;
+          }
+        }
+      };
+
+      const cleanup = subscribeRunEvents(runId, () => {
+        void flushNew();
+      });
+
+      const poll = setInterval(() => {
+        void flushNew();
+        const latest = getDramaRun(userId, runId);
+        if (
+          latest &&
+          (latest.status === "completed" ||
+            latest.status === "failed" ||
+            latest.status === "cancelled")
+        ) {
+          clearInterval(poll);
+          cleanup();
+          resolve();
+        }
+        if (Date.now() > deadline) {
+          clearInterval(poll);
+          cleanup();
+          resolve();
+        }
+      }, 800);
+
+      void flushNew();
+    });
+  });
 });
 
 drama.post("/runs/:id/confirm", async (c) => {

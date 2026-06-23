@@ -23,6 +23,7 @@ import {
   updateDramaRun,
   type DramaRunRow,
 } from "./runs.js";
+import { clearRunEvents } from "./run-events.js";
 import {
   DRAMA_PIPELINE_STEPS,
   type CharacterAngle,
@@ -989,6 +990,8 @@ export async function retryDramaRun(
   const row = getDramaRun(userId, runId);
   if (!row) throw new Error("DRAMA_RUN_NOT_FOUND");
   if (row.status !== "failed") throw new Error("DRAMA_RUN_NOT_FAILED");
+
+  clearRunEvents(runId);
 
   let progress = parseProgress(row);
   if (fromStep) {

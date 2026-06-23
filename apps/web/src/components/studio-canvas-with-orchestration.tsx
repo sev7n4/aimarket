@@ -30,6 +30,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     sessionId,
     studioMode,
     dramaRun,
+    dramaRunGraph,
     dramaDraftProject,
     dramaPlanRun,
     dramaBusy,
@@ -156,6 +157,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
         sessionId={sessionId}
         draftProject={dramaDraftProject}
         run={dramaRun}
+        runGraph={dramaRunGraph}
         planning={isDramaPlanning}
         busy={dramaBusy || dramaPlanBusy}
         shotTimelineOnCanvas={showShotTimeline}
