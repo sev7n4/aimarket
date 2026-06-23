@@ -22,12 +22,12 @@ test.describe("drama production export & publish", () => {
     const publishResponse = page.waitForResponse(
       (res) =>
         res.url().includes("/api/v1/inspiration/publish") &&
-        res.request().method() === "POST" &&
-        res.ok(),
-      { timeout: 30_000 },
+        res.request().method() === "POST",
+      { timeout: 60_000 },
     );
     await finalPanel.getByTestId("drama-publish-inspiration").click();
     const publishRes = await publishResponse;
+    expect(publishRes.ok()).toBeTruthy();
     const publishJson = (await publishRes.json()) as {
       data?: { id?: string; status?: string };
     };

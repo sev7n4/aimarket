@@ -47,6 +47,7 @@ export async function generateCanvasOutput(
   const jobId = genJson.data?.jobId;
   expect(jobId).toBeTruthy();
 
+  let outputId: string | undefined;
   let outputUrl: string | undefined;
   await expect
     .poll(
@@ -57,13 +58,14 @@ export async function generateCanvasOutput(
         const jobJson = (await jobRes.json()) as {
           data?: {
             status?: string;
-            outputs?: Array<{ url?: string }>;
+            outputs?: Array<{ id?: string; url?: string }>;
           };
         };
         const status = jobJson.data?.status;
         if (status === "succeeded") {
+          outputId = jobJson.data?.outputs?.[0]?.id;
           outputUrl = jobJson.data?.outputs?.[0]?.url;
-          return outputUrl ? "ready" : "no-outputs";
+          return outputId && outputUrl ? "ready" : "no-outputs";
         }
         if (status === "failed") return "failed";
         return "pending";
@@ -72,12 +74,14 @@ export async function generateCanvasOutput(
     )
     .toBe("ready");
 
+  expect(outputId).toBeTruthy();
   expect(outputUrl).toBeTruthy();
-  return { outputUrl: outputUrl! };
+  return { outputId: outputId!, outputUrl: outputUrl! };
 }
 
 export function buildCompletedDramaRunMock(opts: {
   sessionId: string;
+  outputId: string;
   outputUrl: string;
 }): DramaRun {
   const now = new Date().toISOString();
@@ -92,7 +96,7 @@ export function buildCompletedDramaRunMock(opts: {
     currentStepIndex: 8,
     pendingJobId: null,
     finalVideoUrl: opts.outputUrl,
-    finalVideoOutputId: null,
+    finalVideoOutputId: opts.outputId,
     error: null,
     project: {
       userIdea: "E2E 短剧发布测试",
@@ -157,7 +161,7 @@ export async function openStudioWithCompletedDramaRun(
     },
   });
 
-  const { outputUrl } = await generateCanvasOutput(
+  const { outputId, outputUrl } = await generateCanvasOutput(
     request,
     apiBase,
     token,
@@ -165,6 +169,7 @@ export async function openStudioWithCompletedDramaRun(
   );
   const mockRun = buildCompletedDramaRunMock({
     sessionId,
+    outputId,
     outputUrl,
   });
 
@@ -193,6 +198,12 @@ export async function openStudioWithCompletedDramaRun(
   await page.goto(
     `/studio?mode=production&sessionId=${sessionId}`,
     { waitUntil: "domcontentloaded" },
+  );
+  await page.waitForResponse(
+    (res) =>
+      res.url().includes(`/api/v1/drama/sessions/${sessionId}/state`) &&
+      res.ok(),
+    { timeout: 30_000 },
   );
   await expect(page).toHaveURL(/sessionId=/, { timeout: 30_000 });
   const station = studioWorkstation(page);
