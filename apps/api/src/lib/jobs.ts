@@ -570,7 +570,7 @@ export async function processGenerationJob({
 export type JobDetail = Record<string, unknown> & {
   status: string;
   error: string | null;
-  outputs: { url: string; thumb_url?: string | null; sort_order: number }[];
+  outputs: { id: string; url: string; thumb_url?: string | null; sort_order: number }[];
   outputType: "image" | "video";
   queue_ahead?: number | null;
 };
@@ -611,9 +611,14 @@ export function getJob(jobId: string, userId?: string): JobDetail {
 
   const outputs = db
     .prepare(
-      `SELECT url, thumb_url, sort_order FROM job_outputs WHERE job_id = ? ORDER BY sort_order ASC`,
+      `SELECT id, url, thumb_url, sort_order FROM job_outputs WHERE job_id = ? ORDER BY sort_order ASC`,
     )
-    .all(jobId) as { url: string; thumb_url: string | null; sort_order: number }[];
+    .all(jobId) as {
+    id: string;
+    url: string;
+    thumb_url: string | null;
+    sort_order: number;
+  }[];
 
   const model = getModel(job.model_id as string);
 

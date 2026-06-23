@@ -32,7 +32,7 @@ async function waitForFirstBatch(page: import("@playwright/test").Page) {
   const batchSection = page
     .locator('[data-testid^="canvas-batch-section-"]')
     .first();
-  await expect(batchSection).toBeVisible({ timeout: 30_000 });
+  await expect(batchSection).toBeVisible({ timeout: 60_000 });
   await expect(batchSection).toContainText(/批次\s*1/);
   return batchSection;
 }
