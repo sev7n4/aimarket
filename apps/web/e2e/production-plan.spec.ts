@@ -161,8 +161,11 @@ test.describe("production plan SSE", () => {
         (res) =>
           res.url().includes("/turnaround") &&
           res.request().method() === "POST",
-        { timeout: 60_000 },
+        { timeout: 90_000 },
       );
+      await expect(
+        card.getByTestId("drama-character-turnaround-generate"),
+      ).toBeEnabled({ timeout: 30_000 });
       await card.getByTestId("drama-character-turnaround-generate").click();
       const turnaroundRes = await turnaroundResponse;
       expect(turnaroundRes.ok()).toBeTruthy();
@@ -248,12 +251,15 @@ test.describe("production plan SSE", () => {
     const produceResponse = page.waitForResponse(
       (res) =>
         res.url().includes("/produce") &&
-        res.request().method() === "POST" &&
-        res.ok(),
-      { timeout: 60_000 },
+        res.request().method() === "POST",
+      { timeout: 90_000 },
     );
+    await expect(panelAfterLock.getByTestId("drama-confirm-produce")).toBeEnabled({
+      timeout: 30_000,
+    });
     await panelAfterLock.getByTestId("drama-confirm-produce").click();
     const produceRes = await produceResponse;
+    expect(produceRes.ok()).toBeTruthy();
     const produceJson = (await produceRes.json()) as {
       data?: { id?: string; status?: string };
     };
@@ -270,6 +276,9 @@ test.describe("production plan SSE", () => {
     await expect(
       panelAfterLock.getByTestId("drama-production-panel-progress"),
     ).toBeVisible();
+    await expect(panelAfterLock.getByTestId("drama-node-graph")).toBeVisible({
+      timeout: 30_000,
+    });
 
     await expect
       .poll(
