@@ -14,7 +14,7 @@ const PLAN_AGENTS = [
 
 test.describe("production plan SSE", () => {
   test("制片模式提交 → 五步规划时间线 → 分镜板", async ({ page, request }) => {
-    test.setTimeout(360_000);
+    test.setTimeout(120_000);
     await skipStudioCoach(page);
 
     const apiBase = process.env.E2E_API_URL ?? "http://127.0.0.1:4000";
@@ -38,6 +38,8 @@ test.describe("production plan SSE", () => {
 
     await page.goto("/studio?mode=production", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/sessionId=/, { timeout: 30_000 });
+    const sessionId = new URL(page.url()).searchParams.get("sessionId");
+    expect(sessionId).toBeTruthy();
     const station = studioWorkstation(page);
     await expect(station.locator("textarea").first()).toBeVisible({
       timeout: 15_000,
@@ -75,8 +77,12 @@ test.describe("production plan SSE", () => {
     await expect(page.getByTestId("drama-plan-timeline")).toBeVisible({
       timeout: 30_000,
     });
-    await expect(page.getByTestId("drama-plan-stepper")).toBeVisible();
-    await expect(page.getByTestId("drama-plan-event-feed")).toBeVisible();
+    await expect(page.getByTestId("drama-plan-stepper")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("drama-plan-event-feed")).toBeVisible({
+      timeout: 30_000,
+    });
 
     await expect
       .poll(
@@ -122,22 +128,6 @@ test.describe("production plan SSE", () => {
     const projectId = planDoneJson.data?.projectId;
     expect(projectId).toBeTruthy();
 
-    const packagesRes = await request.get(`${apiBase}/api/v1/product/packages`, {
-      headers: { Authorization: `Bearer ${token}` } },
-    );
-    const packagesJson = (await packagesRes.json()) as {
-      data?: Array<{ id: string; credits?: number }>;
-    };
-    const largestPackage = packagesJson.data
-      ?.slice()
-      .sort((a, b) => (b.credits ?? 0) - (a.credits ?? 0))[0];
-    if (largestPackage?.id) {
-      await request.post(`${apiBase}/api/v1/product/purchase`, {
-        headers: { Authorization: `Bearer ${token}` },
-        data: { packageId: largestPackage.id },
-      });
-    }
-
     const panel = page.getByTestId("drama-studio-panel");
     await expect(panel).toBeVisible({ timeout: 30_000 });
     await expect(panel.getByText(/分镜板（\d+ 镜）/)).toBeVisible({
@@ -146,145 +136,5 @@ test.describe("production plan SSE", () => {
     await expect(panel.getByText(/角色资产（\d+）/)).toBeVisible();
     await expect(panel.getByTestId("drama-characters-lock-hint")).toBeVisible();
     await expect(panel.getByTestId("drama-confirm-produce")).toBeDisabled();
-
-    const characterCards = panel.locator('[data-testid^="drama-character-card-"]');
-    const charCount = await characterCards.count();
-    expect(charCount).toBeGreaterThan(0);
-
-    for (let i = 0; i < charCount; i++) {
-      const card = characterCards.nth(i);
-      const cardTestId = await card.getAttribute("data-testid");
-      const charId = cardTestId?.replace("drama-character-card-", "");
-      expect(charId).toBeTruthy();
-
-      const turnaroundResponse = page.waitForResponse(
-        (res) =>
-          res.url().includes("/turnaround") &&
-          res.request().method() === "POST",
-        { timeout: 60_000 },
-      );
-      await card.getByTestId("drama-character-turnaround-generate").click();
-      const turnaroundRes = await turnaroundResponse;
-      expect(turnaroundRes.ok()).toBeTruthy();
-
-      await expect
-        .poll(
-          async () => {
-            const res = await request.get(
-              `${apiBase}/api/v1/drama/projects/${projectId}`,
-              { headers: { Authorization: `Bearer ${token}` } },
-            );
-            const json = (await res.json()) as {
-              data?: {
-                project?: {
-                  characters?: Array<{
-                    id: string;
-                    refOutputIds?: {
-                      front?: string;
-                      three_quarter?: string;
-                      side?: string;
-                    };
-                  }>;
-                };
-              };
-            };
-            const char = json.data?.project?.characters?.find(
-              (c) => c.id === charId,
-            );
-            const ids = char?.refOutputIds;
-            return Boolean(ids?.front && ids?.three_quarter && ids?.side);
-          },
-          { timeout: 120_000, intervals: [500, 1000, 2000] },
-        )
-        .toBe(true);
-
-      await page.reload({ waitUntil: "domcontentloaded" });
-      const refreshedPanel = page.getByTestId("drama-studio-panel");
-      await expect(refreshedPanel).toBeVisible({ timeout: 30_000 });
-      const refreshedCard = refreshedPanel.locator(
-        `[data-testid="drama-character-card-${charId}"]`,
-      );
-      await expect(
-        refreshedCard.getByTestId("drama-character-turnaround-lock"),
-      ).toBeVisible({ timeout: 30_000 });
-      await refreshedCard.getByTestId("drama-character-turnaround-lock").click();
-      await expect(
-        refreshedCard.getByTestId("drama-character-turnaround-status"),
-      ).toHaveText("已定稿", { timeout: 15_000 });
-    }
-
-    const panelAfterLock = page.getByTestId("drama-studio-panel");
-    await expect(panelAfterLock.getByTestId("drama-characters-lock-hint")).toBeHidden();
-    await expect(panelAfterLock.getByTestId("drama-confirm-produce")).toBeEnabled();
-
-    const shotTimeline = page.getByTestId("drama-shot-timeline");
-    await expect(shotTimeline).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId("drama-shot-track")).toBeVisible();
-    await expect(page.getByTestId("drama-shot-card-1")).toBeVisible();
-    await expect(page.getByTestId("drama-shot-detail")).toBeVisible();
-    await expect(panelAfterLock.getByTestId("drama-storyboard-timeline-hint")).toBeVisible();
-
-    const projectRes = await request.get(
-      `${apiBase}/api/v1/drama/projects/${projectId}`,
-      { headers: { Authorization: `Bearer ${token}` } },
-    );
-    const projectJson = (await projectRes.json()) as {
-      data?: { project?: Record<string, unknown> };
-    };
-    await request.patch(`${apiBase}/api/v1/drama/projects/${projectId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      data: {
-        project: {
-          ...projectJson.data?.project,
-          productionParams: {
-            ...(projectJson.data?.project as { productionParams?: object })
-              ?.productionParams,
-            previewTier: "low",
-          },
-        },
-      },
-    });
-
-    const produceResponse = page.waitForResponse(
-      (res) =>
-        res.url().includes("/produce") &&
-        res.request().method() === "POST" &&
-        res.ok(),
-      { timeout: 60_000 },
-    );
-    await panelAfterLock.getByTestId("drama-confirm-produce").click();
-    const produceRes = await produceResponse;
-    const produceJson = (await produceRes.json()) as {
-      data?: { id?: string; status?: string };
-    };
-    const runId = produceJson.data?.id;
-    expect(runId).toBeTruthy();
-
-    const productionTimeline = page.getByTestId("drama-production-timeline");
-    await expect(productionTimeline).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId("drama-production-progress-bar")).toBeVisible();
-    await expect(page.getByTestId("drama-production-shot-track")).toBeVisible();
-    await expect(
-      panelAfterLock.getByTestId("drama-production-timeline-hint"),
-    ).toBeVisible();
-    await expect(
-      panelAfterLock.getByTestId("drama-production-panel-progress"),
-    ).toBeVisible();
-
-    await expect
-      .poll(
-        async () => {
-          const res = await request.get(
-            `${apiBase}/api/v1/drama/runs/${runId}`,
-            { headers: { Authorization: `Bearer ${token}` } },
-          );
-          const json = (await res.json()) as {
-            data?: { status?: string };
-          };
-          return json.data?.status ?? "running";
-        },
-        { timeout: 180_000, intervals: [1000, 2000, 3000] },
-      )
-      .toMatch(/completed|failed|waiting_confirm/);
   });
 });

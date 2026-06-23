@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DramaCharacterCardView } from "@/components/drama-character-card";
 import { DramaNodeGraph } from "@/components/drama-node-graph";
 import { DramaStoryboardGrid } from "@/components/drama-storyboard-grid";
-import { estimateDramaProjectPoints, fetchDramaRunGraph, uploadAsset } from "@/lib/api-client";
+import { estimateDramaProjectPoints, uploadAsset } from "@/lib/api-client";
 import { allCharactersLockedForProduce } from "@/lib/drama-character-helpers";
 import {
   activePipelineStep,
@@ -35,6 +35,7 @@ interface DramaStudioPanelProps {
   sessionId?: string;
   draftProject?: DramaProject | null;
   run?: DramaRun | null;
+  runGraph?: DramaRunGraph | null;
   planning?: boolean;
   shotTimelineOnCanvas?: boolean;
   productionTimelineOnCanvas?: boolean;
@@ -62,6 +63,7 @@ export function DramaStudioPanel({
   sessionId,
   draftProject,
   run,
+  runGraph = null,
   planning,
   shotTimelineOnCanvas,
   productionTimelineOnCanvas,
@@ -93,7 +95,6 @@ export function DramaStudioPanel({
   const [liveEstimate, setLiveEstimate] = useState<number | null>(null);
   const [uploadingRef, setUploadingRef] = useState<string | null>(null);
   const [publishingInspiration, setPublishingInspiration] = useState(false);
-  const [runGraph, setRunGraph] = useState<DramaRunGraph | null>(null);
   const charFileRef = useRef<HTMLInputElement>(null);
   const sceneFileRef = useRef<HTMLInputElement>(null);
   const pendingCharId = useRef<string | null>(null);
@@ -194,24 +195,6 @@ export function DramaStudioPanel({
     }, 400);
     return () => window.clearTimeout(timer);
   }, [isDraft, project]);
-
-  useEffect(() => {
-    if (!run?.id) {
-      setRunGraph(null);
-      return;
-    }
-    let cancelled = false;
-    void fetchDramaRunGraph(run.id)
-      .then((graph) => {
-        if (!cancelled) setRunGraph(graph);
-      })
-      .catch(() => {
-        if (!cancelled) setRunGraph(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [run?.id, run?.status, run?.currentStepIndex]);
 
   if (planning) {
     return (

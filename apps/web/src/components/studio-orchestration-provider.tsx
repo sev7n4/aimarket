@@ -65,6 +65,7 @@ interface StudioOrchestrationContextValue {
   agentRun: AgentRun | null;
   skillRun: SkillRun | null;
   dramaRun: DramaRun | null;
+  dramaRunGraph: ReturnType<typeof useDramaRun>["runGraph"];
   dramaDraftProject: ReturnType<typeof useDramaRun>["draftProject"];
   dramaPlanRun: DramaPlanRunState | null;
   saveDramaDraft: ReturnType<typeof useDramaRun>["saveDraftProject"];
@@ -169,6 +170,7 @@ export function StudioOrchestrationProvider({
 
   const {
     run: dramaRun,
+    runGraph: dramaRunGraph,
     draftProject: dramaDraftProject,
     busy: dramaBusy,
     planOnly: planDramaOnly,
@@ -621,6 +623,7 @@ export function StudioOrchestrationProvider({
       skillRun,
       agentRun,
       dramaRun,
+      dramaRunGraph,
       dramaDraftProject,
       confirmOrchestration,
       startSkillRun,
@@ -684,6 +687,7 @@ export function StudioOrchestrationProvider({
       agentRun,
       skillRun,
       dramaRun,
+      dramaRunGraph,
       dramaDraftProject,
       dramaPlanRun,
       saveDramaDraft,
@@ -719,6 +723,7 @@ export function StudioOrchestrationProvider({
       agentRun,
       skillRun,
       dramaRun,
+      dramaRunGraph,
       dramaDraftProject,
       dramaPlanRun,
       saveDramaDraft,

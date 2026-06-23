@@ -6,6 +6,7 @@ import {
   estimateDramaPoints,
 } from "./estimate.js";
 import type { DramaProgress, DramaRunStatus } from "./schema.js";
+import { publishDramaRunStreamUpdate } from "./run-stream.js";
 import { DRAMA_PIPELINE_STEPS } from "./schema.js";
 import {
   getDramaProject,
@@ -100,6 +101,7 @@ export function createDramaRun(input: {
 
   const row = getDramaRun(input.userId, id);
   if (!row) throw new AppError(500, "INTERNAL_ERROR", "创建短剧 Run 失败");
+  publishDramaRunStreamUpdate(id);
   return row;
 }
 
@@ -190,6 +192,7 @@ export function updateDramaRun(
   db.prepare(`UPDATE drama_runs SET ${sets.join(", ")} WHERE id = ?`).run(
     ...params,
   );
+  publishDramaRunStreamUpdate(runId);
 }
 
 export function serializeDramaRun(row: DramaRunRow, projectRow: DramaProjectRow) {

@@ -6,12 +6,18 @@ import {
   confirmDramaRun,
   createDramaRun,
   fetchDramaRun,
+  fetchDramaRunGraph,
   planDramaProject,
   retryDramaProduction,
   startDramaProduction,
   updateDramaProjectApi,
 } from "@/lib/api-client";
-import type { DramaProject, DramaProjectPayload, DramaRun } from "@/lib/types";
+import {
+  pollDramaRunUpdates,
+  streamDramaRun,
+  type DramaRunStreamEvent,
+} from "@/lib/drama-run-stream";
+import type { DramaProject, DramaProjectPayload, DramaRun, DramaRunGraph } from "@/lib/types";
 
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);
 
@@ -29,9 +35,11 @@ export function useDramaRun({
   onRunSettled,
 }: UseDramaRunOptions) {
   const [run, setRun] = useState<DramaRun | null>(null);
+  const [runGraph, setRunGraph] = useState<DramaRunGraph | null>(null);
   const [draftProject, setDraftProject] = useState<DramaProject | null>(null);
   const [busy, setBusy] = useState(false);
   const lastJobRef = useRef<string | null>(null);
+  const stopStreamRef = useRef<(() => void) | null>(null);
   const onJobStartedRef = useRef(onJobStarted);
   const onRunSettledRef = useRef(onRunSettled);
 
@@ -49,16 +57,87 @@ export function useDramaRun({
     }
   }, []);
 
+  const handleStreamEvent = useCallback(
+    (event: DramaRunStreamEvent) => {
+      if (event.type === "graph_update") {
+        setRunGraph(event.graph);
+        setRun((prev) =>
+          prev && prev.id === event.runId
+            ? {
+                ...prev,
+                status: event.status as DramaRun["status"],
+                currentStepIndex: event.currentStepIndex,
+              }
+            : prev,
+        );
+      }
+    },
+    [],
+  );
+
+  const handleStreamTerminal = useCallback(
+    async (runId: string) => {
+      try {
+        const next = await fetchDramaRun(runId);
+        syncRun(next);
+      } catch {
+        /* ignore */
+      }
+    },
+    [syncRun],
+  );
+
   useEffect(() => {
-    if (!run?.id || TERMINAL.has(run.status)) return;
-    const id = run.id;
-    const tick = window.setInterval(() => {
-      void fetchDramaRun(id)
-        .then(syncRun)
-        .catch(() => {});
-    }, 1500);
-    return () => window.clearInterval(tick);
-  }, [run?.id, run?.status, syncRun]);
+    stopStreamRef.current?.();
+    stopStreamRef.current = null;
+
+    if (!run?.id || TERMINAL.has(run.status)) {
+      return;
+    }
+
+    const runId = run.id;
+    const onDone = () => {
+      void handleStreamTerminal(runId);
+    };
+
+    stopStreamRef.current = streamDramaRun(
+      runId,
+      handleStreamEvent,
+      onDone,
+      () => {
+        stopStreamRef.current = pollDramaRunUpdates(
+          runId,
+          syncRun,
+          onDone,
+          () => {},
+        );
+      },
+    );
+
+    return () => {
+      stopStreamRef.current?.();
+      stopStreamRef.current = null;
+    };
+  }, [run?.id, run?.status, handleStreamEvent, handleStreamTerminal, syncRun]);
+
+  useEffect(() => {
+    if (!run?.id) {
+      setRunGraph(null);
+      return;
+    }
+    if (!TERMINAL.has(run.status)) return;
+    let cancelled = false;
+    void fetchDramaRunGraph(run.id)
+      .then((graph) => {
+        if (!cancelled) setRunGraph(graph);
+      })
+      .catch(() => {
+        if (!cancelled) setRunGraph(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [run?.id, run?.status]);
 
   const planOnly = useCallback(
     async (userIdea: string, aspectRatio?: "9:16" | "16:9") => {
@@ -90,6 +169,7 @@ export function useDramaRun({
           confirmed,
         });
         syncRun(next);
+        setRunGraph(null);
         return next;
       } finally {
         setBusy(false);
@@ -114,6 +194,7 @@ export function useDramaRun({
         });
         syncRun(next);
         setDraftProject(null);
+        setRunGraph(null);
         return next;
       } finally {
         setBusy(false);
@@ -168,6 +249,7 @@ export function useDramaRun({
       try {
         const next = await retryDramaProduction(run.id, fromStep);
         syncRun(next);
+        setRunGraph(null);
         return next;
       } finally {
         setBusy(false);
@@ -178,6 +260,7 @@ export function useDramaRun({
 
   return {
     run,
+    runGraph,
     draftProject,
     busy,
     planOnly,
@@ -189,5 +272,6 @@ export function useDramaRun({
     retryProduction,
     setRun,
     setDraftProject,
+    setRunGraph,
   };
 }
