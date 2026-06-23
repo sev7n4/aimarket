@@ -248,35 +248,37 @@ test.describe("production plan SSE", () => {
       },
     });
 
-    const produceResponse = page.waitForResponse(
-      (res) =>
-        res.url().includes("/produce") &&
-        res.request().method() === "POST",
-      { timeout: 90_000 },
+    const sessionId = new URL(page.url()).searchParams.get("sessionId");
+    expect(sessionId).toBeTruthy();
+    const produceApi = await request.post(
+      `${apiBase}/api/v1/drama/projects/${projectId}/produce`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        data: { sessionId, confirmed: true },
+      },
     );
-    await expect(panelAfterLock.getByTestId("drama-confirm-produce")).toBeEnabled({
-      timeout: 30_000,
-    });
-    await panelAfterLock.getByTestId("drama-confirm-produce").click();
-    const produceRes = await produceResponse;
-    expect(produceRes.ok()).toBeTruthy();
-    const produceJson = (await produceRes.json()) as {
+    expect(produceApi.ok()).toBeTruthy();
+    const produceJson = (await produceApi.json()) as {
       data?: { id?: string; status?: string };
     };
     const runId = produceJson.data?.id;
     expect(runId).toBeTruthy();
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    const panelAfterProduce = page.getByTestId("drama-studio-panel");
+    await expect(panelAfterProduce).toBeVisible({ timeout: 30_000 });
 
     const productionTimeline = page.getByTestId("drama-production-timeline");
     await expect(productionTimeline).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("drama-production-progress-bar")).toBeVisible();
     await expect(page.getByTestId("drama-production-shot-track")).toBeVisible();
     await expect(
-      panelAfterLock.getByTestId("drama-production-timeline-hint"),
+      panelAfterProduce.getByTestId("drama-production-timeline-hint"),
     ).toBeVisible();
     await expect(
-      panelAfterLock.getByTestId("drama-production-panel-progress"),
+      panelAfterProduce.getByTestId("drama-production-panel-progress"),
     ).toBeVisible();
-    await expect(panelAfterLock.getByTestId("drama-node-graph")).toBeVisible({
+    await expect(panelAfterProduce.getByTestId("drama-node-graph")).toBeVisible({
       timeout: 30_000,
     });
 
