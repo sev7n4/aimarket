@@ -45,6 +45,7 @@ import {
   dispatchCharacterTurnaround,
 } from "../lib/drama/character-turnaround.js";
 import { serializeDramaSessionState } from "../lib/drama/session-state.js";
+import { buildDramaRunGraph } from "../lib/drama/run-graph.js";
 import type { DramaPlanAgentId, DramaPlanEvent } from "../lib/drama/planner/types.js";
 
 const drama = new Hono<{ Variables: AuthVariables }>();
@@ -198,6 +199,15 @@ drama.get("/runs/:id", async (c) => {
   const projectRow = getDramaProject(userId, run.project_id);
   if (!projectRow) throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
   return c.json({ data: serializeDramaRun(run, projectRow) });
+});
+
+drama.get("/runs/:id/graph", async (c) => {
+  const userId = c.get("userId");
+  const run = getDramaRun(userId, c.req.param("id"));
+  if (!run) throw new AppError(404, "NOT_FOUND", "短剧 Run 不存在");
+  const projectRow = getDramaProject(userId, run.project_id);
+  if (!projectRow) throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
+  return c.json({ data: buildDramaRunGraph(run, projectRow) });
 });
 
 drama.post("/runs/:id/confirm", async (c) => {

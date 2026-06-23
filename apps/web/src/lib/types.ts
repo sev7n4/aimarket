@@ -407,6 +407,34 @@ export interface DramaRun {
   updatedAt: string;
 }
 
+export type DramaRunGraphNodeStatus =
+  | "pending"
+  | "running"
+  | "done"
+  | "failed";
+
+export interface DramaRunGraphNode {
+  id: string;
+  stepId: string;
+  label: string;
+  type: string;
+  status: DramaRunGraphNodeStatus;
+  index: number;
+}
+
+export interface DramaRunGraphEdge {
+  id: string;
+  source: string;
+  target: string;
+}
+
+export interface DramaRunGraph {
+  runId: string;
+  skillId: string;
+  nodes: DramaRunGraphNode[];
+  edges: DramaRunGraphEdge[];
+}
+
 export interface DramaProject {
   id: string;
   sessionId: string;

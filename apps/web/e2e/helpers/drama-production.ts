@@ -1,6 +1,6 @@
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import { skipStudioCoach, studioWorkstation } from "./studio";
-import type { DramaRun } from "../../src/lib/types";
+import type { DramaRun, DramaRunGraph } from "../../src/lib/types";
 
 const PLAN_AGENTS = [
   "writer",
@@ -79,6 +79,44 @@ export async function generateCanvasOutput(
   return { outputId: outputId!, outputUrl: outputUrl! };
 }
 
+const PIPELINE_STEPS: Array<{ id: string; label: string }> = [
+  { id: "char_refs", label: "角色定稿板（Anchor First）" },
+  { id: "scene_refs", label: "场景定稿" },
+  { id: "keyframes", label: "分镜关键帧" },
+  { id: "shot_videos", label: "逐镜视频" },
+  { id: "tts", label: "对白配音" },
+  { id: "lipsync", label: "口型同步" },
+  { id: "narrator_tts", label: "旁白配音" },
+  { id: "concat", label: "成片合成" },
+];
+
+export function buildDramaRunGraphMock(run: DramaRun): DramaRunGraph {
+  const nodes = PIPELINE_STEPS.map((step, index) => ({
+    id: step.id,
+    stepId: step.id === "concat" ? "final_edit" : step.id,
+    label: step.label,
+    type: step.id,
+    status:
+      run.status === "completed" || index < run.currentStepIndex
+        ? ("done" as const)
+        : index === run.currentStepIndex
+          ? ("running" as const)
+          : ("pending" as const),
+    index,
+  }));
+  const edges = PIPELINE_STEPS.slice(1).map((step, i) => ({
+    id: `${PIPELINE_STEPS[i]!.id}->${step.id}`,
+    source: PIPELINE_STEPS[i]!.id,
+    target: step.id,
+  }));
+  return {
+    runId: run.id,
+    skillId: run.skillId,
+    nodes,
+    edges,
+  };
+}
+
 export function buildCompletedDramaRunMock(opts: {
   sessionId: string;
   outputId: string;
@@ -137,7 +175,13 @@ export function buildCompletedDramaRunMock(opts: {
       ],
       productionParams: { previewTier: "low", aspectRatio: "9:16" },
     },
-    pipelineSteps: [],
+    pipelineSteps: PIPELINE_STEPS.map((step, index) => ({
+      id: step.id,
+      label: step.label,
+      index,
+      done: true,
+      current: false,
+    })),
     createdAt: now,
     updatedAt: now,
   };
@@ -189,6 +233,15 @@ export async function openStudioWithCompletedDramaRun(
       });
     },
   );
+
+  const mockGraph = buildDramaRunGraphMock(mockRun);
+  await page.route(`**/api/v1/drama/runs/${mockRun.id}/graph`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: mockGraph }),
+    });
+  });
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.evaluate((t) => {

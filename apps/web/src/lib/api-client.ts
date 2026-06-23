@@ -1354,6 +1354,13 @@ export async function fetchDramaRun(runId: string) {
   return res.data;
 }
 
+export async function fetchDramaRunGraph(runId: string) {
+  const res = await request<{ data: import("./types").DramaRunGraph }>(
+    `/api/v1/drama/runs/${encodeURIComponent(runId)}/graph`,
+  );
+  return res.data;
+}
+
 export async function confirmDramaRun(runId: string) {
   const res = await request<{ data: import("./types").DramaRun }>(
     `/api/v1/drama/runs/${encodeURIComponent(runId)}/confirm`,

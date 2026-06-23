@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DramaCharacterCardView } from "@/components/drama-character-card";
+import { DramaNodeGraph } from "@/components/drama-node-graph";
 import { DramaStoryboardGrid } from "@/components/drama-storyboard-grid";
-import { estimateDramaProjectPoints, uploadAsset } from "@/lib/api-client";
+import { estimateDramaProjectPoints, fetchDramaRunGraph, uploadAsset } from "@/lib/api-client";
 import { allCharactersLockedForProduce } from "@/lib/drama-character-helpers";
 import {
   activePipelineStep,
@@ -11,7 +12,12 @@ import {
   currentProductionLabel,
 } from "@/lib/drama-production-helpers";
 import { useAuth } from "@/lib/auth-context";
-import type { DramaProject, DramaProjectPayload, DramaRun } from "@/lib/types";
+import type {
+  DramaProject,
+  DramaProjectPayload,
+  DramaRun,
+  DramaRunGraph,
+} from "@/lib/types";
 
 const DRAMA_CONFIRM_POINTS_THRESHOLD = 200;
 
@@ -87,6 +93,7 @@ export function DramaStudioPanel({
   const [liveEstimate, setLiveEstimate] = useState<number | null>(null);
   const [uploadingRef, setUploadingRef] = useState<string | null>(null);
   const [publishingInspiration, setPublishingInspiration] = useState(false);
+  const [runGraph, setRunGraph] = useState<DramaRunGraph | null>(null);
   const charFileRef = useRef<HTMLInputElement>(null);
   const sceneFileRef = useRef<HTMLInputElement>(null);
   const pendingCharId = useRef<string | null>(null);
@@ -187,6 +194,24 @@ export function DramaStudioPanel({
     }, 400);
     return () => window.clearTimeout(timer);
   }, [isDraft, project]);
+
+  useEffect(() => {
+    if (!run?.id) {
+      setRunGraph(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchDramaRunGraph(run.id)
+      .then((graph) => {
+        if (!cancelled) setRunGraph(graph);
+      })
+      .catch(() => {
+        if (!cancelled) setRunGraph(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [run?.id, run?.status, run?.currentStepIndex]);
 
   if (planning) {
     return (
@@ -602,6 +627,11 @@ export function DramaStudioPanel({
                   </li>
                 ))}
               </ol>
+              {runGraph ? (
+                <div className="mt-3 border-t border-white/5 pt-3">
+                  <DramaNodeGraph graph={runGraph} />
+                </div>
+              ) : null}
             </section>
           ) : null}
 
