@@ -259,8 +259,11 @@ test.describe("production plan SSE", () => {
     const patchRes = await request.patch(
       `${apiBase}/api/v1/drama/projects/${projectId}`,
       {
-        headers: { Authorization: `Bearer ${token}` },
-        json: { project: trimmedProject },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        data: { project: trimmedProject },
       },
     );
     if (!patchRes.ok()) {
@@ -272,8 +275,11 @@ test.describe("production plan SSE", () => {
     const produceApi = await request.post(
       `${apiBase}/api/v1/drama/projects/${projectId}/produce`,
       {
-        headers: { Authorization: `Bearer ${token}` },
-        json: { sessionId, confirmed: true },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        data: { sessionId, confirmed: true },
       },
     );
     if (!produceApi.ok()) {
