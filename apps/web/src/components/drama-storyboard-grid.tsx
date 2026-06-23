@@ -192,11 +192,31 @@ export function DramaStoryboardGrid({
               </span>
             ) : null}
           </div>
-          {!readOnly && onRetryShot && shot.status !== "pending" ? (
+          {!readOnly && onRetryShot && shot.status === "failed" ? (
+            <div className="mt-2 flex flex-wrap gap-1">
+              <button
+                type="button"
+                className="rounded border border-red-500/40 px-1.5 py-0.5 text-[10px] text-red-300 hover:bg-red-500/10"
+                onClick={() => onRetryShot(shot.id, "keyframe")}
+                data-testid="drama-shot-retry-keyframe"
+              >
+                重试此镜
+              </button>
+              <button
+                type="button"
+                className="rounded border border-white/10 px-1.5 py-0.5 text-[10px] text-zinc-400 hover:bg-white/5"
+                onClick={() => onRetryShot(shot.id, "video")}
+                data-testid="drama-shot-retry-video"
+              >
+                重试视频
+              </button>
+            </div>
+          ) : !readOnly && onRetryShot && shot.status !== "pending" ? (
             <button
               type="button"
               className="mt-1 rounded border border-white/10 px-1 py-0.5 text-[10px] text-zinc-400 hover:bg-white/5"
               onClick={() => onRetryShot(shot.id, "keyframe")}
+              data-testid="drama-shot-retry"
             >
               重生成
             </button>

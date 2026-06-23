@@ -380,6 +380,13 @@ export interface DramaPipelineStepView {
   current: boolean;
 }
 
+export interface DramaRunProgress {
+  currentPipelineStep: string;
+  shotIndex: number;
+  charRefIndex?: number;
+  sceneRefIndex?: number;
+}
+
 export interface DramaRun {
   id: string;
   projectId: string;
@@ -392,6 +399,7 @@ export interface DramaRun {
   pendingJobId: string | null;
   finalVideoUrl: string | null;
   error: string | null;
+  progress?: DramaRunProgress;
   project: DramaProjectPayload;
   pipelineSteps: DramaPipelineStepView[];
   createdAt: string;

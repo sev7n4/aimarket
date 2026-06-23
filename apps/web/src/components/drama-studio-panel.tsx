@@ -5,6 +5,11 @@ import { DramaCharacterCardView } from "@/components/drama-character-card";
 import { DramaStoryboardGrid } from "@/components/drama-storyboard-grid";
 import { estimateDramaProjectPoints, uploadAsset } from "@/lib/api-client";
 import { allCharactersLockedForProduce } from "@/lib/drama-character-helpers";
+import {
+  activePipelineStep,
+  computeProductionPercent,
+  currentProductionLabel,
+} from "@/lib/drama-production-helpers";
 import { useAuth } from "@/lib/auth-context";
 import type { DramaProject, DramaProjectPayload, DramaRun } from "@/lib/types";
 
@@ -26,6 +31,7 @@ interface DramaStudioPanelProps {
   run?: DramaRun | null;
   planning?: boolean;
   shotTimelineOnCanvas?: boolean;
+  productionTimelineOnCanvas?: boolean;
   storyboardView?: "timeline" | "grid";
   onStoryboardViewChange?: (view: "timeline" | "grid") => void;
   onConfirmProduce?: () => void;
@@ -48,6 +54,7 @@ export function DramaStudioPanel({
   run,
   planning,
   shotTimelineOnCanvas,
+  productionTimelineOnCanvas,
   storyboardView = "grid",
   onStoryboardViewChange,
   onConfirmProduce,
@@ -208,11 +215,14 @@ export function DramaStudioPanel({
       run.status,
     );
   const isFailed = run?.status === "failed";
-  const activePipelineStep =
+  const activeStep =
+    (run ? activePipelineStep(run) : undefined) ??
     pipeline.find((s) => s.current) ??
     (isFailed && run
       ? pipeline.find((s) => s.index === run.currentStepIndex)
       : undefined);
+  const productionPercent = run ? computeProductionPercent(run) : 0;
+  const productionCurrentLabel = run ? currentProductionLabel(run) : null;
 
   return (
     <div
@@ -513,13 +523,37 @@ export function DramaStudioPanel({
           ) : null}
 
           {pipeline.length > 0 ? (
-            <section>
-              <h4 className="mb-2 text-xs font-medium text-zinc-300">
-                制作进度
-              </h4>
-              {isProducing && activePipelineStep ? (
+            <section data-testid="drama-production-panel-progress">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h4 className="text-xs font-medium text-zinc-300">制作进度</h4>
+                {run ? (
+                  <span className="text-[10px] text-violet-300">
+                    {productionPercent}%
+                  </span>
+                ) : null}
+              </div>
+              {run ? (
+                <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-black/40">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      isFailed
+                        ? "bg-red-500/70"
+                        : run.status === "completed"
+                          ? "bg-emerald-500/80"
+                          : "bg-violet-500/80"
+                    }`}
+                    style={{ width: `${productionPercent}%` }}
+                  />
+                </div>
+              ) : null}
+              {productionCurrentLabel ? (
                 <p className="mb-2 text-[10px] text-violet-300/90">
-                  当前步骤：{activePipelineStep.label}
+                  {productionCurrentLabel}
+                </p>
+              ) : null}
+              {isProducing && activeStep ? (
+                <p className="mb-2 text-[10px] text-violet-300/90">
+                  当前步骤：{activeStep.label}
                   {run?.status === "waiting_job" ? " · 等待任务完成" : ""}
                 </p>
               ) : null}
@@ -529,6 +563,14 @@ export function DramaStudioPanel({
                   data-testid="drama-pending-job"
                 >
                   任务 {run.pendingJobId.slice(0, 8)}…
+                </p>
+              ) : null}
+              {productionTimelineOnCanvas ? (
+                <p
+                  className="mb-2 text-[10px] text-zinc-500"
+                  data-testid="drama-production-timeline-hint"
+                >
+                  镜头制作轨已在主画布展示，可查看每镜状态与重试。
                 </p>
               ) : null}
               <ol className="space-y-1">
@@ -574,15 +616,15 @@ export function DramaStudioPanel({
                   >
                     {retryBusy ? "重试中…" : "重试制作"}
                   </button>
-                  {activePipelineStep ? (
+                  {activeStep ? (
                     <button
                       type="button"
                       disabled={busy || retryBusy}
-                      onClick={() => onRetryProduction(activePipelineStep.id)}
+                      onClick={() => onRetryProduction(activeStep.id)}
                       className="w-full rounded border border-violet-500/40 px-3 py-1.5 text-xs text-violet-300 hover:bg-violet-500/10 disabled:opacity-50"
                       data-testid="drama-retry-from-step"
                     >
-                      从「{activePipelineStep.label}」重试
+                      从「{activeStep.label}」重试
                     </button>
                   ) : null}
                 </div>
