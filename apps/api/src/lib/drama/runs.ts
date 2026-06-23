@@ -215,6 +215,20 @@ export function serializeDramaRun(row: DramaRunRow, projectRow: DramaProjectRow)
         : undefined,
   }));
 
+  const rawFinal = row.final_video_url;
+  const uuidLike =
+    typeof rawFinal === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      rawFinal,
+    );
+  const finalVideoOutputId =
+    progress.finalVideoOutputId ?? (uuidLike ? rawFinal : undefined);
+  const finalVideoUrl = rawFinal
+    ? uuidLike
+      ? resolveReferenceUrls([rawFinal])[0] ?? rawFinal
+      : rawFinal
+    : null;
+
   return {
     id: row.id,
     projectId: row.project_id,
@@ -225,7 +239,8 @@ export function serializeDramaRun(row: DramaRunRow, projectRow: DramaProjectRow)
     confirmIfPointsOver: DRAMA_CONFIRM_POINTS_THRESHOLD,
     currentStepIndex: stepIndex,
     pendingJobId: row.pending_job_id,
-    finalVideoUrl: row.final_video_url,
+    finalVideoUrl,
+    finalVideoOutputId: finalVideoOutputId ?? null,
     error: row.error,
     progress,
     project: { ...project, shots: shotsWithMedia },

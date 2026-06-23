@@ -921,7 +921,10 @@ export async function resumeDramaRunOnJobCompleted(jobId: string) {
   } else if (step === "narrator_tts") {
     nextProgress.narratorAudioOutputId = outputId;
   } else if (step === "concat") {
-    nextProgress.finalVideoUrl = outputUrl ?? outputId;
+    nextProgress.finalVideoOutputId = outputId;
+    const resolvedUrl =
+      outputUrl ?? resolveReferenceUrls([outputId])[0] ?? undefined;
+    nextProgress.finalVideoUrl = resolvedUrl ?? outputId;
     updateDramaRun(row.id, {
       finalVideoUrl: nextProgress.finalVideoUrl,
       progress: nextProgress,

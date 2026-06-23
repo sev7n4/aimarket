@@ -32,7 +32,11 @@ interface DramaStudioPanelProps {
   planning?: boolean;
   shotTimelineOnCanvas?: boolean;
   productionTimelineOnCanvas?: boolean;
+  finalVideoOnCanvas?: boolean;
   storyboardView?: "timeline" | "grid";
+  onPublishToInspiration?: () => Promise<string | null | undefined>;
+  onUnpublishFromInspiration?: (inspirationId: string) => Promise<void>;
+  publishedInspirationId?: string | null;
   onStoryboardViewChange?: (view: "timeline" | "grid") => void;
   onConfirmProduce?: () => void;
   onRerunFromAgent?: (fromAgent: string) => void;
@@ -55,7 +59,11 @@ export function DramaStudioPanel({
   planning,
   shotTimelineOnCanvas,
   productionTimelineOnCanvas,
+  finalVideoOnCanvas,
   storyboardView = "grid",
+  onPublishToInspiration,
+  onUnpublishFromInspiration,
+  publishedInspirationId,
   onStoryboardViewChange,
   onConfirmProduce,
   onRerunFromAgent,
@@ -78,6 +86,7 @@ export function DramaStudioPanel({
   const [saving, setSaving] = useState(false);
   const [liveEstimate, setLiveEstimate] = useState<number | null>(null);
   const [uploadingRef, setUploadingRef] = useState<string | null>(null);
+  const [publishingInspiration, setPublishingInspiration] = useState(false);
   const charFileRef = useRef<HTMLInputElement>(null);
   const sceneFileRef = useRef<HTMLInputElement>(null);
   const pendingCharId = useRef<string | null>(null);
@@ -632,17 +641,68 @@ export function DramaStudioPanel({
             </section>
           ) : null}
 
-          {run?.finalVideoUrl ? (
-            <section>
+          {run?.status === "completed" && run.finalVideoUrl ? (
+            <section data-testid="drama-final-video-section">
               <h4 className="mb-2 text-xs font-medium text-zinc-300">成片</h4>
-              <a
-                href={run.finalVideoUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs text-sky-400 underline"
-              >
-                查看最终视频
-              </a>
+              {finalVideoOnCanvas ? (
+                <p
+                  className="mb-2 text-[10px] leading-relaxed text-zinc-500"
+                  data-testid="drama-final-video-hint"
+                >
+                  成片播放器已在主画布展示，可预览、下载与发布灵感。
+                </p>
+              ) : (
+                <a
+                  href={run.finalVideoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-sky-400 underline"
+                >
+                  查看最终视频
+                </a>
+              )}
+              {publishedInspirationId ? (
+                <p
+                  className="mt-2 text-[10px] text-emerald-300"
+                  data-testid="drama-inspiration-published-panel"
+                >
+                  已发布灵感 ·{" "}
+                  <a href="/inspiration" className="underline">
+                    查看画廊
+                  </a>
+                </p>
+              ) : onPublishToInspiration && !finalVideoOnCanvas ? (
+                <button
+                  type="button"
+                  disabled={busy || publishingInspiration}
+                  onClick={() => {
+                    setPublishingInspiration(true);
+                    void onPublishToInspiration().finally(() =>
+                      setPublishingInspiration(false),
+                    );
+                  }}
+                  className="mt-2 w-full rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+                  data-testid="drama-publish-inspiration-panel"
+                >
+                  {publishingInspiration ? "发布中…" : "发布到灵感"}
+                </button>
+              ) : null}
+              {publishedInspirationId && onUnpublishFromInspiration && !finalVideoOnCanvas ? (
+                <button
+                  type="button"
+                  disabled={busy || publishingInspiration}
+                  onClick={() => {
+                    setPublishingInspiration(true);
+                    void onUnpublishFromInspiration(publishedInspirationId).finally(
+                      () => setPublishingInspiration(false),
+                    );
+                  }}
+                  className="mt-2 w-full rounded border border-white/10 px-3 py-1.5 text-xs text-zinc-400 hover:bg-white/5 disabled:opacity-50"
+                  data-testid="drama-unpublish-inspiration-panel"
+                >
+                  撤回发布
+                </button>
+              ) : null}
             </section>
           ) : null}
 

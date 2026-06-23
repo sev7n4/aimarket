@@ -31,6 +31,20 @@ async function waitJob(jobId, authH, maxAttempts = 15) {
   return null;
 }
 
+async function pollDramaPlanRun(runId, authH, deadlineMs = 120_000) {
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    const { json, res } = await req(`/api/v1/drama/plan/runs/${runId}`, {
+      headers: authH,
+    });
+    if (!res.ok) return null;
+    const st = json?.data?.status;
+    if (st === "completed" || st === "failed") return json?.data ?? null;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return null;
+}
+
 const TINY_PNG_B64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
@@ -1004,6 +1018,57 @@ async function main() {
         agentPlan.json?.data?.planSource === "llm"),
     `steps=${agentPlan.json?.data?.steps?.length} source=${agentPlan.json?.data?.planSource}`,
   );
+
+  const dramaPlanSessionId = crypto.randomUUID();
+  await req("/api/v1/imageSession/ensure", {
+    method: "POST",
+    headers: authH,
+    body: JSON.stringify({
+      sessionId: dramaPlanSessionId,
+      mode: "chat",
+      kind: "canvas",
+      title: "drama-plan-smoke",
+    }),
+  });
+  const dramaPlanCreate = await req("/api/v1/drama/plan/runs", {
+    method: "POST",
+    headers: authH,
+    body: JSON.stringify({
+      sessionId: dramaPlanSessionId,
+      userIdea: "冒烟短剧：雨天咖啡店的重逢，三分钟讲完误会与和解",
+      targetDurationSec: 90,
+      aspectRatio: "9:16",
+    }),
+  });
+  ok(
+    "POST drama/plan/runs",
+    dramaPlanCreate.res.status === 201 && !!dramaPlanCreate.json?.data?.id,
+    dramaPlanCreate.json?.data?.id
+      ? `id=${dramaPlanCreate.json.data.id}`
+      : (dramaPlanCreate.json?.error?.message ?? ""),
+  );
+  const dramaPlanId = dramaPlanCreate.json?.data?.id;
+  if (dramaPlanId) {
+    const dramaPlanFinished = await pollDramaPlanRun(dramaPlanId, authH);
+    const agents = dramaPlanFinished?.agents ?? {};
+    const agentsDone = [
+      "writer",
+      "director",
+      "character",
+      "cinematographer",
+      "storyboard",
+    ].every((k) => agents[k]?.status === "done");
+    ok(
+      "drama plan completed (plan-only)",
+      dramaPlanFinished?.status === "completed" &&
+        !!dramaPlanFinished?.projectId &&
+        agentsDone &&
+        (dramaPlanFinished?.project?.project?.shots?.length ?? 0) >= 8,
+      dramaPlanFinished
+        ? `project=${dramaPlanFinished.projectId} shots=${dramaPlanFinished.project?.project?.shots?.length ?? 0}`
+        : "poll timeout",
+    );
+  }
 
   const keywordPage = await req("/api/v1/keyword/page?pageSize=3", {
     headers: { auth: false },

@@ -398,6 +398,7 @@ export interface DramaRun {
   currentStepIndex: number;
   pendingJobId: string | null;
   finalVideoUrl: string | null;
+  finalVideoOutputId?: string | null;
   error: string | null;
   progress?: DramaRunProgress;
   project: DramaProjectPayload;

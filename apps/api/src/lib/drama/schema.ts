@@ -200,4 +200,6 @@ export interface DramaProgress {
   pendingBatch?: DramaPendingBatchJob[];
   narratorAudioOutputId?: string;
   finalVideoUrl?: string;
+  /** concat 成片 outputId，供灵感发布 */
+  finalVideoOutputId?: string;
 }

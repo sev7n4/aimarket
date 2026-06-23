@@ -5,11 +5,13 @@ import {
   DesignCanvas,
   type DesignCanvasHandle,
 } from "@/components/design-canvas";
+import { DramaFinalVideoPanel } from "@/components/drama-final-video-panel";
 import { DramaProductionTimeline } from "@/components/drama-production-timeline";
 import { DramaShotTimeline } from "@/components/drama-shot-timeline";
 import { DramaStudioPanel } from "@/components/drama-studio-panel";
 import { useStudioOrchestration } from "@/components/studio-orchestration-provider";
-import { retryDramaShot, pickDramaKeyframe } from "@/lib/api-client";
+import { retryDramaShot, pickDramaKeyframe, publishCanvasToInspiration, unpublishInspiration } from "@/lib/api-client";
+import { buildDramaPublishPayload } from "@/lib/drama-publish";
 import type { DramaProjectPayload } from "@/lib/types";
 
 type StudioCanvasProps = Omit<
@@ -42,15 +44,25 @@ export const StudioCanvasWithOrchestration = forwardRef<
   } = useStudioOrchestration();
 
   const isDramaPlanning = dramaPlanRun?.status === "planning";
+  const [publishedInspirationId, setPublishedInspirationId] = useState<
+    string | null
+  >(null);
+
+  const showFinalVideo =
+    studioMode === "production" &&
+    dramaRun?.status === "completed" &&
+    Boolean(dramaRun.finalVideoUrl);
   const showProductionTimeline =
     studioMode === "production" &&
     dramaRun != null &&
-    dramaRun.status !== "waiting_confirm";
+    dramaRun.status !== "waiting_confirm" &&
+    !showFinalVideo;
   const showShotTimeline =
     studioMode === "production" &&
     Boolean(dramaDraftProject?.project.shots.length) &&
     !isDramaPlanning &&
-    !showProductionTimeline;
+    !showProductionTimeline &&
+    !showFinalVideo;
 
   const [timelineProject, setTimelineProject] =
     useState<DramaProjectPayload | null>(null);
@@ -122,6 +134,22 @@ export const StudioCanvasWithOrchestration = forwardRef<
     [saveDramaDraft],
   );
 
+  const handlePublishToInspiration = useCallback(async () => {
+    if (!dramaRun) return null;
+    const payload = buildDramaPublishPayload(dramaRun);
+    const item = await publishCanvasToInspiration(payload);
+    setPublishedInspirationId(item.id);
+    return item.id;
+  }, [dramaRun]);
+
+  const handleUnpublishFromInspiration = useCallback(
+    async (inspirationId: string) => {
+      await unpublishInspiration(inspirationId);
+      setPublishedInspirationId(null);
+    },
+    [],
+  );
+
   const dramaPanel =
     isDramaPlanning || dramaRun || dramaDraftProject ? (
       <DramaStudioPanel
@@ -132,6 +160,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
         busy={dramaBusy || dramaPlanBusy}
         shotTimelineOnCanvas={showShotTimeline}
         productionTimelineOnCanvas={showProductionTimeline}
+        finalVideoOnCanvas={showFinalVideo}
         storyboardView={storyboardView}
         onStoryboardViewChange={setStoryboardView}
         onRerunFromAgent={
@@ -149,11 +178,26 @@ export const StudioCanvasWithOrchestration = forwardRef<
         produceHint={dramaProduceHint}
         onRetryProduction={dramaRun?.status === "failed" ? handleRetryProduction : undefined}
         retryBusy={dramaBusy}
+        onPublishToInspiration={
+          showFinalVideo ? handlePublishToInspiration : undefined
+        }
+        onUnpublishFromInspiration={
+          showFinalVideo ? handleUnpublishFromInspiration : undefined
+        }
+        publishedInspirationId={publishedInspirationId}
       />
     ) : null;
 
   const alternateCanvasContent =
-    showProductionTimeline && dramaRun ? (
+    showFinalVideo && dramaRun ? (
+      <DramaFinalVideoPanel
+        run={dramaRun}
+        busy={dramaBusy}
+        publishedInspirationId={publishedInspirationId}
+        onPublish={handlePublishToInspiration}
+        onUnpublish={handleUnpublishFromInspiration}
+      />
+    ) : showProductionTimeline && dramaRun ? (
       <DramaProductionTimeline
         run={dramaRun}
         busy={dramaBusy}
