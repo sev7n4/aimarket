@@ -127,6 +127,8 @@ interface DesignCanvasProps {
   orchestrationEvent?: import("@/lib/canvas-timeline").OrchestrationTimelineEvent | null;
   orchestrationActions?: import("@/lib/canvas-timeline").OrchestrationTimelineActions;
   orchestrationExtra?: React.ReactNode;
+  /** 制片模式等：替换滚动画布主区（仍可在下方展示 orchestrationExtra） */
+  alternateCanvasContent?: ReactNode;
   batchTools?: {
     tools: StudioTool[];
     pendingToolId?: string | null;
@@ -188,6 +190,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       orchestrationEvent = null,
       orchestrationActions,
       orchestrationExtra,
+      alternateCanvasContent,
       batchTools,
       onDownloadItem,
       onShareItem,
@@ -811,7 +814,24 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             </div>
           ) : null}
 
-          {showFreeCanvas ? (
+          {alternateCanvasContent ? (
+            <div
+              className="absolute inset-0 flex min-h-0 flex-col overflow-hidden"
+              style={{ paddingBottom: scrollBottomInset }}
+            >
+              <div className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-3">
+                {alternateCanvasContent}
+              </div>
+              {orchestrationExtra ? (
+                <div
+                  className="shrink-0 border-t border-white/5 p-2 sm:p-3"
+                  data-testid="orchestration-extra-section"
+                >
+                  {orchestrationExtra}
+                </div>
+              ) : null}
+            </div>
+          ) : showFreeCanvas ? (
             <FreeCanvas
               ref={freeCanvasRef}
               items={items}

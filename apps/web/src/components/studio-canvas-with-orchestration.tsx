@@ -1,17 +1,19 @@
 "use client";
 
-import { forwardRef, useCallback, type ComponentProps } from "react";
+import { forwardRef, useCallback, useEffect, useState, type ComponentProps } from "react";
 import {
   DesignCanvas,
   type DesignCanvasHandle,
 } from "@/components/design-canvas";
+import { DramaShotTimeline } from "@/components/drama-shot-timeline";
 import { DramaStudioPanel } from "@/components/drama-studio-panel";
 import { useStudioOrchestration } from "@/components/studio-orchestration-provider";
 import { retryDramaShot, pickDramaKeyframe } from "@/lib/api-client";
+import type { DramaProjectPayload } from "@/lib/types";
 
 type StudioCanvasProps = Omit<
   ComponentProps<typeof DesignCanvas>,
-  "orchestrationEvent" | "orchestrationActions" | "orchestrationExtra"
+  "orchestrationEvent" | "orchestrationActions" | "orchestrationExtra" | "alternateCanvasContent"
 >;
 
 /** Studio 画布：编排状态来自 Provider，与 Dock 输入解耦 */
@@ -23,6 +25,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     timelineEvent,
     timelineActions,
     sessionId,
+    studioMode,
     dramaRun,
     dramaDraftProject,
     dramaPlanRun,
@@ -38,6 +41,30 @@ export const StudioCanvasWithOrchestration = forwardRef<
   } = useStudioOrchestration();
 
   const isDramaPlanning = dramaPlanRun?.status === "planning";
+  const showShotTimeline =
+    studioMode === "production" &&
+    Boolean(dramaDraftProject?.project.shots.length) &&
+    !isDramaPlanning;
+
+  const [timelineProject, setTimelineProject] =
+    useState<DramaProjectPayload | null>(null);
+  const [storyboardView, setStoryboardView] = useState<"timeline" | "grid">(
+    "timeline",
+  );
+
+  useEffect(() => {
+    if (dramaDraftProject?.project) {
+      setTimelineProject(dramaDraftProject.project);
+    } else {
+      setTimelineProject(null);
+    }
+  }, [dramaDraftProject?.id, dramaDraftProject?.project]);
+
+  useEffect(() => {
+    if (showShotTimeline) {
+      setStoryboardView("timeline");
+    }
+  }, [showShotTimeline, dramaDraftProject?.id]);
 
   const handleRerunFromAgent = useCallback(
     (fromAgent: string) => {
@@ -84,6 +111,11 @@ export const StudioCanvasWithOrchestration = forwardRef<
     void confirmOrchestration();
   }, [dramaDraftProject, produceDramaDraft, confirmOrchestration]);
 
+  const handleTimelineSave = useCallback(
+    (project: DramaProjectPayload) => saveDramaDraft(project),
+    [saveDramaDraft],
+  );
+
   const dramaPanel =
     isDramaPlanning || dramaRun || dramaDraftProject ? (
       <DramaStudioPanel
@@ -92,6 +124,9 @@ export const StudioCanvasWithOrchestration = forwardRef<
         run={dramaRun}
         planning={isDramaPlanning}
         busy={dramaBusy || dramaPlanBusy}
+        shotTimelineOnCanvas={showShotTimeline}
+        storyboardView={storyboardView}
+        onStoryboardViewChange={setStoryboardView}
         onRerunFromAgent={
           dramaDraftProject &&
           (dramaPlanRun?.status === "completed" ||
@@ -110,12 +145,24 @@ export const StudioCanvasWithOrchestration = forwardRef<
       />
     ) : null;
 
+  const alternateCanvasContent =
+    showShotTimeline && timelineProject ? (
+      <DramaShotTimeline
+        project={timelineProject}
+        readOnly={props.readOnly}
+        busy={dramaBusy}
+        onProjectChange={setTimelineProject}
+        onSave={dramaDraftProject ? handleTimelineSave : undefined}
+      />
+    ) : null;
+
   return (
     <DesignCanvas
       ref={ref}
       {...props}
-      orchestrationEvent={timelineEvent}
+      orchestrationEvent={alternateCanvasContent ? null : timelineEvent}
       orchestrationActions={timelineActions ?? undefined}
+      alternateCanvasContent={alternateCanvasContent}
       orchestrationExtra={dramaPanel}
     />
   );
