@@ -285,6 +285,18 @@ CREATE TABLE IF NOT EXISTS open_api_keys (
   revoked_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_open_api_keys_user ON open_api_keys(user_id);
+
+CREATE TABLE IF NOT EXISTS open_webhooks (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  url TEXT NOT NULL,
+  events_json TEXT NOT NULL,
+  secret TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  revoked_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_open_webhooks_user ON open_webhooks(user_id);
+
 CREATE INDEX IF NOT EXISTS idx_inspiration_publisher
   ON inspiration_templates(published_by_user_id, created_at DESC);
 

@@ -464,6 +464,20 @@ database.exec(`
 `);
 
 database.exec(`
+  CREATE TABLE IF NOT EXISTS open_webhooks (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    url TEXT NOT NULL,
+    events_json TEXT NOT NULL,
+    secret TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    revoked_at TEXT
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_open_webhooks_user ON open_webhooks(user_id);
+`);
+
+database.exec(`
   CREATE TABLE IF NOT EXISTS agent_runs (
     id TEXT PRIMARY KEY,
     session_id TEXT NOT NULL REFERENCES image_sessions(id) ON DELETE CASCADE,

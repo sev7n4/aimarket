@@ -1,6 +1,6 @@
 # 墨鱼π OpenAPI（moyu-skills）
 
-> Phase C · PROD-C01。外部 Agent / OpenClaw 通过 API Key 创建与读取 Studio Session。
+> Phase C · PROD-C01–C02。外部 Agent / OpenClaw 通过 API Key 创建 Session、规划与制作短剧。
 
 ## 鉴权
 
@@ -75,13 +75,87 @@ X-Api-Key: moyu_sk_...
 
 仅 Key 所属用户可访问其创建的 Session；否则 `404`。
 
-## 后续端点（PROD-C02 规划）
+## 短剧规划（异步）
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/v1/open/drama/plan` | 异步规划 |
-| POST | `/api/v1/open/drama/produce` | 确认制作 |
-| POST | `/api/v1/open/webhooks` | 注册回调 |
+```http
+POST /api/v1/open/drama/plan
+Content-Type: application/json
+X-Api-Key: moyu_sk_...
+
+{
+  "sessionId": "uuid",
+  "userIdea": "至少 10 字的创意描述",
+  "targetDurationSec": 90,
+  "aspectRatio": "9:16",
+  "autoProduce": false,
+  "projectType": "short_drama"
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| `sessionId` | 已创建的 Open Session |
+| `userIdea` | 10–2000 字 |
+| `targetDurationSec` | 60–180，可选 |
+| `aspectRatio` | `9:16` \| `16:9`，可选 |
+| `autoProduce` | 规划完成后自动进入制作（默认 `false`） |
+| `projectType` | `short_drama` \| `mv` \| `creative` |
+
+**响应 `201`**：与 `POST /api/v1/drama/plan/runs` 相同（`data` 为 plan run 序列化对象）。规划在后台执行，可通过 Studio SSE 或 Webhook 获取完成通知。
+
+## 确认制作
+
+```http
+POST /api/v1/open/drama/produce
+Content-Type: application/json
+X-Api-Key: moyu_sk_...
+
+{
+  "sessionId": "uuid",
+  "projectId": "uuid",
+  "confirmed": true
+}
+```
+
+角色须已定稿（三视图 locked）后再调用。**响应 `201`**：与 `POST /api/v1/drama/projects/:id/produce` 相同。
+
+## Webhook
+
+```http
+POST /api/v1/open/webhooks
+Content-Type: application/json
+X-Api-Key: moyu_sk_...
+
+{
+  "url": "https://your-agent.example/hooks/moyu",
+  "events": ["drama.plan.completed", "drama.run.completed"],
+  "secret": "可选，用于 HMAC 签名校验"
+}
+```
+
+| 事件 | 触发时机 |
+|------|----------|
+| `drama.plan.completed` | 多 Agent 规划成功 |
+| `drama.plan.failed` | 规划失败 |
+| `drama.run.completed` | 制作 Run 完成 |
+| `drama.run.failed` | 制作 Run 失败 |
+
+回调 `POST` 请求体：
+
+```json
+{
+  "event": "drama.plan.completed",
+  "timestamp": "2026-06-24T12:00:00.000Z",
+  "data": {
+    "planRunId": "uuid",
+    "sessionId": "uuid",
+    "projectId": "uuid",
+    "status": "completed"
+  }
+}
+```
+
+若注册时提供了 `secret`（或未提供时服务端自动生成），响应会**一次性**返回 `secret`；后续请求带 `X-Moyu-Signature: sha256 HMAC`（hex）。
 
 ## 本地开发
 
@@ -91,6 +165,7 @@ X-Api-Key: moyu_sk_...
 cd apps/api && pnpm exec tsx --env-file=.env src/index.ts
 # 另一终端
 pnpm --filter @aimarket/api exec tsx ../../scripts/test-open-api-sessions.ts
+pnpm --filter @aimarket/api exec tsx ../../scripts/test-open-api-drama.ts
 ```
 
 测试脚本通过 `createOpenApiKey` 在 SQLite 中签发临时 Key，无需手动配置环境变量。
