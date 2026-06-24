@@ -2,6 +2,8 @@
 /**
  * 生产环境短剧 DAG graph API 冒烟
  * API_URL=http://119.29.173.89:4100 node scripts/verify-prod-drama-graph.mjs
+ *
+ * 使用 plan autoProduce 创建制作 Run，避免 /produce 端点 Zod 与角色定稿耦合。
  */
 import crypto from "node:crypto";
 
@@ -27,20 +29,24 @@ async function request(path, init = {}, label = path) {
   return json.data ?? json;
 }
 
-function normalizeShot(shot) {
-  return {
-    ...shot,
-    useLastFrameContinuity:
-      shot.useLastFrameContinuity === true ||
-      shot.useLastFrameContinuity === "true",
-  };
-}
-
-function normalizeProject(project) {
-  return {
-    ...project,
-    shots: (project.shots ?? []).map(normalizeShot),
-  };
+async function requestWithRetry(path, init = {}, label = path, attempts = 8) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await request(path, init, label);
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const rateLimited =
+        msg.includes("429") ||
+        msg.includes("过于频繁") ||
+        msg.includes("RATE_LIMIT");
+      if (!rateLimited) throw err;
+      const waitMs = Math.min(15_000, 3000 * (i + 1));
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+  }
+  throw lastErr;
 }
 
 async function pollPlanRun(runId, deadlineMs = 180_000) {
@@ -53,9 +59,23 @@ async function pollPlanRun(runId, deadlineMs = 180_000) {
   throw new Error("规划超时");
 }
 
+async function resolveDramaRunId(sessionId, planRun) {
+  const state = await request(
+    `/api/v1/drama/sessions/${sessionId}/state`,
+    {},
+    "session state",
+  );
+  const runId = state.dramaRun?.id;
+  if (runId) return runId;
+  throw new Error(
+    planRun.produceSkippedReason ??
+      "autoProduce 未创建 dramaRun（请确认已购买足够积分）",
+  );
+}
+
 async function main() {
   const email = `prod-graph-${Date.now()}@test.local`;
-  const reg = await request(
+  const reg = await requestWithRetry(
     "/api/v1/auth/register",
     {
       method: "POST",
@@ -104,6 +124,7 @@ async function main() {
         userIdea: "都市爱情：雨夜咖啡店的重逢，三分钟讲完误会与和解",
         targetDurationSec: 90,
         aspectRatio: "9:16",
+        autoProduce: true,
       }),
     },
     "start plan",
@@ -113,52 +134,9 @@ async function main() {
   if (finished.status !== "completed") {
     throw new Error(finished.error ?? "规划失败");
   }
-  const projectId = finished.projectId;
-  if (!projectId) throw new Error("无 projectId");
+  if (!finished.projectId) throw new Error("无 projectId");
 
-  const project = await request(
-    `/api/v1/drama/projects/${projectId}`,
-    {},
-    "get project",
-  );
-  const normalized = normalizeProject(project.project);
-  const chars = normalized.characters.map((c) => ({
-    ...c,
-    turnaroundStatus: "locked",
-    refOutputIds: c.refOutputIds ?? {
-      front: crypto.randomUUID(),
-      three_quarter: crypto.randomUUID(),
-      side: crypto.randomUUID(),
-    },
-  }));
-  await request(
-    `/api/v1/drama/projects/${projectId}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({
-        project: {
-          ...normalized,
-          characters: chars,
-          productionParams: {
-            ...normalized.productionParams,
-            previewTier: "low",
-          },
-        },
-      }),
-    },
-    "PATCH project",
-  );
-
-  const run = await request(
-    `/api/v1/drama/projects/${projectId}/produce`,
-    {
-      method: "POST",
-      body: JSON.stringify({ sessionId, confirmed: true }),
-    },
-    "produce",
-  );
-  const runId = run.id;
-  if (!runId) throw new Error("创建制作 Run 失败");
+  const runId = await resolveDramaRunId(sessionId, finished);
 
   const graph = await request(
     `/api/v1/drama/runs/${runId}/graph`,
