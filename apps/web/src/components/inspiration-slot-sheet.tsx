@@ -5,9 +5,12 @@ import Image from "next/image";
 import { Loader2, Sparkles, X } from "lucide-react";
 import type { InspirationDetail } from "@/lib/types";
 import { InspirationCoverMedia } from "@/components/inspiration-cover-media";
-import { renderInspiration, trackEvent } from "@/lib/api-client";
+import { renderInspiration, trackEvent, copyInspirationToProductionSession } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
-import { applyInspirationToStudio } from "@/lib/inspiration-studio";
+import {
+  applyDramaTemplateToStudio,
+  applyInspirationToStudio,
+} from "@/lib/inspiration-studio";
 import { useRouter } from "next/navigation";
 
 interface InspirationSlotSheetProps {
@@ -75,6 +78,32 @@ export function InspirationSlotSheet({
       document.body.style.overflow = prev;
     };
   }, [open]);
+
+  async function handleApplyProductionTemplate() {
+    if (!detail?.dramaTemplate) return;
+    if (!user) {
+      onAuthRequired?.();
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { session, dramaTemplate } = await copyInspirationToProductionSession(
+        detail.id,
+      );
+      applyDramaTemplateToStudio(detail, router, {
+        sessionId: session.id,
+        dramaTemplate,
+      });
+      void trackEvent("inspiration_copy_to_session", {
+        inspirationId: detail.id,
+        sessionId: session.id,
+        projectType: dramaTemplate.projectType,
+      });
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function handleApplySameStyle() {
     if (!rendered) return;
@@ -251,7 +280,21 @@ export function InspirationSlotSheet({
         </div>
 
         {/* 固定底部 CTA，避免被挤出视口 */}
-        <div className="shrink-0 border-t border-white/10 bg-[#111] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="shrink-0 border-t border-white/10 bg-[#111] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-2">
+          {detail.dramaTemplate ? (
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => void handleApplyProductionTemplate()}
+              data-testid="inspiration-copy-to-production"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-orange-500/40 bg-orange-500/10 px-4 py-2.5 text-sm font-medium text-orange-200 hover:bg-orange-500/20 disabled:opacity-60"
+            >
+              {submitting ?
+                <Loader2 className="size-4 animate-spin" />
+              : <Sparkles className="size-4" />}
+              用此模板制片
+            </button>
+          ) : null}
           <button
             type="button"
             disabled={submitting}

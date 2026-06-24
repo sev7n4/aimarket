@@ -273,6 +273,7 @@ ALTER TABLE assets ADD COLUMN IF NOT EXISTS thumb_url TEXT;
 ALTER TABLE inspiration_templates ADD COLUMN IF NOT EXISTS published_by_user_id TEXT REFERENCES users(id);
 ALTER TABLE inspiration_templates ADD COLUMN IF NOT EXISTS source_output_id TEXT;
 ALTER TABLE inspiration_templates ADD COLUMN IF NOT EXISTS source_asset_id TEXT;
+ALTER TABLE inspiration_templates ADD COLUMN IF NOT EXISTS drama_template_json TEXT;
 CREATE INDEX IF NOT EXISTS idx_inspiration_publisher
   ON inspiration_templates(published_by_user_id, created_at DESC);
 

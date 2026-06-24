@@ -23,7 +23,7 @@ import {
 } from "../lib/session-access.js";
 import { listSessionsForUser } from "../lib/session-list.js";
 import { resolveWorkspaceIdForUser } from "../lib/workspaces.js";
-import { rowToCanonical } from "../lib/inspiration.js";
+import { rowToCanonical, parseDramaTemplateMetadata } from "../lib/inspiration.js";
 import {
   createSessionShareLink,
   getSessionShareStatus,
@@ -59,6 +59,9 @@ function loadSourceInspirationForSession(sessionId: string) {
   const canonical = rowToCanonical(
     row as unknown as Parameters<typeof rowToCanonical>[0],
   );
+  const dramaTemplate = parseDramaTemplateMetadata(
+    (row as { drama_template_json?: string | null }).drama_template_json,
+  );
   return {
     id: canonical.id,
     title: row.session_title || canonical.title,
@@ -74,6 +77,7 @@ function loadSourceInspirationForSession(sessionId: string) {
     referenceUrls: canonical.referenceAssets.map((a) => a.url),
     coverUrl: canonical.coverUrl,
     mediaType: canonical.mediaType,
+    dramaTemplate,
   };
 }
 

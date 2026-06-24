@@ -7,12 +7,15 @@ export type StudioKind = "canvas" | "project";
 
 /** 制片模式 Studio 入口（PROD-A01） */
 export function buildProductionStudioUrl(
-  options?: Omit<NonNullable<Parameters<typeof buildStudioUrl>[1]>, "mode" | "title">,
+  options?: Omit<
+    NonNullable<Parameters<typeof buildStudioUrl>[1]>,
+    "mode"
+  > & { title?: string },
 ): string {
   return buildStudioUrl("canvas", {
     ...options,
     mode: "production",
-    title: "未命名制片",
+    title: options?.title ?? "未命名制片",
   });
 }
 

@@ -429,6 +429,7 @@ const productMigrations = [
   `ALTER TABLE inspiration_templates ADD COLUMN published_by_user_id TEXT REFERENCES users(id)`,
   `ALTER TABLE inspiration_templates ADD COLUMN source_output_id TEXT`,
   `ALTER TABLE inspiration_templates ADD COLUMN source_asset_id TEXT`,
+  `ALTER TABLE inspiration_templates ADD COLUMN drama_template_json TEXT`,
 ];
 
 for (const sql of productMigrations) {

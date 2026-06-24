@@ -15,6 +15,7 @@ import { analyzeDramaReplicate, ensureSession, fetchAgentPlan, fetchDramaRun, fe
 import type { DramaReplicateProfile } from "@/lib/types";
 import type { DramaProjectType } from "@/components/drama-production-dock-params";
 import type { DramaProductionMode } from "@/components/drama-replicate-dock-params";
+import type { DramaTemplateMetadata } from "@/lib/types";
 import {
   buildOrchestrationTimelineEvent,
   buildDramaPlanTimelineEvent,
@@ -140,6 +141,8 @@ interface StudioOrchestrationProviderProps {
   sessionId: string;
   mode: CreationMode;
   readOnly: boolean;
+  initialDramaTemplate?: DramaTemplateMetadata | null;
+  onApplyDramaTemplate?: (template: DramaTemplateMetadata) => void;
   onJobStarted?: (jobId: string) => void;
   onRunSettled?: () => void;
   onClearPrompt?: () => void;
@@ -150,6 +153,8 @@ export function StudioOrchestrationProvider({
   sessionId,
   mode,
   readOnly,
+  initialDramaTemplate,
+  onApplyDramaTemplate,
   onJobStarted,
   onRunSettled,
   onClearPrompt,
@@ -208,6 +213,26 @@ export function StudioOrchestrationProvider({
       setDramaTargetDurationSec(60);
     }
   }, []);
+
+  const dramaTemplateAppliedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialDramaTemplate || mode !== "production") return;
+    const key = JSON.stringify(initialDramaTemplate);
+    if (dramaTemplateAppliedRef.current === key) return;
+    dramaTemplateAppliedRef.current = key;
+    const tpl = initialDramaTemplate;
+    setDramaProjectType(tpl.projectType ?? "short_drama");
+    if (tpl.targetDurationSec) {
+      setDramaTargetDurationSec(tpl.targetDurationSec);
+    } else if (tpl.projectType === "mv") {
+      setDramaTargetDurationSec(60);
+    }
+    if (tpl.aspectRatio) {
+      setDramaAspectRatio(tpl.aspectRatio);
+    }
+    setInput((prev) => ({ ...prev, prompt: tpl.userIdea }));
+    onApplyDramaTemplate?.(tpl);
+  }, [initialDramaTemplate, mode, onApplyDramaTemplate]);
 
   const handleOrchestrationCompleted = useCallback(() => {
     onClearPrompt?.();
