@@ -11,7 +11,9 @@ import {
   type ReactNode,
 } from "react";
 import type { CreationMode } from "@aimarket/ui";
-import { ensureSession, fetchAgentPlan, fetchDramaRun, fetchDramaSessionState, trackEvent } from "@/lib/api-client";
+import { analyzeDramaReplicate, ensureSession, fetchAgentPlan, fetchDramaRun, fetchDramaSessionState, trackEvent } from "@/lib/api-client";
+import type { DramaReplicateProfile } from "@/lib/types";
+import type { DramaProductionMode } from "@/components/drama-replicate-dock-params";
 import {
   buildOrchestrationTimelineEvent,
   buildDramaPlanTimelineEvent,
@@ -94,6 +96,13 @@ interface StudioOrchestrationContextValue {
   dramaAspectRatio: "9:16" | "16:9";
   setDramaAspectRatio: (value: "9:16" | "16:9") => void;
   dramaProduceHint: string | null;
+  dramaProductionMode: DramaProductionMode;
+  setDramaProductionMode: (mode: DramaProductionMode) => void;
+  dramaReplicateVideoUrl: string;
+  setDramaReplicateVideoUrl: (url: string) => void;
+  dramaReplicateProfile: DramaReplicateProfile | null;
+  dramaReplicateAnalyzing: boolean;
+  analyzeDramaReplicateVideo: () => Promise<void>;
   retryDramaProduction: (fromStep?: string) => Promise<DramaRun | null>;
   rerunDramaFromNode: (
     nodeId: string,
@@ -166,6 +175,27 @@ export function StudioOrchestrationProvider({
     "9:16",
   );
   const [dramaProduceHint, setDramaProduceHint] = useState<string | null>(null);
+  const [dramaProductionMode, setDramaProductionMode] =
+    useState<DramaProductionMode>("original");
+  const [dramaReplicateVideoUrl, setDramaReplicateVideoUrl] = useState("");
+  const [dramaReplicateProfile, setDramaReplicateProfile] =
+    useState<DramaReplicateProfile | null>(null);
+  const [dramaReplicateAnalyzing, setDramaReplicateAnalyzing] = useState(false);
+
+  const analyzeDramaReplicateVideo = useCallback(async () => {
+    const url = dramaReplicateVideoUrl.trim();
+    if (!url) return;
+    setDramaReplicateAnalyzing(true);
+    try {
+      const profile = await analyzeDramaReplicate(url);
+      setDramaReplicateProfile(profile);
+      if (profile.suggestedDurationSec) {
+        setDramaTargetDurationSec(profile.suggestedDurationSec);
+      }
+    } finally {
+      setDramaReplicateAnalyzing(false);
+    }
+  }, [dramaReplicateVideoUrl]);
 
   const handleOrchestrationCompleted = useCallback(() => {
     onClearPrompt?.();
@@ -561,12 +591,21 @@ export function StudioOrchestrationProvider({
           hasDraft: Boolean(dramaDraftProject),
           ensureSession: () => ensureSession(sessionId, effectiveMode),
           confirmRun: confirmOrchestration,
-          planRun: (idea) =>
-            startDramaPlan(idea, {
+          planRun: (idea) => {
+            if (dramaProductionMode === "replicate" && !dramaReplicateProfile) {
+              alert("请先粘贴参考视频链接并点击「分析结构」");
+              return Promise.resolve();
+            }
+            return startDramaPlan(idea, {
               targetDurationSec: dramaTargetDurationSec,
               aspectRatio: dramaAspectRatio,
               autoProduce: dramaAutoProduce,
-            }).then(() => undefined),
+              replicateProfile:
+                dramaProductionMode === "replicate"
+                  ? dramaReplicateProfile ?? undefined
+                  : undefined,
+            }).then(() => undefined);
+          },
           startFromDraft: () =>
             dramaDraftProject
               ? startDramaProduction(dramaDraftProject.id, true)
@@ -640,6 +679,8 @@ export function StudioOrchestrationProvider({
       dramaPlanRun,
       dramaTargetDurationSec,
       dramaAspectRatio,
+      dramaProductionMode,
+      dramaReplicateProfile,
     ],
   );
 
@@ -725,6 +766,13 @@ export function StudioOrchestrationProvider({
       dramaAspectRatio,
       setDramaAspectRatio,
       dramaProduceHint,
+      dramaProductionMode,
+      setDramaProductionMode,
+      dramaReplicateVideoUrl,
+      setDramaReplicateVideoUrl,
+      dramaReplicateProfile,
+      dramaReplicateAnalyzing,
+      analyzeDramaReplicateVideo,
       retryDramaProduction,
       rerunDramaFromNode,
       cancelOrchestration,
@@ -762,6 +810,13 @@ export function StudioOrchestrationProvider({
       dramaAspectRatio,
       setDramaAspectRatio,
       dramaProduceHint,
+      dramaProductionMode,
+      setDramaProductionMode,
+      dramaReplicateVideoUrl,
+      setDramaReplicateVideoUrl,
+      dramaReplicateProfile,
+      dramaReplicateAnalyzing,
+      analyzeDramaReplicateVideo,
       retryDramaProduction,
       rerunDramaFromNode,
       cancelOrchestration,
