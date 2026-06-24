@@ -42,9 +42,20 @@ test.describe("drama replicate", () => {
     await expect(station.locator("textarea").first()).toBeVisible({
       timeout: 15_000,
     });
+    await expect(station.getByRole("button", { name: "开始规划" })).toBeEnabled({
+      timeout: 15_000,
+    });
+    await expect(station.getByTestId("drama-production-mode-tabs")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(station.getByTestId("drama-production-dock-params")).toBeVisible({
+      timeout: 15_000,
+    });
 
     await station.getByTestId("drama-production-mode-replicate").click();
-    await expect(station.getByTestId("drama-replicate-dock-params")).toBeVisible();
+    await expect(station.getByTestId("drama-replicate-dock-params")).toBeVisible({
+      timeout: 15_000,
+    });
 
     const videoUrl = "https://example.com/reference/viral-short.mp4";
     await station.getByTestId("drama-replicate-url").fill(videoUrl);
