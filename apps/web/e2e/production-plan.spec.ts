@@ -48,6 +48,9 @@ test.describe("production plan SSE", () => {
       timeout: 15_000,
     });
 
+    await expect(station.getByTestId("drama-production-mode-tabs")).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(station.getByTestId("drama-production-dock-params")).toBeVisible({
       timeout: 15_000,
     });
@@ -80,7 +83,7 @@ test.describe("production plan SSE", () => {
     await expect(page.getByTestId("drama-plan-stepper")).toBeVisible({
       timeout: 30_000,
     });
-    await expect(page.getByTestId("drama-plan-event-feed")).toBeVisible({
+    await expect(page.getByTestId("drama-plan-agent-steps")).toBeVisible({
       timeout: 30_000,
     });
 
