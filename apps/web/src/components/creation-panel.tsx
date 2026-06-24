@@ -106,6 +106,10 @@ import { StudioDockFocusButton } from "@/components/studio-dock-controls";
 import { DramaCoach } from "@/components/drama-coach";
 import { DramaProductionDockParams } from "@/components/drama-production-dock-params";
 import {
+  DramaProductionModeTabs,
+  DramaReplicateDockParams,
+} from "@/components/drama-replicate-dock-params";
+import {
   CreationDockToolbar,
   CreationLanePicker,
   SkillDockPicker,
@@ -1921,13 +1925,29 @@ export function CreationPanel({
 
   const dramaProductionDockControls = showDramaProductionDock ? (
     <>
-      <DramaProductionDockParams
-        targetDurationSec={studioOrch!.dramaTargetDurationSec}
-        aspectRatio={studioOrch!.dramaAspectRatio}
-        onTargetDurationSecChange={studioOrch!.setDramaTargetDurationSec}
-        onAspectRatioChange={studioOrch!.setDramaAspectRatio}
+      <DramaProductionModeTabs
+        mode={studioOrch!.dramaProductionMode}
         disabled={readOnly || pending || streamBusy}
+        onChange={studioOrch!.setDramaProductionMode}
       />
+      {studioOrch!.dramaProductionMode === "replicate" ? (
+        <DramaReplicateDockParams
+          videoUrl={studioOrch!.dramaReplicateVideoUrl}
+          profile={studioOrch!.dramaReplicateProfile}
+          busy={studioOrch!.dramaReplicateAnalyzing}
+          disabled={readOnly || pending || streamBusy}
+          onVideoUrlChange={studioOrch!.setDramaReplicateVideoUrl}
+          onAnalyze={studioOrch!.analyzeDramaReplicateVideo}
+        />
+      ) : (
+        <DramaProductionDockParams
+          targetDurationSec={studioOrch!.dramaTargetDurationSec}
+          aspectRatio={studioOrch!.dramaAspectRatio}
+          onTargetDurationSecChange={studioOrch!.setDramaTargetDurationSec}
+          onAspectRatioChange={studioOrch!.setDramaAspectRatio}
+          disabled={readOnly || pending || streamBusy}
+        />
+      )}
       <label
         className="mr-1 flex items-center gap-1.5 text-[10px] text-zinc-400"
         data-testid="drama-auto-produce-checkbox"
