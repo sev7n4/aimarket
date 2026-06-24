@@ -70,7 +70,8 @@ export async function planDramaProjectMultiAgentWithEvents(
   input: PlanDramaInput,
   emit?: DramaPlanEmit,
 ): Promise<DramaProjectData> {
-  const duration = input.targetDurationSec ?? 90;
+  const duration =
+    input.targetDurationSec ?? (input.projectType === "mv" ? 60 : 90);
   const aspectRatio = input.aspectRatio ?? "9:16";
   const ctx: PlanningContext = { input, duration, aspectRatio };
 

@@ -505,6 +505,7 @@ const planCreateBody = z.object({
   aspectRatio: z.enum(["9:16", "16:9"]).optional(),
   autoProduce: z.coerce.boolean().default(false),
   replicateProfile: replicateProfileSchema.optional(),
+  projectType: z.enum(["short_drama", "mv", "creative"]).default("short_drama"),
 });
 
 drama.post("/replicate/analyze", async (c) => {
@@ -533,6 +534,7 @@ drama.post("/plan/runs", async (c) => {
       body.replicateProfile?.suggestedDurationSec ?? body.targetDurationSec,
     aspectRatio: body.aspectRatio,
     autoProduce: body.autoProduce,
+    projectType: body.projectType,
   });
   dispatchDramaPlanRun(row.id, userId);
 

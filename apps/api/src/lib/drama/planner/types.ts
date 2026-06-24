@@ -21,7 +21,10 @@ export interface PlanDramaInput {
   targetDurationSec?: number;
   aspectRatio?: "9:16" | "16:9";
   replicateProfile?: ReplicateProfile;
+  projectType?: DramaProjectType;
 }
+
+export type DramaProjectType = import("../schema.js").DramaProjectType;
 
 export type DramaPlanAgentId =
   | "writer"

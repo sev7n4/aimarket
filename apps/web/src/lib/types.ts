@@ -333,7 +333,10 @@ export interface DramaStoryboardShot {
   status: "pending" | "keyframe" | "video" | "audio" | "done" | "failed";
 }
 
+export type DramaProjectType = "short_drama" | "mv" | "creative";
+
 export interface DramaProjectPayload {
+  projectType?: DramaProjectType;
   userIdea: string;
   targetDurationSec: number;
   script: {
@@ -482,6 +485,7 @@ export interface DramaPlanRun {
   project?: DramaProject;
   estimatedPoints?: number;
   autoProduce?: boolean;
+  projectType?: DramaProjectType;
   error?: string | null;
   createdAt: string;
   updatedAt: string;
