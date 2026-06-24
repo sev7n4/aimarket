@@ -26,8 +26,10 @@ ok(
 );
 
 ok(
-  "generic LLM",
-  formatDramaPlanError("[qwen] LLM 429 rate limit").includes("暂时不可用"),
+  "zod issues",
+  formatDramaPlanError(
+    '[\n  {\n    "code": "invalid_type",\n    "expected": "string",\n    "received": "undefined",\n    "path": ["characters", 0, "voiceStyle"],\n    "message": "Required"\n  }\n]',
+  ).includes("规划数据校验失败"),
 );
 
 const failed = results.filter((r) => !r.pass);

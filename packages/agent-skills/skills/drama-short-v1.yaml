@@ -42,4 +42,3 @@ steps:
     sourceStep: lipsync
     options:
       subtitles: true
-      bgm: optional

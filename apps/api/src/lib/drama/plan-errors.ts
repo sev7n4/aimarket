@@ -13,6 +13,25 @@ export function formatDramaPlanError(message: string): string {
     return "图像生成服务暂时不可用，请稍后重试";
   }
 
+  if (raw.startsWith("[") && raw.includes('"code"')) {
+    try {
+      const issues = JSON.parse(raw) as Array<{
+        path?: (string | number)[];
+        message?: string;
+      }>;
+      if (Array.isArray(issues) && issues.length > 0) {
+        const parts = issues.map((issue) => {
+          const path = issue.path?.length ? issue.path.join(".") : "";
+          const msg = issue.message ?? "invalid";
+          return path ? `${path}: ${msg}` : msg;
+        });
+        return `规划数据校验失败（${parts.slice(0, 3).join("；")}）`;
+      }
+    } catch {
+      // fall through
+    }
+  }
+
   const withoutJson = raw
     .replace(/\{[\s\S]*\}/g, "")
     .replace(/\[[\w-]+\]\s*/g, "")

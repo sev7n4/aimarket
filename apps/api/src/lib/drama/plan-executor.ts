@@ -1,4 +1,4 @@
-import { buildRuleBasedProject } from "./planner.js";
+import { buildRuleBasedProject, planDramaProject } from "./planner.js";
 import { estimateDramaPoints } from "./estimate.js";
 import { clearPlanEvents, publishPlanEvent } from "./plan-events.js";
 import {
@@ -30,7 +30,7 @@ import {
   type DramaPlanEmit,
   type DramaPlanEvent,
 } from "./planner/types.js";
-import { dramaProjectSchema } from "./schema.js";
+import { dramaProjectSchema, type DramaProjectData } from "./schema.js";
 import {
   dramaCreditsAffordability,
   formatDramaInsufficientCreditsMessage,
@@ -112,6 +112,47 @@ function maybeAutoProduce(
   return { dramaRunId: run.id };
 }
 
+function safeMaybeAutoProduce(
+  row: NonNullable<ReturnType<typeof getDramaPlanRun>>,
+  projectId: string,
+  estimatedPoints: number,
+): { dramaRunId?: string; produceSkippedReason?: string } {
+  try {
+    return maybeAutoProduce(row, projectId, estimatedPoints);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "自动制作失败";
+    console.warn("[drama-plan] autoProduce failed:", message);
+    return { produceSkippedReason: formatDramaPlanError(message) };
+  }
+}
+
+async function planProjectWithEvents(
+  input: Parameters<typeof buildRuleBasedProject>[0],
+  emit: DramaPlanEmit,
+): Promise<DramaProjectData> {
+  if (!isAgentLlmEnabled()) {
+    return runRuleBasedWithEvents(input, emit);
+  }
+  if (isDramaMultiAgentPlanEnabled()) {
+    try {
+      return await planDramaProjectMultiAgentWithEvents(input, emit);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn("[drama-plan] multi_agent SSE failed, fallback:", message);
+    }
+  }
+  const projectData = await planDramaProject(input, { planMode: "single" });
+  for (const agent of DRAMA_PLAN_AGENT_ORDER) {
+    emit({ type: "agent_start", agent });
+    emit({
+      type: "agent_done",
+      agent,
+      summary: `${DRAMA_PLAN_AGENT_LABELS[agent]}完成（规则引擎）`,
+    });
+  }
+  return projectData;
+}
+
 export function dispatchDramaPlanRun(runId: string, userId: string) {
   void executeDramaPlanRun(runId, userId).catch((err) => {
     console.error("[drama-plan] execute failed:", err);
@@ -185,10 +226,7 @@ async function executeDramaPlanRun(runId: string, userId: string) {
   };
 
   try {
-    const projectData =
-      isAgentLlmEnabled() && isDramaMultiAgentPlanEnabled()
-        ? await planDramaProjectMultiAgentWithEvents(input, emit)
-        : await runRuleBasedWithEvents(input, emit);
+    const projectData = await planProjectWithEvents(input, emit);
 
     const projectRow = createDramaProject({
       sessionId: row.session_id,
@@ -196,7 +234,7 @@ async function executeDramaPlanRun(runId: string, userId: string) {
       project: projectData,
     });
     const estimatedPoints = estimateDramaPoints(projectData);
-    const autoProduce = maybeAutoProduce(row, projectRow.id, estimatedPoints);
+    const autoProduce = safeMaybeAutoProduce(row, projectRow.id, estimatedPoints);
 
     updateDramaPlanRun(runId, {
       status: "completed",
@@ -231,7 +269,7 @@ async function executeDramaPlanRun(runId: string, userId: string) {
         project: projectData,
       });
       const estimatedPoints = estimateDramaPoints(projectData);
-      const autoProduce = maybeAutoProduce(row, projectRow.id, estimatedPoints);
+      const autoProduce = safeMaybeAutoProduce(row, projectRow.id, estimatedPoints);
       updateDramaPlanRun(runId, {
         status: "completed",
         currentAgent: null,
@@ -311,7 +349,7 @@ async function executeDramaPlanRerun(
 
     updateDramaProject(row.project_id, { project: projectData });
     const estimatedPoints = estimateDramaPoints(projectData);
-    const autoProduce = maybeAutoProduce(row, row.project_id, estimatedPoints);
+    const autoProduce = safeMaybeAutoProduce(row, row.project_id, estimatedPoints);
 
     updateDramaPlanRun(runId, {
       status: "completed",
@@ -341,7 +379,7 @@ async function executeDramaPlanRerun(
 
       updateDramaProject(row.project_id, { project: projectData });
       const estimatedPoints = estimateDramaPoints(projectData);
-      const autoProduce = maybeAutoProduce(row, row.project_id, estimatedPoints);
+      const autoProduce = safeMaybeAutoProduce(row, row.project_id, estimatedPoints);
 
       updateDramaPlanRun(runId, {
         status: "completed",
