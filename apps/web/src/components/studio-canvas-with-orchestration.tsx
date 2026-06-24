@@ -10,6 +10,7 @@ import { DramaProductionTimeline } from "@/components/drama-production-timeline"
 import { DramaShotTimeline } from "@/components/drama-shot-timeline";
 import { DramaStudioPanel } from "@/components/drama-studio-panel";
 import { useStudioOrchestration } from "@/components/studio-orchestration-provider";
+import type { DramaNodeRerunPatch } from "@/components/drama-node-graph";
 import { retryDramaShot, pickDramaKeyframe, publishCanvasToInspiration, unpublishInspiration } from "@/lib/api-client";
 import { buildDramaPublishPayload } from "@/lib/drama-publish";
 import type { DramaProjectPayload } from "@/lib/types";
@@ -42,6 +43,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     setDramaRun,
     dramaProduceHint,
     retryDramaProduction,
+    rerunDramaFromNode,
   } = useStudioOrchestration();
 
   const isDramaPlanning = dramaPlanRun?.status === "planning";
@@ -151,6 +153,13 @@ export const StudioCanvasWithOrchestration = forwardRef<
     [],
   );
 
+  const handleRerunFromNode = useCallback(
+    async (nodeId: string, projectPatch: DramaNodeRerunPatch) => {
+      await rerunDramaFromNode(nodeId, projectPatch);
+    },
+    [rerunDramaFromNode],
+  );
+
   const dramaPanel =
     isDramaPlanning || dramaRun || dramaDraftProject ? (
       <DramaStudioPanel
@@ -180,6 +189,15 @@ export const StudioCanvasWithOrchestration = forwardRef<
         produceHint={dramaProduceHint}
         onRetryProduction={dramaRun?.status === "failed" ? handleRetryProduction : undefined}
         retryBusy={dramaBusy}
+        onRerunFromNode={
+          dramaRun &&
+          (dramaRun.status === "completed" ||
+            dramaRun.status === "failed" ||
+            dramaRun.status === "cancelled")
+            ? handleRerunFromNode
+            : undefined
+        }
+        rerunNodeBusy={dramaBusy}
         onPublishToInspiration={
           showFinalVideo ? handlePublishToInspiration : undefined
         }

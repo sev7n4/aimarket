@@ -24,7 +24,9 @@ import {
   type DramaRunRow,
 } from "./runs.js";
 import { clearRunEvents } from "./run-events.js";
+import { mergeDramaProjectPatch } from "./merge-patch.js";
 import {
+  dramaProjectSchema,
   DRAMA_PIPELINE_STEPS,
   type CharacterAngle,
   type DramaPipelineStep,
@@ -979,6 +981,97 @@ export function resetProgressFromStep(
     default:
       return base;
   }
+}
+
+function pipelineStepOrdinal(step: DramaPipelineStep): number {
+  return DRAMA_PIPELINE_STEPS.indexOf(step);
+}
+
+/** 从指定流水线步骤起清除 project 下游产物，供节点局部重跑 */
+export function invalidateProjectOutputsFromStep(
+  project: DramaProjectData,
+  fromStep: DramaPipelineStep,
+): void {
+  const from = pipelineStepOrdinal(fromStep);
+  if (from <= pipelineStepOrdinal("char_refs")) {
+    for (const char of project.characters) {
+      char.refOutputIds = undefined;
+    }
+  }
+  if (from <= pipelineStepOrdinal("scene_refs")) {
+    for (const scene of project.scenes) {
+      scene.refOutputId = undefined;
+    }
+  }
+  if (from <= pipelineStepOrdinal("keyframes")) {
+    for (const shot of project.shots) {
+      shot.keyframeOutputId = undefined;
+      shot.keyframeVariantOutputIds = undefined;
+      shot.keyframeHeroIndex = undefined;
+      shot.videoOutputId = undefined;
+      shot.audioOutputId = undefined;
+      shot.lipsyncOutputId = undefined;
+      shot.status = "pending";
+    }
+  } else if (from <= pipelineStepOrdinal("shot_videos")) {
+    for (const shot of project.shots) {
+      shot.videoOutputId = undefined;
+      shot.audioOutputId = undefined;
+      shot.lipsyncOutputId = undefined;
+      shot.status =
+        shot.keyframeOutputId || shot.keyframeVariantOutputIds?.length
+          ? "keyframe"
+          : "pending";
+    }
+  } else if (from <= pipelineStepOrdinal("tts")) {
+    for (const shot of project.shots) {
+      shot.audioOutputId = undefined;
+      shot.lipsyncOutputId = undefined;
+    }
+  } else if (from <= pipelineStepOrdinal("lipsync")) {
+    for (const shot of project.shots) {
+      shot.lipsyncOutputId = undefined;
+    }
+  }
+}
+
+const RERUNNABLE_RUN_STATUSES = new Set(["completed", "failed", "cancelled"]);
+
+/** 从 DAG 节点重跑后续（可附带 project patch，如单镜 motionPrompt） */
+export async function rerunDramaRunFromNode(
+  userId: string,
+  runId: string,
+  fromStep: DramaPipelineStep,
+  projectPatch?: Record<string, unknown>,
+): Promise<DramaRunRow | undefined> {
+  const row = getDramaRun(userId, runId);
+  if (!row) throw new Error("DRAMA_RUN_NOT_FOUND");
+  if (!RERUNNABLE_RUN_STATUSES.has(row.status)) {
+    throw new Error("DRAMA_RUN_NOT_RERUNNABLE");
+  }
+
+  clearRunEvents(runId);
+
+  let project = getProjectForRun(row);
+  if (projectPatch && Object.keys(projectPatch).length > 0) {
+    const merged = mergeDramaProjectPatch(project, projectPatch);
+    project = dramaProjectSchema.parse(merged);
+  }
+  invalidateProjectOutputsFromStep(project, fromStep);
+  saveProject(row, project);
+
+  const progress = resetProgressFromStep(fromStep, parseProgress(row));
+  updateDramaRun(runId, {
+    progress,
+    status: "queued",
+    pendingJobId: null,
+    error: null,
+    finalVideoUrl: null,
+    currentStepIndex: pipelineStepIndex(fromStep),
+  });
+  updateDramaProject(row.project_id, { status: "producing" });
+  dispatchDramaRun(runId, userId);
+  return getDramaRun(userId, runId);
 }
 
 /** 失败后重试制作：默认从失败步骤续跑；fromStep 可指定从某步重来 */

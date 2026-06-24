@@ -95,6 +95,10 @@ interface StudioOrchestrationContextValue {
   setDramaAspectRatio: (value: "9:16" | "16:9") => void;
   dramaProduceHint: string | null;
   retryDramaProduction: (fromStep?: string) => Promise<DramaRun | null>;
+  rerunDramaFromNode: (
+    nodeId: string,
+    projectPatch?: Record<string, unknown>,
+  ) => Promise<DramaRun | null>;
   cancelOrchestration: () => Promise<void>;
   dispatchSubmit: (ctx: StudioOrchestrationSubmitContext) => Promise<boolean>;
   timelineEvent: OrchestrationTimelineEvent | null;
@@ -179,6 +183,7 @@ export function StudioOrchestrationProvider({
     cancelRun: cancelDramaRunAction,
     saveDraftProject: saveDramaDraft,
     retryProduction: retryDramaProductionAction,
+    rerunFromNode: rerunDramaFromNodeAction,
     setRun: setDramaRun,
     setDraftProject: setDramaDraftProject,
   } = useDramaRun({
@@ -646,6 +651,14 @@ export function StudioOrchestrationProvider({
     [retryDramaProductionAction],
   );
 
+  const rerunDramaFromNode = useCallback(
+    async (nodeId: string, projectPatch?: Record<string, unknown>) => {
+      setDramaProduceHint(null);
+      return rerunDramaFromNodeAction(nodeId, projectPatch);
+    },
+    [rerunDramaFromNodeAction],
+  );
+
   const handleRerunFromAgent = useCallback(
     (fromAgent: string) => {
       void rerunDramaPlan(fromAgent);
@@ -713,6 +726,7 @@ export function StudioOrchestrationProvider({
       setDramaAspectRatio,
       dramaProduceHint,
       retryDramaProduction,
+      rerunDramaFromNode,
       cancelOrchestration,
       dispatchSubmit,
       orchestrationResetTick,
@@ -749,6 +763,7 @@ export function StudioOrchestrationProvider({
       setDramaAspectRatio,
       dramaProduceHint,
       retryDramaProduction,
+      rerunDramaFromNode,
       cancelOrchestration,
       dispatchSubmit,
       orchestrationResetTick,
