@@ -46,6 +46,8 @@ import { image } from "./routes/image.js";
 import { imageTask } from "./routes/imageTask.js";
 import { video } from "./routes/video.js";
 import { uploadCompat } from "./routes/upload-compat.js";
+import { open } from "./routes/open.js";
+import { requireApiKey } from "./middleware/api-key.js";
 
 ensureUploadDir();
 
@@ -58,7 +60,7 @@ app.use(
   cors({
     origin: corsOrigin,
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "X-Admin-Secret"],
+    allowHeaders: ["Content-Type", "Authorization", "X-Admin-Secret", "X-Api-Key"],
   }),
 );
 
@@ -116,6 +118,11 @@ app.route("/api/v1/events", events);
 app.route("/api/v1/inspiration", inspiration);
 app.route("/api/v1/keyword", keyword);
 app.route("/api/v1/admin", admin);
+
+const openApi = new Hono();
+openApi.use("*", requireApiKey);
+openApi.route("/", open);
+app.route("/api/v1/open", openApi);
 
 const authed = new Hono();
 authed.use("*", requireAuth);

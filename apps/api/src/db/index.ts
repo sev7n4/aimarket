@@ -450,6 +450,20 @@ try {
 }
 
 database.exec(`
+  CREATE TABLE IF NOT EXISTS open_api_keys (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL DEFAULT 'default',
+    key_prefix TEXT NOT NULL,
+    key_hash TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    revoked_at TEXT
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_open_api_keys_user ON open_api_keys(user_id);
+`);
+
+database.exec(`
   CREATE TABLE IF NOT EXISTS agent_runs (
     id TEXT PRIMARY KEY,
     session_id TEXT NOT NULL REFERENCES image_sessions(id) ON DELETE CASCADE,

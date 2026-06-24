@@ -274,6 +274,17 @@ ALTER TABLE inspiration_templates ADD COLUMN IF NOT EXISTS published_by_user_id 
 ALTER TABLE inspiration_templates ADD COLUMN IF NOT EXISTS source_output_id TEXT;
 ALTER TABLE inspiration_templates ADD COLUMN IF NOT EXISTS source_asset_id TEXT;
 ALTER TABLE inspiration_templates ADD COLUMN IF NOT EXISTS drama_template_json TEXT;
+
+CREATE TABLE IF NOT EXISTS open_api_keys (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL DEFAULT 'default',
+  key_prefix TEXT NOT NULL,
+  key_hash TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  revoked_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_open_api_keys_user ON open_api_keys(user_id);
 CREATE INDEX IF NOT EXISTS idx_inspiration_publisher
   ON inspiration_templates(published_by_user_id, created_at DESC);
 
