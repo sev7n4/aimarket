@@ -3,6 +3,9 @@
  * 生产环境短剧 DAG graph API 冒烟
  * API_URL=http://119.29.173.89:4100 node scripts/verify-prod-drama-graph.mjs
  *
+ * 认证（任选其一，推荐登录避免注册 429）：
+ *   PROD_SMOKE_TOKEN=... 
+ *   PROD_EMAIL=... PROD_PASSWORD=...
  * 使用 POST /drama/runs（planMode=single + autoProduce）创建制作 Run，再拉 graph。
  * 绕过 plan/runs 异步多 Agent merge 在生产环境触发 autoProduce 失败的问题。
  */
@@ -64,18 +67,36 @@ async function requestWithRetry(path, init = {}, label = path, attempts = 12) {
   throw lastErr;
 }
 
-async function main() {
-  const email = `prod-graph-${Date.now()}@test.local`;
+async function ensureAuth() {
+  if (process.env.PROD_SMOKE_TOKEN) {
+    globalThis.__GRAPH_TOKEN = process.env.PROD_SMOKE_TOKEN;
+    return;
+  }
+  const email = process.env.PROD_EMAIL;
+  const password = process.env.PROD_PASSWORD;
+  if (email && password) {
+    const login = await requestWithRetry(
+      "/api/v1/auth/login",
+      { method: "POST", body: JSON.stringify({ email, password }) },
+      "login",
+    );
+    globalThis.__GRAPH_TOKEN = login.token;
+    return;
+  }
+  const regEmail = `prod-graph-${Date.now()}@test.local`;
   const reg = await requestWithRetry(
     "/api/v1/auth/register",
     {
       method: "POST",
-      body: JSON.stringify({ email, password: "testpass123" }),
+      body: JSON.stringify({ email: regEmail, password: "testpass123" }),
     },
     "register",
   );
   globalThis.__GRAPH_TOKEN = reg.token;
+}
 
+async function maybeTopUpCredits() {
+  if (process.env.PROD_EMAIL || process.env.PROD_SMOKE_TOKEN) return;
   const packages = await request("/api/v1/product/packages", {}, "packages");
   const largest = [...(packages ?? [])].sort(
     (a, b) => (b.credits ?? 0) - (a.credits ?? 0),
@@ -90,6 +111,11 @@ async function main() {
       "purchase credits",
     );
   }
+}
+
+async function main() {
+  await ensureAuth();
+  await maybeTopUpCredits();
 
   const ensured = await request(
     "/api/v1/imageSession/ensure",
