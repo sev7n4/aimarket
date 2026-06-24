@@ -6,10 +6,21 @@ import type {
   StyleBible,
 } from "../schema.js";
 
+export interface ReplicateProfile {
+  sourceUrl: string;
+  title?: string;
+  hook?: string;
+  beatStructure: string[];
+  pacing?: string;
+  suggestedDurationSec?: number;
+  styleHints: string[];
+}
+
 export interface PlanDramaInput {
   userIdea: string;
   targetDurationSec?: number;
   aspectRatio?: "9:16" | "16:9";
+  replicateProfile?: ReplicateProfile;
 }
 
 export type DramaPlanAgentId =
