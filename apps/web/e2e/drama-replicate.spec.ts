@@ -52,13 +52,20 @@ test.describe("drama replicate", () => {
       timeout: 15_000,
     });
 
-    await station.getByTestId("drama-production-mode-replicate").click();
-    await expect(station.getByTestId("drama-replicate-dock-params")).toBeVisible({
+    const replicateTab = station.getByTestId("drama-production-mode-replicate");
+    await expect(replicateTab).toBeEnabled({ timeout: 15_000 });
+    await replicateTab.click();
+    await expect(replicateTab).toHaveAttribute("aria-pressed", "true", {
       timeout: 15_000,
     });
+    await expect(station.getByTestId("drama-production-dock-params")).toBeHidden({
+      timeout: 15_000,
+    });
+    const replicateUrl = station.getByTestId("drama-replicate-url");
+    await expect(replicateUrl).toBeVisible({ timeout: 15_000 });
 
     const videoUrl = "https://example.com/reference/viral-short.mp4";
-    await station.getByTestId("drama-replicate-url").fill(videoUrl);
+    await replicateUrl.fill(videoUrl);
 
     const analyzeResponse = page.waitForResponse(
       (res) =>
