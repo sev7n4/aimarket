@@ -48,6 +48,11 @@ import {
 } from "../lib/drama/plan-runs.js";
 import { mergeDramaProjectPatch } from "../lib/drama/merge-patch.js";
 import {
+  analyzeReferenceVideo,
+  formatReplicateProfileForPlanner,
+  replicateProfileSchema,
+} from "../lib/drama/replicate.js";
+import {
   assertAllCharactersLockedForProduce,
   dispatchCharacterTurnaround,
 } from "../lib/drama/character-turnaround.js";
@@ -498,7 +503,16 @@ const planCreateBody = z.object({
   userIdea: z.string().min(10).max(2000),
   targetDurationSec: z.number().int().min(60).max(180).optional(),
   aspectRatio: z.enum(["9:16", "16:9"]).optional(),
-  autoProduce: z.boolean().default(false),
+  autoProduce: z.coerce.boolean().default(false),
+  replicateProfile: replicateProfileSchema.optional(),
+});
+
+drama.post("/replicate/analyze", async (c) => {
+  const body = z
+    .object({ videoUrl: z.string().url() })
+    .parse(await c.req.json());
+  const profile = await analyzeReferenceVideo(body.videoUrl);
+  return c.json({ data: profile });
 });
 
 /** 异步多 Agent 规划（SSE 进度） */
@@ -507,11 +521,16 @@ drama.post("/plan/runs", async (c) => {
   const body = planCreateBody.parse(await c.req.json());
   assertSessionWrite(userId, body.sessionId);
 
+  const userIdea = body.replicateProfile
+    ? `${body.userIdea.trim()}\n\n${formatReplicateProfileForPlanner(body.replicateProfile)}`
+    : body.userIdea;
+
   const row = createDramaPlanRun({
     sessionId: body.sessionId,
     userId,
-    userIdea: body.userIdea,
-    targetDurationSec: body.targetDurationSec,
+    userIdea,
+    targetDurationSec:
+      body.replicateProfile?.suggestedDurationSec ?? body.targetDurationSec,
     aspectRatio: body.aspectRatio,
     autoProduce: body.autoProduce,
   });
