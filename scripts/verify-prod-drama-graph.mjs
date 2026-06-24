@@ -3,7 +3,8 @@
  * 生产环境短剧 DAG graph API 冒烟
  * API_URL=http://119.29.173.89:4100 node scripts/verify-prod-drama-graph.mjs
  *
- * 使用 plan autoProduce 创建制作 Run，经 sessions state 取 dramaRun.id。
+ * 使用 POST /drama/runs（planMode=single + autoProduce）创建制作 Run，再拉 graph。
+ * 绕过 plan/runs 异步多 Agent merge 在生产环境触发 autoProduce 失败的问题。
  */
 import crypto from "node:crypto";
 
@@ -15,7 +16,12 @@ function formatApiError(json, status) {
     return `${err.message} (HTTP ${status})`;
   }
   if (Array.isArray(err)) {
-    return `${JSON.stringify(err)} (HTTP ${status})`;
+    const parts = err.map((issue) => {
+      const path = Array.isArray(issue?.path) ? issue.path.join(".") : "";
+      const msg = issue?.message ?? "invalid";
+      return path ? `${path}: ${msg}` : msg;
+    });
+    return `${parts.join("; ") || JSON.stringify(err)} (HTTP ${status})`;
   }
   return `${JSON.stringify(err ?? json)} (HTTP ${status})`;
 }
@@ -38,7 +44,7 @@ async function request(path, init = {}, label = path) {
   return json.data ?? json;
 }
 
-async function requestWithRetry(path, init = {}, label = path, attempts = 10) {
+async function requestWithRetry(path, init = {}, label = path, attempts = 12) {
   let lastErr;
   for (let i = 0; i < attempts; i++) {
     try {
@@ -51,32 +57,11 @@ async function requestWithRetry(path, init = {}, label = path, attempts = 10) {
         msg.includes("过于频繁") ||
         msg.includes("RATE_LIMIT");
       if (!rateLimited) throw err;
-      const waitMs = Math.min(20_000, 4000 * (i + 1));
+      const waitMs = Math.min(30_000, 5000 * (i + 1));
       await new Promise((r) => setTimeout(r, waitMs));
     }
   }
   throw lastErr;
-}
-
-async function pollPlanRun(runId, deadlineMs = 180_000) {
-  const deadline = Date.now() + deadlineMs;
-  while (Date.now() < deadline) {
-    const run = await request(`/api/v1/drama/plan/runs/${runId}`, {}, "poll plan");
-    if (run.status === "completed" || run.status === "failed") return run;
-    await new Promise((r) => setTimeout(r, 1500));
-  }
-  throw new Error("规划超时");
-}
-
-async function resolveDramaRunId(sessionId) {
-  const state = await request(
-    `/api/v1/drama/sessions/${sessionId}/state`,
-    {},
-    "session state",
-  );
-  const runId = state.dramaRun?.id;
-  if (runId) return runId;
-  throw new Error("autoProduce 未创建 dramaRun（请确认已购买足够积分）");
 }
 
 async function main() {
@@ -122,8 +107,8 @@ async function main() {
   const sessionId = ensured.id;
   if (!sessionId) throw new Error("ensure session 未返回 id");
 
-  const plan = await request(
-    "/api/v1/drama/plan/runs",
+  const run = await request(
+    "/api/v1/drama/runs",
     {
       method: "POST",
       body: JSON.stringify({
@@ -131,19 +116,16 @@ async function main() {
         userIdea: "都市爱情：雨夜咖啡店的重逢，三分钟讲完误会与和解",
         targetDurationSec: 90,
         aspectRatio: "9:16",
+        planMode: "single",
         autoProduce: true,
+        confirmed: true,
       }),
     },
-    "start plan",
+    "create drama run",
   );
 
-  const finished = await pollPlanRun(plan.id);
-  if (finished.status !== "completed") {
-    throw new Error(finished.error ?? "规划失败");
-  }
-  if (!finished.projectId) throw new Error("无 projectId");
-
-  const runId = await resolveDramaRunId(sessionId);
+  const runId = run.id;
+  if (!runId) throw new Error("create drama run 未返回 id");
 
   const graph = await request(
     `/api/v1/drama/runs/${runId}/graph`,

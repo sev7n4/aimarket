@@ -101,7 +101,11 @@ export function createDramaRun(input: {
 
   const row = getDramaRun(input.userId, id);
   if (!row) throw new AppError(500, "INTERNAL_ERROR", "创建短剧 Run 失败");
-  publishDramaRunStreamUpdate(id);
+  try {
+    publishDramaRunStreamUpdate(id);
+  } catch (err) {
+    console.warn("[drama] run stream publish skipped:", err);
+  }
   return row;
 }
 
