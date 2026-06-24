@@ -4,6 +4,7 @@
  */
 import {
   analyzeReferenceVideo,
+  analyzeReferenceVideoMock,
   formatReplicateProfileForPlanner,
   replicateProfileSchema,
 } from "../apps/api/src/lib/drama/replicate.ts";
@@ -16,6 +17,12 @@ function ok(name: string, pass: boolean) {
 }
 
 async function main() {
+  const mock = analyzeReferenceVideoMock(
+    "https://example.com/reference/viral-short.mp4",
+  );
+  ok("mock beat structure", mock.beatStructure.length >= 3);
+  ok("mock schema", replicateProfileSchema.safeParse(mock).success);
+
   const profile = await analyzeReferenceVideo(
     "https://example.com/reference/viral-short.mp4",
   );

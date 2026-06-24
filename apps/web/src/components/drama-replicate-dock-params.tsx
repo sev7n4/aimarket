@@ -85,6 +85,8 @@ export function DramaProductionModeTabs({
           key={id}
           type="button"
           disabled={disabled}
+          aria-pressed={mode === id}
+          onPointerDown={(e) => e.preventDefault()}
           onClick={() => onChange(id)}
           className={`rounded px-2 py-0.5 text-[10px] transition ${
             mode === id

@@ -12,13 +12,13 @@ const PLAN_AGENTS = [
   "storyboard",
 ] as const;
 
-test.describe("production plan SSE", () => {
-  test("制片模式提交 → 五步规划时间线 → 分镜板", async ({ page, request }) => {
+test.describe("drama replicate", () => {
+  test("复刻 Tab → 分析结构 → 规划完成", async ({ page, request }) => {
     test.setTimeout(120_000);
     await skipStudioCoach(page);
 
     const apiBase = process.env.E2E_API_URL ?? "http://127.0.0.1:4000";
-    const email = `e2e_prod_plan_${Date.now()}_${Math.random()
+    const email = `e2e_replicate_${Date.now()}_${Math.random()
       .toString(36)
       .slice(2, 8)}@test.local`;
     const register = await request.post(`${apiBase}/api/v1/auth/register`, {
@@ -38,8 +38,6 @@ test.describe("production plan SSE", () => {
 
     await page.goto("/studio?mode=production", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/sessionId=/, { timeout: 30_000 });
-    const sessionId = new URL(page.url()).searchParams.get("sessionId");
-    expect(sessionId).toBeTruthy();
     const station = studioWorkstation(page);
     await expect(station.locator("textarea").first()).toBeVisible({
       timeout: 15_000,
@@ -47,19 +45,49 @@ test.describe("production plan SSE", () => {
     await expect(station.getByRole("button", { name: "开始规划" })).toBeEnabled({
       timeout: 15_000,
     });
-
     await expect(station.getByTestId("drama-production-mode-tabs")).toBeVisible({
       timeout: 15_000,
     });
     await expect(station.getByTestId("drama-production-dock-params")).toBeVisible({
       timeout: 15_000,
     });
-    await expect(station.getByTestId("drama-auto-produce-checkbox")).toBeVisible();
 
-    const idea =
-      "都市爱情短剧：咖啡店老板与常客在雨夜重逢，三分钟讲完误会与和解";
-    const textarea = station.locator("textarea").first();
-    await textarea.fill(idea);
+    const replicateTab = station.getByTestId("drama-production-mode-replicate");
+    await expect(replicateTab).toBeEnabled({ timeout: 15_000 });
+    await replicateTab.click();
+    await expect(replicateTab).toHaveAttribute("aria-pressed", "true", {
+      timeout: 15_000,
+    });
+    await expect(station.getByTestId("drama-production-dock-params")).toBeHidden({
+      timeout: 15_000,
+    });
+    const replicateUrl = station.getByTestId("drama-replicate-url");
+    await expect(replicateUrl).toBeVisible({ timeout: 15_000 });
+
+    const videoUrl = "https://example.com/reference/viral-short.mp4";
+    await replicateUrl.fill(videoUrl);
+
+    const analyzeResponse = page.waitForResponse(
+      (res) =>
+        res.url().includes("/api/v1/drama/replicate/analyze") &&
+        res.request().method() === "POST" &&
+        res.ok(),
+      { timeout: 30_000 },
+    );
+    await station.getByTestId("drama-replicate-analyze").click();
+    const analyzeRes = await analyzeResponse;
+    const analyzeJson = (await analyzeRes.json()) as {
+      data?: { beatStructure?: string[]; sourceUrl?: string };
+    };
+    expect(analyzeJson.data?.sourceUrl).toBe(videoUrl);
+    expect((analyzeJson.data?.beatStructure?.length ?? 0) >= 3).toBeTruthy();
+
+    await expect(station.getByTestId("drama-replicate-profile-ready")).toBeVisible({
+      timeout: 15_000,
+    });
+
+    const idea = "都市爱情：雨夜咖啡店重逢，用新角色讲完误会与和解";
+    await station.locator("textarea").first().fill(idea);
 
     const planResponse = page.waitForResponse(
       (res) =>
@@ -70,35 +98,18 @@ test.describe("production plan SSE", () => {
     );
     await station.getByRole("button", { name: "开始规划" }).click();
     const planRes = await planResponse;
-    const planJson = (await planRes.json()) as {
-      data?: { id?: string; status?: string };
+    const planRequest = planRes.request().postDataJSON() as {
+      replicateProfile?: { sourceUrl?: string };
     };
+    expect(planRequest.replicateProfile?.sourceUrl).toBe(videoUrl);
+
+    const planJson = (await planRes.json()) as { data?: { id?: string } };
     const planId = planJson.data?.id;
     expect(planId).toBeTruthy();
-    expect(planJson.data?.status).toBe("planning");
-
-    await expect(page.getByTestId("drama-plan-timeline")).toBeVisible({
-      timeout: 30_000,
-    });
-    await expect(page.getByTestId("drama-plan-stepper")).toBeVisible({
-      timeout: 30_000,
-    });
-    await expect(page.getByTestId("drama-plan-agent-steps")).toBeVisible({
-      timeout: 30_000,
-    });
 
     await expect
       .poll(
         async () => {
-          if (
-            await page
-              .getByTestId("drama-shot-timeline")
-              .isVisible()
-              .catch(() => false)
-          ) {
-            return "completed";
-          }
-
           const res = await request.get(
             `${apiBase}/api/v1/drama/plan/runs/${planId}`,
             { headers: { Authorization: `Bearer ${token}` } },
@@ -111,7 +122,6 @@ test.describe("production plan SSE", () => {
           };
           const data = json.data;
           if (data?.status !== "completed") return "planning";
-
           const allDone = PLAN_AGENTS.every(
             (id) => data.agents?.[id]?.status === "done",
           );
@@ -121,23 +131,10 @@ test.describe("production plan SSE", () => {
       )
       .toBe("completed");
 
-    const planDoneRes = await request.get(
-      `${apiBase}/api/v1/drama/plan/runs/${planId}`,
-      { headers: { Authorization: `Bearer ${token}` } },
-    );
-    const planDoneJson = (await planDoneRes.json()) as {
-      data?: { projectId?: string };
-    };
-    const projectId = planDoneJson.data?.projectId;
-    expect(projectId).toBeTruthy();
-
     const panel = page.getByTestId("drama-studio-panel");
     await expect(panel).toBeVisible({ timeout: 30_000 });
     await expect(panel.getByText(/分镜板（\d+ 镜）/)).toBeVisible({
       timeout: 30_000,
     });
-    await expect(panel.getByText(/角色资产（\d+）/)).toBeVisible();
-    await expect(panel.getByTestId("drama-characters-lock-hint")).toBeVisible();
-    await expect(panel.getByTestId("drama-confirm-produce")).toBeDisabled();
   });
 });

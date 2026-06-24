@@ -40,6 +40,7 @@ interface StudioCreationDockProps {
   } | null;
   onUploadToCanvas: (assetId: string, url: string, thumbUrl?: string) => void;
   onDockModeChange: (mode: StudioDockMode) => void;
+  dockExpanded?: boolean;
   focusEdit: {
     points: FocusPointChip[];
     intent: FocusEditIntent;
@@ -87,6 +88,7 @@ export function StudioCreationDock({
   mentionItemRequest,
   onUploadToCanvas,
   onDockModeChange,
+  dockExpanded = true,
   focusEdit,
   onFocusEditSubmit,
 }: StudioCreationDockProps) {
@@ -109,6 +111,7 @@ export function StudioCreationDock({
       <CreationPanel
         variant="studio-dock"
         onDockModeChange={onDockModeChange}
+        initialDockExpanded={dockExpanded}
         showModeTabs={false}
         rotatingPlaceholder
         enablePolish
