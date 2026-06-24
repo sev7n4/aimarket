@@ -1212,6 +1212,47 @@ async function main() {
     );
   }
 
+  const smokeUserId = reg.json?.data?.user?.id;
+  if (smokeUserId) {
+    const issueKey = await req("/api/v1/admin/open-api-keys", {
+      method: "POST",
+      headers: { "X-Admin-Secret": ADMIN },
+      body: JSON.stringify({ userId: smokeUserId, name: "smoke" }),
+    });
+    const apiKey = issueKey.json?.data?.key;
+    ok(
+      "POST admin/open-api-keys",
+      issueKey.res.status === 201 && String(apiKey ?? "").startsWith("moyu_sk_"),
+    );
+    if (apiKey) {
+      const openCreate = await req("/api/v1/open/sessions", {
+        method: "POST",
+        headers: { "X-Api-Key": apiKey },
+        body: JSON.stringify({
+          mode: "production",
+          title: "OpenAPI smoke",
+          kind: "canvas",
+        }),
+      });
+      ok(
+        "POST open/sessions",
+        openCreate.res.status === 201 &&
+          openCreate.json?.data?.mode === "production",
+        `id=${openCreate.json?.data?.id}`,
+      );
+      const openSessionId = openCreate.json?.data?.id;
+      if (openSessionId) {
+        const openGet = await req(`/api/v1/open/sessions/${openSessionId}`, {
+          headers: { "X-Api-Key": apiKey },
+        });
+        ok(
+          "GET open/sessions/:id",
+          openGet.res.ok && openGet.json?.data?.id === openSessionId,
+        );
+      }
+    }
+  }
+
   const failed = results.filter((r) => !r.pass).length;
   console.log(`\n${results.length - failed}/${results.length} 通过\n`);
   process.exit(failed > 0 ? 1 : 0);

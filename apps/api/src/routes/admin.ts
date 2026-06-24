@@ -20,6 +20,7 @@ import {
   agnesVideoConfigured,
   probeAgnesVideoTask,
 } from "../providers/video/agnes.js";
+import { createOpenApiKey } from "../lib/open-api-keys.js";
 import { getVideoProviderStatus } from "../providers/video/registry.js";
 
 export const admin = new Hono();
@@ -369,4 +370,22 @@ admin.delete("/inspiration/:id", (c) => {
   const id = c.req.param("id");
   const data = archiveInspirationById(id);
   return c.json({ data });
+});
+
+/** 为用户签发 OpenAPI Key（仅创建时返回完整 key） */
+admin.post("/open-api-keys", async (c) => {
+  const body = z
+    .object({
+      userId: z.string().uuid(),
+      name: z.string().trim().min(1).max(80).optional(),
+    })
+    .parse(await c.req.json());
+  const user = db
+    .prepare("SELECT id FROM users WHERE id = ?")
+    .get(body.userId) as { id: string } | undefined;
+  if (!user) {
+    throw new AppError(404, "NOT_FOUND", "用户不存在");
+  }
+  const created = createOpenApiKey(body.userId, body.name ?? "admin-issued");
+  return c.json({ data: created }, 201);
 });
