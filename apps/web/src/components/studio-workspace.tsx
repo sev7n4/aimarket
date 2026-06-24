@@ -1875,7 +1875,7 @@ export function StudioWorkspace({
                 mentionItemRequest={mentionItemRequest}
                 onUploadToCanvas={handleUploadToCanvas}
                 onDockModeChange={setDockMode}
-                dockExpanded={dockMode === "expanded"}
+                dockExpanded={dockMode === "expanded" && mode === "production"}
                 focusEdit={
                   focusEditSession
                     ? {
