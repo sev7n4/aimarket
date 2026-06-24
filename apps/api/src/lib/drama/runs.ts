@@ -17,6 +17,7 @@ import {
 import { resolveReferenceUrls } from "../references.js";
 import { assertDramaCreditsAffordable } from "./credits-gate.js";
 import { resolveDramaSkillId } from "./skill-id.js";
+import { notifyOpenRunWebhook } from "../open-webhooks.js";
 
 export interface DramaRunRow {
   id: string;
@@ -201,6 +202,26 @@ export function updateDramaRun(
     ...params,
   );
   publishDramaRunStreamUpdate(runId);
+
+  if (patch.status === "completed" || patch.status === "failed") {
+    const row = db
+      .prepare(
+        `SELECT id, session_id, project_id, status, error, final_video_url, user_id
+         FROM drama_runs WHERE id = ?`,
+      )
+      .get(runId) as
+      | {
+          id: string;
+          session_id: string;
+          project_id: string;
+          status: string;
+          error: string | null;
+          final_video_url: string | null;
+          user_id: string;
+        }
+      | undefined;
+    if (row) notifyOpenRunWebhook(row.user_id, row);
+  }
 }
 
 export function serializeDramaRun(row: DramaRunRow, projectRow: DramaProjectRow) {

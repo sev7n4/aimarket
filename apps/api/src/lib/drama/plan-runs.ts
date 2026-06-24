@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { db } from "../../db/index.js";
 import { AppError } from "../errors.js";
+import { notifyOpenPlanWebhook } from "../open-webhooks.js";
 import {
   DRAMA_PLAN_AGENT_ORDER,
   type DramaPlanAgentId,
@@ -140,6 +141,25 @@ export function updateDramaPlanRun(
   db.prepare(`UPDATE drama_plan_runs SET ${sets.join(", ")} WHERE id = ?`).run(
     ...params,
   );
+
+  if (patch.status === "completed" || patch.status === "failed") {
+    const row = db
+      .prepare(
+        `SELECT id, session_id, project_id, status, error, user_id
+         FROM drama_plan_runs WHERE id = ?`,
+      )
+      .get(runId) as
+      | {
+          id: string;
+          session_id: string;
+          project_id: string | null;
+          status: string;
+          error: string | null;
+          user_id: string;
+        }
+      | undefined;
+    if (row) notifyOpenPlanWebhook(row.user_id, row);
+  }
 }
 
 export function serializeDramaPlanRun(row: DramaPlanRunRow) {

@@ -1249,6 +1249,37 @@ async function main() {
           "GET open/sessions/:id",
           openGet.res.ok && openGet.json?.data?.id === openSessionId,
         );
+
+        const openWebhook = await req("/api/v1/open/webhooks", {
+          method: "POST",
+          headers: { "X-Api-Key": apiKey },
+          body: JSON.stringify({
+            url: "https://example.com/hooks/moyu-smoke",
+            events: ["drama.plan.completed"],
+          }),
+        });
+        ok(
+          "POST open/webhooks",
+          openWebhook.res.status === 201 &&
+            openWebhook.json?.data?.url?.includes("example.com"),
+        );
+
+        const openPlan = await req("/api/v1/open/drama/plan", {
+          method: "POST",
+          headers: { "X-Api-Key": apiKey },
+          body: JSON.stringify({
+            sessionId: openSessionId,
+            userIdea: "OpenAPI 冒烟：都市逆袭短剧，主角从外卖员成长为创业者",
+            targetDurationSec: 90,
+            aspectRatio: "9:16",
+          }),
+        });
+        ok(
+          "POST open/drama/plan",
+          openPlan.res.status === 201 &&
+            openPlan.json?.data?.status === "planning",
+          `id=${openPlan.json?.data?.id}`,
+        );
       }
     }
   }
