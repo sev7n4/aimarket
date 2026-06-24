@@ -9,6 +9,7 @@ import {
   fetchDramaRunGraph,
   planDramaProject,
   retryDramaProduction,
+  rerunDramaRunFromNode,
   startDramaProduction,
   updateDramaProjectApi,
 } from "@/lib/api-client";
@@ -258,6 +259,22 @@ export function useDramaRun({
     [run?.id, enabled, syncRun],
   );
 
+  const rerunFromNode = useCallback(
+    async (nodeId: string, projectPatch?: Record<string, unknown>) => {
+      if (!run?.id || !enabled) return null;
+      setBusy(true);
+      try {
+        const next = await rerunDramaRunFromNode(run.id, nodeId, projectPatch);
+        syncRun(next);
+        setRunGraph(null);
+        return next;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [run?.id, enabled, syncRun],
+  );
+
   return {
     run,
     runGraph,
@@ -270,6 +287,7 @@ export function useDramaRun({
     cancelRun,
     saveDraftProject,
     retryProduction,
+    rerunFromNode,
     setRun,
     setDraftProject,
     setRunGraph,

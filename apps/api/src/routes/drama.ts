@@ -22,6 +22,7 @@ import {
 import {
   dispatchDramaRun,
   pickDramaKeyframeHero,
+  rerunDramaRunFromNode,
   retryDramaRun,
   retryDramaShot,
 } from "../lib/drama/executor.js";
@@ -363,6 +364,41 @@ drama.post("/runs/:id/shots/:shotId/retry", async (c) => {
   if (!next) throw new AppError(404, "NOT_FOUND", "短剧 Run 不存在");
   const projectRow = getDramaProject(userId, next.project_id)!;
   return c.json({ data: serializeDramaRun(next, projectRow) });
+});
+
+drama.post("/runs/:id/nodes/:nodeId/rerun", async (c) => {
+  const userId = c.get("userId");
+  const runId = c.req.param("id");
+  const nodeId = c.req.param("nodeId");
+  if (!(DRAMA_PIPELINE_STEPS as readonly string[]).includes(nodeId)) {
+    throw new AppError(400, "VALIDATION_ERROR", "无效的节点 ID");
+  }
+  const body = z
+    .object({ projectPatch: z.record(z.unknown()).optional() })
+    .parse(await c.req.json().catch(() => ({})));
+  const run = getDramaRun(userId, runId);
+  if (!run) throw new AppError(404, "NOT_FOUND", "短剧 Run 不存在");
+  assertSessionWrite(userId, run.session_id);
+  try {
+    const next = await rerunDramaRunFromNode(
+      userId,
+      runId,
+      nodeId as (typeof DRAMA_PIPELINE_STEPS)[number],
+      body.projectPatch,
+    );
+    if (!next) throw new AppError(404, "NOT_FOUND", "短剧 Run 不存在");
+    const projectRow = getDramaProject(userId, next.project_id)!;
+    return c.json({ data: serializeDramaRun(next, projectRow) });
+  } catch (err) {
+    if (err instanceof Error && err.message === "DRAMA_RUN_NOT_RERUNNABLE") {
+      throw new AppError(
+        400,
+        "INVALID_STATE",
+        "仅已完成、失败或已取消的制作可从此节点重跑",
+      );
+    }
+    throw err;
+  }
 });
 
 drama.post("/runs/:id/shots/:shotId/pick-keyframe", async (c) => {

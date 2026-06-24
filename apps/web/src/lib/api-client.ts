@@ -1391,6 +1391,23 @@ export async function retryDramaProduction(
   return res.data;
 }
 
+export async function rerunDramaRunFromNode(
+  runId: string,
+  nodeId: string,
+  projectPatch?: Record<string, unknown>,
+) {
+  const res = await request<{ data: import("./types").DramaRun }>(
+    `/api/v1/drama/runs/${encodeURIComponent(runId)}/nodes/${encodeURIComponent(nodeId)}/rerun`,
+    {
+      method: "POST",
+      body: JSON.stringify(
+        projectPatch ? { projectPatch } : {},
+      ),
+    },
+  );
+  return res.data;
+}
+
 export async function retryDramaShot(
   runId: string,
   shotId: string,

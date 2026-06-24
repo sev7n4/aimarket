@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DramaCharacterCardView } from "@/components/drama-character-card";
-import { DramaNodeGraph } from "@/components/drama-node-graph";
+import { DramaNodeGraph, type DramaNodeRerunPatch } from "@/components/drama-node-graph";
 import { DramaStoryboardGrid } from "@/components/drama-storyboard-grid";
 import { estimateDramaProjectPoints, uploadAsset } from "@/lib/api-client";
 import { allCharactersLockedForProduce } from "@/lib/drama-character-helpers";
@@ -52,6 +52,11 @@ interface DramaStudioPanelProps {
   onPickKeyframe?: (shotId: string, heroIndex: number) => void;
   onSaveDraft?: (project: DramaProjectPayload) => Promise<unknown>;
   onRetryProduction?: (fromStep?: string) => void;
+  onRerunFromNode?: (
+    nodeId: string,
+    projectPatch: DramaNodeRerunPatch,
+  ) => void;
+  rerunNodeBusy?: boolean;
   produceHint?: string | null;
   retryBusy?: boolean;
   busy?: boolean;
@@ -80,6 +85,8 @@ export function DramaStudioPanel({
   onPickKeyframe,
   onSaveDraft,
   onRetryProduction,
+  onRerunFromNode,
+  rerunNodeBusy,
   produceHint,
   retryBusy,
   busy,
@@ -612,7 +619,19 @@ export function DramaStudioPanel({
               </ol>
               {runGraph ? (
                 <div className="mt-3 border-t border-white/5 pt-3">
-                  <DramaNodeGraph graph={runGraph} />
+                  <DramaNodeGraph
+                    graph={runGraph}
+                    shots={project?.shots}
+                    interactive={
+                      !readOnly &&
+                      Boolean(onRerunFromNode) &&
+                      (run?.status === "completed" ||
+                        run?.status === "failed" ||
+                        run?.status === "cancelled")
+                    }
+                    rerunBusy={rerunNodeBusy}
+                    onRerunFromNode={onRerunFromNode}
+                  />
                 </div>
               ) : null}
             </section>
