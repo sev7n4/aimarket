@@ -244,6 +244,7 @@ export interface EnsureSessionSourceInspiration {
   referenceUrls: string[];
   coverUrl?: string | null;
   mediaType?: "image" | "video";
+  dramaTemplate?: import("./types").DramaTemplateMetadata;
 }
 
 export async function ensureSession(
@@ -1080,6 +1081,7 @@ export async function publishCanvasToInspiration(body: {
   referenceUrls?: string[];
   outputId?: string;
   assetId?: string;
+  dramaTemplate?: import("./types").DramaTemplateMetadata;
 }) {
   const res = await request<{ data: InspirationDetail }>(
     "/api/v1/inspiration/publish",
@@ -1129,6 +1131,24 @@ export async function forkInspirationProject(
       estimatedPoints: number;
     };
   }>(`/api/v1/inspiration/${encodeURIComponent(id)}/fork-project`, {
+    method: "POST",
+    body: JSON.stringify(body ?? {}),
+  });
+  return res.data;
+}
+
+/** 制片模板：复制灵感到新制片 Session（PROD-B06） */
+export async function copyInspirationToProductionSession(
+  id: string,
+  body?: { workspaceId?: string },
+) {
+  const res = await request<{
+    data: {
+      session: ImageSession;
+      dramaTemplate: import("./types").DramaTemplateMetadata;
+      inspiration: { id: string; title: string; coverUrl: string; category: string };
+    };
+  }>(`/api/v1/inspiration/${encodeURIComponent(id)}/copy-to-session`, {
     method: "POST",
     body: JSON.stringify(body ?? {}),
   });

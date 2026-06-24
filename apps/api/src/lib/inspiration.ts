@@ -18,6 +18,17 @@ export const inspirationVariableSchema = z.object({
   default: z.string(),
 });
 
+export const dramaTemplateMetadataSchema = z.object({
+  userIdea: z.string().min(10).max(2000),
+  projectType: z.enum(["short_drama", "mv", "creative"]).default("short_drama"),
+  targetDurationSec: z.number().int().min(60).max(180).optional(),
+  aspectRatio: z.enum(["9:16", "16:9"]).optional(),
+  scriptTitle: z.string().max(200).optional(),
+  logline: z.string().max(500).optional(),
+});
+
+export type DramaTemplateMetadata = z.infer<typeof dramaTemplateMetadataSchema>;
+
 export type InspirationVariable = z.infer<typeof inspirationVariableSchema>;
 
 export interface InspirationRow {
@@ -37,6 +48,7 @@ export interface InspirationRow {
   published_by_user_id?: string | null;
   source_output_id?: string | null;
   source_asset_id?: string | null;
+  drama_template_json?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -45,6 +57,23 @@ export interface ReferenceAsset {
   url: string;
   fileName?: string;
   assetId?: string;
+}
+
+function parseDramaTemplate(
+  json: string | null | undefined,
+): DramaTemplateMetadata | undefined {
+  if (!json) return undefined;
+  try {
+    return dramaTemplateMetadataSchema.parse(JSON.parse(json));
+  } catch {
+    return undefined;
+  }
+}
+
+export function parseDramaTemplateMetadata(
+  json: string | null | undefined,
+): DramaTemplateMetadata | undefined {
+  return parseDramaTemplate(json);
 }
 
 function parseVariables(json: string | null): InspirationVariable[] {
@@ -129,6 +158,8 @@ export function rowToCanonical(row: InspirationRow) {
     mediaType,
     referenceAssets,
   );
+  const dramaTemplate = parseDramaTemplate(row.drama_template_json);
+
   if (
     mediaType === "video" &&
     isVideoMediaUrl(coverUrl) &&
@@ -156,6 +187,7 @@ export function rowToCanonical(row: InspirationRow) {
     publishedByUserId: row.published_by_user_id ?? undefined,
     sourceOutputId: row.source_output_id ?? undefined,
     sourceAssetId: row.source_asset_id ?? undefined,
+    dramaTemplate,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -619,6 +651,7 @@ export async function createUserPublishedInspiration(
     referenceUrls?: string[];
     outputId?: string;
     assetId?: string;
+    dramaTemplate?: DramaTemplateMetadata;
   },
 ) {
   if (!input.outputId && !input.assetId) {
@@ -699,18 +732,23 @@ export async function createUserPublishedInspiration(
   const legacyId = maxLegacy.m + 1;
   const title = truncateTitle(input.title?.trim() || "创作者灵感");
   const sortOrder = -legacyId;
+  const category = input.dramaTemplate ? "制片" : "创意";
+  const dramaTemplateJson = input.dramaTemplate
+    ? JSON.stringify(dramaTemplateMetadataSchema.parse(input.dramaTemplate))
+    : null;
 
   db.prepare(
     `INSERT INTO inspiration_templates (
       id, legacy_id, title, category, prompt_template, variables_json,
       model_id, aspect_ratio, resolution, cover_url, reference_assets_json,
-      status, sort_order, published_by_user_id, source_output_id, source_asset_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      status, sort_order, published_by_user_id, source_output_id, source_asset_id,
+      drama_template_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     legacyId,
     title,
-    "创意",
+    category,
     prompt,
     null,
     modelId,
@@ -723,6 +761,7 @@ export async function createUserPublishedInspiration(
     userId,
     input.outputId ?? null,
     input.assetId ?? null,
+    dramaTemplateJson,
   );
 
   const row = db

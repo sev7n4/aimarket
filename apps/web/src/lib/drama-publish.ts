@@ -12,12 +12,15 @@ export function buildDramaPublishPayload(run: DramaRun) {
     project.shots.find((s) => s.keyframeUrl)?.keyframeUrl ??
     project.shots.find((s) => s.videoUrl)?.videoUrl;
 
+  const dramaTemplate = buildDramaTemplateMetadata(run);
+
   if (run.finalVideoOutputId) {
     return {
       outputId: run.finalVideoOutputId,
       title,
       prompt,
       aspectRatio: project.styleBible.aspectRatio,
+      dramaTemplate,
       ...(coverUrl ? { coverUrl } : {}),
     };
   }
@@ -31,5 +34,19 @@ export function buildDramaPublishPayload(run: DramaRun) {
     title,
     prompt,
     aspectRatio: project.styleBible.aspectRatio,
+    dramaTemplate,
+  };
+}
+
+/** 制片模板元数据（PROD-B06） */
+export function buildDramaTemplateMetadata(run: DramaRun) {
+  const project = run.project;
+  return {
+    userIdea: project.userIdea,
+    projectType: project.projectType ?? "short_drama",
+    targetDurationSec: project.targetDurationSec,
+    aspectRatio: project.styleBible.aspectRatio,
+    scriptTitle: project.script.title,
+    logline: project.script.logline,
   };
 }

@@ -11,6 +11,15 @@ export interface InspirationListItem {
   updatedAt?: string;
 }
 
+export interface DramaTemplateMetadata {
+  userIdea: string;
+  projectType: "short_drama" | "mv" | "creative";
+  targetDurationSec?: number;
+  aspectRatio?: "9:16" | "16:9";
+  scriptTitle?: string;
+  logline?: string;
+}
+
 export interface InspirationDetail {
   id: string;
   title: string;
@@ -26,6 +35,8 @@ export interface InspirationDetail {
   /** 由 modelId 解析：图片灵感走图片车道，视频灵感走视频车道 */
   mediaType?: "image" | "video";
   videoUrl?: string;
+  /** 制片模板元数据（PROD-B06） */
+  dramaTemplate?: DramaTemplateMetadata;
 }
 
 export interface ApiUser {
