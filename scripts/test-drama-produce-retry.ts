@@ -45,6 +45,7 @@ function createSession(userId: string): string {
 }
 
 const minimalProject: DramaProjectData = {
+  projectType: "short_drama",
   userIdea: "测试短剧重试逻辑",
   targetDurationSec: 90,
   script: {

@@ -152,6 +152,7 @@ export function useDramaPlan({
         aspectRatio?: "9:16" | "16:9";
         autoProduce?: boolean;
         replicateProfile?: import("@/lib/types").DramaReplicateProfile;
+        projectType?: import("@/lib/types").DramaProjectType;
       },
     ) => {
       if (!sessionId || !enabled) return null;
@@ -166,6 +167,7 @@ export function useDramaPlan({
           aspectRatio: options?.aspectRatio,
           autoProduce: options?.autoProduce,
           replicateProfile: options?.replicateProfile,
+          projectType: options?.projectType,
         });
         setPlanRun({
           id: created.id,

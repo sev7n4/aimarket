@@ -13,6 +13,7 @@ import {
 import type { CreationMode } from "@aimarket/ui";
 import { analyzeDramaReplicate, ensureSession, fetchAgentPlan, fetchDramaRun, fetchDramaSessionState, trackEvent } from "@/lib/api-client";
 import type { DramaReplicateProfile } from "@/lib/types";
+import type { DramaProjectType } from "@/components/drama-production-dock-params";
 import type { DramaProductionMode } from "@/components/drama-replicate-dock-params";
 import {
   buildOrchestrationTimelineEvent,
@@ -98,6 +99,8 @@ interface StudioOrchestrationContextValue {
   dramaProduceHint: string | null;
   dramaProductionMode: DramaProductionMode;
   setDramaProductionMode: (mode: DramaProductionMode) => void;
+  dramaProjectType: DramaProjectType;
+  setDramaProjectType: (type: DramaProjectType) => void;
   dramaReplicateVideoUrl: string;
   setDramaReplicateVideoUrl: (url: string) => void;
   dramaReplicateProfile: DramaReplicateProfile | null;
@@ -177,6 +180,8 @@ export function StudioOrchestrationProvider({
   const [dramaProduceHint, setDramaProduceHint] = useState<string | null>(null);
   const [dramaProductionMode, setDramaProductionMode] =
     useState<DramaProductionMode>("original");
+  const [dramaProjectType, setDramaProjectType] =
+    useState<DramaProjectType>("short_drama");
   const [dramaReplicateVideoUrl, setDramaReplicateVideoUrl] = useState("");
   const [dramaReplicateProfile, setDramaReplicateProfile] =
     useState<DramaReplicateProfile | null>(null);
@@ -196,6 +201,13 @@ export function StudioOrchestrationProvider({
       setDramaReplicateAnalyzing(false);
     }
   }, [dramaReplicateVideoUrl]);
+
+  const handleDramaProjectTypeChange = useCallback((type: DramaProjectType) => {
+    setDramaProjectType(type);
+    if (type === "mv") {
+      setDramaTargetDurationSec(60);
+    }
+  }, []);
 
   const handleOrchestrationCompleted = useCallback(() => {
     onClearPrompt?.();
@@ -600,6 +612,7 @@ export function StudioOrchestrationProvider({
               targetDurationSec: dramaTargetDurationSec,
               aspectRatio: dramaAspectRatio,
               autoProduce: dramaAutoProduce,
+              projectType: dramaProjectType,
               replicateProfile:
                 dramaProductionMode === "replicate"
                   ? dramaReplicateProfile ?? undefined
@@ -681,6 +694,7 @@ export function StudioOrchestrationProvider({
       dramaAspectRatio,
       dramaProductionMode,
       dramaReplicateProfile,
+      dramaProjectType,
     ],
   );
 
@@ -768,6 +782,8 @@ export function StudioOrchestrationProvider({
       dramaProduceHint,
       dramaProductionMode,
       setDramaProductionMode,
+      dramaProjectType,
+      setDramaProjectType: handleDramaProjectTypeChange,
       dramaReplicateVideoUrl,
       setDramaReplicateVideoUrl,
       dramaReplicateProfile,
@@ -812,6 +828,8 @@ export function StudioOrchestrationProvider({
       dramaProduceHint,
       dramaProductionMode,
       setDramaProductionMode,
+      dramaProjectType,
+      handleDramaProjectTypeChange,
       dramaReplicateVideoUrl,
       setDramaReplicateVideoUrl,
       dramaReplicateProfile,

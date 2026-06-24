@@ -104,7 +104,10 @@ import type { AgentRunStatus, SkillRunStatus } from "@/lib/types";
 import { useStudioOrchestrationOptional } from "@/components/studio-orchestration-provider";
 import { StudioDockFocusButton } from "@/components/studio-dock-controls";
 import { DramaCoach } from "@/components/drama-coach";
-import { DramaProductionDockParams } from "@/components/drama-production-dock-params";
+import {
+  DramaProductionDockParams,
+  DramaProjectTypeTabs,
+} from "@/components/drama-production-dock-params";
 import {
   DramaProductionModeTabs,
   DramaReplicateDockParams,
@@ -1925,6 +1928,11 @@ export function CreationPanel({
 
   const dramaProductionDockControls = showDramaProductionDock ? (
     <>
+      <DramaProjectTypeTabs
+        projectType={studioOrch!.dramaProjectType}
+        disabled={readOnly || pending || streamBusy}
+        onChange={studioOrch!.setDramaProjectType}
+      />
       <DramaProductionModeTabs
         mode={studioOrch!.dramaProductionMode}
         disabled={readOnly || pending || streamBusy}

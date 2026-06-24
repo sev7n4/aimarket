@@ -172,50 +172,91 @@ const DRAMA_JSON_SCHEMA = {
 };
 
 export function buildRuleBasedProject(input: PlanDramaInput): DramaProjectData {
+  const projectType = input.projectType ?? "short_drama";
   const aspectRatio = input.aspectRatio ?? "9:16";
-  const shots: StoryboardShot[] = Array.from({ length: 10 }, (_, i) => ({
+  const defaultDuration =
+    projectType === "mv" ? 60 : input.targetDurationSec ?? 90;
+  const targetDurationSec = input.targetDurationSec ?? defaultDuration;
+  const shotCount = projectType === "mv" ? 8 : 10;
+
+  const shots: StoryboardShot[] = Array.from({ length: shotCount }, (_, i) => ({
     id: `shot_${i + 1}`,
     order: i,
-    sceneId: i < 5 ? "scene_1" : "scene_2",
+    sceneId: i < shotCount / 2 ? "scene_1" : "scene_2",
     characterIds: i % 3 === 0 ? ["char_1"] : ["char_1", "char_2"],
     dialogue:
-      i % 2 === 0
-        ? [
-            {
-              characterId: "char_1",
-              line: `这是第${i + 1}镜的对白，推动剧情发展。`,
-            },
-          ]
-        : [],
-    visualPrompt: `镜头${i + 1}：${input.userIdea.slice(0, 40)}相关画面，电影感构图`,
-    motionPrompt: i % 2 === 0 ? "缓慢推近，情绪张力" : "固定机位，微晃纪实感",
+      projectType === "mv"
+        ? i === 0
+          ? [{ characterId: "char_1", line: "（哼唱）跟着节拍走下去" }]
+          : []
+        : i % 2 === 0
+          ? [
+              {
+                characterId: "char_1",
+                line: `这是第${i + 1}镜的对白，推动剧情发展。`,
+              },
+            ]
+          : [],
+    visualPrompt:
+      projectType === "creative"
+        ? `镜头${i + 1}：${input.userIdea.slice(0, 40)}，超现实意象与装置艺术构图`
+        : projectType === "mv"
+          ? `镜头${i + 1}：${input.userIdea.slice(0, 40)}，舞台灯光与节拍切镜`
+          : `镜头${i + 1}：${input.userIdea.slice(0, 40)}相关画面，电影感构图`,
+    motionPrompt:
+      projectType === "mv"
+        ? "鼓点切镜，快切与慢动作交替"
+        : i % 2 === 0
+          ? "缓慢推近，情绪张力"
+          : "固定机位，微晃纪实感",
     cameraSpec: {
       shotSize: i % 3 === 0 ? "特写 CU" : "中景 MS",
-      movement: i % 2 === 0 ? "推镜头" : "固定",
-      lighting: "侧光，戏剧对比",
-      colorTemp: "暖色调",
+      movement: projectType === "mv" ? "跟拍" : i % 2 === 0 ? "推镜头" : "固定",
+      lighting: projectType === "creative" ? "高对比实验光" : "侧光，戏剧对比",
+      colorTemp: projectType === "mv" ? "霓虹冷色" : "暖色调",
     },
-    durationSec: 5,
-    useLastFrameContinuity: i > 0 && i < 5,
+    durationSec: projectType === "mv" ? 4 : 5,
+    useLastFrameContinuity: i > 0 && i < shotCount / 2,
     status: "pending" as const,
   }));
 
   const project: DramaProjectData = {
+    projectType,
     userIdea: input.userIdea,
-    targetDurationSec: input.targetDurationSec ?? 90,
+    targetDurationSec,
     script: {
-      title: "AI 短剧",
+      title:
+        projectType === "mv"
+          ? "AI MV"
+          : projectType === "creative"
+            ? "创意短片"
+            : "AI 短剧",
       logline: input.userIdea.slice(0, 120),
       acts: [
         { act: 1, sceneId: "scene_1", summary: "开端：建立人物与冲突" },
         { act: 2, sceneId: "scene_1", summary: "发展：矛盾升级" },
         { act: 3, sceneId: "scene_2", summary: "高潮与结局" },
       ],
-      narratorLines: ["这是一个关于重逢与和解的故事。"],
+      narratorLines:
+        projectType === "mv"
+          ? ["音乐铺底，单线情绪推进至高潮。"]
+          : projectType === "creative"
+            ? ["碎片意象串联情绪与隐喻。"]
+            : ["这是一个关于重逢与和解的故事。"],
     },
     styleBible: {
-      palette: ["暖金", "深棕", "柔白"],
-      lightingStyle: "电影感侧光，浅景深",
+      palette:
+        projectType === "mv"
+          ? ["霓虹紫", "电光蓝", "高光白"]
+          : projectType === "creative"
+            ? ["品红", "青绿", "深黑"]
+            : ["暖金", "深棕", "柔白"],
+      lightingStyle:
+        projectType === "mv"
+          ? "舞台追光，强节奏明暗闪烁"
+          : projectType === "creative"
+            ? "超现实侧光，高反差剪影"
+            : "电影感侧光，浅景深",
       filmGrain: "轻微胶片颗粒",
       aspectRatio,
       negativePrompt: "变形、多余肢体、文字水印、风格不一致",
@@ -324,6 +365,7 @@ export async function planDramaSingleLlm(
 
   const parsed = JSON.parse(result.content) as Record<string, unknown>;
   const project = dramaProjectSchema.parse({
+    projectType: input.projectType ?? "short_drama",
     userIdea: input.userIdea,
     targetDurationSec: duration,
     script: {

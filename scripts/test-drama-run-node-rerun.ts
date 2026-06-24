@@ -61,6 +61,7 @@ function buildShots(count: number) {
 }
 
 const project: DramaProjectData = {
+  projectType: "short_drama",
   userIdea: "节点重跑测试",
   targetDurationSec: 90,
   script: {

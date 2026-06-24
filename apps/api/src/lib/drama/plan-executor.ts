@@ -40,6 +40,7 @@ import { dispatchDramaRun } from "./executor.js";
 import { mergeDramaProjectPatch } from "./merge-patch.js";
 import { isAgentLlmEnabled } from "@aimarket/agent-core";
 import { formatDramaPlanError } from "./plan-errors.js";
+import type { DramaProjectType } from "./schema.js";
 
 function syncAgentsFromEvent(
   agents: DramaPlanAgentsJson,
@@ -203,6 +204,7 @@ async function executeDramaPlanRun(runId: string, userId: string) {
     userIdea: row.user_idea,
     targetDurationSec: row.target_duration_sec ?? undefined,
     aspectRatio: (row.aspect_ratio as "9:16" | "16:9" | undefined) ?? undefined,
+    projectType: (row.project_type as DramaProjectType) ?? "short_drama",
   };
 
   let agents = parseAgentsJson(row);

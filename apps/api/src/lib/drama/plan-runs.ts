@@ -7,6 +7,7 @@ import {
   type DramaPlanAgentsJson,
   type DramaPlanRunStatus,
 } from "./planner/types.js";
+import type { DramaProjectType } from "./schema.js";
 import { estimateDramaPoints } from "./estimate.js";
 import {
   getDramaProject,
@@ -26,6 +27,7 @@ export interface DramaPlanRunRow {
   reasoning_json: string | null;
   project_id: string | null;
   auto_produce: number;
+  project_type: string;
   error: string | null;
   created_at: string;
   updated_at: string;
@@ -63,13 +65,14 @@ export function createDramaPlanRun(input: {
   targetDurationSec?: number;
   aspectRatio?: "9:16" | "16:9";
   autoProduce?: boolean;
+  projectType?: DramaProjectType;
 }): DramaPlanRunRow {
   const id = randomUUID();
   db.prepare(
     `INSERT INTO drama_plan_runs
      (id, session_id, user_id, user_idea, target_duration_sec, aspect_ratio,
-      status, agents_json, auto_produce, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'planning', ?, ?, datetime('now'), datetime('now'))`,
+      status, agents_json, auto_produce, project_type, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'planning', ?, ?, ?, datetime('now'), datetime('now'))`,
   ).run(
     id,
     input.sessionId,
@@ -79,6 +82,7 @@ export function createDramaPlanRun(input: {
     input.aspectRatio ?? null,
     JSON.stringify(defaultAgentsJson()),
     input.autoProduce ? 1 : 0,
+    input.projectType ?? "short_drama",
   );
   const row = getDramaPlanRun(input.userId, id);
   if (!row) throw new AppError(500, "INTERNAL_ERROR", "创建规划 Run 失败");
@@ -162,6 +166,7 @@ export function serializeDramaPlanRun(row: DramaPlanRunRow) {
     project: projectRow ? serializeDramaProject(projectRow) : undefined,
     estimatedPoints,
     autoProduce: Boolean(row.auto_produce),
+    projectType: (row.project_type as DramaProjectType) ?? "short_drama",
     error: row.error,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

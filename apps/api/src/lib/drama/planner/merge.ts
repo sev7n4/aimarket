@@ -32,6 +32,7 @@ export function mergePlanningContext(ctx: PlanningContext): DramaProjectData {
   });
 
   const project = dramaProjectSchema.parse({
+    projectType: input.projectType ?? "short_drama",
     userIdea: input.userIdea,
     targetDurationSec: duration,
     script: {

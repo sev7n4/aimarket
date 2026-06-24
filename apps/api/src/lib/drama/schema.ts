@@ -115,7 +115,15 @@ export const storyboardShotSchema = z.object({
     .default("pending"),
 });
 
+export const dramaProjectTypeSchema = z.enum([
+  "short_drama",
+  "mv",
+  "creative",
+]);
+export type DramaProjectType = z.infer<typeof dramaProjectTypeSchema>;
+
 export const dramaProjectSchema = z.object({
+  projectType: dramaProjectTypeSchema.default("short_drama"),
   userIdea: z.string(),
   targetDurationSec: z.number().int().min(60).max(180).default(90),
   script: dramaScriptSchema,

@@ -584,6 +584,14 @@ try {
   /* column exists */
 }
 
+try {
+  database.exec(
+    `ALTER TABLE drama_plan_runs ADD COLUMN project_type TEXT NOT NULL DEFAULT 'short_drama'`,
+  );
+} catch {
+  /* column exists */
+}
+
 database.exec(`
   UPDATE invite_redemptions SET rewards_granted_at = created_at WHERE rewards_granted_at IS NULL;
 `);

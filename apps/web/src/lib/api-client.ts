@@ -1281,6 +1281,7 @@ export async function createDramaPlanRun(body: {
   aspectRatio?: "9:16" | "16:9";
   autoProduce?: boolean;
   replicateProfile?: import("./types").DramaReplicateProfile;
+  projectType?: import("./types").DramaProjectType;
 }) {
   const res = await request<{
     data: import("./types").DramaPlanRun;

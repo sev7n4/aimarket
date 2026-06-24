@@ -16,6 +16,7 @@ import {
 } from "./projects.js";
 import { resolveReferenceUrls } from "../references.js";
 import { assertDramaCreditsAffordable } from "./credits-gate.js";
+import { resolveDramaSkillId } from "./skill-id.js";
 
 export interface DramaRunRow {
   id: string;
@@ -80,16 +81,19 @@ export function createDramaRun(input: {
   const id = randomUUID();
   const status: DramaRunStatus = requiresConfirm ? "waiting_confirm" : "queued";
 
+  const skillId = resolveDramaSkillId(project.projectType);
+
   db.prepare(
     `INSERT INTO drama_runs
      (id, project_id, session_id, user_id, skill_id, status, current_step_index,
       progress_json, estimated_points, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 'drama-short-v1', ?, 0, ?, ?, datetime('now'), datetime('now'))`,
+     VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, datetime('now'), datetime('now'))`,
   ).run(
     id,
     input.projectId,
     input.sessionId,
     input.userId,
+    skillId,
     status,
     JSON.stringify(defaultProgress()),
     estimated,
