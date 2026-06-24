@@ -458,6 +458,16 @@ export interface DramaPlanAgentState {
   completedAt?: string;
 }
 
+export interface DramaReplicateProfile {
+  sourceUrl: string;
+  title?: string;
+  hook?: string;
+  beatStructure: string[];
+  pacing?: string;
+  suggestedDurationSec?: number;
+  styleHints: string[];
+}
+
 export interface DramaPlanRun {
   id: string;
   sessionId: string;

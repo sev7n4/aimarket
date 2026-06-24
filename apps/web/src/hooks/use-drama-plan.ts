@@ -151,6 +151,7 @@ export function useDramaPlan({
         targetDurationSec?: number;
         aspectRatio?: "9:16" | "16:9";
         autoProduce?: boolean;
+        replicateProfile?: import("@/lib/types").DramaReplicateProfile;
       },
     ) => {
       if (!sessionId || !enabled) return null;
@@ -164,6 +165,7 @@ export function useDramaPlan({
           targetDurationSec: options?.targetDurationSec,
           aspectRatio: options?.aspectRatio,
           autoProduce: options?.autoProduce,
+          replicateProfile: options?.replicateProfile,
         });
         setPlanRun({
           id: created.id,

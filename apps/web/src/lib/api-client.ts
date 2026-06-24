@@ -1264,12 +1264,23 @@ export async function planDramaProject(body: {
   return res.data;
 }
 
+export async function analyzeDramaReplicate(videoUrl: string) {
+  const res = await request<{
+    data: import("./types").DramaReplicateProfile;
+  }>("/api/v1/drama/replicate/analyze", {
+    method: "POST",
+    body: JSON.stringify({ videoUrl }),
+  });
+  return res.data;
+}
+
 export async function createDramaPlanRun(body: {
   sessionId: string;
   userIdea: string;
   targetDurationSec?: number;
   aspectRatio?: "9:16" | "16:9";
   autoProduce?: boolean;
+  replicateProfile?: import("./types").DramaReplicateProfile;
 }) {
   const res = await request<{
     data: import("./types").DramaPlanRun;
