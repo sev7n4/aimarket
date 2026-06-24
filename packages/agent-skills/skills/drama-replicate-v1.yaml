@@ -1,0 +1,45 @@
+id: drama-replicate-v1
+version: 1
+name: 爆款复刻
+description: 参考视频结构复刻短剧，Anchor First + 分镜流水线（PROD-B04）
+confirmIfPointsOver: 200
+steps:
+  - id: char_refs
+    type: character_refs
+    label: 角色定稿板（三视图 Anchor First）
+  - id: scene_refs
+    type: scene_refs
+    label: 场景定稿
+  - id: keyframes
+    type: keyframe_batch
+    label: 分镜关键帧
+    sourceSteps:
+      - char_refs
+      - scene_refs
+    audit:
+      characterMinScore: 75
+      styleMinScore: 70
+      maxRetries: 2
+  - id: shot_videos
+    type: shot_video_batch
+    label: 逐镜视频（关键帧锁定 i2v）
+    sourceStep: keyframes
+  - id: tts
+    type: tts_batch
+    label: 对白配音
+  - id: lipsync
+    type: lipsync_batch
+    label: 口型同步
+    sourceSteps:
+      - shot_videos
+      - tts
+  - id: narrator_tts
+    type: tts_batch
+    label: 旁白配音
+  - id: final_edit
+    type: concat
+    label: 剪辑合成
+    sourceStep: lipsync
+    options:
+      subtitles: true
+      bgm: optional
