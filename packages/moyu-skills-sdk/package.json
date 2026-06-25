@@ -1,0 +1,40 @@
+{
+  "name": "@moyupi/skills",
+  "version": "0.1.0",
+  "description": "moyupi 出图宝 OpenAPI SDK — 外部 Agent 集成短剧 Plan/Produce 与 Webhook",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "examples"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm build"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.32",
+    "typescript": "^5.8.3"
+  },
+  "keywords": [
+    "moyupi",
+    "aimarket",
+    "drama",
+    "video",
+    "ai",
+    "sdk"
+  ]
+}
