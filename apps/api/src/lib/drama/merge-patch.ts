@@ -62,5 +62,9 @@ export function mergeDramaProjectPatch(
   const mergedScenes = mergeEntityArray(current.scenes, patch.scenes);
   if (mergedScenes) next.scenes = mergedScenes;
 
+  if (Array.isArray(patch.timeline)) {
+    next.timeline = patch.timeline;
+  }
+
   return next;
 }

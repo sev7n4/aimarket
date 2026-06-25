@@ -1,0 +1,88 @@
+# 运维：查看 / 应用生产 Agent LLM 与短剧规划模型配置
+name: Prod LLM config (audit / apply)
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "audit = 只读当前配置（脱敏）；apply = 写入推荐配置并重启 API"
+        required: true
+        default: audit
+        type: choice
+        options:
+          - audit
+          - apply
+
+permissions:
+  contents: read
+
+jobs:
+  llm-config:
+    name: Prod LLM config
+    runs-on: [self-hosted, aimarket-build]
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Audit current LLM env (redacted)
+        run: |
+          set -euo pipefail
+          echo "=== aimarket-api container (redacted) ==="
+          sudo docker exec aimarket-api printenv | grep -E \
+            '^(AGENT_LLM_|AGENT_DRAMA_|DRAMA_PLAN_|AGENT_LLM_ENABLED|DEEPSEEK_API_KEY|DASHSCOPE_API_KEY|ZHIPU_API_KEY|ANTHROPIC_API_KEY)=' \
+            | sed -E \
+              's/^(DEEPSEEK_API_KEY|DASHSCOPE_API_KEY|ZHIPU_API_KEY|ANTHROPIC_API_KEY)=.+/\1=***SET***/' \
+              | sed -E \
+              's/^(DEEPSEEK_API_KEY|DASHSCOPE_API_KEY|ZHIPU_API_KEY|ANTHROPIC_API_KEY)=$/\1=***MISSING***/' \
+            | sort || true
+          echo ""
+          echo "=== /opt/aimarket/.env LLM block (redacted) ==="
+          if [[ -f /opt/aimarket/.env ]]; then
+            grep -E '^(AGENT_LLM_|AGENT_DRAMA_|DRAMA_PLAN_|AGENT_LLM_ENABLED)=' /opt/aimarket/.env | sort || true
+          else
+            echo "::warning::/opt/aimarket/.env not found"
+          fi
+
+      - name: Apply recommended drama LLM config
+        if: inputs.action == 'apply'
+        run: |
+          set -euo pipefail
+          ENV_FILE="/opt/aimarket/.env"
+          if [[ ! -f "$ENV_FILE" ]]; then
+            echo "::error::Missing $ENV_FILE"
+            exit 1
+          fi
+          BACKUP="${ENV_FILE}.bak.llm.$(date +%Y%m%d%H%M%S)"
+          sudo cp "$ENV_FILE" "$BACKUP"
+          echo "Backed up to $BACKUP"
+
+          apply_kv() {
+            local key="$1"
+            local val="$2"
+            if grep -q "^${key}=" "$ENV_FILE"; then
+              sudo sed -i "s|^${key}=.*|${key}=${val}|" "$ENV_FILE"
+            else
+              echo "${key}=${val}" | sudo tee -a "$ENV_FILE" >/dev/null
+            fi
+          }
+
+          apply_kv AGENT_LLM_ENABLED true
+          apply_kv AGENT_LLM_PRIMARY qwen
+          apply_kv AGENT_LLM_FALLBACKS deepseek,glm
+          apply_kv AGENT_LLM_QWEN_MODEL qwen-plus-latest
+          apply_kv AGENT_LLM_DEEPSEEK_MODEL deepseek-reasoner
+          apply_kv AGENT_LLM_GLM_MODEL glm-4-plus
+          apply_kv AGENT_DRAMA_PLAN_ENABLED true
+          apply_kv AGENT_DRAMA_PLAN_MODEL qwen-plus-latest
+          apply_kv AGENT_DRAMA_PLAN_FALLBACK_MODEL deepseek-reasoner
+          apply_kv DRAMA_PLAN_THINK_ENABLED true
+          apply_kv AGENT_LLM_ALLOW_OVERSEAS false
+
+          echo "=== Applied LLM config ==="
+          grep -E '^(AGENT_LLM_|AGENT_DRAMA_|DRAMA_PLAN_|AGENT_LLM_ENABLED)=' "$ENV_FILE" | sort
+
+          cd /opt/aimarket
+          sudo docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.images.yml up -d aimarket-api
+          sleep 5
+          curl -sf http://127.0.0.1:4100/health
+          echo ""
+          echo "API restarted OK"

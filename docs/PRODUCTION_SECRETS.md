@@ -81,7 +81,22 @@ S3_PUBLIC_URL=https://...
 
 | 变量 | 说明 |
 |------|------|
-| `AGENT_LLM_ENABLED` | `true` 启用 LLM 规划（需 `DEEPSEEK_API_KEY` 等） |
+| `AGENT_LLM_ENABLED` | `true` 启用 LLM 规划（需 `DEEPSEEK_API_KEY` / `DASHSCOPE_API_KEY` 等） |
+| `AGENT_LLM_PRIMARY` | 主厂商：`qwen`（推荐国内）\| `deepseek` |
+| `AGENT_LLM_QWEN_MODEL` | 如 `qwen-plus-latest`（百炼控制台确认可用 ID） |
+| `AGENT_DRAMA_PLAN_MODEL` | 短剧五 Agent 专用模型，建议与 Qwen 主模型一致 |
+| `AGENT_DRAMA_PLAN_FALLBACK_MODEL` | 如 `deepseek-reasoner` |
+| `DRAMA_PLAN_THINK_ENABLED` | `true` 时各 Agent 先输出推理摘要再 JSON |
+
+**运维**：GitHub Actions → `Prod LLM config (audit / apply)` → 先 `audit` 查看脱敏配置，确认 Key 已填后 `apply` 写入推荐项并重启 API。
+
+## OpenAPI Key（外部 Agent）
+
+| 变量 | 说明 |
+|------|------|
+| `ADMIN_SECRET` | 仅运维签发 `moyu_sk_*`（`POST /api/v1/admin/open-api-keys`）；**普通用户注册不会自动获得** |
+
+Web 用户走 JWT 登录；OpenClaw 等外部集成需 Admin 代签或后续「用户中心 → API Key」自助（待产品化）。
 | `AGENT_CHECKPOINTER` | `memory`（单实例）\| `sqlite` \| `redis`（多 API 副本） |
 | `REDIS_URL` | `AGENT_CHECKPOINTER=redis` 时必填；可与 `JOB_QUEUE=redis` 共用，需 **Redis Stack**（RediSearch） |
 | `AGENT_CHECKPOINT_REDIS_TTL_MINUTES` | 可选 checkpoint TTL（分钟） |

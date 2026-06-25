@@ -376,6 +376,7 @@ export interface DramaProjectPayload {
     refUrl?: string;
   }>;
   shots: DramaStoryboardShot[];
+  timeline?: DramaTimelineTrack[];
   productionParams?: {
     aspectRatio?: "9:16" | "16:9";
     imageModelId?: string;
@@ -387,6 +388,23 @@ export interface DramaProjectPayload {
     qcRetryThreshold?: number;
     qcAutoRetryMaxShots?: number;
   };
+}
+
+export interface DramaTimelineClip {
+  id: string;
+  trackId: string;
+  sourceId?: string;
+  startSec: number;
+  durationSec: number;
+  offsetSec: number;
+  volume: number;
+}
+
+export interface DramaTimelineTrack {
+  id: string;
+  type: "video" | "audio_dialogue" | "audio_bgm";
+  label: string;
+  clips: DramaTimelineClip[];
 }
 
 export interface DramaPipelineStepView {

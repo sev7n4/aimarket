@@ -16,6 +16,7 @@ import { dramaProjectSchema } from "../lib/drama/schema.js";
 import {
   createDramaRun,
   getDramaRun,
+  parseProgress,
   serializeDramaRun,
   updateDramaRun,
 } from "../lib/drama/runs.js";
@@ -680,6 +681,55 @@ drama.get("/plan/runs/:id/stream", (c) => {
       void flushNew();
     });
   });
+});
+
+drama.patch("/projects/:id/timeline", async (c) => {
+  const userId = c.get("userId");
+  const row = getDramaProject(userId, c.req.param("id"));
+  if (!row) throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
+  const body = z
+    .object({ timeline: z.array(z.record(z.unknown())).optional() })
+    .parse(await c.req.json());
+  if (body.timeline) {
+    const current = JSON.parse(row.project_json);
+    const merged = mergeDramaProjectPatch(current, { timeline: body.timeline });
+    const validated = dramaProjectSchema.parse(merged);
+    updateDramaProject(row.id, { project: validated });
+  }
+  const next = getDramaProject(userId, row.id)!;
+  return c.json({ data: serializeDramaProject(next) });
+});
+
+drama.post("/runs/:id/render", async (c) => {
+  const userId = c.get("userId");
+  const runId = c.req.param("id");
+  const run = getDramaRun(userId, runId);
+  if (!run) throw new AppError(404, "NOT_FOUND", "短剧 Run 不存在");
+  assertSessionWrite(userId, run.session_id);
+  const projectRow = getDramaProject(userId, run.project_id);
+  if (!projectRow) throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
+
+  const project = parseProjectJson(projectRow);
+  const progress = parseProgress(run);
+
+  updateDramaRun(runId, {
+    progress: {
+      ...progress,
+      currentPipelineStep: "concat",
+      finalVideoUrl: undefined,
+      finalVideoOutputId: undefined,
+    },
+    status: "queued",
+    pendingJobId: null,
+    finalVideoUrl: null,
+    error: null,
+    currentStepIndex: DRAMA_PIPELINE_STEPS.indexOf("concat"),
+  });
+  updateDramaProject(run.project_id, { status: "producing" });
+  dispatchDramaRun(runId, userId);
+
+  const next = getDramaRun(userId, runId)!;
+  return c.json({ data: serializeDramaRun(next, projectRow) });
 });
 
 export { drama };

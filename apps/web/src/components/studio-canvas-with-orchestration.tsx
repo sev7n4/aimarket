@@ -8,6 +8,7 @@ import {
 import { DramaFinalVideoPanel } from "@/components/drama-final-video-panel";
 import { DramaProductionTimeline } from "@/components/drama-production-timeline";
 import { DramaShotTimeline } from "@/components/drama-shot-timeline";
+import { DramaTimelineEditor } from "@/components/drama-timeline-editor";
 import { DramaStudioPanel } from "@/components/drama-studio-panel";
 import { useStudioOrchestration } from "@/components/studio-orchestration-provider";
 import type { DramaNodeRerunPatch } from "@/components/drama-node-graph";
@@ -72,6 +73,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
   const [storyboardView, setStoryboardView] = useState<"timeline" | "grid">(
     "timeline",
   );
+  const [canvasView, setCanvasView] = useState<"storyboard" | "timeline">("storyboard");
 
   useEffect(() => {
     if (dramaDraftProject?.project) {
@@ -208,8 +210,21 @@ export const StudioCanvasWithOrchestration = forwardRef<
       />
     ) : null;
 
+  const showTimelineEditor =
+    studioMode === "production" &&
+    dramaRun?.status === "completed" &&
+    canvasView === "timeline";
+
   const alternateCanvasContent =
-    showFinalVideo && dramaRun ? (
+    showTimelineEditor && dramaRun && timelineProject ? (
+      <DramaTimelineEditor
+        project={timelineProject}
+        readOnly={props.readOnly}
+        busy={dramaBusy}
+        onProjectChange={setTimelineProject}
+        onSave={dramaDraftProject ? handleTimelineSave : undefined}
+      />
+    ) : showFinalVideo && dramaRun ? (
       <DramaFinalVideoPanel
         run={dramaRun}
         busy={dramaBusy}

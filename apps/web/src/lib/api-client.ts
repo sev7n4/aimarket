@@ -1541,6 +1541,27 @@ export async function estimateDramaProjectPoints(
   return res.data.estimatedPoints;
 }
 
+export async function updateDramaTimeline(projectId: string, timeline: import("./types").DramaTimelineTrack[]) {
+  const res = await request<{ data: import("./types").DramaProject }>(
+    `/api/v1/drama/projects/${encodeURIComponent(projectId)}/timeline`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ timeline }),
+    },
+  );
+  return res.data;
+}
+
+export async function rerenderDramaRun(runId: string) {
+  const res = await request<{ data: import("./types").DramaRun }>(
+    `/api/v1/drama/runs/${encodeURIComponent(runId)}/render`,
+    {
+      method: "POST",
+    },
+  );
+  return res.data;
+}
+
 export interface PromptOptimizeContextInput {
   modelId?: string;
   aspectRatio?: string;

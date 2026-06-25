@@ -122,6 +122,23 @@ export const dramaProjectTypeSchema = z.enum([
 ]);
 export type DramaProjectType = z.infer<typeof dramaProjectTypeSchema>;
 
+export const timelineClipSchema = z.object({
+  id: z.string().min(1),
+  trackId: z.string().min(1),
+  sourceId: z.string().optional(),
+  startSec: z.number().min(0).default(0),
+  durationSec: z.number().min(0.1),
+  offsetSec: z.number().min(0).default(0),
+  volume: z.number().min(0).max(2).default(1),
+});
+
+export const timelineTrackSchema = z.object({
+  id: z.string().min(1),
+  type: z.enum(["video", "audio_dialogue", "audio_bgm"]),
+  label: z.string().default(""),
+  clips: z.array(timelineClipSchema).default([]),
+});
+
 export const dramaProjectSchema = z.object({
   projectType: dramaProjectTypeSchema.default("short_drama"),
   userIdea: z.string(),
@@ -131,16 +148,15 @@ export const dramaProjectSchema = z.object({
   characters: z.array(characterCardSchema).min(1).max(4),
   scenes: z.array(sceneCardSchema).min(1),
   shots: z.array(storyboardShotSchema).min(8).max(15),
+  timeline: z.array(timelineTrackSchema).optional(),
   productionParams: z
     .object({
       aspectRatio: z.enum(["9:16", "16:9"]).default("9:16"),
       imageModelId: z.string().default("omni-v2"),
       videoModelId: z.string().default("wan-2.6"),
       resolution: z.enum(["1k", "2k"]).default("1k"),
-      /** 低清预览档：跳过口型同步，积分更低 */
       previewTier: z.enum(["low", "full"]).default("full"),
       bgmUrl: z.string().url().optional(),
-      /** 质检低于阈值时自动重拍低分镜头（PROD-C04） */
       autoQcRetry: z.boolean().default(false),
       qcRetryThreshold: z.number().min(0).max(100).default(70),
       qcAutoRetryMaxShots: z.number().int().min(1).max(5).default(1),
@@ -153,6 +169,8 @@ export type SceneCard = z.infer<typeof sceneCardSchema>;
 export type StyleBible = z.infer<typeof styleBibleSchema>;
 export type DramaScript = z.infer<typeof dramaScriptSchema>;
 export type StoryboardShot = z.infer<typeof storyboardShotSchema>;
+export type TimelineClip = z.infer<typeof timelineClipSchema>;
+export type TimelineTrack = z.infer<typeof timelineTrackSchema>;
 export type DramaProjectData = z.infer<typeof dramaProjectSchema>;
 
 export type DramaProjectStatus =
