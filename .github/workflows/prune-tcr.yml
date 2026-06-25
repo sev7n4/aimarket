@@ -1,0 +1,36 @@
+# 清理 TCR 个人版镜像 tag（100 上限触顶时手动运行）
+name: Prune TCR tags (AIMarket)
+
+on:
+  workflow_dispatch:
+    inputs:
+      keep_count:
+        description: Keep newest N git-sha tags per repo
+        required: true
+        default: "20"
+
+permissions:
+  contents: read
+
+jobs:
+  prune:
+    name: Prune remote TCR tags
+    runs-on: [self-hosted, aimarket-build]
+    timeout-minutes: 15
+    environment: production
+    env:
+      TCR_REGISTRY: ${{ vars.TCR_REGISTRY || 'ccr.ccs.tencentyun.com' }}
+      TCR_NAMESPACE: ${{ vars.TCR_NAMESPACE || 'aimarket' }}
+      KEEP_COUNT: ${{ inputs.keep_count }}
+      TCR_USERNAME: ${{ secrets.TCR_USERNAME }}
+      TCR_PASSWORD: ${{ secrets.TCR_PASSWORD }}
+    steps:
+      - name: Checkout scripts
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            deploy/prune-tcr-remote-tags.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Prune old tags
+        run: bash deploy/prune-tcr-remote-tags.sh
