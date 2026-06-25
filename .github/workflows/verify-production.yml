@@ -1,4 +1,4 @@
-# 生产验证 workflow（只读）— 确认 C-S4 / C-S5 / C-S6 / C-S7 已部署生效
+# 生产验证 workflow（只读）— 确认 C-S4 / C-S5 / C-S6 / C-S7 / C-S8 已部署生效
 # 手动触发：gh workflow run verify-production.yml
 name: Verify production (AIMarket)
 
@@ -10,9 +10,9 @@ permissions:
 
 jobs:
   verify:
-    name: Verify C-S4 / C-S5 / C-S6 / C-S7 in production
+    name: Verify C-S4 / C-S5 / C-S6 / C-S7 / C-S8 in production
     runs-on: [self-hosted, aimarket-build]
-    timeout-minutes: 5
+    timeout-minutes: 8
     env:
       API_BASE: http://127.0.0.1:4100
       WEB_BASE: http://127.0.0.1:3100
@@ -152,3 +152,30 @@ jobs:
           docker exec aimarket-web sh -c \
             "grep -rln 'drama-version-history\|DramaVersionHistory\|DramaProjectVersionSummary\|restoreDramaProjectVersion' /app/apps/web/.next 2>/dev/null | head -10"
           echo "=== ok (informational only) ==="
+
+      - name: 17) C-S8 — checkout repo and verify SDK package
+        run: |
+          set -e
+          echo "=== checkout latest main (sparse: packages/moyu-skills-sdk + scripts/test-moyu-sdk.mjs) ==="
+          cd /tmp/aimarket-verify-cs8 && rm -rf .git package.json 2>/dev/null || true
+          mkdir -p /tmp/aimarket-verify-cs8
+          cd /tmp/aimarket-verify-cs8
+          git init -q
+          git remote add origin https://github.com/sev7n4/aimarket.git
+          git fetch --depth=1 -q origin main
+          git checkout -q FETCH_HEAD
+          echo "=== packages/moyu-skills-sdk/package.json ==="
+          cat packages/moyu-skills-sdk/package.json | head -25
+          echo "=== scripts/test-moyu-sdk.mjs exists ==="
+          ls -la scripts/test-moyu-sdk.mjs
+
+      - name: 18) C-S8 — install deps and run SDK integration test (mock server)
+        working-directory: /tmp/aimarket-verify-cs8
+        run: |
+          set -e
+          echo "=== pnpm install (filter @moyupi/skills) ==="
+          pnpm install --filter @moyupi/skills --filter @aimarket/api --prefer-offline 2>&1 | tail -8
+          echo "=== build SDK ==="
+          pnpm --filter @moyupi/skills build
+          echo "=== run integration test ==="
+          node scripts/test-moyu-sdk.mjs 2>&1 | tail -40
