@@ -13,23 +13,38 @@ TCR_PASSWORD="${TCR_PASSWORD:?set TCR_PASSWORD}"
 REPOS=(aimarket-api aimarket-web)
 AUTH_B64=$(printf '%s:%s' "$TCR_USERNAME" "$TCR_PASSWORD" | base64 | tr -d '\n')
 
-fetch_token() {
+auth_header() {
+  printf 'Authorization: Basic %s' "$AUTH_B64"
+}
+
+fetch_bearer() {
   local repo="$1"
-  curl -fsS "https://${TCR_REGISTRY}/v2/token?service=${TCR_REGISTRY}&scope=repository:${TCR_NAMESPACE}/${repo}:pull&scope=repository:${TCR_NAMESPACE}/${repo}:delete" \
-    -H "Authorization: Basic ${AUTH_B64}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])'
+  local scope="repository:${TCR_NAMESPACE}/${repo}:pull,repository:${TCR_NAMESPACE}/${repo}:delete"
+  local token_url="https://${TCR_REGISTRY}/service/token?service=token-service&scope=${scope}"
+  local body
+  body=$(curl -fsS "$token_url" -H "$(auth_header)" 2>/dev/null || true)
+  if [[ -n "$body" ]]; then
+    local token
+    token=$(printf '%s' "$body" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("token") or d.get("access_token") or "")' 2>/dev/null || true)
+    if [[ -n "$token" ]]; then
+      printf 'Bearer %s' "$token"
+      return 0
+    fi
+  fi
+  auth_header
 }
 
 list_tags() {
-  local repo="$1" token="$2"
+  local repo="$1" auth="$2"
   curl -fsS "https://${TCR_REGISTRY}/v2/${TCR_NAMESPACE}/${repo}/tags/list" \
-    -H "Authorization: Bearer ${token}" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("\n".join(d.get("tags") or []))'
+    -H "$auth" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("\n".join(d.get("tags") or []))'
 }
 
 delete_tag() {
-  local repo="$1" tag="$2" token="$3"
+  local repo="$1" tag="$2" auth="$3"
   local digest
   digest=$(curl -fsSI \
-    -H "Authorization: Bearer ${token}" \
+    -H "$auth" \
     -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
     "https://${TCR_REGISTRY}/v2/${TCR_NAMESPACE}/${repo}/manifests/${tag}" \
     | awk -F': ' 'tolower($1)=="docker-content-digest" {print $2}' | tr -d '\r')
@@ -38,15 +53,15 @@ delete_tag() {
     return 0
   fi
   curl -fsS -X DELETE \
-    -H "Authorization: Bearer ${token}" \
+    -H "$auth" \
     "https://${TCR_REGISTRY}/v2/${TCR_NAMESPACE}/${repo}/manifests/${digest}" >/dev/null
   echo "deleted ${repo}:${tag}"
 }
 
 for REPO in "${REPOS[@]}"; do
   echo "=== ${TCR_NAMESPACE}/${REPO} ==="
-  TOKEN=$(fetch_token "$REPO")
-  mapfile -t ALL_TAGS < <(list_tags "$REPO" "$TOKEN" | sort -u)
+  AUTH=$(fetch_bearer "$REPO")
+  mapfile -t ALL_TAGS < <(list_tags "$REPO" "$AUTH" | sort -u)
   echo "total tags: ${#ALL_TAGS[@]}"
 
   KEEP_SET=("latest" "buildcache")
@@ -63,7 +78,7 @@ for REPO in "${REPOS[@]}"; do
       if [[ "$TAG" == "$K" ]]; then keep=1; break; fi
     done
     if [[ "$keep" == 1 ]]; then continue; fi
-    delete_tag "$REPO" "$TAG" "$TOKEN" || echo "WARN: failed ${REPO}:${TAG}"
+    delete_tag "$REPO" "$TAG" "$AUTH" || echo "WARN: failed ${REPO}:${TAG}"
     deleted=$((deleted + 1))
     sleep 0.15
   done
