@@ -156,8 +156,8 @@ jobs:
       - name: 17) C-S8 — checkout repo and verify SDK package
         run: |
           set -e
-          echo "=== checkout latest main (sparse: packages/moyu-skills-sdk + scripts/test-moyu-sdk.mjs) ==="
-          cd /tmp/aimarket-verify-cs8 && rm -rf .git package.json 2>/dev/null || true
+          echo "=== checkout latest main ==="
+          rm -rf /tmp/aimarket-verify-cs8 2>/dev/null || true
           mkdir -p /tmp/aimarket-verify-cs8
           cd /tmp/aimarket-verify-cs8
           git init -q
@@ -165,17 +165,19 @@ jobs:
           git fetch --depth=1 -q origin main
           git checkout -q FETCH_HEAD
           echo "=== packages/moyu-skills-sdk/package.json ==="
-          cat packages/moyu-skills-sdk/package.json | head -25
+          head -25 packages/moyu-skills-sdk/package.json
           echo "=== scripts/test-moyu-sdk.mjs exists ==="
           ls -la scripts/test-moyu-sdk.mjs
 
-      - name: 18) C-S8 — install deps and run SDK integration test (mock server)
-        working-directory: /tmp/aimarket-verify-cs8
+      - name: 18) C-S8 — build SDK + run integration test via aimarket-api container
         run: |
           set -e
-          echo "=== pnpm install (filter @moyupi/skills) ==="
-          pnpm install --filter @moyupi/skills --filter @aimarket/api --prefer-offline 2>&1 | tail -8
-          echo "=== build SDK ==="
-          pnpm --filter @moyupi/skills build
+          echo "=== copy checkout into api container ==="
+          docker exec aimarket-api sh -c "mkdir -p /tmp/verify-cs8 && rm -rf /tmp/verify-cs8/*"
+          docker cp /tmp/aimarket-verify-cs8/. aimarket-api:/tmp/verify-cs8/
+          echo "=== install SDK deps inside container (no network — only typescript) ==="
+          docker exec aimarket-api sh -c "cd /tmp/verify-cs8/packages/moyu-skills-sdk && npm install --no-save --no-package-lock --omit=dev typescript@5.8.3 2>&1 | tail -5"
+          echo "=== build SDK inside container ==="
+          docker exec aimarket-api sh -c "cd /tmp/verify-cs8/packages/moyu-skills-sdk && ./node_modules/.bin/tsc 2>&1 | tail -10"
           echo "=== run integration test ==="
-          node scripts/test-moyu-sdk.mjs 2>&1 | tail -40
+          docker exec aimarket-api sh -c "cd /tmp/verify-cs8 && node scripts/test-moyu-sdk.mjs 2>&1 | tail -45"
