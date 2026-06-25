@@ -76,6 +76,7 @@ jobs:
           REF="${{ github.event.inputs.branch || github.sha }}"
           ORIGIN_URL="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
           rm -rf .git
+          find . -mindepth 1 -delete 2>/dev/null || true
           git init -q
           git config http.lowSpeedLimit 100
           git config http.lowSpeedTime 300
@@ -196,6 +197,7 @@ jobs:
           REF="${{ github.event.inputs.branch || github.sha }}"
           ORIGIN_URL="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
           rm -rf .git
+          find . -mindepth 1 -delete 2>/dev/null || true
           git init -q
           git config http.lowSpeedLimit 100
           git config http.lowSpeedTime 300
