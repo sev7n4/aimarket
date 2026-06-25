@@ -228,7 +228,7 @@ jobs:
           fi
           echo "${{ secrets.TCR_PASSWORD }}" | sudo /usr/bin/docker login "${{ env.TCR_REGISTRY }}" \
             -u "${{ secrets.TCR_USERNAME }}" --password-stdin
-          export IMAGE_TAG="${{ env.IMAGE_TAG }}"
+          export IMAGE_TAG="latest"
           export TCR_REGISTRY="${{ env.TCR_REGISTRY }}"
           export TCR_NAMESPACE="${{ env.TCR_NAMESPACE }}"
           sudo -E "$AIMARKET_DIR/deploy/deploy-remote.sh"
