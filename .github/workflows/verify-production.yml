@@ -1,4 +1,4 @@
-# 生产验证 workflow（只读）— 确认 C-S4 / C-S5 / C-S6 已部署生效
+# 生产验证 workflow（只读）— 确认 C-S4 / C-S5 / C-S6 / C-S7 已部署生效
 # 手动触发：gh workflow run verify-production.yml
 name: Verify production (AIMarket)
 
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   verify:
-    name: Verify C-S4 / C-S5 / C-S6 in production
+    name: Verify C-S4 / C-S5 / C-S6 / C-S7 in production
     runs-on: [self-hosted, aimarket-build]
     timeout-minutes: 5
     env:
@@ -114,3 +114,41 @@ jobs:
           CODE=$(curl -s -o /dev/null -w "%{http_code}" "$API_BASE/api/v1/workspaces/test-id/reviews" || echo "000")
           echo "GET -> $CODE (expect 401/403 if auth required)"
           exit 0
+
+      - name: 12) C-S7 — project-versions lib present in api container
+        run: |
+          set -e
+          echo "=== dist/lib/drama/project-versions.js ==="
+          docker exec aimarket-api ls -la /app/dist/lib/drama/project-versions.js
+          echo "=== export check ==="
+          docker exec aimarket-api node -e \
+            "const m=require('/app/dist/lib/drama/project-versions.js'); console.log('listDramaProjectVersions:', typeof m.listDramaProjectVersions); console.log('getDramaProjectVersion:', typeof m.getDramaProjectVersion); console.log('restoreDramaProjectVersion:', typeof m.restoreDramaProjectVersion); console.log('diffDramaProjectVersions:', typeof m.diffDramaProjectVersions);"
+
+      - name: 13) C-S7 — version routes registered in drama router
+        run: |
+          set -e
+          echo "=== /versions and /restore in drama.js ==="
+          docker exec aimarket-api sh -c "grep -nE 'versions|restore' /app/dist/routes/drama.js | head -15"
+
+      - name: 14) C-S7 — drama_project_versions table exists in DB
+        run: |
+          set -e
+          echo "=== check via node:sqlite ==="
+          docker exec aimarket-api node -e \
+            "const {DatabaseSync}=require('node:sqlite'); const db=new DatabaseSync('/app/data/aimarket.db'); const row=db.prepare(\"SELECT name FROM sqlite_master WHERE type='table' AND name='drama_project_versions'\").get(); console.log('table:', row?.name || 'NOT FOUND'); if (row) { const cols=db.prepare('PRAGMA table_info(drama_project_versions)').all(); console.log('columns:', cols.map(c=>c.name).join(',')); }"
+
+      - name: 15) C-S7 — GET /api/v1/drama/projects/:id/versions (auth-aware)
+        run: |
+          set +e
+          echo "=== GET /api/v1/drama/projects/test-id/versions (no auth) ==="
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" "$API_BASE/api/v1/drama/projects/test-id/versions" || echo "000")
+          echo "GET -> $CODE (expect 401/403 if auth required)"
+          exit 0
+
+      - name: 16) C-S7 — version-history chunk in web
+        run: |
+          set +e
+          echo "=== chunks containing drama-version-history ==="
+          docker exec aimarket-web sh -c \
+            "grep -rln 'drama-version-history\|DramaVersionHistory\|DramaProjectVersionSummary\|restoreDramaProjectVersion' /app/apps/web/.next 2>/dev/null | head -10"
+          echo "=== ok (informational only) ==="
