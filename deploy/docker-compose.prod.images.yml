@@ -9,7 +9,7 @@ name: aimarket
 
 services:
   api:
-    image: ${TCR_REGISTRY:?set TCR_REGISTRY}/${TCR_NAMESPACE:?set TCR_NAMESPACE}/aimarket-api:${IMAGE_TAG:?set IMAGE_TAG}
+    image: ${TCR_REGISTRY:?set TCR_REGISTRY}/${TCR_NAMESPACE:?set TCR_NAMESPACE}/aimarket-api-v2:${IMAGE_TAG:?set IMAGE_TAG}
 
   web:
     image: ${TCR_REGISTRY:?set TCR_REGISTRY}/${TCR_NAMESPACE:?set TCR_NAMESPACE}/aimarket-web:${IMAGE_TAG:?set IMAGE_TAG}

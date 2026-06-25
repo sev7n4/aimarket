@@ -20,7 +20,7 @@ echo "=== Disk before pull (${IMAGE_REPO_PREFIX}) ==="
 df -h / /var/lib/docker 2>/dev/null || df -h /
 set +euo
 docker image prune -f >/dev/null 2>&1
-for REPO in "${IMAGE_REPO_PREFIX}/aimarket-api" "${IMAGE_REPO_PREFIX}/aimarket-web"; do
+for REPO in "${IMAGE_REPO_PREFIX}/aimarket-api-v2" "${IMAGE_REPO_PREFIX}/aimarket-web"; do
   docker images "$REPO" --format '{{.Tag}}' 2>/dev/null | while read -r tag; do
     [[ -z "$tag" || "$tag" == "<none>" ]] && continue
     [[ "$tag" == "$IMAGE_TAG" || "$tag" == "latest" ]] && continue
@@ -47,7 +47,7 @@ TCR_REGISTRY="$TCR_REGISTRY" TCR_NAMESPACE="$TCR_NAMESPACE" IMAGE_TAG="$IMAGE_TA
 
 set +euo
 docker image prune -f >/dev/null 2>&1
-for REPO in "${IMAGE_REPO_PREFIX}/aimarket-api" "${IMAGE_REPO_PREFIX}/aimarket-web"; do
+for REPO in "${IMAGE_REPO_PREFIX}/aimarket-api-v2" "${IMAGE_REPO_PREFIX}/aimarket-web"; do
   docker images "$REPO" --format '{{.Tag}}' 2>/dev/null | while read -r tag; do
     [[ -z "$tag" || "$tag" == "<none>" ]] && continue
     [[ "$tag" == "$IMAGE_TAG" || "$tag" == "latest" ]] && continue

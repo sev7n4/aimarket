@@ -10,7 +10,7 @@ KEEP_COUNT="${KEEP_COUNT:-20}"
 TCR_USERNAME="${TCR_USERNAME:?set TCR_USERNAME}"
 TCR_PASSWORD="${TCR_PASSWORD:?set TCR_PASSWORD}"
 
-REPOS=(aimarket-api aimarket-web)
+REPOS=(aimarket-api-v2 aimarket-web)
 AUTH_B64=$(printf '%s:%s' "$TCR_USERNAME" "$TCR_PASSWORD" | base64 | tr -d '\n')
 
 auth_header() {
@@ -43,9 +43,9 @@ list_tags() {
 delete_tag() {
   local repo="$1" tag="$2" auth="$3"
   local digest
-  digest=$(curl -fsSI \
+  digest=$(curl -sS -D - -o /dev/null \
     -H "$auth" \
-    -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+    -H "Accept: application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.docker.distribution.manifest.v2+json" \
     "https://${TCR_REGISTRY}/v2/${TCR_NAMESPACE}/${repo}/manifests/${tag}" \
     | awk -F': ' 'tolower($1)=="docker-content-digest" {print $2}' | tr -d '\r')
   if [[ -z "$digest" ]]; then
