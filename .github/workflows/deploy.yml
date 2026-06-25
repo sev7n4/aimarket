@@ -75,21 +75,23 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           REF="${{ github.event.inputs.branch || github.sha }}"
           ORIGIN_URL="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          rm -rf .git
           git init -q
-          git config http.lowSpeedLimit 1000
-          git config http.lowSpeedTime 60
+          git config http.lowSpeedLimit 100
+          git config http.lowSpeedTime 300
+          git config http.postBuffer 524288000
           fetch_ok=0
-          for attempt in $(seq 1 5); do
+          for attempt in $(seq 1 10); do
             git remote remove origin 2>/dev/null || true
             git remote add origin "$ORIGIN_URL"
-            if git fetch origin "$REF"; then
+            if git fetch --depth 1 origin "$REF"; then
               fetch_ok=1
               break
             fi
-            echo "git fetch attempt ${attempt}/5 failed, retry in $((attempt * 15))s..."
-            sleep $((attempt * 15))
+            echo "git fetch attempt ${attempt}/10 failed, retry in $((attempt * 10))s..."
+            sleep $((attempt * 10))
           done
-          [[ "$fetch_ok" = "1" ]] || { echo "::error::git fetch failed after 5 attempts"; exit 1; }
+          [[ "$fetch_ok" = "1" ]] || { echo "::error::git fetch failed after 10 attempts"; exit 1; }
           git checkout FETCH_HEAD
 
       - name: Validate TCR credentials
@@ -193,21 +195,23 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           REF="${{ github.event.inputs.branch || github.sha }}"
           ORIGIN_URL="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          rm -rf .git
           git init -q
-          git config http.lowSpeedLimit 1000
-          git config http.lowSpeedTime 60
+          git config http.lowSpeedLimit 100
+          git config http.lowSpeedTime 300
+          git config http.postBuffer 524288000
           fetch_ok=0
-          for attempt in $(seq 1 5); do
+          for attempt in $(seq 1 10); do
             git remote remove origin 2>/dev/null || true
             git remote add origin "$ORIGIN_URL"
-            if git fetch origin "$REF"; then
+            if git fetch --depth 1 origin "$REF"; then
               fetch_ok=1
               break
             fi
-            echo "git fetch attempt ${attempt}/5 failed, retry in $((attempt * 15))s..."
-            sleep $((attempt * 15))
+            echo "git fetch attempt ${attempt}/10 failed, retry in $((attempt * 10))s..."
+            sleep $((attempt * 10))
           done
-          [[ "$fetch_ok" = "1" ]] || { echo "::error::git fetch failed after 5 attempts"; exit 1; }
+          [[ "$fetch_ok" = "1" ]] || { echo "::error::git fetch failed after 10 attempts"; exit 1; }
           git checkout FETCH_HEAD
 
       - name: Deploy locally on runner host
