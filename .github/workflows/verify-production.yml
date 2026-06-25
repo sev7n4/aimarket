@@ -1,0 +1,72 @@
+# 生产验证 workflow（只读）— 确认 C-S4 autoQcRetry 与 C-S5 时间轴多轨剪辑已部署生效
+# 手动触发：gh workflow run verify-production.yml
+name: Verify production (AIMarket)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify C-S4 / C-S5 in production
+    runs-on: [self-hosted, aimarket-build]
+    timeout-minutes: 5
+    env:
+      API_BASE: http://127.0.0.1:4100
+      WEB_BASE: http://127.0.0.1:3100
+
+    steps:
+      - name: 1) API + Web health
+        run: |
+          set -e
+          echo "=== API /health ==="
+          curl -fsS --connect-timeout 5 --max-time 10 "$API_BASE/health" | head -c 300; echo
+          echo "=== Web / ==="
+          W=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 15 "$WEB_BASE/" || echo "000")
+          echo "Web HTTP=$W"
+          [ "$W" = "200" ] || { echo "::error::Web not 200"; exit 1; }
+
+      - name: 2) C-S4 — autoQcRetry module present in api container
+        run: |
+          set -e
+          echo "=== dist/lib/drama/qc-auto-retry.js ==="
+          docker exec aimarket-api ls -la /app/dist/lib/drama/qc-auto-retry.js
+          echo "=== export check ==="
+          docker exec aimarket-api node -e \
+            "const m=require('/app/dist/lib/drama/qc-auto-retry.js'); console.log('applyAutoQcRetry:', typeof m.applyAutoQcRetry)"
+
+      - name: 3) C-S4 — qc-director wires auto retry
+        run: |
+          set -e
+          echo "=== qc-director calls applyAutoQcRetry ==="
+          docker exec aimarket-api sh -c "grep -n 'applyAutoQcRetry' /app/dist/lib/drama/planner/qc-director.js | head -5"
+
+      - name: 4) C-S5 — timeline route registered
+        run: |
+          set -e
+          echo "=== /timeline in drama routes ==="
+          docker exec aimarket-api sh -c "grep -nE '/timeline|timeline' /app/dist/routes/drama.js | head -10"
+
+      - name: 5) C-S5 — timeline editor chunk in web
+        run: |
+          set -e
+          echo "=== chunks containing timeline-editor ==="
+          docker exec aimarket-web sh -c \
+            "grep -rln 'DramaTimelineEditor\|drama-timeline-editor\|audio_bgm\|track_dialogue' /app/apps/web/.next 2>/dev/null | head -10"
+          echo "=== static chunk count ==="
+          docker exec aimarket-web sh -c "ls /app/apps/web/.next/static/chunks | wc -l"
+
+      - name: 6) API endpoints reachable (auth-aware)
+        run: |
+          set +e
+          echo "=== OPTIONS /api/v1/drama/projects ==="
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" -X OPTIONS "$API_BASE/api/v1/drama/projects" || echo "000")
+          echo "OPTIONS -> $CODE (expect 204/200)"
+          echo "=== GET /api/v1/drama/projects (no auth) ==="
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" "$API_BASE/api/v1/drama/projects" || echo "000")
+          echo "GET -> $CODE (expect 401/403 if auth required, 200 if public)"
+          echo "=== GET /api/v1/drama/healthz or /health fallback ==="
+          curl -fsS "$API_BASE/health" | head -c 200; echo
+          exit 0
