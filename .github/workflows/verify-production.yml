@@ -1,4 +1,4 @@
-# 生产验证 workflow（只读）— 确认 C-S4 autoQcRetry 与 C-S5 时间轴多轨剪辑已部署生效
+# 生产验证 workflow（只读）— 确认 C-S4 / C-S5 / C-S6 已部署生效
 # 手动触发：gh workflow run verify-production.yml
 name: Verify production (AIMarket)
 
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   verify:
-    name: Verify C-S4 / C-S5 in production
+    name: Verify C-S4 / C-S5 / C-S6 in production
     runs-on: [self-hosted, aimarket-build]
     timeout-minutes: 5
     env:
@@ -69,4 +69,48 @@ jobs:
           echo "GET -> $CODE (expect 401/403 if auth required, 200 if public)"
           echo "=== GET /api/v1/drama/healthz or /health fallback ==="
           curl -fsS "$API_BASE/health" | head -c 200; echo
+          exit 0
+
+      - name: 7) C-S6 — workspace-reviews lib present in api container
+        run: |
+          set -e
+          echo "=== dist/lib/workspace-reviews.js ==="
+          docker exec aimarket-api ls -la /app/dist/lib/workspace-reviews.js
+          echo "=== export check ==="
+          docker exec aimarket-api node -e \
+            "const m=require('/app/dist/lib/workspace-reviews.js'); console.log('listWorkspaceReviews:', typeof m.listWorkspaceReviews); console.log('createWorkspaceReview:', typeof m.createWorkspaceReview); console.log('addReviewComment:', typeof m.addReviewComment); console.log('updateWorkspaceReviewStatus:', typeof m.updateWorkspaceReviewStatus);"
+
+      - name: 8) C-S6 — reviews routes registered in workspaces router
+        run: |
+          set -e
+          echo "=== /reviews in workspaces.js ==="
+          docker exec aimarket-api sh -c "grep -nE 'reviews|reviewId|comments' /app/dist/routes/workspaces.js | head -15"
+
+      - name: 9) C-S6 — workspace_reviews table exists in DB
+        run: |
+          set -e
+          echo "=== sqlite schema (workspace_reviews) ==="
+          docker exec aimarket-api sh -c "ls /app/data/*.db 2>/dev/null | head -3"
+          DB=$(docker exec aimarket-api sh -c "ls /app/data/*.db 2>/dev/null | head -1")
+          if [ -n "$DB" ]; then
+            docker exec aimarket-api sqlite3 "$DB" ".schema workspace_reviews" 2>&1 | head -20
+            docker exec aimarket-api sqlite3 "$DB" ".schema workspace_review_comments" 2>&1 | head -20
+          else
+            echo "::warning::no /app/data/*.db found, skipping schema dump"
+          fi
+
+      - name: 10) C-S6 — studio-review-sidebar chunk in web
+        run: |
+          set +e
+          echo "=== chunks containing studio-review-sidebar ==="
+          docker exec aimarket-web sh -c \
+            "grep -rln 'studio-review-sidebar\|StudioReviewSidebar\|WorkspaceReview\|review-comment' /app/apps/web/.next 2>/dev/null | head -10"
+          echo "=== ok (informational only) ==="
+
+      - name: 11) C-S6 — GET /api/v1/workspaces/:id/reviews (auth-aware)
+        run: |
+          set +e
+          echo "=== GET /api/v1/workspaces/test-id/reviews (no auth) ==="
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" "$API_BASE/api/v1/workspaces/test-id/reviews" || echo "000")
+          echo "GET -> $CODE (expect 401/403 if auth required)"
           exit 0
