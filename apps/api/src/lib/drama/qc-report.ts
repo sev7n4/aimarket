@@ -10,6 +10,13 @@ export const dramaQcShotScoreSchema = z.object({
   note: z.string().optional(),
 });
 
+export const dramaQcAutoRetrySchema = z.object({
+  triggered: z.boolean(),
+  threshold: z.number(),
+  retriedShotIds: z.array(z.string()),
+  reason: z.string().optional(),
+});
+
 export const dramaQcReportSchema = z.object({
   status: z.enum(["pending", "running", "completed", "failed"]),
   overallScore: z.number().min(0).max(100),
@@ -21,6 +28,7 @@ export const dramaQcReportSchema = z.object({
   provider: z.string(),
   error: z.string().optional(),
   completedAt: z.string().optional(),
+  autoRetry: dramaQcAutoRetrySchema.optional(),
 });
 
 export type DramaQcReport = z.infer<typeof dramaQcReportSchema>;

@@ -543,6 +543,24 @@ export function DramaStudioPanel({
                 />
                 低清预览（跳过口型）
               </label>
+              <label className="flex items-center gap-1 text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={project.productionParams?.autoQcRetry ?? false}
+                  onChange={(e) =>
+                    patchProject({
+                      productionParams: {
+                        ...project.productionParams,
+                        aspectRatio: project.styleBible.aspectRatio,
+                        autoQcRetry: e.target.checked,
+                        qcRetryThreshold:
+                          project.productionParams?.qcRetryThreshold ?? 70,
+                      },
+                    })
+                  }
+                />
+                质检低分自动重拍关键帧（{"<"}70 分）
+              </label>
             </section>
           ) : null}
 

@@ -383,6 +383,9 @@ export interface DramaProjectPayload {
     resolution?: "1k" | "2k";
     previewTier?: "low" | "full";
     bgmUrl?: string;
+    autoQcRetry?: boolean;
+    qcRetryThreshold?: number;
+    qcAutoRetryMaxShots?: number;
   };
 }
 

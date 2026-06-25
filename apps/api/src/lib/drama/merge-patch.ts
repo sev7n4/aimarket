@@ -46,6 +46,9 @@ export function mergeDramaProjectPatch(
       videoModelId: "wan-2.6",
       resolution: "1k",
       previewTier: "full",
+      autoQcRetry: false,
+      qcRetryThreshold: 70,
+      qcAutoRetryMaxShots: 1,
       ...patch.productionParams,
     };
   }
