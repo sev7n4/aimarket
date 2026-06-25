@@ -255,7 +255,13 @@ export function getDramaRunQc(userId: string, runId: string): DramaQcReport {
 }
 
 export function dispatchDramaRunQc(runId: string, userId: string) {
-  void runDramaRunQc(userId, runId).catch((err) => {
-    console.error("[drama-qc] auto qc failed:", err);
-  });
+  void (async () => {
+    try {
+      const report = await runDramaRunQc(userId, runId);
+      const { applyAutoQcRetry } = await import("../qc-auto-retry.js");
+      await applyAutoQcRetry(userId, runId, report);
+    } catch (err) {
+      console.error("[drama-qc] auto qc failed:", err);
+    }
+  })();
 }

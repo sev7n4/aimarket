@@ -140,6 +140,10 @@ export const dramaProjectSchema = z.object({
       /** 低清预览档：跳过口型同步，积分更低 */
       previewTier: z.enum(["low", "full"]).default("full"),
       bgmUrl: z.string().url().optional(),
+      /** 质检低于阈值时自动重拍低分镜头（PROD-C04） */
+      autoQcRetry: z.boolean().default(false),
+      qcRetryThreshold: z.number().min(0).max(100).default(70),
+      qcAutoRetryMaxShots: z.number().int().min(1).max(5).default(1),
     })
     .optional(),
 });
@@ -210,4 +214,6 @@ export interface DramaProgress {
   finalVideoUrl?: string;
   /** concat 成片 outputId，供灵感发布 */
   finalVideoOutputId?: string;
+  /** 已通过质检自动重拍的关键帧镜头 id */
+  qcAutoRetriedShots?: string[];
 }

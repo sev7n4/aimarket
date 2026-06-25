@@ -323,6 +323,9 @@ export function buildRuleBasedProject(input: PlanDramaInput): DramaProjectData {
       videoModelId: "wan-2.6",
       resolution: "1k",
       previewTier: "full",
+      autoQcRetry: false,
+      qcRetryThreshold: 70,
+      qcAutoRetryMaxShots: 1,
     },
   };
 

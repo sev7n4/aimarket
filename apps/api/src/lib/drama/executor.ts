@@ -1116,6 +1116,7 @@ export async function retryDramaShot(
   if (!shot) throw new Error("SHOT_NOT_FOUND");
 
   const progress = parseProgress(row);
+  const preservedQcRetried = progress.qcAutoRetriedShots;
   if (stage === "keyframe") {
     progress.currentPipelineStep = "keyframes";
     progress.shotIndex = shot.order;
@@ -1132,6 +1133,7 @@ export async function retryDramaShot(
     shot.videoOutputId = undefined;
     shot.status = "keyframe";
   }
+  progress.qcAutoRetriedShots = preservedQcRetried;
   saveProject(row, project);
   updateDramaRun(runId, {
     progress,
