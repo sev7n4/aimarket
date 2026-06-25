@@ -48,6 +48,10 @@ import {
 } from "../lib/drama/plan-runs.js";
 import { mergeDramaProjectPatch } from "../lib/drama/merge-patch.js";
 import {
+  getDramaRunQc,
+  runDramaRunQc,
+} from "../lib/drama/planner/qc-director.js";
+import {
   analyzeReferenceVideo,
   formatReplicateProfileForPlanner,
   replicateProfileSchema,
@@ -214,6 +218,20 @@ drama.get("/runs/:id", async (c) => {
   const projectRow = getDramaProject(userId, run.project_id);
   if (!projectRow) throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
   return c.json({ data: serializeDramaRun(run, projectRow) });
+});
+
+drama.post("/runs/:id/qc", async (c) => {
+  const userId = c.get("userId");
+  const runId = c.req.param("id");
+  const data = await runDramaRunQc(userId, runId);
+  return c.json({ data }, 201);
+});
+
+drama.get("/runs/:id/qc", (c) => {
+  const userId = c.get("userId");
+  const runId = c.req.param("id");
+  const data = getDramaRunQc(userId, runId);
+  return c.json({ data });
 });
 
 drama.get("/runs/:id/graph", async (c) => {
