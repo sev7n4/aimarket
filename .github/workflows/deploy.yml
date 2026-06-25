@@ -158,9 +158,7 @@ jobs:
               --file "${{ matrix.file }}" \
               --push \
               "${ARGS[@]}" \
-              --tag "${IMAGE}:${{ env.IMAGE_TAG }}" \
               --tag "${IMAGE}:latest" \
-              --cache-from "type=registry,ref=${IMAGE}:buildcache" \
               .; then
               push_ok=1
               break
