@@ -514,6 +514,39 @@ export interface DramaProject {
   updatedAt: string;
 }
 
+// PROD-C07 — 版本对比与回滚
+export type DramaProjectVersionTrigger =
+  | "initial"
+  | "manual_patch"
+  | "auto_save"
+  | "restore";
+
+export interface DramaProjectVersionSummary {
+  id: string;
+  projectId: string;
+  trigger: DramaProjectVersionTrigger;
+  parentVersionId: string | null;
+  note: string | null;
+  createdAt: string;
+  isCurrent: boolean;
+}
+
+export interface DramaProjectVersionDetail
+  extends DramaProjectVersionSummary {
+  project: DramaProject;
+}
+
+export interface DramaProjectVersionDiff {
+  versionAId: string;
+  versionBId: string;
+  changedPaths: string[];
+  stats: {
+    added: number;
+    modified: number;
+    removed: number;
+  };
+}
+
 export type DramaPlanAgentStatus =
   | "pending"
   | "running"

@@ -12,6 +12,12 @@ import {
   serializeDramaProject,
   updateDramaProject,
 } from "../lib/drama/projects.js";
+import {
+  diffDramaProjectVersions,
+  getDramaProjectVersion,
+  listDramaProjectVersions,
+  restoreDramaProjectVersion,
+} from "../lib/drama/project-versions.js";
 import { dramaProjectSchema } from "../lib/drama/schema.js";
 import {
   createDramaRun,
@@ -206,10 +212,57 @@ drama.patch("/projects/:id", async (c) => {
     const current = JSON.parse(row.project_json);
     const merged = mergeDramaProjectPatch(current, body.project);
     const validated = dramaProjectSchema.parse(merged);
-    updateDramaProject(row.id, { project: validated });
+    updateDramaProject(row.id, { project: validated }, {
+      userId,
+      snapshotTrigger: "manual_patch",
+    });
   }
   const next = getDramaProject(userId, row.id)!;
   return c.json({ data: serializeDramaProject(next) });
+});
+
+// PROD-C07 — 版本对比与回滚
+drama.get("/projects/:id/versions", (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("id");
+  const versions = listDramaProjectVersions(userId, projectId);
+  return c.json({ data: versions });
+});
+
+drama.get("/projects/:id/versions/:versionId", (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("id");
+  const versionId = c.req.param("versionId");
+  const detail = getDramaProjectVersion(userId, projectId, versionId);
+  return c.json({ data: detail });
+});
+
+drama.get(
+  "/projects/:id/versions/:versionAId/diff/:versionBId",
+  (c) => {
+    const userId = c.get("userId");
+    const projectId = c.req.param("id");
+    const aId = c.req.param("versionAId");
+    const bId = c.req.param("versionBId");
+    const diff = diffDramaProjectVersions(userId, projectId, aId, bId);
+    return c.json({ data: diff });
+  },
+);
+
+drama.post("/projects/:id/restore/:versionId", async (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("id");
+  const versionId = c.req.param("versionId");
+  const body = z
+    .object({ note: z.string().max(200).optional() })
+    .parse(await c.req.json().catch(() => ({})));
+  const restored = restoreDramaProjectVersion(
+    userId,
+    projectId,
+    versionId,
+    body.note,
+  );
+  return c.json({ data: restored });
 });
 
 drama.get("/runs/:id", async (c) => {
@@ -694,7 +747,11 @@ drama.patch("/projects/:id/timeline", async (c) => {
     const current = JSON.parse(row.project_json);
     const merged = mergeDramaProjectPatch(current, { timeline: body.timeline });
     const validated = dramaProjectSchema.parse(merged);
-    updateDramaProject(row.id, { project: validated });
+    updateDramaProject(row.id, { project: validated }, {
+      userId,
+      snapshotTrigger: "auto_save",
+      snapshotNote: "timeline 编辑",
+    });
   }
   const next = getDramaProject(userId, row.id)!;
   return c.json({ data: serializeDramaProject(next) });

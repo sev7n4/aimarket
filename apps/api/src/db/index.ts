@@ -673,3 +673,19 @@ database.exec(`
   CREATE INDEX IF NOT EXISTS idx_review_comments_review ON workspace_review_comments(review_id, created_at ASC);
 `);
 
+// PROD-C07 — 短剧项目版本快照与回滚
+database.exec(`
+  CREATE TABLE IF NOT EXISTS drama_project_versions (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES drama_projects(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    project_json TEXT NOT NULL,
+    trigger TEXT NOT NULL DEFAULT 'manual_patch',
+    parent_version_id TEXT REFERENCES drama_project_versions(id) ON DELETE SET NULL,
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_drama_project_versions_project
+    ON drama_project_versions(project_id, created_at DESC);
+`);
+

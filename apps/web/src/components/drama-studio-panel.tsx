@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, History } from "lucide-react";
 import { DramaCharacterCardView } from "@/components/drama-character-card";
 import { DramaNodeGraph, type DramaNodeRerunPatch } from "@/components/drama-node-graph";
 import { DramaStoryboardGrid } from "@/components/drama-storyboard-grid";
+import { DramaVersionHistory } from "@/components/drama-version-history";
 import { StudioReviewSidebar } from "@/components/studio-review-sidebar";
 import { estimateDramaProjectPoints, fetchWorkspaceMembers, uploadAsset } from "@/lib/api-client";
 import { allCharactersLockedForProduce } from "@/lib/drama-character-helpers";
@@ -106,6 +107,7 @@ export function DramaStudioPanel({
   const [uploadingRef, setUploadingRef] = useState<string | null>(null);
   const [publishingInspiration, setPublishingInspiration] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [reviewMembers, setReviewMembers] = useState<
     Array<{ id: string; email: string }>
   >([]);
@@ -285,6 +287,17 @@ export function DramaStudioPanel({
       <div className="mb-3 flex items-center justify-between gap-2 border-b border-white/5 pb-2">
         <h3 className="text-sm font-medium text-violet-200">AI 短剧 Studio</h3>
         <div className="flex items-center gap-2">
+          {reviewProjectId ? (
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              className="flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-zinc-300 transition hover:bg-white/10"
+              title="历史版本"
+            >
+              <History className="size-3" />
+              版本
+            </button>
+          ) : null}
           {reviewWorkspaceId && reviewProjectId ? (
             <button
               type="button"
@@ -328,6 +341,22 @@ export function DramaStudioPanel({
             runId={run?.id ?? null}
             members={reviewMembers}
             onClose={() => setReviewOpen(false)}
+          />
+        </div>
+      ) : null}
+
+      {historyOpen && reviewProjectId ? (
+        <div
+          className="fixed right-0 top-0 z-40 h-full w-80 border-l border-white/10 bg-zinc-950/95 shadow-2xl"
+          data-testid="drama-version-history-sidebar"
+        >
+          <DramaVersionHistory
+            projectId={reviewProjectId}
+            onClose={() => setHistoryOpen(false)}
+            onRestored={onSaveDraft ? () => {
+              // 触发父组件重新拉取 project；调用方通过 key 重新挂载即可
+              setHistoryOpen(false);
+            } : undefined}
           />
         </div>
       ) : null}

@@ -22,6 +22,9 @@ import type {
   VideoModelRouteMeta,
   WorkspaceReview,
   WorkspaceReviewComment,
+  DramaProjectVersionDetail,
+  DramaProjectVersionDiff,
+  DramaProjectVersionSummary,
 } from "./types";
 
 const API_BASE = resolveApiBase();
@@ -888,6 +891,50 @@ export async function addWorkspaceReviewComment(
     {
       method: "POST",
       body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+// PROD-C07 — 版本对比与回滚
+export async function fetchDramaProjectVersions(projectId: string) {
+  const res = await request<{ data: DramaProjectVersionSummary[] }>(
+    `/api/v1/drama/projects/${projectId}/versions`,
+  );
+  return res.data;
+}
+
+export async function fetchDramaProjectVersion(
+  projectId: string,
+  versionId: string,
+) {
+  const res = await request<{ data: DramaProjectVersionDetail }>(
+    `/api/v1/drama/projects/${projectId}/versions/${versionId}`,
+  );
+  return res.data;
+}
+
+export async function diffDramaProjectVersions(
+  projectId: string,
+  versionAId: string,
+  versionBId: string,
+) {
+  const res = await request<{ data: DramaProjectVersionDiff }>(
+    `/api/v1/drama/projects/${projectId}/versions/${versionAId}/diff/${versionBId}`,
+  );
+  return res.data;
+}
+
+export async function restoreDramaProjectVersion(
+  projectId: string,
+  versionId: string,
+  note?: string,
+) {
+  const res = await request<{ data: DramaProjectVersionDetail }>(
+    `/api/v1/drama/projects/${projectId}/restore/${versionId}`,
+    {
+      method: "POST",
+      body: JSON.stringify(note ? { note } : {}),
     },
   );
   return res.data;
