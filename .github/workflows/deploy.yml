@@ -82,7 +82,7 @@ jobs:
           for attempt in $(seq 1 5); do
             git remote remove origin 2>/dev/null || true
             git remote add origin "$ORIGIN_URL"
-            if git fetch --depth=1 origin "$REF"; then
+            if git fetch origin "$REF"; then
               fetch_ok=1
               break
             fi
@@ -200,7 +200,7 @@ jobs:
           for attempt in $(seq 1 5); do
             git remote remove origin 2>/dev/null || true
             git remote add origin "$ORIGIN_URL"
-            if git fetch --depth=1 origin "$REF"; then
+            if git fetch origin "$REF"; then
               fetch_ok=1
               break
             fi
