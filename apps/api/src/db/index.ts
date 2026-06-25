@@ -430,6 +430,7 @@ const productMigrations = [
   `ALTER TABLE inspiration_templates ADD COLUMN source_output_id TEXT`,
   `ALTER TABLE inspiration_templates ADD COLUMN source_asset_id TEXT`,
   `ALTER TABLE inspiration_templates ADD COLUMN drama_template_json TEXT`,
+  `ALTER TABLE drama_runs ADD COLUMN qc_report_json TEXT`,
 ];
 
 for (const sql of productMigrations) {
@@ -559,6 +560,7 @@ database.exec(`
     estimated_points INTEGER NOT NULL DEFAULT 0,
     final_video_url TEXT,
     error TEXT,
+    qc_report_json TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );

@@ -18,6 +18,10 @@ import { resolveReferenceUrls } from "../references.js";
 import { assertDramaCreditsAffordable } from "./credits-gate.js";
 import { resolveDramaSkillId } from "./skill-id.js";
 import { notifyOpenRunWebhook } from "../open-webhooks.js";
+import {
+  parseQcReportJson,
+  type DramaQcReport,
+} from "./qc-report.js";
 
 export interface DramaRunRow {
   id: string;
@@ -33,6 +37,7 @@ export interface DramaRunRow {
   estimated_points: number;
   final_video_url: string | null;
   error: string | null;
+  qc_report_json: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -114,6 +119,10 @@ export function createDramaRun(input: {
   return row;
 }
 
+export function parseQcReport(row: DramaRunRow): DramaQcReport | null {
+  return parseQcReportJson(row.qc_report_json);
+}
+
 export function getDramaRun(
   userId: string,
   runId: string,
@@ -168,6 +177,7 @@ export function updateDramaRun(
     progress: DramaProgress;
     finalVideoUrl: string | null;
     error: string | null;
+    qcReport: DramaQcReport | null;
   }>,
 ) {
   const sets = ["updated_at = datetime('now')"];
@@ -197,6 +207,10 @@ export function updateDramaRun(
     sets.push("error = ?");
     params.push(patch.error);
   }
+  if (patch.qcReport !== undefined) {
+    sets.push("qc_report_json = ?");
+    params.push(patch.qcReport ? JSON.stringify(patch.qcReport) : null);
+  }
   params.push(runId);
   db.prepare(`UPDATE drama_runs SET ${sets.join(", ")} WHERE id = ?`).run(
     ...params,
@@ -220,7 +234,14 @@ export function updateDramaRun(
           user_id: string;
         }
       | undefined;
-    if (row) notifyOpenRunWebhook(row.user_id, row);
+    if (row) {
+      notifyOpenRunWebhook(row.user_id, row);
+      if (patch.status === "completed") {
+        void import("./planner/qc-director.js").then(({ dispatchDramaRunQc }) =>
+          dispatchDramaRunQc(runId, row.user_id),
+        );
+      }
+    }
   }
 }
 
@@ -289,6 +310,7 @@ export function serializeDramaRun(row: DramaRunRow, projectRow: DramaProjectRow)
     })),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    qcReport: parseQcReport(row) ?? undefined,
   };
 }
 
