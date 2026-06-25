@@ -20,6 +20,8 @@ import type {
   SignStatus,
   StudioTool,
   VideoModelRouteMeta,
+  WorkspaceReview,
+  WorkspaceReviewComment,
 } from "./types";
 
 const API_BASE = resolveApiBase();
@@ -804,6 +806,91 @@ export async function removeWorkspaceMember(
   await request(`/api/v1/workspaces/${workspaceId}/members/${memberId}`, {
     method: "DELETE",
   });
+}
+
+// PROD-C06 — Workspace 审片评论
+export async function fetchWorkspaceReviews(
+  workspaceId: string,
+  filters: {
+    projectId?: string;
+    runId?: string;
+    shotId?: string;
+    targetType?: "project" | "run" | "shot";
+    status?: "open" | "resolved";
+  } = {},
+) {
+  const params = new URLSearchParams();
+  if (filters.projectId) params.set("projectId", filters.projectId);
+  if (filters.runId) params.set("runId", filters.runId);
+  if (filters.shotId) params.set("shotId", filters.shotId);
+  if (filters.targetType) params.set("targetType", filters.targetType);
+  if (filters.status) params.set("status", filters.status);
+  const qs = params.toString();
+  const res = await request<{ data: WorkspaceReview[] }>(
+    `/api/v1/workspaces/${workspaceId}/reviews${qs ? `?${qs}` : ""}`,
+  );
+  return res.data;
+}
+
+export async function createWorkspaceReview(
+  workspaceId: string,
+  input: {
+    projectId?: string | null;
+    runId?: string | null;
+    shotId?: string | null;
+    targetType: "project" | "run" | "shot";
+    title: string;
+    body?: string | null;
+  },
+) {
+  const res = await request<{ data: WorkspaceReview }>(
+    `/api/v1/workspaces/${workspaceId}/reviews`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+export async function patchWorkspaceReviewStatus(
+  workspaceId: string,
+  reviewId: string,
+  status: "open" | "resolved",
+) {
+  const res = await request<{ data: WorkspaceReview }>(
+    `/api/v1/workspaces/${workspaceId}/reviews/${reviewId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    },
+  );
+  return res.data;
+}
+
+export async function fetchWorkspaceReviewComments(
+  workspaceId: string,
+  reviewId: string,
+) {
+  const res = await request<{ data: WorkspaceReviewComment[] }>(
+    `/api/v1/workspaces/${workspaceId}/reviews/${reviewId}/comments`,
+  );
+  return res.data;
+}
+
+export async function addWorkspaceReviewComment(
+  workspaceId: string,
+  reviewId: string,
+  input: { content: string; mentions?: string[] },
+) {
+  const res = await request<{ data: WorkspaceReviewComment }>(
+    `/api/v1/workspaces/${workspaceId}/reviews/${reviewId}/comments`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
 }
 
 export async function fetchAdminReports(

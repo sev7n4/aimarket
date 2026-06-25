@@ -13,6 +13,16 @@ import {
 } from "../lib/workspace-members.js";
 import { getUserDefaultWorkspaceId } from "../lib/workspaces.js";
 import { getPublicWebUrl } from "../lib/public-url.js";
+import {
+  addReviewComment,
+  createWorkspaceReview,
+  getWorkspaceReview,
+  listReviewComments,
+  listWorkspaceReviews,
+  updateWorkspaceReviewStatus,
+  type ReviewStatus,
+  type ReviewTargetType,
+} from "../lib/workspace-reviews.js";
 
 export const workspacesRoute = new Hono<{ Variables: AuthVariables }>();
 
@@ -114,4 +124,95 @@ workspacesRoute.delete("/:workspaceId/members/:memberId", (c) => {
   const memberId = c.req.param("memberId");
   removeWorkspaceMember(workspaceId, userId, memberId);
   return c.json({ data: { ok: true } });
+});
+
+// PROD-C06 — Workspace 审片评论
+const targetTypeSchema = z.enum(["project", "run", "shot"]);
+const reviewStatusSchema = z.enum(["open", "resolved"]);
+
+workspacesRoute.get("/:workspaceId/reviews", (c) => {
+  const userId = c.get("userId");
+  const workspaceId = c.req.param("workspaceId");
+  const q = c.req.query();
+  const reviews = listWorkspaceReviews(userId, workspaceId, {
+    projectId: q.projectId || undefined,
+    runId: q.runId || undefined,
+    shotId: q.shotId || undefined,
+    targetType: (q.targetType as ReviewTargetType | undefined) || undefined,
+    status: (q.status as ReviewStatus | undefined) || undefined,
+  });
+  return c.json({ data: reviews });
+});
+
+workspacesRoute.post("/:workspaceId/reviews", async (c) => {
+  const userId = c.get("userId");
+  const workspaceId = c.req.param("workspaceId");
+  const body = z
+    .object({
+      projectId: z.string().uuid().nullable().optional(),
+      runId: z.string().uuid().nullable().optional(),
+      shotId: z.string().nullable().optional(),
+      targetType: targetTypeSchema.default("project"),
+      title: z.string().min(1).max(200),
+      body: z.string().max(4000).nullable().optional(),
+    })
+    .parse(await c.req.json());
+  const review = createWorkspaceReview(userId, workspaceId, {
+    projectId: body.projectId ?? null,
+    runId: body.runId ?? null,
+    shotId: body.shotId ?? null,
+    targetType: body.targetType,
+    title: body.title,
+    body: body.body ?? null,
+  });
+  return c.json({ data: review }, 201);
+});
+
+workspacesRoute.get("/:workspaceId/reviews/:reviewId", (c) => {
+  const userId = c.get("userId");
+  const workspaceId = c.req.param("workspaceId");
+  const reviewId = c.req.param("reviewId");
+  const review = getWorkspaceReview(userId, workspaceId, reviewId);
+  return c.json({ data: review });
+});
+
+workspacesRoute.patch("/:workspaceId/reviews/:reviewId", async (c) => {
+  const userId = c.get("userId");
+  const workspaceId = c.req.param("workspaceId");
+  const reviewId = c.req.param("reviewId");
+  const body = z
+    .object({ status: reviewStatusSchema })
+    .parse(await c.req.json());
+  const review = updateWorkspaceReviewStatus(
+    userId,
+    workspaceId,
+    reviewId,
+    body.status,
+  );
+  return c.json({ data: review });
+});
+
+workspacesRoute.get("/:workspaceId/reviews/:reviewId/comments", (c) => {
+  const userId = c.get("userId");
+  const workspaceId = c.req.param("workspaceId");
+  const reviewId = c.req.param("reviewId");
+  const comments = listReviewComments(userId, workspaceId, reviewId);
+  return c.json({ data: comments });
+});
+
+workspacesRoute.post("/:workspaceId/reviews/:reviewId/comments", async (c) => {
+  const userId = c.get("userId");
+  const workspaceId = c.req.param("workspaceId");
+  const reviewId = c.req.param("reviewId");
+  const body = z
+    .object({
+      content: z.string().min(1).max(4000),
+      mentions: z.array(z.string().uuid()).optional(),
+    })
+    .parse(await c.req.json());
+  const comment = addReviewComment(userId, workspaceId, reviewId, {
+    content: body.content,
+    mentions: body.mentions,
+  });
+  return c.json({ data: comment }, 201);
 });

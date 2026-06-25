@@ -407,6 +407,40 @@ export interface DramaTimelineTrack {
   clips: DramaTimelineClip[];
 }
 
+export type WorkspaceReviewTargetType = "project" | "run" | "shot";
+export type WorkspaceReviewStatus = "open" | "resolved";
+
+export interface WorkspaceReview {
+  id: string;
+  workspaceId: string;
+  projectId: string | null;
+  runId: string | null;
+  shotId: string | null;
+  targetType: WorkspaceReviewTargetType;
+  title: string;
+  body: string | null;
+  status: WorkspaceReviewStatus;
+  createdBy: string;
+  createdByEmail: string;
+  resolvedBy: string | null;
+  resolvedByEmail: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  commentCount: number;
+}
+
+export interface WorkspaceReviewComment {
+  id: string;
+  reviewId: string;
+  userId: string;
+  userEmail: string;
+  content: string;
+  mentions: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DramaPipelineStepView {
   id: string;
   label: string;

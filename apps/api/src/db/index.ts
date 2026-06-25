@@ -640,3 +640,36 @@ database.exec(`
   CREATE INDEX IF NOT EXISTS idx_session_shares_session ON session_shares(session_id, created_at DESC);
 `);
 
+// PROD-C06 — Workspace 审片评论
+database.exec(`
+  CREATE TABLE IF NOT EXISTS workspace_reviews (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    project_id TEXT REFERENCES drama_projects(id) ON DELETE CASCADE,
+    run_id TEXT REFERENCES drama_runs(id) ON DELETE SET NULL,
+    shot_id TEXT,
+    target_type TEXT NOT NULL DEFAULT 'project',
+    title TEXT NOT NULL,
+    body TEXT,
+    status TEXT NOT NULL DEFAULT 'open',
+    created_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    resolved_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+    resolved_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_workspace_reviews_ws ON workspace_reviews(workspace_id, status, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_workspace_reviews_project ON workspace_reviews(project_id, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS workspace_review_comments (
+    id TEXT PRIMARY KEY,
+    review_id TEXT NOT NULL REFERENCES workspace_reviews(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    mentions_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_review_comments_review ON workspace_review_comments(review_id, created_at ASC);
+`);
+

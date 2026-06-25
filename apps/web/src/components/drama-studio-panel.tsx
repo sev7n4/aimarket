@@ -1,16 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { MessageSquare } from "lucide-react";
 import { DramaCharacterCardView } from "@/components/drama-character-card";
 import { DramaNodeGraph, type DramaNodeRerunPatch } from "@/components/drama-node-graph";
 import { DramaStoryboardGrid } from "@/components/drama-storyboard-grid";
-import { estimateDramaProjectPoints, uploadAsset } from "@/lib/api-client";
+import { StudioReviewSidebar } from "@/components/studio-review-sidebar";
+import { estimateDramaProjectPoints, fetchWorkspaceMembers, uploadAsset } from "@/lib/api-client";
 import { allCharactersLockedForProduce } from "@/lib/drama-character-helpers";
 import {
   activePipelineStep,
   computeProductionPercent,
   currentProductionLabel,
 } from "@/lib/drama-production-helpers";
+import { getActiveWorkspaceId } from "@/lib/active-workspace";
 import { useAuth } from "@/lib/auth-context";
 import type {
   DramaProject,
@@ -102,10 +105,36 @@ export function DramaStudioPanel({
   const [liveEstimate, setLiveEstimate] = useState<number | null>(null);
   const [uploadingRef, setUploadingRef] = useState<string | null>(null);
   const [publishingInspiration, setPublishingInspiration] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewMembers, setReviewMembers] = useState<
+    Array<{ id: string; email: string }>
+  >([]);
   const charFileRef = useRef<HTMLInputElement>(null);
   const sceneFileRef = useRef<HTMLInputElement>(null);
   const pendingCharId = useRef<string | null>(null);
   const pendingSceneId = useRef<string | null>(null);
+
+  const reviewWorkspaceId = getActiveWorkspaceId();
+  const reviewProjectId = draftProject?.id ?? run?.projectId ?? null;
+
+  useEffect(() => {
+    if (!reviewOpen || !reviewWorkspaceId) return;
+    let cancelled = false;
+    fetchWorkspaceMembers(reviewWorkspaceId)
+      .then((members) => {
+        if (!cancelled) {
+          setReviewMembers(
+            members.map((m) => ({ id: m.id, email: m.email })),
+          );
+        }
+      })
+      .catch(() => {
+        // ignore — 个人空间无成员
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reviewOpen, reviewWorkspaceId]);
 
   const baseProject = run?.project ?? draftProject?.project;
   const project = localProject ?? baseProject;
@@ -255,25 +284,53 @@ export function DramaStudioPanel({
     >
       <div className="mb-3 flex items-center justify-between gap-2 border-b border-white/5 pb-2">
         <h3 className="text-sm font-medium text-violet-200">AI 短剧 Studio</h3>
-        {run ? (
-          <span
-            className={`rounded-full px-2 py-0.5 text-[10px] ${
-              isFailed
-                ? "bg-red-500/15 text-red-300"
-                : isProducing
-                  ? "bg-violet-500/20 text-violet-200"
-                  : "bg-white/5 text-zinc-400"
-            }`}
-            data-testid="drama-run-status-badge"
-          >
-            {DRAMA_RUN_STATUS_LABEL[run.status] ?? run.status}
-          </span>
-        ) : liveEstimate != null ? (
-          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">
-            预估 {liveEstimate} 分
-          </span>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {reviewWorkspaceId && reviewProjectId ? (
+            <button
+              type="button"
+              onClick={() => setReviewOpen(true)}
+              className="flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-zinc-300 transition hover:bg-white/10"
+              title="审片评论"
+            >
+              <MessageSquare className="size-3" />
+              审片
+            </button>
+          ) : null}
+          {run ? (
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] ${
+                isFailed
+                  ? "bg-red-500/15 text-red-300"
+                  : isProducing
+                    ? "bg-violet-500/20 text-violet-200"
+                    : "bg-white/5 text-zinc-400"
+              }`}
+              data-testid="drama-run-status-badge"
+            >
+              {DRAMA_RUN_STATUS_LABEL[run.status] ?? run.status}
+            </span>
+          ) : liveEstimate != null ? (
+            <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">
+              预估 {liveEstimate} 分
+            </span>
+          ) : null}
+        </div>
       </div>
+
+      {reviewOpen && reviewWorkspaceId && reviewProjectId ? (
+        <div
+          className="fixed right-0 top-0 z-40 h-full w-80 border-l border-white/10 bg-zinc-950/95 shadow-2xl"
+          data-testid="drama-review-sidebar"
+        >
+          <StudioReviewSidebar
+            workspaceId={reviewWorkspaceId}
+            projectId={reviewProjectId}
+            runId={run?.id ?? null}
+            members={reviewMembers}
+            onClose={() => setReviewOpen(false)}
+          />
+        </div>
+      ) : null}
 
       {produceHint ? (
         <div
