@@ -176,8 +176,12 @@ jobs:
           echo "=== copy checkout into api container ==="
           docker exec aimarket-api sh -c "mkdir -p /tmp/verify-cs8 && rm -rf /tmp/verify-cs8/*"
           docker cp /tmp/aimarket-verify-cs8/. aimarket-api:/tmp/verify-cs8/
-          echo "=== build SDK via npx (typescript + @types/node) ==="
-          docker exec aimarket-api sh -c "cd /tmp/verify-cs8/packages/moyu-skills-sdk && npx --yes -p typescript@5.8.3 -p @types/node@22.15.32 -- tsc --listEmittedFiles"
+          echo "=== install typescript + @types/node into isolated prefix (/tmp/cs8-deps) ==="
+          docker exec aimarket-api sh -c "rm -rf /tmp/cs8-deps && npm install --prefix /tmp/cs8-deps --no-audit --no-fund --no-package-lock typescript@5.8.3 @types/node@22.15.32"
+          echo "=== symlink node_modules into SDK dir so tsc typeRoots can resolve @types/node ==="
+          docker exec aimarket-api sh -c "ln -sfn /tmp/cs8-deps/node_modules /tmp/verify-cs8/packages/moyu-skills-sdk/node_modules"
+          echo "=== build SDK ==="
+          docker exec aimarket-api sh -c "cd /tmp/verify-cs8/packages/moyu-skills-sdk && /tmp/cs8-deps/node_modules/.bin/tsc --listEmittedFiles"
           echo "=== verify dist files ==="
           docker exec aimarket-api ls /tmp/verify-cs8/packages/moyu-skills-sdk/dist/
           echo "=== run integration test ==="
