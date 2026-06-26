@@ -1,4 +1,4 @@
-# 生产验证 workflow（只读）— 确认 C-S4 / C-S5 / C-S6 / C-S7 / C-S8 已部署生效
+# 生产验证 workflow（只读）— 确认 C-S4 / C-S5 / C-S6 / C-S7 / C-S8 / D-S1 / D-S2 已部署生效
 # 手动触发：gh workflow run verify-production.yml
 name: Verify production (AIMarket)
 
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   verify:
-    name: Verify C-S4 / C-S5 / C-S6 / C-S7 / C-S8 in production
+    name: Verify C-S4 / C-S5 / C-S6 / C-S7 / C-S8 / D-S1 / D-S2 in production
     runs-on: [self-hosted, aimarket-build]
     timeout-minutes: 8
     env:
