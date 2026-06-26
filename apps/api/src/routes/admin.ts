@@ -22,10 +22,12 @@ import {
 } from "../providers/video/agnes.js";
 import { createOpenApiKey } from "../lib/open-api-keys.js";
 import { getVideoProviderStatus } from "../providers/video/registry.js";
+import { marketplaceAdmin } from "./marketplace.js";
 
 export const admin = new Hono();
 
 admin.use("*", requireAdmin);
+admin.route("/marketplace", marketplaceAdmin);
 
 admin.get("/agnes/videos/:taskId", async (c) => {
   if (!agnesVideoConfigured()) {

@@ -56,3 +56,12 @@ export function listSkillsPublic(): Array<{
     };
   });
 }
+
+/**
+ * PROD-D03 — 从 YAML 字符串解析 SkillDefinition（供 marketplace 上架校验）
+ * 与 loadSkill 不同，不要求文件存在，也不校验 id 与文件名匹配。
+ */
+export function parseSkillFromYamlString(raw: string): SkillDefinition {
+  const parsed = parse(raw);
+  return skillDefinitionSchema.parse(parsed);
+}

@@ -689,3 +689,29 @@ database.exec(`
     ON drama_project_versions(project_id, created_at DESC);
 `);
 
+// PROD-D03 — Skill / 模板市场
+database.exec(`
+  CREATE TABLE IF NOT EXISTS marketplace_skills (
+    id TEXT PRIMARY KEY,
+    slug TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    description TEXT,
+    category TEXT NOT NULL DEFAULT 'general',
+    author_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    skill_yaml TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'pending_review',
+    install_count INTEGER NOT NULL DEFAULT 0,
+    admin_note TEXT,
+    reviewed_by TEXT REFERENCES users(id),
+    reviewed_at TEXT,
+    published_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_marketplace_skills_status
+    ON marketplace_skills(status, category, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_marketplace_skills_author
+    ON marketplace_skills(author_id, created_at DESC);
+`);
+
