@@ -91,6 +91,12 @@ export function SiteHeader() {
                   品牌
                 </Link>
                 <Link
+                  href="/marketplace"
+                  className="hidden rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-400 hover:text-white sm:inline"
+                >
+                  市场
+                </Link>
+                <Link
                   href="/invite"
                   className="hidden items-center gap-1 rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-400 hover:text-white sm:inline-flex"
                 >

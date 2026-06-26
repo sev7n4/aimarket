@@ -4,4 +4,9 @@ export {
   type SkillDefinition,
   type SkillStep,
 } from "./schema.js";
-export { listSkillIds, listSkillsPublic, loadSkill } from "./load.js";
+export {
+  listSkillIds,
+  listSkillsPublic,
+  loadSkill,
+  parseSkillFromYamlString,
+} from "./load.js";

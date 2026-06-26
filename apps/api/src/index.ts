@@ -48,6 +48,11 @@ import { video } from "./routes/video.js";
 import { uploadCompat } from "./routes/upload-compat.js";
 import { open } from "./routes/open.js";
 import { requireApiKey } from "./middleware/api-key.js";
+import {
+  marketplace,
+  marketplaceAuthed,
+  marketplaceAdmin,
+} from "./routes/marketplace.js";
 
 ensureUploadDir();
 
@@ -117,6 +122,7 @@ app.route("/api/v1/version", versionPublic);
 app.route("/api/v1/events", events);
 app.route("/api/v1/inspiration", inspiration);
 app.route("/api/v1/keyword", keyword);
+app.route("/api/v1/marketplace", marketplace);
 app.route("/api/v1/admin", admin);
 
 const openApi = new Hono();
@@ -145,6 +151,7 @@ authed.route("/agent", agent);
 authed.route("/agent/skills", agentSkills);
 authed.route("/drama", drama);
 authed.route("/inspiration", inspirationAuthed);
+authed.route("/marketplace", marketplaceAuthed);
 authed.route("/image", image);
 authed.route("/imageTask", imageTask);
 authed.route("/video", video);
