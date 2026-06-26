@@ -1,0 +1,27 @@
+id: commerce-promo-v1
+version: 1
+name: 商业宣传片
+description: 电商套图 4 张 + 主图抠白底 + 30 秒 16:9 多镜头商业宣传片，适合品牌官网/电商详情页/社交推广
+confirmIfPointsOver: 100
+steps:
+  - id: gen_set
+    type: generate_set
+    label: 生成电商套图（4 张）
+  - id: cutout_hero
+    type: tool
+    toolId: cutout
+    label: 主图抠白底
+    sourceStep: gen_set
+    sourceOutputIndex: 0
+  - id: upscale_hero
+    type: tool
+    toolId: upscale
+    label: 主图高清放大
+    sourceStep: cutout_hero
+  - id: promo_video
+    type: video
+    label: 生成 30 秒商业宣传片
+    sourceStep: upscale_hero
+    modelId: seedance-2
+    resolution: 1k
+    aspectRatio: "16:9"

@@ -761,6 +761,8 @@ export function buildDockSkillOptions(
   const ordered = [...skills].sort((a, b) => {
     if (a.id === ECOMMERCE_SET_SKILL_ID) return -1;
     if (b.id === ECOMMERCE_SET_SKILL_ID) return 1;
+    if (a.id === "commerce-promo-v1") return -1;
+    if (b.id === "commerce-promo-v1") return 1;
     if (a.id === "ecommerce-taobao-launch-v1") return -1;
     if (b.id === "ecommerce-taobao-launch-v1") return 1;
     return 0;
@@ -774,9 +776,11 @@ export function buildDockSkillOptions(
       badge:
         s.id === ECOMMERCE_SET_SKILL_ID
           ? ("hot" as const)
-          : s.id === "ecommerce-taobao-launch-v1"
+          : s.id === "commerce-promo-v1"
             ? ("new" as const)
-            : undefined,
+            : s.id === "ecommerce-taobao-launch-v1"
+              ? ("new" as const)
+              : undefined,
     })),
   ];
 }

@@ -186,3 +186,18 @@ jobs:
           docker exec aimarket-api ls /tmp/verify-cs8/packages/moyu-skills-sdk/dist/
           echo "=== run integration test ==="
           docker exec aimarket-api sh -c "cd /tmp/verify-cs8 && node scripts/test-moyu-sdk.mjs"
+
+      - name: 19) D-S1 — verify commerce-promo-v1 Skill deployed + run integration test
+        run: |
+          set -e
+          set -o pipefail
+          echo "=== source YAML exists in latest main ==="
+          ls -la /tmp/aimarket-verify-cs8/packages/agent-skills/skills/commerce-promo-v1.yaml
+          echo "=== compiled skill in aimarket-api container (/app/dist/skills/) ==="
+          docker exec aimarket-api ls -la /app/dist/skills/commerce-promo-v1.yaml
+          echo "=== GET /api/v1/agent/skills (public list includes commerce-promo-v1) ==="
+          CODE=$(curl -s -o /tmp/skills-resp.json -w "%{http_code}" "$API_BASE/api/v1/agent/skills" || echo "000")
+          echo "GET -> $CODE"
+          grep -q '"commerce-promo-v1"' /tmp/skills-resp.json && echo "commerce-promo-v1 in public list ✓"
+          echo "=== run test-commerce-skill.mjs via checkout ==="
+          docker exec aimarket-api sh -c "cd /tmp/verify-cs8 && NODE_PATH=/app/node_modules node scripts/test-commerce-skill.mjs"
