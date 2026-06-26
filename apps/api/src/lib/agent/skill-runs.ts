@@ -224,3 +224,84 @@ export function serializeSkillRunForApi(row: SkillRunRow) {
     updatedAt: row.updated_at,
   };
 }
+
+/** D-S2（PROD-D02）：电商主图来源类型 */
+export type CommerceHeroSource =
+  | "ecommerce_set"
+  | "commerce_promo_cutout"
+  | "commerce_promo_upscale";
+
+/** D-S2：电商主图候选项 */
+export interface CommerceHeroCandidate {
+  outputId: string;
+  url: string;
+  source: CommerceHeroSource;
+  skillRunId: string;
+  skillId: string;
+  stepId: string;
+  label: string;
+}
+
+const COMMERCE_SKILL_IDS = new Set([
+  "commerce-promo-v1",
+  "ecommerce-set-v1",
+  "ecommerce-taobao-launch-v1",
+]);
+
+/**
+ * D-S2：列出会话内可绑定的电商主图候选。
+ * 从已完成的 commerce 类 skill_run 的 step_outputs 中提取：
+ *   - gen_set 步骤的 heroOutputIndex 对应 outputId → source=ecommerce_set
+ *   - cutout/cutout_hero 步骤的 outputIds[0] → source=commerce_promo_cutout
+ *   - upscale/upscale_hero 步骤的 outputIds[0] → source=commerce_promo_upscale
+ */
+export function listSessionCommerceHeroes(
+  sessionId: string,
+  userId: string,
+): CommerceHeroCandidate[] {
+  const rows = db
+    .prepare(
+      `SELECT * FROM skill_runs WHERE session_id = ? AND user_id = ? AND status = 'completed' ORDER BY created_at DESC`,
+    )
+    .all(sessionId, userId) as unknown as SkillRunRow[];
+  const heroes: CommerceHeroCandidate[] = [];
+  for (const row of rows) {
+    if (!COMMERCE_SKILL_IDS.has(row.skill_id)) continue;
+    let skill: SkillDefinition;
+    try {
+      skill = loadSkill(row.skill_id);
+    } catch {
+      continue;
+    }
+    const stepOutputs = parseStepOutputs(row);
+    for (const step of skill.steps) {
+      const out = stepOutputs[step.id];
+      if (!out?.outputIds?.length) continue;
+      let outputId: string | undefined;
+      let source: CommerceHeroSource | undefined;
+      if (step.type === "generate_set") {
+        const idx = out.heroOutputIndex ?? 0;
+        outputId = out.outputIds[idx];
+        source = "ecommerce_set";
+      } else if (step.type === "tool" && step.toolId === "cutout") {
+        outputId = out.outputIds[0];
+        source = "commerce_promo_cutout";
+      } else if (step.type === "tool" && step.toolId === "upscale") {
+        outputId = out.outputIds[0];
+        source = "commerce_promo_upscale";
+      }
+      if (outputId && source) {
+        heroes.push({
+          outputId,
+          url: out.urls[0] ?? "",
+          source,
+          skillRunId: row.id,
+          skillId: row.skill_id,
+          stepId: step.id,
+          label: step.label,
+        });
+      }
+    }
+  }
+  return heroes;
+}

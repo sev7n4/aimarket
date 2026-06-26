@@ -101,6 +101,12 @@ export const storyboardShotSchema = z.object({
   keyframeVariantOutputIds: z.array(z.string().uuid()).optional(),
   /** 当前选中的关键帧候选索引 */
   keyframeHeroIndex: z.number().int().min(0).optional(),
+  /** D-S2（PROD-D02）：绑定的电商主图 outputId，存在时跳过关键帧生成直接用作关键帧 */
+  commerceHeroOutputId: z.string().uuid().optional(),
+  /** D-S2：电商主图来源（用于 UI 标记与审计） */
+  commerceHeroSource: z
+    .enum(["ecommerce_set", "commerce_promo_cutout", "commerce_promo_upscale"])
+    .optional(),
   videoOutputId: z.string().uuid().optional(),
   audioOutputId: z.string().uuid().optional(),
   lipsyncOutputId: z.string().uuid().optional(),

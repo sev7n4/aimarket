@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GripVertical, Loader2, Plus } from "lucide-react";
+import { GripVertical, Loader2, Plus, ShoppingBag, X } from "lucide-react";
 import type {
   DramaCharacterCard,
   DramaProjectPayload,
@@ -14,6 +14,13 @@ import {
   shotThumbnailUrl,
   sortDramaShots,
 } from "@/lib/drama-shot-helpers";
+import {
+  bindDramaShotCommerceHero,
+  listSessionCommerceHeroes,
+  unbindDramaShotCommerceHero,
+  type CommerceHeroCandidate,
+  type CommerceHeroSource,
+} from "@/lib/api-client";
 
 interface DramaShotTimelineProps {
   project: DramaProjectPayload;
@@ -22,6 +29,10 @@ interface DramaShotTimelineProps {
   onProjectChange: (project: DramaProjectPayload) => void;
   onSave?: (project: DramaProjectPayload) => void | Promise<unknown>;
   saveDebounceMs?: number;
+  /** D-S2：项目 ID（用于绑定电商主图 API） */
+  projectId?: string;
+  /** D-S2：会话 ID（用于列出电商主图候选） */
+  sessionId?: string;
 }
 
 function characterNames(
@@ -48,6 +59,8 @@ export function DramaShotTimeline({
   onProjectChange,
   onSave,
   saveDebounceMs = 500,
+  projectId,
+  sessionId,
 }: DramaShotTimelineProps) {
   const sorted = useMemo(
     () => sortDramaShots(project.shots),
@@ -60,6 +73,9 @@ export function DramaShotTimeline({
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [commerceHeroes, setCommerceHeroes] = useState<CommerceHeroCandidate[]>([]);
+  const [heroesLoading, setHeroesLoading] = useState(false);
+  const [bindingShotId, setBindingShotId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selectedId && sorted[0]) {
@@ -130,6 +146,50 @@ export function DramaShotTimeline({
     applyShots([...project.shots, shot]);
     setSelectedId(shot.id);
   }, [applyShots, project.shots, readOnly]);
+
+  const handleFetchHeroes = useCallback(async () => {
+    if (!sessionId) return;
+    setHeroesLoading(true);
+    try {
+      const heroes = await listSessionCommerceHeroes(sessionId);
+      setCommerceHeroes(heroes);
+    } finally {
+      setHeroesLoading(false);
+    }
+  }, [sessionId]);
+
+  const handleBindHero = useCallback(
+    async (shotId: string, outputId: string, source: CommerceHeroSource) => {
+      if (!projectId) return;
+      setBindingShotId(shotId);
+      try {
+        const res = await bindDramaShotCommerceHero(
+          projectId,
+          shotId,
+          outputId,
+          source,
+        );
+        onProjectChange(res.project);
+      } finally {
+        setBindingShotId(null);
+      }
+    },
+    [projectId, onProjectChange],
+  );
+
+  const handleUnbindHero = useCallback(
+    async (shotId: string) => {
+      if (!projectId) return;
+      setBindingShotId(shotId);
+      try {
+        const res = await unbindDramaShotCommerceHero(projectId, shotId);
+        onProjectChange(res.project);
+      } finally {
+        setBindingShotId(null);
+      }
+    },
+    [projectId, onProjectChange],
+  );
 
   return (
     <div
@@ -382,6 +442,92 @@ export function DramaShotTimeline({
               </div>
             ) : null}
           </dl>
+
+          {projectId && sessionId && !readOnly ? (
+            <div className="mt-3 border-t border-white/5 pt-3">
+              <div className="mb-2 flex items-center gap-1.5">
+                <ShoppingBag className="size-3.5 text-emerald-400/70" />
+                <span className="text-[11px] font-medium text-zinc-400">
+                  电商主图联动
+                </span>
+                {selectedShot.commerceHeroOutputId ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleUnbindHero(selectedShot.id)}
+                    disabled={bindingShotId === selectedShot.id}
+                    className="ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-zinc-500 hover:text-rose-300"
+                  >
+                    <X className="size-3" />
+                    解绑
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void handleFetchHeroes()}
+                    disabled={heroesLoading}
+                    className="ml-auto inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300 hover:bg-emerald-500/20"
+                  >
+                    {heroesLoading ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : null}
+                    选择主图
+                  </button>
+                )}
+              </div>
+              {selectedShot.commerceHeroOutputId ? (
+                <div className="rounded border border-emerald-500/20 bg-emerald-500/[0.04] p-2 text-[10px] text-emerald-300/80">
+                  已绑定电商主图（{selectedShot.commerceHeroSource}）
+                  <br />
+                  <span className="text-zinc-600">
+                    制作时将跳过关键帧生成，直接使用主图作为关键帧
+                  </span>
+                </div>
+              ) : commerceHeroes.length > 0 ? (
+                <div className="flex gap-1.5 overflow-x-auto pb-1">
+                  {commerceHeroes.map((h) => (
+                    <button
+                      key={h.outputId}
+                      type="button"
+                      onClick={() =>
+                        void handleBindHero(
+                          selectedShot.id,
+                          h.outputId,
+                          h.source,
+                        )
+                      }
+                      disabled={bindingShotId === selectedShot.id}
+                      className="group relative flex shrink-0 flex-col overflow-hidden rounded border border-white/10 bg-black/30 hover:border-emerald-400/40"
+                      title={`${h.skillId} · ${h.label}`}
+                    >
+                      {h.url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={h.url}
+                          alt=""
+                          className="h-12 w-12 object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 items-center justify-center text-[8px] text-zinc-600">
+                          {h.source}
+                        </div>
+                      )}
+                      <span className="px-1 py-0.5 text-[8px] text-zinc-500">
+                        {h.source === "ecommerce_set"
+                          ? "套图"
+                          : h.source === "commerce_promo_cutout"
+                            ? "抠图"
+                            : "放大"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : heroesLoading ? null : (
+                <p className="text-[10px] text-zinc-600">
+                  点击「选择主图」加载会话内的电商套图产出
+                </p>
+              )}
+            </div>
+          ) : null}
         </section>
       ) : null}
     </div>

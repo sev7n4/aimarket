@@ -246,6 +246,8 @@ export const StudioCanvasWithOrchestration = forwardRef<
         busy={dramaBusy}
         onProjectChange={setTimelineProject}
         onSave={dramaDraftProject ? handleTimelineSave : undefined}
+        projectId={dramaDraftProject?.id}
+        sessionId={sessionId}
       />
     ) : null;
 

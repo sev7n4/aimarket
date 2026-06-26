@@ -334,6 +334,10 @@ export interface DramaStoryboardShot {
   keyframeOutputId?: string;
   keyframeVariantOutputIds?: string[];
   keyframeHeroIndex?: number;
+  /** D-S2：绑定的电商主图 outputId，存在时跳过关键帧生成 */
+  commerceHeroOutputId?: string;
+  /** D-S2：电商主图来源 */
+  commerceHeroSource?: "ecommerce_set" | "commerce_promo_cutout" | "commerce_promo_upscale";
   keyframeVariantUrls?: string[];
   videoOutputId?: string;
   audioOutputId?: string;

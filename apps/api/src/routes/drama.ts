@@ -68,6 +68,7 @@ import {
   dispatchCharacterTurnaround,
 } from "../lib/drama/character-turnaround.js";
 import { serializeDramaSessionState } from "../lib/drama/session-state.js";
+import { listSessionCommerceHeroes } from "../lib/agent/skill-runs.js";
 import { buildDramaRunGraph } from "../lib/drama/run-graph.js";
 import type { DramaPlanAgentId, DramaPlanEvent } from "../lib/drama/planner/types.js";
 
@@ -217,6 +218,60 @@ drama.patch("/projects/:id", async (c) => {
       snapshotTrigger: "manual_patch",
     });
   }
+  const next = getDramaProject(userId, row.id)!;
+  return c.json({ data: serializeDramaProject(next) });
+});
+
+// PROD-D02 — 商品镜头与主图联动
+drama.get("/sessions/:sessionId/commerce-heroes", (c) => {
+  const userId = c.get("userId");
+  const sessionId = c.req.param("sessionId");
+  const heroes = listSessionCommerceHeroes(sessionId, userId);
+  return c.json({ data: heroes });
+});
+
+const bindBody = z.object({
+  outputId: z.string().uuid(),
+  source: z.enum(["ecommerce_set", "commerce_promo_cutout", "commerce_promo_upscale"]),
+});
+
+drama.post("/projects/:id/shots/:shotId/bind-commerce-hero", async (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("id");
+  const shotId = c.req.param("shotId");
+  const row = getDramaProject(userId, projectId);
+  if (!row) throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
+  const body = bindBody.parse(await c.req.json());
+  const project = JSON.parse(row.project_json);
+  const shot = project.shots?.find((s: { id: string }) => s.id === shotId);
+  if (!shot) throw new AppError(404, "NOT_FOUND", "镜头不存在");
+  shot.commerceHeroOutputId = body.outputId;
+  shot.commerceHeroSource = body.source;
+  const validated = dramaProjectSchema.parse(project);
+  updateDramaProject(row.id, { project: validated }, {
+    userId,
+    snapshotTrigger: "manual_patch",
+  });
+  const next = getDramaProject(userId, row.id)!;
+  return c.json({ data: serializeDramaProject(next) });
+});
+
+drama.delete("/projects/:id/shots/:shotId/bind-commerce-hero", async (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("id");
+  const shotId = c.req.param("shotId");
+  const row = getDramaProject(userId, projectId);
+  if (!row) throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
+  const project = JSON.parse(row.project_json);
+  const shot = project.shots?.find((s: { id: string }) => s.id === shotId);
+  if (!shot) throw new AppError(404, "NOT_FOUND", "镜头不存在");
+  delete shot.commerceHeroOutputId;
+  delete shot.commerceHeroSource;
+  const validated = dramaProjectSchema.parse(project);
+  updateDramaProject(row.id, { project: validated }, {
+    userId,
+    snapshotTrigger: "manual_patch",
+  });
   const next = getDramaProject(userId, row.id)!;
   return c.json({ data: serializeDramaProject(next) });
 });

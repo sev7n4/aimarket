@@ -299,6 +299,27 @@ function startKeyframeBatch(
   return { progress, jobIds: pendingBatch.map((p) => p.jobId) };
 }
 
+/**
+ * D-S2（PROD-D02）：电商主图 → 关键帧预填
+ * 当 shot 绑定了 commerceHeroOutputId 但尚未生成关键帧时，
+ * 直接把 commerceHeroOutputId 写入 keyframeOutputId，跳过 keyframe 生成 job。
+ */
+function prefillCommerceHeroKeyframes(
+  row: DramaRunRow,
+  project: DramaProjectData,
+): boolean {
+  let changed = false;
+  for (const shot of project.shots) {
+    if (shot.commerceHeroOutputId && !shot.keyframeOutputId) {
+      shot.keyframeOutputId = shot.commerceHeroOutputId;
+      shot.status = "keyframe";
+      changed = true;
+    }
+  }
+  if (changed) saveProject(row, project);
+  return changed;
+}
+
 function startKeyframeJob(
   row: DramaRunRow,
   project: DramaProjectData,
@@ -537,6 +558,7 @@ function startJobForStep(
       throw new Error("DRAMA_STEP_COMPLETE");
     }
     case "keyframes":
+      prefillCommerceHeroKeyframes(row, project);
       return startKeyframeJob(row, project, progress);
     case "shot_videos":
       return startShotVideoJob(row, project, progress);
