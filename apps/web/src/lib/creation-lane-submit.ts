@@ -1,4 +1,9 @@
 import type { CreationLane } from "./creation-dock-prefs";
+import {
+  enhanceSubmitPath,
+  type IntentAnalysis,
+  type IntentRouterInput,
+} from "./intent-router";
 
 export interface ReferenceImageSources {
   assetIds: string[];
@@ -171,4 +176,56 @@ export function resolveCreationSubmitPath(
     orchestrationDispatchWouldHandle: input.orchestrationDispatchWouldHandle,
     focusEditActive: input.direct.focusEditActive,
   });
+}
+
+// ─── 意图增强路由 ────────────────────────────────────────────────────────────
+
+/** 意图增强的提交路径输入 */
+export interface ResolveCreationSubmitPathWithIntentInput {
+  direct: DirectSubmitContext;
+  orchestrationDispatchWouldHandle: boolean;
+  /** 用户输入的 prompt */
+  prompt: string;
+  /** 当前是否选中了画布元素 */
+  hasSelectedCanvasItem?: boolean;
+}
+
+/**
+ * 创作 Dock 意图增强提交路径入口
+ *
+ * 相比 resolveCreationSubmitPath 纯布尔路由，此函数额外分析用户 prompt 意图，
+ * 支持跨模态复合意图（如"编辑这张图再生成视频"）的路由决策。
+ * 当意图分析置信度高或检测到复合意图时，覆盖布尔守卫结果。
+ */
+export function resolveCreationSubmitPathWithIntent(
+  input: ResolveCreationSubmitPathWithIntentInput,
+): { path: SubmitPath; analysis: IntentAnalysis } {
+  const { direct, orchestrationDispatchWouldHandle, prompt, hasSelectedCanvasItem } = input;
+
+  const intentInput: IntentRouterInput = {
+    prompt,
+    creationLane: direct.creationLane,
+    activeSkillId: direct.activeSkillId,
+    focusEditActive: direct.focusEditActive,
+    mentionedMasksCount: direct.mentionedMasksCount,
+    submitVideo: direct.submitVideo,
+    hasReferenceImages: direct.hasReferenceImages,
+    hasSelectedCanvasItem: hasSelectedCanvasItem ?? false,
+    dramaSkillActive: direct.activeSkillId !== null,
+    studioOrchestrationActive: direct.studioOrchestrationActive,
+    skillsEnabled: direct.skillsEnabled,
+    agentEnabled: direct.agentEnabled,
+    isDock: direct.isDock,
+    submitEcommerce: direct.submitEcommerce,
+  };
+
+  const { path, analysis } = enhanceSubmitPath(intentInput);
+
+  // 编排接管优先级不变：意图路由不应跳过编排
+  if (orchestrationDispatchWouldHandle && path !== "orchestration") {
+    const orchestrationOverride: SubmitPath = "orchestration";
+    return { path: orchestrationOverride, analysis };
+  }
+
+  return { path, analysis };
 }
