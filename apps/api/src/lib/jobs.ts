@@ -4,7 +4,12 @@ import { ECOMMERCE_SLIDES } from "./ecommerce.js";
 import { estimatePoints, estimateToolPoints } from "./pricing.js";
 import { getModel } from "./models.js";
 import { getTool, type ToolContext } from "./tools.js";
-import type { SmartMultiShot, VideoMediaRef } from "./video-references.js";
+import {
+  type SmartMultiShot,
+  type VideoMediaRef,
+  inferVideoReferenceMode,
+  buildVideoAttentionFromMask,
+} from "./video-references.js";
 import { AppError } from "./errors.js";
 import { assertSessionWrite, assertSessionRead } from "./session-access.js";
 import { recordAnalyticsEvent } from "./analytics.js";
@@ -335,6 +340,25 @@ export async function processGenerationJob({
 
     let urls: string[] = [];
     if (model?.type === "video") {
+      // 智能推断视频参考模式：仅在未显式设置时使用
+      const effectiveVideoReferenceMode =
+        videoReferenceMode ??
+        inferVideoReferenceMode({
+          hasReferenceImages: Boolean(
+            referenceUrls?.length || videoReferences?.length,
+          ),
+          referenceCount:
+            videoReferences?.length ?? referenceUrls?.length ?? 0,
+          hasMasks: Boolean(
+            (toolContext as Record<string, unknown>)?.masks,
+          ),
+          lastStepWasImageEdit: false,
+          hasFirstFrame:
+            videoReferences?.some((r) => r.role === "first_frame") ?? false,
+          hasLastFrame:
+            videoReferences?.some((r) => r.role === "last_frame") ?? false,
+        });
+
       const video = await generateVideos({
         prompt: job.prompt,
         modelId: job.model_id,
@@ -345,7 +369,7 @@ export async function processGenerationJob({
         referenceUrls,
         videoReferences,
         smartMultiShots,
-        referenceMode: videoReferenceMode,
+        referenceMode: effectiveVideoReferenceMode,
         durationSec: videoDurationSec,
         jobId,
       });
@@ -442,6 +466,16 @@ export async function processGenerationJob({
       });
       urls = result.urls;
       imageProvider = result.provider;
+
+      // 图片编辑 mask → 视频注意力引导：记录到日志供后续视频生成参考
+      const tc = toolContext as ToolContext | undefined;
+      if (tc?.masks?.length) {
+        const attentionHints = buildVideoAttentionFromMask(tc.masks);
+        console.log(
+          `[jobs] 图片编辑产出 mask，已构建视频注意力引导:`,
+          JSON.stringify(attentionHints),
+        );
+      }
     } else {
       const result = await generateImages({
         prompt: job.prompt,
