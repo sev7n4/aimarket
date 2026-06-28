@@ -13,6 +13,7 @@ const PRIMARY_MODEL_ENV: Record<string, string> = {
   glm: "AGENT_LLM_GLM_MODEL",
   openai: "AGENT_LLM_OPENAI_MODEL",
   claude: "AGENT_LLM_CLAUDE_MODEL",
+  agnes: "AGENT_LLM_AGNES_MODEL",
 };
 
 export function isDramaMultiAgentPlanEnabled(): boolean {

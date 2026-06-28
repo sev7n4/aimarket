@@ -23,4 +23,4 @@ export interface OrchestratorProvider {
   complete(params: OrchestratorCompleteParams): Promise<OrchestratorCompleteResult>;
 }
 
-export type OrchestratorVendor = "deepseek" | "qwen" | "glm" | "openai" | "claude";
+export type OrchestratorVendor = "deepseek" | "qwen" | "glm" | "openai" | "claude" | "agnes";
