@@ -1985,6 +1985,16 @@ export async function fetchCanvasFlow(sessionId: string) {
   return res.data;
 }
 
+/** 获取画布流版本号（轻量级轮询用） */
+export async function fetchCanvasFlowVersion(
+  sessionId: string,
+): Promise<string | null> {
+  const res = await request<{ data: { version: string | null } }>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/canvas-flow/version`,
+  );
+  return res.data.version;
+}
+
 /** 整体保存画布流 */
 export async function saveCanvasFlow(sessionId: string, flow: CanvasFlow) {
   const res = await request<{ data: CanvasFlow }>(

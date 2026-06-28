@@ -11,10 +11,10 @@ export function getAgentGraph(): ReturnType<typeof createSessionGraph> {
     graph = createSessionGraph(
       {
         resolvePlan: resolveAgentPlan,
-        executeStep: (state, stepIndex) => {
+        executeStep: async (state, stepIndex) => {
           if (!state.plan) throw new Error("执行时缺少 plan");
-          const { jobId } = executeAgentPlanStep(state, state.plan, stepIndex);
-          return Promise.resolve({ jobId });
+          const { jobId } = await executeAgentPlanStep(state, state.plan, stepIndex);
+          return { jobId };
         },
         observeStep: observeAgentStep,
         maxStepRetries: Number(process.env.AGENT_VLM_MAX_STEP_RETRIES ?? "1"),

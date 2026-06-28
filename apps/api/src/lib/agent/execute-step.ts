@@ -9,12 +9,12 @@ import { executeCanvasToolCall } from "./canvas-tools.js";
 /** 画布工具调用结果：不需要 jobId，返回操作结果 */
 const CANVAS_STEP_RESULT = { jobId: "__canvas_tool__", pointsCost: 0 };
 
-export function executeAgentPlanStep(
+export async function executeAgentPlanStep(
   state: AgentSessionState,
   plan: AgentPlan,
   stepIndex: number,
   options?: { referenceOutputIds?: string[] },
-): { jobId: string; pointsCost: number } {
+): Promise<{ jobId: string; pointsCost: number }> {
   const step = plan.steps[stepIndex];
   if (!step) {
     throw new Error(`无效步骤索引: ${stepIndex}`);
@@ -29,12 +29,17 @@ export function executeAgentPlanStep(
 
     // 检测 canvas_ 前缀 → 委托给画布工具执行
     if (step.toolId.startsWith("canvas_")) {
-      void executeCanvasToolCall(step.toolId, {
+      // 从 step.args 提取结构化参数，注入 sessionId
+      const canvasArgs: Record<string, unknown> = {
+        ...step.args,
         sessionId: state.sessionId,
-        prompt: step.prompt,
-      }).catch((err: unknown) => {
-        console.error("[agent] 画布工具执行失败:", err);
-      });
+      };
+      // 如果 args 中缺少 prompt 但 step.prompt 有值，补充进去
+      if (step.prompt && !canvasArgs.prompt) {
+        canvasArgs.prompt = step.prompt;
+      }
+      // await 执行，错误向上传播（不再 fire-and-forget）
+      await executeCanvasToolCall(step.toolId, canvasArgs);
       return CANVAS_STEP_RESULT;
     }
 

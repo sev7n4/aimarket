@@ -6,6 +6,8 @@ export const planStepSchema = z.object({
   label: z.string(),
   prompt: z.string().optional(),
   dependsOn: z.string().optional(),
+  /** canvas_* 工具的结构化参数（type/position/nodeId/sourceNodeId 等） */
+  args: z.record(z.unknown()).optional(),
 });
 
 export const agentPlanSchema = z.object({
@@ -35,6 +37,7 @@ export const llmPlanDraftSchema = z.object({
       toolId: z.string().optional(),
       label: z.string(),
       prompt: z.string().optional(),
+      args: z.record(z.unknown()).optional(),
     }),
   ),
   requiresConfirm: z.boolean().optional(),

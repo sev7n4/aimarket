@@ -54,7 +54,7 @@ export async function resumeAgentRunFromDb(
     const max = Number(process.env.AGENT_VLM_MAX_STEP_RETRIES ?? "1");
     if (used < max) {
       stepRetries[state.currentStepIndex] = used + 1;
-      const { jobId } = executeAgentPlanStep(state, plan, state.currentStepIndex);
+      const { jobId } = await executeAgentPlanStep(state, plan, state.currentStepIndex);
       state = {
         ...state,
         stepRetries,
@@ -103,7 +103,7 @@ export async function resumeAgentRunFromDb(
   }
 
   try {
-    const { jobId } = executeAgentPlanStep(state, plan, nextIndex);
+    const { jobId } = await executeAgentPlanStep(state, plan, nextIndex);
     state = {
       ...state,
       pendingJobId: jobId,
