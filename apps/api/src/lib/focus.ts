@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
+import { encodeLightingPrompt, type LightSource } from "./lighting-prompt.js";
 
 export const focusPointBodySchema = z
   .object({
@@ -62,6 +63,7 @@ export function buildFocusEditPrompt(
   userPrompt: string,
   points: Array<{ objectName: string; category?: ObjectCategory }>,
   intent: FocusEditIntent,
+  lights?: LightSource[],
 ): string {
   const trimmed = userPrompt.trim();
   const names = points
@@ -80,22 +82,27 @@ export function buildFocusEditPrompt(
     ? `。${constraints.join("，")}`
     : "";
 
+  // 灯光追加
+  const lightingSuffix = lights?.length
+    ? `。灯光设置：${encodeLightingPrompt(lights)}。`
+    : "";
+
   if (names.length > 1) {
     const target = names.map((n) => `「${n}」`).join("、");
     // 多点空间关系引导
     const spatialHint = "从左到右依次处理，各焦点独立编辑，互不影响。";
     if (intent === "replace") {
-      return `针对以下焦点分别处理：${target}。将对应物体替换为：${trimmed}。${spatialHint}保持周围背景、光影与透视一致，融合自然${constraintSuffix}。`;
+      return `针对以下焦点分别处理：${target}。将对应物体替换为：${trimmed}。${spatialHint}保持周围背景、光影与透视一致，融合自然${constraintSuffix}${lightingSuffix}`;
     }
-    return `针对以下焦点分别处理：${target}。${trimmed}。${spatialHint}其余区域保持不变，光影与透视一致${constraintSuffix}。`;
+    return `针对以下焦点分别处理：${target}。${trimmed}。${spatialHint}其余区域保持不变，光影与透视一致${constraintSuffix}${lightingSuffix}`;
   }
 
   const target = names.length === 1 ? `「${names[0]}」` : "「目标区域」";
 
   if (intent === "replace") {
-    return `将画面中${target}替换为：${trimmed}。保持周围背景、光影与透视一致，融合自然${constraintSuffix}。`;
+    return `将画面中${target}替换为：${trimmed}。保持周围背景、光影与透视一致，融合自然${constraintSuffix}${lightingSuffix}`;
   }
-  return `仅修改画面中${target}区域：${trimmed}。其余区域保持不变，光影与透视一致${constraintSuffix}。`;
+  return `仅修改画面中${target}区域：${trimmed}。其余区域保持不变，光影与透视一致${constraintSuffix}${lightingSuffix}`;
 }
 
 export function newFocusPointId(): string {

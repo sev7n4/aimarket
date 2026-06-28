@@ -32,6 +32,7 @@ export const TOOL_DISPLAY_NAMES: Record<string, string> = {
   blend: "融合",
   crop: "裁剪",
   text: "改字",
+  "grid-split": "宫格切分",
 };
 
 /** 工具网格副文案：是否需要 prompt、张数、推荐路径等 */
@@ -46,6 +47,7 @@ export const TOOL_GRID_HINTS: Record<string, string> = {
   enhance: "选图 · 一键",
   blend: "多图融合",
   text: "选图改字",
+  "grid-split": "选图 · 2–5 行列",
 };
 
 export function formatToolProviderLabel(provider?: string | null): string {
@@ -83,6 +85,7 @@ export const TOOL_CONFIRM_STEPS: Record<string, string> = {
   "focus-edit": "确认后在图上点击目标，再在工作台输入短 prompt",
   text: "选择字体与字号，填写要替换成的文字内容",
   blend: "确认后 @ 第二张图到工作台，补充融合要求后提交",
+  "grid-split": "选择行列数，一键将宫格图切分为独立图片",
 };
 
 export const TOOL_PROMPT_PLACEHOLDERS: Record<string, string> = {
@@ -115,6 +118,8 @@ export function toolConfirmPrimaryLabel(toolId: string): string {
       return "确认改字";
     case "blend":
       return "继续到工作台";
+    case "grid-split":
+      return "一键切分";
     default:
       return "确认执行";
   }

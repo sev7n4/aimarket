@@ -4,7 +4,7 @@ import type {
   VideoProvider,
 } from "./types.js";
 
-const VIDEO_MODELS = new Set(["seedance-2", "wan-2.6"]);
+const VIDEO_MODELS = new Set(["seedance-2", "wan-2.6", "kling-3.0", "seedance-2.0", "vidu", "pixverse"]);
 
 /**
  * 通用 HTTP 视频 API（兼容 Replicate / 自建网关 JSON 响应）

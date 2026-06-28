@@ -10,6 +10,33 @@ import {
   type AgentRunRow,
 } from "./runs.js";
 import { resumeAgentRunFromDb } from "./resume-fallback.js";
+import {
+  AGENT_CANVAS_TOOLS,
+  executeCanvasToolCall,
+} from "./canvas-tools.js";
+
+// ─── Agent 工具注册 ──────────────────────────────────────────
+
+/** 返回 Agent 可调用的所有画布操作工具定义 */
+export function getAgentCanvasToolDefinitions() {
+  return AGENT_CANVAS_TOOLS;
+}
+
+/** 判断工具名是否为画布操作 */
+export function isCanvasTool(toolName: string): boolean {
+  return toolName.startsWith("canvas_");
+}
+
+/** 分发画布工具调用，检测 canvas_ 前缀时委托给 executeCanvasToolCall */
+export async function dispatchCanvasTool(
+  toolName: string,
+  args: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  if (!isCanvasTool(toolName)) {
+    throw new Error(`非画布工具: ${toolName}`);
+  }
+  return executeCanvasToolCall(toolName, args);
+}
 
 function rowToInitialState(row: AgentRunRow, confirmed: boolean): AgentSessionState {
   const persisted = parseAgentRunStateJson(row);

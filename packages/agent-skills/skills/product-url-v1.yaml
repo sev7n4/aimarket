@@ -1,0 +1,32 @@
+id: product-url-v1
+version: 1
+name: 产品官网转宣传视频
+description: 输入产品官网 URL，自动提炼卖点、设计展示节奏、生成产品宣传视频
+confirmIfPointsOver: 120
+steps:
+  - id: scrape
+    type: tool
+    toolId: url-scraper
+    label: 提取产品信息
+  - id: gen_set
+    type: generate_set
+    label: 生成产品展示图
+    count: 4
+  - id: shot_videos
+    type: shot_video_batch
+    label: 生成宣传视频
+    sourceStep: gen_set
+  - id: bgm
+    type: music_gen
+    label: 生成 BGM
+    options:
+      defaultBpm: 120
+      defaultDurationSec: 30
+  - id: final_edit
+    type: concat
+    label: 合成成片
+    sourceSteps:
+      - shot_videos
+      - bgm
+    options:
+      subtitles: true

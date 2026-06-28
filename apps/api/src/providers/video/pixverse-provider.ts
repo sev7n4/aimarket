@@ -1,0 +1,44 @@
+/**
+ * PixVerse 视频模型（t2v / i2v）— 骨架实现
+ * API 文档：PixVerse API
+ * 环境变量：PIXVERSE_API_KEY, PIXVERSE_API_URL
+ */
+import type {
+  VideoGenerateParams,
+  VideoGenerateResult,
+  VideoProvider,
+} from "./types.js";
+
+export const PIXVERSE_VIDEO_MODEL_ID = "pixverse";
+
+export function pixverseVideoConfigured(): boolean {
+  return Boolean(process.env.PIXVERSE_API_KEY?.trim());
+}
+
+export const pixverseVideoProvider: VideoProvider = {
+  name: "pixverse-video",
+  supports(modelId: string): boolean {
+    if (!pixverseVideoConfigured()) return false;
+    return modelId === PIXVERSE_VIDEO_MODEL_ID;
+  },
+  async generate(params: VideoGenerateParams): Promise<VideoGenerateResult> {
+    // TODO: 对接 PixVerse API
+    // 当前为骨架实现，返回 placeholder
+    if (!process.env.PIXVERSE_API_KEY) throw new Error("PIXVERSE_API_KEY 未配置");
+
+    const baseUrl = process.env.PIXVERSE_API_URL?.trim() || "https://api.pixverse.com";
+
+    // 预留 API 调用结构：文生视频 / 图生视频
+    const mode = params.referenceUrls?.length || params.videoReferences?.length
+      ? "i2v"
+      : "t2v";
+
+    // TODO: 实际对接时替换为异步任务提交 + 轮询逻辑
+    void baseUrl;
+    void mode;
+
+    throw new Error(
+      `PixVerse 视频生成尚未实现（modelId=${params.modelId}, mode=${mode}），请等待后续迭代`,
+    );
+  },
+};

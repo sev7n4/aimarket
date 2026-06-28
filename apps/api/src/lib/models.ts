@@ -52,6 +52,34 @@ export const VIDEO_MODELS: ModelMeta[] = [
     type: "video",
     pointsFactor: 3,
   },
+  {
+    id: "kling-3.0",
+    name: "Kling 3.0",
+    description: "Kuaishou · Kling 3.0（t2v/i2v）",
+    type: "video",
+    pointsFactor: 3,
+  },
+  {
+    id: "seedance-2.0",
+    name: "Seedance 2.0",
+    description: "ByteDance · Seedance 2.0（t2v/i2v）",
+    type: "video",
+    pointsFactor: 3,
+  },
+  {
+    id: "vidu",
+    name: "Vidu",
+    description: "Vidu · Vidu（t2v/i2v）",
+    type: "video",
+    pointsFactor: 2.5,
+  },
+  {
+    id: "pixverse",
+    name: "PixVerse",
+    description: "PixVerse · PixVerse（t2v/i2v）",
+    type: "video",
+    pointsFactor: 2.5,
+  },
 ];
 
 /** z.enum 用：与 VIDEO_MODELS 保持同步，避免接口白名单漏项 */

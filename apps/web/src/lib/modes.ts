@@ -40,3 +40,14 @@ export const placeholders: Record<CreationMode, string> = {
 /** Studio 制片模式 Dock 占位（不轮播时） */
 export const PRODUCTION_DOCK_PLACEHOLDER =
   "描述你的短剧创意（至少 10 字），Agent 将自动规划剧本与分镜";
+
+/** 1.3 节点式画布 feature flag：localStorage 或 URL 参数开启 */
+export function isCanvasFlowMode(): boolean {
+  if (typeof window === "undefined") return false;
+  // URL 参数 ?canvasFlow=1 优先
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("canvasFlow") === "1") return true;
+  if (params.get("canvasFlow") === "0") return false;
+  // localStorage 开关
+  return localStorage.getItem("aimarket_canvas_flow") === "1";
+}

@@ -4,6 +4,10 @@ import { createGenerationJob } from "../jobs.js";
 import { resolveReferenceUrls } from "../references.js";
 import { getTool } from "../tools.js";
 import { linkAgentRunJob } from "./runs.js";
+import { executeCanvasToolCall } from "./canvas-tools.js";
+
+/** 画布工具调用结果：不需要 jobId，返回操作结果 */
+const CANVAS_STEP_RESULT = { jobId: "__canvas_tool__", pointsCost: 0 };
 
 export function executeAgentPlanStep(
   state: AgentSessionState,
@@ -22,6 +26,18 @@ export function executeAgentPlanStep(
 
   if (step.type === "tool") {
     if (!step.toolId) throw new Error("工具步骤缺少 toolId");
+
+    // 检测 canvas_ 前缀 → 委托给画布工具执行
+    if (step.toolId.startsWith("canvas_")) {
+      void executeCanvasToolCall(step.toolId, {
+        sessionId: state.sessionId,
+        prompt: step.prompt,
+      }).catch((err: unknown) => {
+        console.error("[agent] 画布工具执行失败:", err);
+      });
+      return CANVAS_STEP_RESULT;
+    }
+
     getTool(step.toolId);
     const prompt = step.prompt?.trim() || plan.intent;
     const { jobId, pointsCost } = createGenerationJob({
