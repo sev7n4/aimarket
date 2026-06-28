@@ -12,7 +12,6 @@
   "dependencies": {
     "@aimarket/agent-core": "workspace:*",
     "@aimarket/agent-skills": "workspace:*",
-    "@aimarket/skill-schema": "workspace:*",
     "@aws-sdk/client-s3": "^3.826.0",
     "@aws-sdk/s3-request-presigner": "^3.826.0",
     "@hono/node-server": "^1.14.4",

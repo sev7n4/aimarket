@@ -9,8 +9,42 @@ import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { AuthVariables } from "../middleware/auth.js";
-import { validateSkill } from "@aimarket/skill-schema";
-import { parse } from "yaml";
+import { parse as parseYaml } from "yaml";
+
+// ─── 内联 Skill 校验（避免 workspace 依赖问题） ──────────────
+
+const skillStepSchema = z.discriminatedUnion("type", [
+  z.object({ id: z.string().min(1), type: z.literal("generate_set"), label: z.string().min(1) }),
+  z.object({ id: z.string().min(1), type: z.literal("tool"), toolId: z.string().min(1), label: z.string().min(1), sourceStep: z.string().min(1), sourceOutputIndex: z.number().int().min(0).default(0) }),
+  z.object({ id: z.string().min(1), type: z.literal("video"), label: z.string().min(1), sourceStep: z.string().min(1), modelId: z.string().default("seedance-2"), resolution: z.enum(["1k", "2k"]).default("1k"), aspectRatio: z.string().default("9:16") }),
+  z.object({ id: z.string().min(1), type: z.literal("music_gen"), label: z.string().min(1), options: z.object({ defaultBpm: z.number().optional(), defaultDurationSec: z.number().optional() }).optional() }),
+  z.object({ id: z.string().min(1), type: z.literal("character_refs"), label: z.string().min(1) }),
+  z.object({ id: z.string().min(1), type: z.literal("scene_refs"), label: z.string().min(1) }),
+  z.object({ id: z.string().min(1), type: z.literal("keyframe_batch"), label: z.string().min(1), sourceSteps: z.array(z.string()).optional(), audit: z.object({ characterMinScore: z.number().min(0).max(100).default(75), styleMinScore: z.number().min(0).max(100).default(70), maxRetries: z.number().int().min(0).max(5).default(2) }).optional() }),
+  z.object({ id: z.string().min(1), type: z.literal("shot_video_batch"), label: z.string().min(1), sourceStep: z.string().min(1) }),
+  z.object({ id: z.string().min(1), type: z.literal("tts_batch"), label: z.string().min(1) }),
+  z.object({ id: z.string().min(1), type: z.literal("lipsync_batch"), label: z.string().min(1), sourceSteps: z.array(z.string()).optional() }),
+  z.object({ id: z.string().min(1), type: z.literal("concat"), label: z.string().min(1), sourceStep: z.string().min(1).optional(), sourceSteps: z.array(z.string()).optional(), options: z.object({ subtitles: z.boolean().default(true), bgm: z.boolean().optional() }).optional() }),
+]);
+
+const InlineSkillSchema = z.object({
+  id: z.string().min(1),
+  version: z.number().int().positive(),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  confirmIfPointsOver: z.number().int().min(0).default(80),
+  steps: z.array(skillStepSchema).min(1),
+});
+
+function validateSkill(yamlContent: string): { valid: boolean; errors?: string[] } {
+  let parsed: unknown;
+  try { parsed = parseYaml(yamlContent); } catch (e) {
+    return { valid: false, errors: [`YAML 解析失败: ${(e as Error).message}`] };
+  }
+  const result = InlineSkillSchema.safeParse(parsed);
+  if (result.success) return { valid: true };
+  return { valid: false, errors: result.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`) };
+}
 
 // ─── 内存存储 ─────────────────────────────
 
@@ -56,7 +90,7 @@ skillMarketplace.post("/publish", async (c) => {
   }
 
   // 解析 YAML 获取元数据
-  const parsed = parse(body.yaml) as {
+  const parsed = parseYaml(body.yaml) as {
     id: string;
     name: string;
     description?: string;
