@@ -41,6 +41,7 @@ import {
   createCanvasEdge,
   deleteCanvasEdge,
   fetchCanvasFlow,
+  fetchCanvasFlowVersion,
   saveCanvasFlow,
   updateCanvasNode,
   deleteCanvasNode,
@@ -121,6 +122,8 @@ export function CanvasFlowCanvas({
   const [loaded, setLoaded] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPaneClickRef = useRef<number>(0);
+  const lastRemoteVersionRef = useRef<string | null>(null);
+  const localSaveInProgressRef = useRef(false);
 
   // 加载画布流数据
   useEffect(() => {
@@ -134,6 +137,9 @@ export function CanvasFlowCanvas({
         if (flow.viewport && reactFlowInstance.current) {
           reactFlowInstance.current.setViewport(flow.viewport);
         }
+        // 记录初始版本号
+        const version = await fetchCanvasFlowVersion(sessionId);
+        if (!cancelled) lastRemoteVersionRef.current = version;
       } catch {
         // 新画布：空数据即可
       }
@@ -144,6 +150,29 @@ export function CanvasFlowCanvas({
       cancelled = true;
     };
   }, [sessionId, setNodes, setEdges]);
+
+  // 实时同步：轮询版本号，变更时重新加载（Agent 后端写入场景）
+  useEffect(() => {
+    if (!loaded) return;
+    const POLL_INTERVAL = 2000; // 2秒轮询
+    const interval = window.setInterval(async () => {
+      // 本地保存中跳过，避免回环
+      if (localSaveInProgressRef.current) return;
+      try {
+        const version = await fetchCanvasFlowVersion(sessionId);
+        if (version !== lastRemoteVersionRef.current) {
+          lastRemoteVersionRef.current = version;
+          // 版本变化 → 重新加载完整画布流
+          const flow = await fetchCanvasFlow(sessionId);
+          setNodes(flow.nodes.map(toReactFlowNode));
+          setEdges(flow.edges.map(toReactFlowEdge));
+        }
+      } catch {
+        // 忽略轮询错误
+      }
+    }, POLL_INTERVAL);
+    return () => window.clearInterval(interval);
+  }, [sessionId, loaded, setNodes, setEdges]);
 
   // 防抖保存
   const debouncedSave = useCallback(
@@ -157,7 +186,17 @@ export function CanvasFlowCanvas({
             ? reactFlowInstance.current.getViewport()
             : undefined,
         };
-        void saveCanvasFlow(sessionId, flow).catch(() => {});
+        localSaveInProgressRef.current = true;
+        void saveCanvasFlow(sessionId, flow)
+          .then(async () => {
+            // 保存后更新本地版本号，避免轮询误触发重新加载
+            const version = await fetchCanvasFlowVersion(sessionId);
+            lastRemoteVersionRef.current = version;
+          })
+          .catch(() => {})
+          .finally(() => {
+            localSaveInProgressRef.current = false;
+          });
       }, 800);
     },
     [sessionId],

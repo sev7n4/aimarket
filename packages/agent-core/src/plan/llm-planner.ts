@@ -40,6 +40,7 @@ const LLM_PLAN_JSON_SCHEMA = {
           toolId: { type: "string" },
           label: { type: "string" },
           prompt: { type: "string" },
+          args: { type: "object" },
         },
       },
     },
@@ -50,6 +51,16 @@ function buildSystemPrompt(tools: PublicToolMeta[]): string {
   const toolLines = tools
     .map((t) => `- ${t.id}: ${t.name} — ${t.description}`)
     .join("\n");
+  const canvasTools = tools.filter((t) => t.id.startsWith("canvas_"));
+  const hasCanvasTools = canvasTools.length > 0;
+  const canvasGuide = hasCanvasTools
+    ? `\n7. canvas_* 工具用于在节点画布上创建/连接/更新/删除节点。使用时在 step.args 中传结构化参数：
+   - canvas_create_node: args={type:"script"|"image"|"video"|"audio"|"text", position:{x:number,y:number}, label:"标签", prompt:"关联提示词"}
+   - canvas_connect_nodes: args={sourceNodeId:"id", targetNodeId:"id"}
+   - canvas_update_node: args={nodeId:"id", label:"新标签"}
+   - canvas_delete_node: args={nodeId:"id"}
+   position 坐标用画布坐标系（右为正x，下为正y），建议节点间距 300px 水平、200px 垂直。`
+    : "";
   return `你是出图宝（电商 AI 创作）的编排 Agent。根据用户中文意图输出 JSON 执行计划。
 
 规则：
@@ -59,7 +70,7 @@ ${toolLines}
 3. 电商套图/主图/详情/上架等意图：优先多步 generate，不要单步应付。
 4. 仅抠图/扩图/消除等：用 tool 步骤。
 5. 不确定时 requiresConfirm 设为 true。
-6. 只输出 JSON，不要 markdown。`;
+6. 只输出 JSON，不要 markdown。${canvasGuide}`;
 }
 
 export async function buildLlmPlanDraft(

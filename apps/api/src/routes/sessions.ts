@@ -705,6 +705,17 @@ sessions.get("/:sessionId/canvas-flow", (c) => {
   return c.json({ data: flow });
 });
 
+/** GET /sessions/:id/canvas-flow/version — 轻量级版本号（用于增量轮询） */
+sessions.get("/:sessionId/canvas-flow/version", (c) => {
+  const userId = c.get("userId");
+  const sessionId = c.req.param("sessionId");
+  assertSessionRead(userId, sessionId);
+  const row = db
+    .prepare("SELECT updated_at FROM image_sessions WHERE id = ?")
+    .get(sessionId) as { updated_at: string } | undefined;
+  return c.json({ data: { version: row?.updated_at ?? null } });
+});
+
 /** PUT /sessions/:id/canvas-flow — 整体覆盖画布流 */
 sessions.put("/:sessionId/canvas-flow", async (c) => {
   const userId = c.get("userId");
