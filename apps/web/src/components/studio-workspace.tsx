@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Flag,
   Plus,
+  Workflow,
   X,
 } from "lucide-react";
 import { LoginDialog } from "@/components/login-dialog";
@@ -53,8 +54,9 @@ import { StudioOrchestrationProvider } from "@/components/studio-orchestration-p
 import { StudioCanvasWithOrchestration } from "@/components/studio-canvas-with-orchestration";
 import { useAuth } from "@/lib/auth-context";
 import { CanvasFlowCanvas } from "@/components/canvas-flow";
+import { CanvasFlowOverlay } from "@/components/canvas-flow-overlay";
 import { CanvasNodeCreator } from "@/components/canvas-node-creator";
-import { isCanvasFlowMode } from "@/lib/modes";
+import { isCanvasFlowMode, setCanvasFlowMode } from "@/lib/modes";
 import type { CanvasNodeType } from "@/lib/canvas-node-types";
 import {
   assetUrl,
@@ -350,6 +352,13 @@ export function StudioWorkspace({
   useEffect(() => {
     setUseCanvasFlow(isCanvasFlowMode());
   }, []);
+
+  /** 切换画布模式 */
+  const handleToggleCanvasFlow = useCallback(() => {
+    const next = !useCanvasFlow;
+    setUseCanvasFlow(next);
+    setCanvasFlowMode(next);
+  }, [useCanvasFlow]);
 
   const handleWorkspaceChange = useCallback(
     (id: string) => {
@@ -1725,15 +1734,31 @@ export function StudioWorkspace({
               </p>
             ) : null}
             {useCanvasFlow ? (
-              <CanvasFlowCanvas
-                sessionId={sessionId}
-                readOnly={readOnly}
-                onPaneDoubleClick={(pos) => {
-                  setNodeCreatorPosition(pos);
-                  setNodeCreatorOpen(true);
-                }}
-              />
+              <>
+                <CanvasFlowCanvas
+                  sessionId={sessionId}
+                  readOnly={readOnly}
+                  onPaneDoubleClick={(pos) => {
+                    setNodeCreatorPosition(pos);
+                    setNodeCreatorOpen(true);
+                  }}
+                  onNodeDoubleClick={(_nodeId, _nodeType) => {
+                    // 节点双击编辑已由节点组件内联处理
+                  }}
+                />
+                <CanvasFlowOverlay onToggleCanvas={handleToggleCanvasFlow} />
+              </>
             ) : (
+            <>
+              <button
+                type="button"
+                onClick={handleToggleCanvasFlow}
+                className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#0f0f0f]/90 px-2.5 py-1.5 text-[11px] text-zinc-400 backdrop-blur hover:border-indigo-500/40 hover:text-indigo-300 transition-colors"
+                title="切换到节点画布"
+              >
+                <Workflow className="size-3.5" />
+                节点画布
+              </button>
             <StudioCanvasWithOrchestration
               ref={canvasRef}
               items={canvasItems}
@@ -1903,6 +1928,7 @@ export function StudioWorkspace({
               }
               statusChip={<ProviderStatusChip />}
             />
+            </>
             )}
 
             {nodeCreatorOpen ? (
