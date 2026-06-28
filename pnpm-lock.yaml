@@ -16,9 +16,6 @@ importers:
       '@aimarket/agent-skills':
         specifier: workspace:*
         version: link:../../packages/agent-skills
-      '@aimarket/skill-schema':
-        specifier: workspace:*
-        version: link:../../packages/skill-schema
       '@aws-sdk/client-s3':
         specifier: ^3.826.0
         version: 3.1053.0
