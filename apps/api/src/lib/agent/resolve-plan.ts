@@ -11,6 +11,7 @@ import { buildAgentPlan } from "../planner.js";
 import { estimatePoints, estimateToolPoints } from "../pricing.js";
 import { suggestModel } from "../router.js";
 import { listToolsPublic } from "../tools.js";
+import { AGENT_CANVAS_TOOLS } from "./canvas-tools.js";
 
 const CONFIRM_POINTS_THRESHOLD = 40;
 
@@ -154,11 +155,19 @@ export async function resolveAgentPlan(
     return enrichPlan(rulePlan, "rule");
   }
 
-  const tools: PublicToolMeta[] = listToolsPublic().map((t) => ({
-    id: t.id,
-    name: t.name,
-    description: t.description,
-  }));
+  const tools: PublicToolMeta[] = [
+    ...listToolsPublic().map((t) => ({
+      id: t.id,
+      name: t.name,
+      description: t.description,
+    })),
+    // 注册画布操作工具，使 LLM 可规划 canvas_ 前缀步骤
+    ...AGENT_CANVAS_TOOLS.map((t) => ({
+      id: t.name,
+      name: t.name,
+      description: t.description,
+    })),
+  ];
 
   try {
     const draft = await buildLlmPlanDraft({

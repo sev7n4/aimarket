@@ -22,7 +22,7 @@ export function resolveDefaultVideoModelId(): string {
   if (mode === "mock") return "seedance-2";
 
   const routes = getVideoModelRoutes();
-  const preferred = ["wan-2.6", "agnes-video", "seedance-2"] as const;
+  const preferred = ["wan-2.6", "kling-3.0", "seedance-2.0", "vidu", "pixverse", "agnes-video", "seedance-2"] as const;
   for (const id of preferred) {
     const route = routes.find((r) => r.modelId === id);
     if (route?.available) return id;

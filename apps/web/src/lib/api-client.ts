@@ -1967,3 +1967,149 @@ export async function requestVideoBgmMux(body: {
   });
   return res.data;
 }
+
+// ============ 1.2 画布节点式 Flow API ============
+
+import type {
+  CanvasFlow,
+  CanvasFlowNode,
+  CanvasFlowEdge,
+  CanvasNodeType,
+} from "./canvas-node-types";
+
+/** 获取画布流 */
+export async function fetchCanvasFlow(sessionId: string) {
+  const res = await request<{ data: CanvasFlow }>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/canvas-flow`,
+  );
+  return res.data;
+}
+
+/** 整体保存画布流 */
+export async function saveCanvasFlow(sessionId: string, flow: CanvasFlow) {
+  const res = await request<{ data: CanvasFlow }>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/canvas-flow`,
+    {
+      method: "PUT",
+      body: JSON.stringify(flow),
+    },
+  );
+  return res.data;
+}
+
+/** 创建画布节点 */
+export async function createCanvasNode(
+  sessionId: string,
+  body: {
+    type: CanvasNodeType;
+    position: { x: number; y: number };
+    label?: string;
+    assetId?: string;
+  },
+) {
+  const res = await request<{ data: CanvasFlowNode }>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/canvas/nodes`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+  return res.data;
+}
+
+/** 更新画布节点 */
+export async function updateCanvasNode(
+  sessionId: string,
+  nodeId: string,
+  body: {
+    position?: { x: number; y: number };
+    label?: string;
+    params?: Record<string, unknown>;
+  },
+) {
+  const res = await request<{ data: CanvasFlowNode }>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/canvas/nodes/${encodeURIComponent(nodeId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+  return res.data;
+}
+
+/** 删除画布节点 */
+export async function deleteCanvasNode(sessionId: string, nodeId: string) {
+  const res = await request<{ data: { deleted: boolean; nodeId: string } }>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/canvas/nodes/${encodeURIComponent(nodeId)}`,
+    { method: "DELETE" },
+  );
+  return res.data;
+}
+
+/** 创建画布边 */
+export async function createCanvasEdge(
+  sessionId: string,
+  body: {
+    source: string;
+    target: string;
+    sourceHandle?: string;
+    targetHandle?: string;
+  },
+) {
+  const res = await request<{ data: CanvasFlowEdge }>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/canvas/edges`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+  return res.data;
+}
+
+/** 删除画布边 */
+export async function deleteCanvasEdge(sessionId: string, edgeId: string) {
+  const res = await request<{ data: { deleted: boolean; edgeId: string } }>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/canvas/edges/${encodeURIComponent(edgeId)}`,
+    { method: "DELETE" },
+  );
+  return res.data;
+}
+
+// ============ 12.2 画布模板 API ============
+
+import type { CanvasTemplate } from "./canvas-template";
+
+/** 保存模板 */
+export async function saveCanvasTemplate(
+  sessionId: string,
+  template: CanvasTemplate,
+) {
+  const res = await request<{ data: CanvasTemplate }>(
+    `/api/v1/imageSession/${encodeURIComponent(sessionId)}/templates`,
+    {
+      method: "POST",
+      body: JSON.stringify(template),
+    },
+  );
+  return res.data;
+}
+
+/** 获取模板列表 */
+export async function fetchCanvasTemplates(sessionId: string) {
+  const res = await request<{ data: CanvasTemplate[] }>(
+    `/api/v1/imageSession/${encodeURIComponent(sessionId)}/templates`,
+  );
+  return res.data;
+}
+
+/** 删除模板 */
+export async function deleteCanvasTemplate(
+  sessionId: string,
+  templateId: string,
+) {
+  const res = await request<{ data: { deleted: boolean; templateId: string } }>(
+    `/api/v1/imageSession/${encodeURIComponent(sessionId)}/templates/${encodeURIComponent(templateId)}`,
+    { method: "DELETE" },
+  );
+  return res.data;
+}

@@ -32,6 +32,7 @@ import {
   type ToolConfirmOptions,
   type ToolConfirmRequest,
 } from "@/components/tool-confirm-dialog";
+import { GridSplitPanel } from "@/components/grid-split-panel";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { WorkspaceProvider } from "@/lib/workspace-context";
 import {
@@ -51,6 +52,10 @@ import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
 import { StudioOrchestrationProvider } from "@/components/studio-orchestration-provider";
 import { StudioCanvasWithOrchestration } from "@/components/studio-canvas-with-orchestration";
 import { useAuth } from "@/lib/auth-context";
+import { CanvasFlowCanvas } from "@/components/canvas-flow";
+import { CanvasNodeCreator } from "@/components/canvas-node-creator";
+import { isCanvasFlowMode } from "@/lib/modes";
+import type { CanvasNodeType } from "@/lib/canvas-node-types";
 import {
   assetUrl,
   cancelJob,
@@ -126,6 +131,7 @@ const TOOL_INTERACTIONS: Record<string, SelectionToolInteraction> = {
   upscale: "direct",
   enhance: "direct",
   variation: "direct",
+  "grid-split": "direct",
   erase: "brush",
   inpaint: "brush",
   "focus-edit": "click",
@@ -335,6 +341,15 @@ export function StudioWorkspace({
     null,
   );
   const [toolConfirmPending, setToolConfirmPending] = useState(false);
+
+  /** 1.3 节点式画布模式与节点创建器 */
+  const [useCanvasFlow, setUseCanvasFlow] = useState(false);
+  const [nodeCreatorOpen, setNodeCreatorOpen] = useState(false);
+  const [nodeCreatorPosition, setNodeCreatorPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  useEffect(() => {
+    setUseCanvasFlow(isCanvasFlowMode());
+  }, []);
 
   const handleWorkspaceChange = useCallback(
     (id: string) => {
@@ -1709,6 +1724,16 @@ export function StudioWorkspace({
                 只读：他人会话，仅创建者或管理员可编辑与生成
               </p>
             ) : null}
+            {useCanvasFlow ? (
+              <CanvasFlowCanvas
+                sessionId={sessionId}
+                readOnly={readOnly}
+                onPaneDoubleClick={(pos) => {
+                  setNodeCreatorPosition(pos);
+                  setNodeCreatorOpen(true);
+                }}
+              />
+            ) : (
             <StudioCanvasWithOrchestration
               ref={canvasRef}
               items={canvasItems}
@@ -1878,6 +1903,16 @@ export function StudioWorkspace({
               }
               statusChip={<ProviderStatusChip />}
             />
+            )}
+
+            {nodeCreatorOpen ? (
+              <CanvasNodeCreator
+                sessionId={sessionId}
+                position={nodeCreatorPosition}
+                onClose={() => setNodeCreatorOpen(false)}
+                onCreated={() => setNodeCreatorOpen(false)}
+              />
+            ) : null}
 
             <StudioDock mode={dockMode} onModeChange={setDockMode}>
               <StudioCreationDock
@@ -2054,13 +2089,31 @@ export function StudioWorkspace({
             ? `${toolConfirm.tool.id}-${toolConfirm.item.id}`
             : "closed"
         }
-        request={toolConfirm}
+        request={toolConfirm?.tool.id === "grid-split" ? null : toolConfirm}
         pending={toolConfirmPending}
         onClose={() => {
           if (!toolConfirmPending) setToolConfirm(null);
         }}
         onConfirm={(opts) => void handleToolConfirm(opts)}
       />
+      {toolConfirm?.tool.id === "grid-split" ? (
+        <GridSplitPanel
+          key={`${toolConfirm.tool.id}-${toolConfirm.item.id}`}
+          tool={toolConfirm.tool}
+          item={toolConfirm.item}
+          pending={toolConfirmPending}
+          onClose={() => {
+            if (!toolConfirmPending) setToolConfirm(null);
+          }}
+          onConfirm={(opts) => {
+            // 将行列数编码到 prompt 中传递给后端
+            void handleToolConfirm({
+              count: 1,
+              prompt: `宫格切分 ${opts.rows}×${opts.cols}`,
+            });
+          }}
+        />
+      ) : null}
       <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
     </WorkspaceProvider>
   );

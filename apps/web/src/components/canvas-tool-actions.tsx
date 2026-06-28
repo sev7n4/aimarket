@@ -7,6 +7,7 @@ import {
   Crop,
   Crosshair,
   Eraser,
+  Grid3X3,
   Layers,
   Loader2,
   Maximize2,
@@ -31,6 +32,7 @@ const TOOL_ICONS: Record<string, LucideIcon> = {
   enhance: Sparkles,
   blend: Layers,
   crop: Crop,
+  "grid-split": Grid3X3,
 };
 
 const TOOL_SHORT: Record<string, string> = {
@@ -45,6 +47,7 @@ const TOOL_SHORT: Record<string, string> = {
   enhance: "变清",
   blend: "融合",
   crop: "裁剪",
+  "grid-split": "切分",
 };
 
 export function buildCanvasToolActions(opts: {

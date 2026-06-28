@@ -16,6 +16,12 @@ import { seedreamToolProvider } from "./seedream-tool.js";
 import { wanExpandToolProvider } from "./wan-expand-tool.js";
 import { upscaleHttpProvider } from "./upscale-http.js";
 import { upscaleMockProvider } from "./upscale-mock.js";
+import { multiCam9ToolProvider, multiCam25ToolProvider } from "./multi-cam-provider.js";
+import { storyboardEvolveProvider } from "./storyboard-evolve-provider.js";
+import { videoInpaintProvider } from "./video-inpaint-provider.js";
+import { gridSplitToolProvider } from "./grid-split-provider.js";
+import { turnaround360Provider } from "./turnaround-360-provider.js";
+import { urlScraperProvider } from "./url-scraper-provider.js";
 import type { ImageToolProvider, ToolRunParams, ToolRunResult } from "./types.js";
 
 /** auto 优先级：扩图 Wan → 扩图 HTTP → OpenAI 变体 → Seedream → 其他 http → mock */
@@ -31,6 +37,13 @@ const providers: ImageToolProvider[] = [
   editHttpProvider,
   editMockProvider,
   variationMockProvider,
+  multiCam9ToolProvider,
+  multiCam25ToolProvider,
+  storyboardEvolveProvider,
+  videoInpaintProvider,
+  gridSplitToolProvider,
+  turnaround360Provider,
+  urlScraperProvider,
   mockToolProvider,
 ];
 

@@ -4,6 +4,12 @@ name: MV / 创意片
 description: 60s 内单线叙事 + BGM 轨，复用短剧制作流水线（PROD-B05）
 confirmIfPointsOver: 200
 steps:
+  - id: bgm
+    type: music_gen
+    label: BGM 音乐生成
+    options:
+      defaultBpm: 120
+      defaultDurationSec: 60
   - id: char_refs
     type: character_refs
     label: 角色定稿板（三视图 Anchor First）
@@ -39,6 +45,8 @@ steps:
   - id: final_edit
     type: concat
     label: 剪辑合成（含 BGM）
-    sourceStep: lipsync
+    sourceSteps:
+      - lipsync
+      - bgm
     options:
       subtitles: true

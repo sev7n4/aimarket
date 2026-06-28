@@ -4,6 +4,7 @@ import {
   type IntentAnalysis,
   type IntentRouterInput,
 } from "./intent-router";
+import type { LightSource } from "@/components/lighting-editor";
 
 export interface ReferenceImageSources {
   assetIds: string[];
@@ -61,6 +62,8 @@ export interface DirectSubmitContext {
   submitVideo: boolean;
   submitEcommerce: boolean;
   hasReferenceImages: boolean;
+  /** 灯光控制光源数据，传递给后端 prompt 编码 */
+  lights?: LightSource[];
 }
 
 export function shouldUseSkillSubmit(ctx: DirectSubmitContext): boolean {
@@ -141,6 +144,8 @@ export interface BuildDirectSubmitInput {
   submitVideo: boolean;
   submitEcommerce: boolean;
   referenceImageSources: ReferenceImageSources;
+  /** 灯光控制光源数据，传递给后端 prompt 编码 */
+  lights?: LightSource[];
 }
 
 export function buildDirectSubmitContext(
@@ -158,6 +163,7 @@ export function buildDirectSubmitContext(
     submitVideo: input.submitVideo,
     submitEcommerce: input.submitEcommerce,
     hasReferenceImages: hasReferenceImages(input.referenceImageSources),
+    lights: input.lights,
   };
 }
 

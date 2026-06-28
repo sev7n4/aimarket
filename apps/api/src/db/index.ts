@@ -715,3 +715,10 @@ database.exec(`
     ON marketplace_skills(author_id, created_at DESC);
 `);
 
+// 1.2 节点式画布：为 image_sessions 添加 canvas_flow JSON 字段
+try {
+  database.exec(`ALTER TABLE image_sessions ADD COLUMN canvas_flow TEXT`);
+} catch {
+  /* column exists */
+}
+

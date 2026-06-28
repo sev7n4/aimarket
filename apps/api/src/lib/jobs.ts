@@ -32,6 +32,7 @@ import { enqueueJob } from "./queue/index.js";
 import type { JobQueuePayload } from "./queue/types.js";
 import { notifyAgentJobCompleted } from "./agent/job-events.js";
 import { assertEmailVerifiedForSpend } from "./email-verification.js";
+import { encodeCameraPrompt, type CameraParams } from "./camera-prompt.js";
 import { ensureThumbnail, ensureThumbnails } from "./thumbnails.js";
 import type {
   GenerationQualityTier,
@@ -359,8 +360,13 @@ export async function processGenerationJob({
             videoReferences?.some((r) => r.role === "last_frame") ?? false,
         });
 
+      // 摄像机运镜参数 → prompt 后缀
+      const cameraData = (toolContext as Record<string, unknown>)?.camera as CameraParams | undefined;
+      const cameraPromptSuffix = cameraData ? encodeCameraPrompt(cameraData) : "";
+      const effectivePrompt = cameraPromptSuffix ? `${job.prompt}。${cameraPromptSuffix}` : job.prompt;
+
       const video = await generateVideos({
-        prompt: job.prompt,
+        prompt: effectivePrompt,
         modelId: job.model_id,
         count: job.count,
         resolution: job.resolution,
