@@ -14,7 +14,7 @@ function envFlag(name: string, defaultValue = false): boolean {
 }
 
 function parseVendorList(raw: string | undefined): OrchestratorVendor[] {
-  if (!raw?.trim()) return ["deepseek", "qwen", "glm"];
+  if (!raw?.trim()) return ["deepseek", "qwen", "glm", "agnes"];
   return raw
     .split(",")
     .map((s) => s.trim().toLowerCase())
@@ -75,6 +75,17 @@ function buildProvider(vendor: OrchestratorVendor): OrchestratorProvider | null 
         apiKey,
         model:
           process.env.AGENT_LLM_CLAUDE_MODEL ?? "claude-sonnet-4-20250514",
+      });
+    }
+    case "agnes": {
+      const apiKey = process.env.AGNES_API_KEY;
+      if (!apiKey) return null;
+      return createOpenAiCompatibleProvider({
+        id: "agnes",
+        apiKey,
+        baseUrl:
+          process.env.AGNES_API_BASE_URL ?? "https://apihub.agnes-ai.com/v1",
+        model: process.env.AGENT_LLM_AGNES_MODEL ?? "agnes-2.0-flash",
       });
     }
     default:
