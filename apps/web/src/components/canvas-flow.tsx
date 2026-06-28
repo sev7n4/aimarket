@@ -47,13 +47,12 @@ import {
 } from "@/lib/api-client";
 
 /** 节点类型映射 */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const nodeTypes: NodeTypes = {
-  script: ScriptNode as any,
-  image: ImageNode as any,
-  video: VideoNode as any,
-  audio: AudioNode as any,
-  text: TextNode as any,
+  script: ScriptNode as NodeTypes[string],
+  image: ImageNode as NodeTypes[string],
+  video: VideoNode as NodeTypes[string],
+  audio: AudioNode as NodeTypes[string],
+  text: TextNode as NodeTypes[string],
 };
 
 /** 将 CanvasFlowNode 转为 React Flow Node */
