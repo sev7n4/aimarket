@@ -1980,7 +1980,7 @@ import type {
 /** 获取画布流 */
 export async function fetchCanvasFlow(sessionId: string) {
   const res = await request<{ data: CanvasFlow }>(
-    `/api/v1/sessions/${encodeURIComponent(sessionId)}/canvas-flow`,
+    `/api/v1/imageSession/${encodeURIComponent(sessionId)}/canvas-flow`,
   );
   return res.data;
 }
@@ -1990,7 +1990,7 @@ export async function fetchCanvasFlowVersion(
   sessionId: string,
 ): Promise<string | null> {
   const res = await request<{ data: { version: string | null } }>(
-    `/api/v1/sessions/${encodeURIComponent(sessionId)}/canvas-flow/version`,
+    `/api/v1/imageSession/${encodeURIComponent(sessionId)}/canvas-flow/version`,
   );
   return res.data.version;
 }
@@ -1998,7 +1998,7 @@ export async function fetchCanvasFlowVersion(
 /** 整体保存画布流 */
 export async function saveCanvasFlow(sessionId: string, flow: CanvasFlow) {
   const res = await request<{ data: CanvasFlow }>(
-    `/api/v1/sessions/${encodeURIComponent(sessionId)}/canvas-flow`,
+    `/api/v1/imageSession/${encodeURIComponent(sessionId)}/canvas-flow`,
     {
       method: "PUT",
       body: JSON.stringify(flow),
@@ -2018,7 +2018,7 @@ export async function createCanvasNode(
   },
 ) {
   const res = await request<{ data: CanvasFlowNode }>(
-    `/api/v1/sessions/${encodeURIComponent(sessionId)}/canvas/nodes`,
+    `/api/v1/imageSession/${encodeURIComponent(sessionId)}/canvas/nodes`,
     {
       method: "POST",
       body: JSON.stringify(body),
@@ -2038,7 +2038,7 @@ export async function updateCanvasNode(
   },
 ) {
   const res = await request<{ data: CanvasFlowNode }>(
-    `/api/v1/sessions/${encodeURIComponent(sessionId)}/canvas/nodes/${encodeURIComponent(nodeId)}`,
+    `/api/v1/imageSession/${encodeURIComponent(sessionId)}/canvas/nodes/${encodeURIComponent(nodeId)}`,
     {
       method: "PATCH",
       body: JSON.stringify(body),
@@ -2050,7 +2050,7 @@ export async function updateCanvasNode(
 /** 删除画布节点 */
 export async function deleteCanvasNode(sessionId: string, nodeId: string) {
   const res = await request<{ data: { deleted: boolean; nodeId: string } }>(
-    `/api/v1/sessions/${encodeURIComponent(sessionId)}/canvas/nodes/${encodeURIComponent(nodeId)}`,
+    `/api/v1/imageSession/${encodeURIComponent(sessionId)}/canvas/nodes/${encodeURIComponent(nodeId)}`,
     { method: "DELETE" },
   );
   return res.data;
@@ -2067,7 +2067,7 @@ export async function createCanvasEdge(
   },
 ) {
   const res = await request<{ data: CanvasFlowEdge }>(
-    `/api/v1/sessions/${encodeURIComponent(sessionId)}/canvas/edges`,
+    `/api/v1/imageSession/${encodeURIComponent(sessionId)}/canvas/edges`,
     {
       method: "POST",
       body: JSON.stringify(body),
@@ -2079,7 +2079,7 @@ export async function createCanvasEdge(
 /** 删除画布边 */
 export async function deleteCanvasEdge(sessionId: string, edgeId: string) {
   const res = await request<{ data: { deleted: boolean; edgeId: string } }>(
-    `/api/v1/sessions/${encodeURIComponent(sessionId)}/canvas/edges/${encodeURIComponent(edgeId)}`,
+    `/api/v1/imageSession/${encodeURIComponent(sessionId)}/canvas/edges/${encodeURIComponent(edgeId)}`,
     { method: "DELETE" },
   );
   return res.data;
