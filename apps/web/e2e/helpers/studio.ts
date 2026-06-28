@@ -12,6 +12,8 @@ export async function skipStudioCoach(page: Page) {
     localStorage.setItem("aimarket_studio_coach_v2", "1");
     localStorage.setItem("aimarket_studio_mobile_coach_v1", "1");
     localStorage.setItem("aimarket_studio_dock_mode_v1", "expanded");
+    // E2E 用例基于 scroll-canvas 编写，强制关闭节点画布模式
+    localStorage.setItem("aimarket_canvas_flow", "0");
   });
 }
 
