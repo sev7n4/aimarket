@@ -48,6 +48,7 @@ import { imageTask } from "./routes/imageTask.js";
 import { video } from "./routes/video.js";
 import { uploadCompat } from "./routes/upload-compat.js";
 import { open } from "./routes/open.js";
+import { mcpRoute } from "./routes/mcp.js";
 import { requireApiKey } from "./middleware/api-key.js";
 import {
   marketplace,
@@ -114,6 +115,9 @@ app.use(
 
 app.route("/api/v1/product/webhook", productWebhook);
 app.route("/api/v1/internal/agent", skillInternal);
+
+/** P4.5: Canvas MCP server (Streamable HTTP) — 同源鉴权（Bearer user token） */
+app.route("/api/v1/mcp", mcpRoute);
 
 app.route("/api/v1/auth", auth);
 app.route("/api/v1/share", share);
