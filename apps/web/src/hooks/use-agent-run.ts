@@ -48,15 +48,35 @@ export function useAgentRun({
     }
   }, []);
 
+  // SSE 订阅 Agent Run 状态变更（替代 1.2s 轮询）
   useEffect(() => {
     if (!run?.id || TERMINAL.has(run.status)) return;
     const id = run.id;
-    const tick = window.setInterval(() => {
-      void fetchAgentRun(id)
-        .then(syncRun)
-        .catch(() => {});
-    }, 1200);
-    return () => window.clearInterval(tick);
+    let fallbackTick: number | null = null;
+    const es = new EventSource(`/api/v1/agent/runs/${id}/stream`);
+    es.addEventListener("state", (e: MessageEvent) => {
+      try {
+        const next = JSON.parse(e.data) as AgentRun;
+        syncRun(next);
+      } catch {
+        // 忽略解析错误
+      }
+    });
+    es.onerror = () => {
+      // SSE 连接断开时 fallback 到轮询
+      es.close();
+      if (fallbackTick === null) {
+        fallbackTick = window.setInterval(() => {
+          void fetchAgentRun(id)
+            .then(syncRun)
+            .catch(() => {});
+        }, 2000);
+      }
+    };
+    return () => {
+      es.close();
+      if (fallbackTick !== null) window.clearInterval(fallbackTick);
+    };
   }, [run?.id, run?.status, syncRun]);
 
   const startRun = useCallback(

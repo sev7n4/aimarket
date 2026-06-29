@@ -25,6 +25,11 @@ test.describe("smoke", () => {
   });
 
   test("首页提交后 Studio 显示流式进度", async ({ page }) => {
+    await page.addInitScript(() => {
+      // E2E 用例基于 scroll-canvas 编写，强制关闭节点画布模式
+      localStorage.setItem("aimarket_canvas_flow", "0");
+      localStorage.setItem("aimarket_studio_coach_v2", "1");
+    });
     await registerViaEmail(page, { emailPrefix: "e2e_stream" });
 
     const homePanel = page.locator("#home-creation");

@@ -1,17 +1,30 @@
 "use client";
 
-import { memo } from "react";
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { memo, useState, useCallback } from "react";
+import {
+  Handle,
+  Position,
+  useReactFlow,
+  type NodeProps,
+} from "@xyflow/react";
 import { FileCode } from "lucide-react";
 import type { CanvasNodeData } from "@/lib/canvas-node-types";
 import { NODE_DEFAULT_PORTS } from "@/lib/canvas-node-types";
 
-/** 脚本节点：显示 label + prompt 输入 */
-function ScriptNodeComponent({ data, selected }: NodeProps) {
+/** 脚本节点：显示 label + prompt，双击可内联编辑 */
+function ScriptNodeComponent({ id, data, selected }: NodeProps) {
   const nodeData = data as unknown as CanvasNodeData;
   const ports = NODE_DEFAULT_PORTS.script;
   const inputPorts = ports.filter((p) => p.type === "input");
   const outputPorts = ports.filter((p) => p.type === "output");
+  const { updateNodeData } = useReactFlow();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(nodeData.prompt ?? "");
+
+  const handleSave = useCallback(() => {
+    updateNodeData(id, { ...nodeData, prompt: draft });
+    setEditing(false);
+  }, [id, draft, nodeData, updateNodeData]);
 
   return (
     <div
@@ -35,10 +48,40 @@ function ScriptNodeComponent({ data, selected }: NodeProps) {
         <span className="text-xs font-medium text-zinc-200">{nodeData.label}</span>
       </div>
 
-      {nodeData.prompt ? (
-        <p className="text-[10px] text-zinc-400 line-clamp-3 mb-1">{nodeData.prompt}</p>
+      {editing ? (
+        <div className="mb-1">
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={handleSave}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSave();
+              }
+              if (e.key === "Escape") {
+                setDraft(nodeData.prompt ?? "");
+                setEditing(false);
+              }
+            }}
+            className="w-full resize-none rounded border border-violet-500/40 bg-[#1a1a1a] px-2 py-1 text-[10px] text-zinc-200 outline-none focus:border-violet-500"
+            rows={4}
+            placeholder="输入 prompt..."
+          />
+          <p className="mt-0.5 text-[8px] text-zinc-600">Enter 保存 · Esc 取消</p>
+        </div>
       ) : (
-        <p className="text-[10px] text-zinc-600 italic mb-1">输入 prompt...</p>
+        <p
+          className="cursor-text text-[10px] text-zinc-400 line-clamp-3 mb-1"
+          onDoubleClick={() => {
+            setDraft(nodeData.prompt ?? "");
+            setEditing(true);
+          }}
+          title="双击编辑"
+        >
+          {nodeData.prompt || "双击输入 prompt..."}
+        </p>
       )}
 
       {outputPorts.map((port, i) => (

@@ -5,6 +5,7 @@ import { skipStudioCoach } from "./helpers/studio";
 const MOBILE_VIEWPORT = { width: 390, height: 844 };
 
 async function registerAndLogin(page: import("@playwright/test").Page) {
+  await skipStudioCoach(page);
   return registerViaEmail(page, { emailPrefix: "e2e_mobile" });
 }
 

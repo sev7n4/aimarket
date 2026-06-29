@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { streamSSE } from "hono/streaming";
 import type { AuthVariables } from "../middleware/auth.js";
 import { getAgentRunApiView, startAgentRun } from "../lib/agent/runner.js";
 import { createAgentRun, getAgentRun, updateAgentRun } from "../lib/agent/runs.js";
@@ -69,6 +70,78 @@ agent.get("/runs/:id", async (c) => {
     throw new AppError(404, "NOT_FOUND", "Agent Run 不存在");
   }
   return c.json({ data: view });
+});
+
+/** GET /runs/:id/stream — SSE 实时推送 Agent Run 状态变更 */
+agent.get("/runs/:id/stream", (c) => {
+  const userId = c.get("userId");
+  const runId = c.req.param("id");
+
+  // 验证 run 存在且属于用户
+  const existing = getAgentRun(userId, runId);
+  if (!existing) {
+    throw new AppError(404, "NOT_FOUND", "Agent Run 不存在");
+  }
+
+  const TERMINAL = new Set(["completed", "failed", "cancelled"]);
+  const POLL_MS = 800;
+  const MAX_MS = 600_000; // 10 分钟超时
+
+  return streamSSE(c, async (stream) => {
+    let lastUpdatedAt = existing.updated_at;
+    const deadline = Date.now() + MAX_MS;
+
+    // 发送初始状态
+    const initialView = getAgentRunApiView(userId, runId);
+    if (initialView) {
+      await stream.writeSSE({
+        event: "state",
+        data: JSON.stringify(initialView),
+      });
+      if (TERMINAL.has(initialView.status)) return;
+    }
+
+    // 轮询 DB 变更并推送
+    await new Promise<void>((resolve) => {
+      const interval = setInterval(async () => {
+        if (Date.now() > deadline) {
+          clearInterval(interval);
+          resolve();
+          return;
+        }
+        try {
+          const row = getAgentRun(userId, runId);
+          if (!row) {
+            clearInterval(interval);
+            resolve();
+            return;
+          }
+          if (row.updated_at !== lastUpdatedAt) {
+            lastUpdatedAt = row.updated_at;
+            const view = getAgentRunApiView(userId, runId);
+            if (view) {
+              await stream.writeSSE({
+                event: "state",
+                data: JSON.stringify(view),
+              });
+              if (TERMINAL.has(view.status)) {
+                clearInterval(interval);
+                resolve();
+              }
+            }
+          }
+        } catch {
+          // 忽略单次轮询错误
+        }
+      }, POLL_MS);
+
+      // 客户端断开连接时清理
+      stream.onAbort(() => {
+        clearInterval(interval);
+        resolve();
+      });
+    });
+  });
 });
 
 agent.post("/runs/:id/confirm", async (c) => {
