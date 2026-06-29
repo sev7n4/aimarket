@@ -574,7 +574,7 @@ sessions.post("/:sessionId/canvas/nodes", async (c) => {
   assertSessionWrite(userId, sessionId);
 
   const body = z.object({
-    type: z.enum(["script", "image", "video", "audio", "text"]),
+    type: z.enum(["script", "image", "video", "audio", "text", "output"]),
     position: z.object({ x: z.number(), y: z.number() }),
     label: z.string().max(100).optional(),
     assetId: z.string().uuid().optional(),
@@ -588,7 +588,14 @@ sessions.post("/:sessionId/canvas/nodes", async (c) => {
     position: body.position,
     data: {
       type: body.type,
-      label: body.label ?? (body.type === "script" ? "脚本" : body.type === "image" ? "图片" : body.type === "video" ? "视频" : body.type === "audio" ? "音频" : "文本"),
+      label: body.label ?? (
+        body.type === "script" ? "脚本"
+          : body.type === "image" ? "图片"
+          : body.type === "video" ? "视频"
+          : body.type === "audio" ? "音频"
+          : body.type === "output" ? "输出"
+          : "文本"
+      ),
       assetId: body.assetId,
     },
   };
@@ -662,6 +669,7 @@ sessions.post("/:sessionId/canvas/edges", async (c) => {
     target: z.string().min(1).max(80),
     sourceHandle: z.string().max(40).optional(),
     targetHandle: z.string().max(40).optional(),
+    kind: z.enum(["reference", "trigger"]).optional(),
   }).parse(await c.req.json());
 
   const flow = loadCanvasFlow(sessionId);
@@ -672,6 +680,7 @@ sessions.post("/:sessionId/canvas/edges", async (c) => {
     target: body.target,
     sourceHandle: body.sourceHandle,
     targetHandle: body.targetHandle,
+    kind: body.kind ?? "trigger",
   };
   flow.edges.push(edge);
   saveCanvasFlow(sessionId, flow);
