@@ -19,10 +19,15 @@ import {
   Undo2,
   Redo2,
   Copy,
+  Grid3x3,
+  Minus,
+  Eye,
 } from "lucide-react";
 import { useStudioOrchestrationOptional } from "@/components/studio-orchestration-provider";
 import type { OrchestrationTimelineEvent } from "@/lib/canvas-timeline";
 import type { CanvasFlowHandle } from "@/components/canvas-flow";
+
+type BackgroundMode = "dots" | "lines" | "blank";
 
 interface CanvasFlowOverlayProps {
   onToggleCanvas: () => void;
@@ -58,6 +63,13 @@ export function CanvasFlowOverlay({
     return canvasRef.current.subscribeHistory(setHistoryState);
   }, [canvasRef]);
 
+  /** P4.3: 背景主题状态（订阅 CanvasFlow 变化） */
+  const [backgroundMode, setBackgroundMode] = useState<BackgroundMode>("dots");
+  useEffect(() => {
+    if (!canvasRef?.current?.subscribeBackground) return;
+    return canvasRef.current.subscribeBackground(setBackgroundMode);
+  }, [canvasRef]);
+
   const zoomPercent = Math.round(zoom * 100);
   const handleZoomIn = () => canvasRef?.current?.zoomBy(1);
   const handleZoomOut = () => canvasRef?.current?.zoomBy(-1);
@@ -65,6 +77,7 @@ export function CanvasFlowOverlay({
   const handleUndo = () => canvasRef?.current?.undo();
   const handleRedo = () => canvasRef?.current?.redo();
   const handleCopy = () => canvasRef?.current?.copy();
+  const handleSetBackground = (mode: BackgroundMode) => canvasRef?.current?.setBackgroundMode(mode);
 
   return (
     <>
@@ -175,6 +188,52 @@ export function CanvasFlowOverlay({
             title="适配视图（0）"
           >
             <Maximize2 className="size-3.5" />
+          </button>
+        </div>
+      ) : null}
+
+      {/* P4.3: 右下角：背景主题切换（dots/lines/blank） */}
+      {canvasRef ? (
+        <div
+          data-testid="canvas-background-controls"
+          className="absolute bottom-3 right-3 z-20 flex items-center gap-0.5 rounded-lg border border-white/10 bg-[#0f0f0f]/90 p-0.5 backdrop-blur"
+          title="背景主题"
+        >
+          <button
+            type="button"
+            onClick={() => handleSetBackground("dots")}
+            className={`flex size-7 items-center justify-center rounded transition-colors ${
+              backgroundMode === "dots"
+                ? "bg-indigo-500/20 text-indigo-300"
+                : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+            }`}
+            title="点状背景"
+          >
+            <Grid3x3 className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSetBackground("lines")}
+            className={`flex size-7 items-center justify-center rounded transition-colors ${
+              backgroundMode === "lines"
+                ? "bg-indigo-500/20 text-indigo-300"
+                : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+            }`}
+            title="线状背景"
+          >
+            <Minus className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSetBackground("blank")}
+            className={`flex size-7 items-center justify-center rounded transition-colors ${
+              backgroundMode === "blank"
+                ? "bg-indigo-500/20 text-indigo-300"
+                : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+            }`}
+            title="无背景"
+          >
+            <Eye className="size-3.5" />
           </button>
         </div>
       ) : null}

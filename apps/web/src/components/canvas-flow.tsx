@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
   forwardRef,
@@ -33,6 +34,12 @@ import {
   newCanvasEdgeId,
   readClipboard,
 } from "@/lib/canvas-clipboard";
+import {
+  readCanvasBackgroundMode,
+  writeCanvasBackgroundMode,
+  type CanvasBackgroundMode,
+} from "@/lib/canvas-background-mode";
+import { computeRelatedNodeIds } from "@/lib/canvas-related-nodes";
 
 import { ScriptNode } from "@/components/canvas-nodes/script-node";
 import { ImageNode } from "@/components/canvas-nodes/image-node";
@@ -160,6 +167,12 @@ export interface CanvasFlowHandle {
   paste: () => void;
   /** P4.2: 订阅历史状态变化 */
   subscribeHistory: (cb: (state: { canUndo: boolean; canRedo: boolean }) => void) => () => void;
+  /** P4.3: 设置背景主题（dots/lines/blank） */
+  setBackgroundMode: (mode: "dots" | "lines" | "blank") => void;
+  /** P4.3: 订阅背景主题变化 */
+  subscribeBackground: (cb: (mode: "dots" | "lines" | "blank") => void) => () => void;
+  /** P4.3: 获取当前背景主题 */
+  getBackgroundMode: () => "dots" | "lines" | "blank";
 }
 
 /**
@@ -193,6 +206,68 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
   const history = useCanvasHistory({
     initial: { nodes: [], edges: [] },
   });
+
+  /** P4.3: 背景主题（dots/lines/blank），从 localStorage 恢复 */
+  const [backgroundMode, setBackgroundModeState] = useState<CanvasBackgroundMode>(
+    () => readCanvasBackgroundMode(typeof window === "undefined" ? null : window.localStorage),
+  );
+
+  /** P4.4: related-node focus 焦点节点（null = 全部高亮） */
+  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
+
+  /** P4.4: 派生展示用 nodes/edges，focus 模式下非相关元素降透明度 */
+  const displayNodes = useMemo(() => {
+    if (!focusedNodeId) return nodes;
+    const related = computeRelatedNodeIds(focusedNodeId, edges);
+    return nodes.map((n) => {
+      if (related.has(n.id)) return n;
+      return {
+        ...n,
+        style: {
+          ...(n.style ?? {}),
+          opacity: 0.18,
+          transition: "opacity 200ms",
+        },
+        className: `${n.className ?? ""} canvas-dimmed`.trim(),
+      };
+    });
+  }, [nodes, edges, focusedNodeId]);
+
+  const displayEdges = useMemo(() => {
+    if (!focusedNodeId) return edges;
+    const related = computeRelatedNodeIds(focusedNodeId, edges);
+    return edges.map((e) => {
+      const isRelated = related.has(e.source) && related.has(e.target);
+      if (isRelated) return e;
+      return {
+        ...e,
+        animated: false,
+        style: {
+          ...(e.style ?? {}),
+          opacity: 0.08,
+        },
+      };
+    });
+  }, [edges, focusedNodeId]);
+
+  /** P4.3: 设置背景模式（写入 localStorage） */
+  const setBackgroundMode = useCallback((mode: CanvasBackgroundMode) => {
+    setBackgroundModeState(mode);
+    writeCanvasBackgroundMode(
+      typeof window === "undefined" ? null : window.localStorage,
+      mode,
+    );
+  }, []);
+
+  /** P4.3: 背景主题订阅者 */
+  const backgroundSubscribersRef = useRef<Set<(mode: "dots" | "lines" | "blank") => void>>(
+    new Set(),
+  );
+
+  // 当 backgroundMode 变化时通知订阅者
+  useEffect(() => {
+    backgroundSubscribersRef.current.forEach((cb) => cb(backgroundMode));
+  }, [backgroundMode]);
 
   /** 提交当前快照到历史（带抑制开关） */
   const commitHistory = useCallback(() => {
@@ -506,8 +581,22 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
       subscribeHistory: (cb: (state: { canUndo: boolean; canRedo: boolean }) => void) => {
         return history.subscribe((s) => cb({ canUndo: s.canUndo, canRedo: s.canRedo }));
       },
+      /** P4.3: 设置背景主题 */
+      setBackgroundMode: (mode: "dots" | "lines" | "blank") => {
+        setBackgroundMode(mode);
+      },
+      /** P4.3: 订阅背景主题 */
+      subscribeBackground: (cb: (mode: "dots" | "lines" | "blank") => void) => {
+        backgroundSubscribersRef.current.add(cb);
+        cb(backgroundMode);
+        return () => {
+          backgroundSubscribersRef.current.delete(cb);
+        };
+      },
+      /** P4.3: 获取当前背景主题 */
+      getBackgroundMode: () => backgroundMode,
     }),
-    [handleAutoLayout, notifyZoom, currentZoom, handleUndo, handleRedo, handleCopy, handlePaste, history],
+    [handleAutoLayout, notifyZoom, currentZoom, handleUndo, handleRedo, handleCopy, handlePaste, history, setBackgroundMode, backgroundMode],
   );
 
   // 加载画布流数据
@@ -782,6 +871,8 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
   // 画布空白点击（检测双击以触发节点创建器）
   const handlePaneClick = useCallback(
     (event: React.MouseEvent | MouseEvent) => {
+      // P4.4: 点击空白处清除 related-node focus
+      setFocusedNodeId(null);
       if (!reactFlowInstance.current || !onPaneDoubleClick) return;
       const now = Date.now();
       if (now - lastPaneClickRef.current < 350) {
@@ -799,6 +890,23 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
     [onPaneDoubleClick],
   );
 
+  // P4.4: 选中变化时设置焦点节点（驱动 related-node 高亮）
+  const handleSelectionChange = useCallback(
+    ({ nodes: selected }: { nodes: Node[]; edges: Edge[] }) => {
+      const selectedIds = selected
+        .filter((n) => n.selected)
+        .map((n) => n.id);
+      if (selectedIds.length === 0) {
+        setFocusedNodeId(null);
+        return;
+      }
+      // 焦点节点：取最新选中的（最后一个）
+      const focusId = selectedIds[selectedIds.length - 1] ?? null;
+      setFocusedNodeId(focusId);
+    },
+    [],
+  );
+
   if (!loaded) {
     return (
       <div className="flex h-full items-center justify-center text-zinc-500 text-xs">
@@ -810,8 +918,8 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
   return (
     <div className="h-full w-full">
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        nodes={displayNodes}
+        edges={displayEdges}
         onNodesChange={readOnly ? undefined : handleNodesChange}
         onEdgesChange={readOnly ? undefined : handleEdgesChange}
         onConnect={readOnly ? undefined : onConnect}
@@ -822,6 +930,8 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
         isValidConnection={isValidConnectionFn}
         onNodeDoubleClick={handleNodeDoubleClick}
         onPaneClick={readOnly ? undefined : handlePaneClick}
+        /** P4.4: 选中变化时驱动 related-node focus */
+        onSelectionChange={readOnly ? undefined : handleSelectionChange}
         /** P4.1: 视口变化时通知订阅者（overlay 实时缩放百分比） */
         onMove={(_e, viewport) => {
           notifyZoom(viewport.zoom);
@@ -848,8 +958,14 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
         }}
       >
         <Background
-          /** P4.1: 网格随视口平移（dots 模式） */
-          variant={BackgroundVariant.Dots}
+          /** P4.3: 背景主题（dots/lines/blank 可切换，持久化到 localStorage） */
+          variant={
+            backgroundMode === "dots"
+              ? BackgroundVariant.Dots
+              : backgroundMode === "lines"
+                ? BackgroundVariant.Lines
+                : BackgroundVariant.Cross
+          }
           color="#1f1f3a"
           gap={24}
           size={1.2}
@@ -859,6 +975,9 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
         />
         <MiniMap
           className="!border-white/10 !bg-[#0f0f0f]"
+          /** P4.3: 让 mini-map 可拖动跳转 + 滚轮缩放 */
+          pannable
+          zoomable
           nodeColor={(node) => {
             const colors: Record<string, string> = {
               script: "#8b5cf6",
