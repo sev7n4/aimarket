@@ -16,6 +16,9 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Undo2,
+  Redo2,
+  Copy,
 } from "lucide-react";
 import { useStudioOrchestrationOptional } from "@/components/studio-orchestration-provider";
 import type { OrchestrationTimelineEvent } from "@/lib/canvas-timeline";
@@ -48,15 +51,60 @@ export function CanvasFlowOverlay({
     return canvasRef.current.subscribeZoom(setZoom);
   }, [canvasRef]);
 
+  /** P4.2: 撤销/重做可用性（订阅 history） */
+  const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
+  useEffect(() => {
+    if (!canvasRef?.current?.subscribeHistory) return;
+    return canvasRef.current.subscribeHistory(setHistoryState);
+  }, [canvasRef]);
+
   const zoomPercent = Math.round(zoom * 100);
   const handleZoomIn = () => canvasRef?.current?.zoomBy(1);
   const handleZoomOut = () => canvasRef?.current?.zoomBy(-1);
   const handleFit = () => canvasRef?.current?.fitView();
+  const handleUndo = () => canvasRef?.current?.undo();
+  const handleRedo = () => canvasRef?.current?.redo();
+  const handleCopy = () => canvasRef?.current?.copy();
 
   return (
     <>
       {/* 右上角：工具栏组 */}
       <div className="absolute right-3 top-3 z-20 flex items-center gap-1.5">
+        {canvasRef ? (
+          <div
+            data-testid="canvas-history-controls"
+            className="flex items-center gap-0.5 rounded-lg border border-white/10 bg-[#0f0f0f]/90 p-0.5 backdrop-blur"
+            title="撤销/重做（Ctrl+Z / Ctrl+Shift+Z）"
+          >
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={!historyState.canUndo}
+              className="flex size-7 items-center justify-center rounded text-zinc-400 hover:bg-white/5 hover:text-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed"
+              title="撤销（Ctrl+Z）"
+            >
+              <Undo2 className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleRedo}
+              disabled={!historyState.canRedo}
+              className="flex size-7 items-center justify-center rounded text-zinc-400 hover:bg-white/5 hover:text-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed"
+              title="重做（Ctrl+Shift+Z）"
+            >
+              <Redo2 className="size-3.5" />
+            </button>
+            <div className="mx-0.5 h-4 w-px bg-white/10" />
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="flex size-7 items-center justify-center rounded text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+              title="复制选中节点（Ctrl+C）"
+            >
+              <Copy className="size-3.5" />
+            </button>
+          </div>
+        ) : null}
         {onOpenCommandPalette ? (
           <button
             type="button"

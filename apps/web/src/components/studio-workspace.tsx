@@ -385,6 +385,48 @@ export function StudioWorkspace({
     return () => window.removeEventListener("keydown", onKey);
   }, [useCanvasFlow]);
 
+  /** P4.2 快捷键：Ctrl/Cmd+Z 撤销 / Shift+Ctrl/Cmd+Z 重做 / Ctrl/Cmd+C 复制 / Ctrl/Cmd+V 粘贴 */
+  useEffect(() => {
+    if (!useCanvasFlow) return;
+    function onKey(e: KeyboardEvent) {
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      const isInTextField =
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        (e.target as HTMLElement | null)?.isContentEditable;
+      // 文本字段内只允许原生撤销/重做
+      if (isInTextField) return;
+      const key = e.key.toLowerCase();
+      // Z 撤销/重做
+      if (key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        canvasFlowRef.current?.undo();
+        return;
+      }
+      if ((key === "z" && e.shiftKey) || key === "y") {
+        e.preventDefault();
+        canvasFlowRef.current?.redo();
+        return;
+      }
+      // C 复制
+      if (key === "c" && !e.shiftKey) {
+        e.preventDefault();
+        canvasFlowRef.current?.copy();
+        return;
+      }
+      // V 粘贴
+      if (key === "v" && !e.shiftKey) {
+        e.preventDefault();
+        canvasFlowRef.current?.paste();
+        return;
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [useCanvasFlow]);
+
   const handleWorkspaceChange = useCallback(
     (id: string) => {
       setActiveWorkspaceId(id);

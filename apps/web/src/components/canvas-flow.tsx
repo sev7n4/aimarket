@@ -27,6 +27,12 @@ import {
   type Viewport,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { useCanvasHistory } from "@/lib/canvas-history";
+import {
+  copyNodesToClipboard,
+  newCanvasEdgeId,
+  readClipboard,
+} from "@/lib/canvas-clipboard";
 
 import { ScriptNode } from "@/components/canvas-nodes/script-node";
 import { ImageNode } from "@/components/canvas-nodes/image-node";
@@ -43,6 +49,7 @@ import {
 } from "@/lib/canvas-node-types";
 import {
   createCanvasEdge,
+  createCanvasNode,
   deleteCanvasEdge,
   fetchCanvasFlow,
   fetchCanvasFlowVersion,
@@ -143,6 +150,16 @@ export interface CanvasFlowHandle {
   fitView: () => void;
   /** 订阅缩放级别变化（用于 overlay 实时显示） */
   subscribeZoom: (cb: (zoom: number) => void) => () => void;
+  /** P4.2: 撤销 */
+  undo: () => void;
+  /** P4.2: 重做 */
+  redo: () => void;
+  /** P4.2: 复制选中节点到剪贴板 */
+  copy: () => void;
+  /** P4.2: 粘贴剪贴板内容到视口中心 */
+  paste: () => void;
+  /** P4.2: 订阅历史状态变化 */
+  subscribeHistory: (cb: (state: { canUndo: boolean; canRedo: boolean }) => void) => () => void;
 }
 
 /**
@@ -170,6 +187,18 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
   const zoomSubscribersRef = useRef<Set<(zoom: number) => void>>(new Set());
   // 当前缓存的视口（避免每次都读 ref）
   const [currentZoom, setCurrentZoom] = useState(1);
+  // 抑制历史 commit 的开关：远程拉取/undo/redo/load 期间不写入历史
+  const suppressHistoryRef = useRef(false);
+  // P4.2: 撤销/重做历史栈
+  const history = useCanvasHistory({
+    initial: { nodes: [], edges: [] },
+  });
+
+  /** 提交当前快照到历史（带抑制开关） */
+  const commitHistory = useCallback(() => {
+    if (suppressHistoryRef.current) return;
+    history.commit({ nodes, edges });
+  }, [history, nodes, edges]);
 
   /** 通知所有订阅者 */
   const notifyZoom = useCallback((zoom: number) => {
@@ -208,6 +237,194 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
       reactFlowInstance.current?.fitView({ padding: 0.2, duration: 400 });
     });
   }, [nodes, edges, setNodes, sessionId]);
+
+  // P4.2: 撤销（恢复历史快照）
+  const handleUndo = useCallback(() => {
+    const snapshot = history.undo();
+    if (!snapshot) return;
+    // 抑制历史写入
+    suppressHistoryRef.current = true;
+    setNodes(snapshot.nodes);
+    setEdges(snapshot.edges);
+    queueMicrotask(() => {
+      suppressHistoryRef.current = false;
+    });
+    // 持久化到后端
+    if (reactFlowInstance.current) {
+      const flow: CanvasFlow = {
+        nodes: snapshot.nodes.map(fromReactFlowNode),
+        edges: snapshot.edges.map(fromReactFlowEdge),
+        viewport: reactFlowInstance.current.getViewport(),
+      };
+      localSaveInProgressRef.current = true;
+      void saveCanvasFlow(sessionId, flow)
+        .then(async () => {
+          const version = await fetchCanvasFlowVersion(sessionId);
+          lastRemoteVersionRef.current = version;
+        })
+        .catch(() => {})
+        .finally(() => {
+          localSaveInProgressRef.current = false;
+        });
+    }
+  }, [history, sessionId]);
+
+  // P4.2: 重做（恢复历史快照）
+  const handleRedo = useCallback(() => {
+    const snapshot = history.redo();
+    if (!snapshot) return;
+    suppressHistoryRef.current = true;
+    setNodes(snapshot.nodes);
+    setEdges(snapshot.edges);
+    queueMicrotask(() => {
+      suppressHistoryRef.current = false;
+    });
+    if (reactFlowInstance.current) {
+      const flow: CanvasFlow = {
+        nodes: snapshot.nodes.map(fromReactFlowNode),
+        edges: snapshot.edges.map(fromReactFlowEdge),
+        viewport: reactFlowInstance.current.getViewport(),
+      };
+      localSaveInProgressRef.current = true;
+      void saveCanvasFlow(sessionId, flow)
+        .then(async () => {
+          const version = await fetchCanvasFlowVersion(sessionId);
+          lastRemoteVersionRef.current = version;
+        })
+        .catch(() => {})
+        .finally(() => {
+          localSaveInProgressRef.current = false;
+        });
+    }
+  }, [history, sessionId]);
+
+  // P4.2: 复制选中节点
+  const handleCopy = useCallback(async () => {
+    const selected = nodes
+      .filter((n) => n.selected)
+      .map((n) => n.id);
+    if (selected.length === 0) return;
+    await copyNodesToClipboard(nodes, edges, selected);
+  }, [nodes, edges]);
+
+  // P4.2: 粘贴（创建新节点/边，offset 位置避免重叠）
+  const handlePaste = useCallback(async () => {
+    const payload = await readClipboard();
+    if (!payload || payload.nodes.length === 0) return;
+    const OFFSET = 40;
+    // 计算视口中心
+    const inst0 = reactFlowInstance.current;
+    let center = { x: 0, y: 0 };
+    if (inst0) {
+      const dom = document.querySelector(".react-flow") as HTMLElement | null;
+      if (dom) {
+        const rect = dom.getBoundingClientRect();
+        center = inst0.screenToFlowPosition({
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        });
+      }
+    }
+
+    // 1) 顺序调用 createCanvasNode，获取服务端真实 ID
+    const newNodes: Node[] = [];
+    const oldToNewId = new Map<number, string>(); // payload index → 服务端 ID
+    for (let i = 0; i < payload.nodes.length; i++) {
+      const original = payload.nodes[i]!;
+      const originalData = original.data as Record<string, unknown>;
+      const position = {
+        x: center.x + i * OFFSET * 4,
+        y: center.y + i * OFFSET * 4,
+      };
+      try {
+        const created = await createCanvasNode(sessionId, {
+          type: original.type as CanvasNodeType,
+          position,
+          label:
+            typeof originalData.label === "string"
+              ? originalData.label
+              : undefined,
+        });
+        oldToNewId.set(i, created.id);
+        newNodes.push({
+          id: created.id,
+          type: original.type,
+          position,
+          data: originalData,
+        });
+        // 写入扩展字段（prompt/params/assetId）
+        if (
+          originalData.prompt ||
+          originalData.params ||
+          originalData.assetId
+        ) {
+          const params: Record<string, unknown> = {};
+          if (originalData.prompt) params.prompt = originalData.prompt;
+          if (originalData.params) params.params = originalData.params;
+          if (originalData.assetId) params.assetId = originalData.assetId;
+          await updateCanvasNode(sessionId, created.id, { params }).catch(
+            () => {},
+          );
+        }
+      } catch {
+        // 单个失败不阻塞其他节点
+      }
+    }
+
+    // 2) 创建边（用服务端真实 ID 重新连接）
+    const newEdges: Edge[] = [];
+    for (const e of payload.edges) {
+      const sourceId = oldToNewId.get(e.sourceIndex);
+      const targetId = oldToNewId.get(e.targetIndex);
+      if (!sourceId || !targetId) continue;
+      const edgeId = newCanvasEdgeId();
+      const newEdge: Edge = {
+        id: edgeId,
+        source: sourceId,
+        target: targetId,
+        sourceHandle: e.sourceHandle ?? undefined,
+        targetHandle: e.targetHandle ?? undefined,
+        type: "smoothstep",
+        animated: e.kind !== "reference",
+        style: {
+          stroke: e.kind === "reference" ? "#71717a" : "#6366f1",
+          strokeWidth: 2,
+          strokeDasharray: e.kind === "reference" ? "6 4" : undefined,
+          opacity: e.kind === "reference" ? 0.7 : 1,
+        },
+        data: { kind: e.kind ?? "trigger" },
+      };
+      newEdges.push(newEdge);
+      try {
+        await createCanvasEdge(sessionId, {
+          source: newEdge.source,
+          target: newEdge.target,
+          sourceHandle: newEdge.sourceHandle ?? undefined,
+          targetHandle: newEdge.targetHandle ?? undefined,
+        });
+      } catch {
+        // 忽略
+      }
+    }
+
+    // 3) 抑制历史写入，一次性 commit
+    suppressHistoryRef.current = true;
+    setNodes((prev) => [...prev, ...newNodes]);
+    setEdges((prev) => [...prev, ...newEdges]);
+    queueMicrotask(() => {
+      suppressHistoryRef.current = false;
+    });
+
+    // 4) 提交历史
+    queueMicrotask(() => {
+      const inst = reactFlowInstance.current;
+      if (inst) {
+        history.commit({ nodes: inst.getNodes(), edges: inst.getEdges() });
+      } else {
+        history.commit({ nodes: newNodes, edges: newEdges });
+      }
+    });
+  }, [sessionId, history]);
 
   // 暴露方法给父组件（overlay 一键整理、缩放、视口控制等）
   useImperativeHandle(
@@ -269,8 +486,28 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
           zoomSubscribersRef.current.delete(cb);
         };
       },
+      /** P4.2: 撤销 */
+      undo: () => {
+        handleUndo();
+      },
+      /** P4.2: 重做 */
+      redo: () => {
+        handleRedo();
+      },
+      /** P4.2: 复制选中节点 */
+      copy: () => {
+        void handleCopy();
+      },
+      /** P4.2: 粘贴 */
+      paste: () => {
+        void handlePaste();
+      },
+      /** P4.2: 订阅历史状态（overlay 撤销/重做按钮可用性） */
+      subscribeHistory: (cb: (state: { canUndo: boolean; canRedo: boolean }) => void) => {
+        return history.subscribe((s) => cb({ canUndo: s.canUndo, canRedo: s.canRedo }));
+      },
     }),
-    [handleAutoLayout, notifyZoom, currentZoom],
+    [handleAutoLayout, notifyZoom, currentZoom, handleUndo, handleRedo, handleCopy, handlePaste, history],
   );
 
   // 加载画布流数据
@@ -280,16 +517,33 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
       try {
         const flow = await fetchCanvasFlow(sessionId);
         if (cancelled) return;
-        setNodes(flow.nodes.map(toReactFlowNode));
-        setEdges(flow.edges.map(toReactFlowEdge));
+        const loadedNodes = flow.nodes.map(toReactFlowNode);
+        const loadedEdges = flow.edges.map(toReactFlowEdge);
+        // 加载期间抑制历史写入
+        suppressHistoryRef.current = true;
+        setNodes(loadedNodes);
+        setEdges(loadedEdges);
+        // 重置历史栈：present = 加载后的快照
+        history.reset({ nodes: loadedNodes, edges: loadedEdges });
+        // 同步设置视口
         if (flow.viewport && reactFlowInstance.current) {
           reactFlowInstance.current.setViewport(flow.viewport);
+          notifyZoom(flow.viewport.zoom);
         }
         // 记录初始版本号
         const version = await fetchCanvasFlowVersion(sessionId);
         if (!cancelled) lastRemoteVersionRef.current = version;
+        // 释放抑制
+        queueMicrotask(() => {
+          suppressHistoryRef.current = false;
+        });
       } catch {
         // 新画布：空数据即可
+        suppressHistoryRef.current = true;
+        history.reset({ nodes: [], edges: [] });
+        queueMicrotask(() => {
+          suppressHistoryRef.current = false;
+        });
       }
       setLoaded(true);
     }
@@ -297,7 +551,8 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
     return () => {
       cancelled = true;
     };
-  }, [sessionId, setNodes, setEdges]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
 
   // 实时同步：轮询版本号，变更时重新加载（Agent 后端写入场景）
   useEffect(() => {
@@ -312,15 +567,24 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
           lastRemoteVersionRef.current = version;
           // 版本变化 → 重新加载完整画布流
           const flow = await fetchCanvasFlow(sessionId);
-          setNodes(flow.nodes.map(toReactFlowNode));
-          setEdges(flow.edges.map(toReactFlowEdge));
+          const newNodes = flow.nodes.map(toReactFlowNode);
+          const newEdges = flow.edges.map(toReactFlowEdge);
+          // 抑制历史写入（远程拉取）
+          suppressHistoryRef.current = true;
+          setNodes(newNodes);
+          setEdges(newEdges);
+          history.reset({ nodes: newNodes, edges: newEdges });
+          queueMicrotask(() => {
+            suppressHistoryRef.current = false;
+          });
         }
       } catch {
         // 忽略轮询错误
       }
     }, POLL_INTERVAL);
     return () => window.clearInterval(interval);
-  }, [sessionId, loaded, setNodes, setEdges]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, loaded]);
 
   // 防抖保存
   const debouncedSave = useCallback(
@@ -370,6 +634,16 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
             }).catch(() => {});
           }
         }
+        // P4.2: 拖拽完成提交历史
+        queueMicrotask(() => {
+          if (suppressHistoryRef.current) return;
+          const inst = reactFlowInstance.current;
+          if (inst) {
+            history.commit({ nodes: inst.getNodes(), edges: inst.getEdges() });
+          } else {
+            commitHistory();
+          }
+        });
       }
       // 删除节点
       const removeChanges = changes.filter((c) => c.type === "remove");
@@ -378,8 +652,20 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
           void deleteCanvasNode(sessionId, rc.id).catch(() => {});
         }
       }
+      // P4.2: 删除节点后提交历史
+      if (removeChanges.length > 0) {
+        queueMicrotask(() => {
+          if (suppressHistoryRef.current) return;
+          const inst = reactFlowInstance.current;
+          if (inst) {
+            history.commit({ nodes: inst.getNodes(), edges: inst.getEdges() });
+          } else {
+            commitHistory();
+          }
+        });
+      }
     },
-    [onNodesChange, sessionId, nodes],
+    [onNodesChange, sessionId, nodes, history, commitHistory],
   );
 
   // 边变化时同步
@@ -392,8 +678,20 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
           void deleteCanvasEdge(sessionId, rc.id).catch(() => {});
         }
       }
+      // P4.2: 删除边后提交历史
+      if (removeChanges.length > 0) {
+        queueMicrotask(() => {
+          if (suppressHistoryRef.current) return;
+          const inst = reactFlowInstance.current;
+          if (inst) {
+            history.commit({ nodes: inst.getNodes(), edges: inst.getEdges() });
+          } else {
+            commitHistory();
+          }
+        });
+      }
     },
-    [onEdgesChange, sessionId],
+    [onEdgesChange, sessionId, history, commitHistory],
   );
 
   // 连线创建
@@ -438,8 +736,19 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
         sourceHandle: connection.sourceHandle ?? undefined,
         targetHandle: connection.targetHandle ?? undefined,
       }).catch(() => {});
+
+      // P4.2: 连线创建后提交历史
+      queueMicrotask(() => {
+        if (suppressHistoryRef.current) return;
+        const inst = reactFlowInstance.current;
+        if (inst) {
+          history.commit({ nodes: inst.getNodes(), edges: inst.getEdges() });
+        } else {
+          history.commit({ nodes, edges: newEdge });
+        }
+      });
     },
-    [nodes, edges, setEdges, sessionId],
+    [nodes, edges, setEdges, sessionId, history],
   );
 
   // 连线验证回调
