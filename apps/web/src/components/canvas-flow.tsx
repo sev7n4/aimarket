@@ -3,8 +3,10 @@
 import {
   useCallback,
   useEffect,
+  useImperativeHandle,
   useRef,
   useState,
+  forwardRef,
 } from "react";
 import {
   ReactFlow,
@@ -46,6 +48,7 @@ import {
   updateCanvasNode,
   deleteCanvasNode,
 } from "@/lib/api-client";
+import { autoLayout } from "@/lib/canvas-layout";
 
 /** 节点类型映射 */
 const nodeTypes: NodeTypes = {
@@ -76,25 +79,40 @@ function fromReactFlowNode(n: Node): CanvasFlowNode {
   };
 }
 
-/** 将 CanvasFlowEdge 转为 React Flow Edge */
+/** 将 CanvasFlowEdge 转为 React Flow Edge（带 kind 语义样式） */
 function toReactFlowEdge(e: CanvasFlowEdge): Edge {
+  const kind = e.kind ?? "trigger";
+  const isReference = kind === "reference";
   return {
     id: e.id,
     source: e.source,
     target: e.target,
     sourceHandle: e.sourceHandle,
     targetHandle: e.targetHandle,
+    type: "smoothstep",
+    animated: !isReference,
+    style: {
+      stroke: isReference ? "#71717a" : "#6366f1",
+      strokeWidth: 2,
+      strokeDasharray: isReference ? "6 4" : undefined,
+      opacity: isReference ? 0.7 : 1,
+    },
+    data: { kind },
   };
 }
 
 /** 将 React Flow Edge 转为 CanvasFlowEdge */
 function fromReactFlowEdge(e: Edge): CanvasFlowEdge {
+  const kind =
+    (e.data as { kind?: "reference" | "trigger" } | undefined)?.kind ??
+    "trigger";
   return {
     id: e.id,
     source: e.source,
     target: e.target,
     sourceHandle: e.sourceHandle ?? undefined,
     targetHandle: e.targetHandle ?? undefined,
+    kind,
   };
 }
 
@@ -106,16 +124,26 @@ interface CanvasFlowProps {
   onPaneDoubleClick?: (position: { x: number; y: number }) => void;
 }
 
+export interface CanvasFlowHandle {
+  /** 触发 dagre 自动布局 */
+  autoLayout: () => void;
+  /** 获取画布当前中心点的 flow 坐标（用于 slash 命令面板创建节点位置） */
+  getCenterPosition: () => { x: number; y: number };
+}
+
 /**
  * 1.3 画布流组件：包装 React Flow，配置节点类型映射，
  * 处理连线验证、API 同步等逻辑
  */
-export function CanvasFlowCanvas({
-  sessionId,
-  readOnly = false,
-  onNodeDoubleClick,
-  onPaneDoubleClick,
-}: CanvasFlowProps) {
+export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(function CanvasFlowCanvas(
+  {
+    sessionId,
+    readOnly = false,
+    onNodeDoubleClick,
+    onPaneDoubleClick,
+  },
+  ref,
+) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
@@ -124,6 +152,55 @@ export function CanvasFlowCanvas({
   const lastPaneClickRef = useRef<number>(0);
   const lastRemoteVersionRef = useRef<string | null>(null);
   const localSaveInProgressRef = useRef(false);
+
+  // dagre 自动布局：仅在客户端运行时可用
+  const handleAutoLayout = useCallback(() => {
+    if (nodes.length === 0) return;
+    const laid = autoLayout(nodes, edges, { direction: "LR" });
+    setNodes(laid);
+    // 立即同步到后端
+    if (reactFlowInstance.current) {
+      const flow: CanvasFlow = {
+        nodes: laid.map(fromReactFlowNode),
+        edges: edges.map(fromReactFlowEdge),
+        viewport: reactFlowInstance.current.getViewport(),
+      };
+      localSaveInProgressRef.current = true;
+      void saveCanvasFlow(sessionId, flow)
+        .then(async () => {
+          const version = await fetchCanvasFlowVersion(sessionId);
+          lastRemoteVersionRef.current = version;
+        })
+        .catch(() => {})
+        .finally(() => {
+          localSaveInProgressRef.current = false;
+        });
+    }
+    // 触发 fitView
+    requestAnimationFrame(() => {
+      reactFlowInstance.current?.fitView({ padding: 0.2, duration: 400 });
+    });
+  }, [nodes, edges, setNodes, sessionId]);
+
+  // 暴露方法给父组件（overlay 一键整理按钮）
+  useImperativeHandle(
+    ref,
+    () => ({
+      autoLayout: handleAutoLayout,
+      getCenterPosition: () => {
+        const inst = reactFlowInstance.current;
+        if (!inst) return { x: 0, y: 0 };
+        const dom = document.querySelector(".react-flow") as HTMLElement | null;
+        if (!dom) return { x: 0, y: 0 };
+        const rect = dom.getBoundingClientRect();
+        return inst.screenToFlowPosition({
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        });
+      },
+    }),
+    [handleAutoLayout],
+  );
 
   // 加载画布流数据
   useEffect(() => {
@@ -395,4 +472,4 @@ export function CanvasFlowCanvas({
       </ReactFlow>
     </div>
   );
-}
+});

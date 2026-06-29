@@ -1,15 +1,29 @@
 "use client";
 
-import { Workflow, ListTree, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import {
+  Workflow,
+  ListTree,
+  LayoutGrid,
+  Terminal,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
 import { useStudioOrchestrationOptional } from "@/components/studio-orchestration-provider";
 import type { OrchestrationTimelineEvent } from "@/lib/canvas-timeline";
 
 interface CanvasFlowOverlayProps {
   onToggleCanvas: () => void;
+  onAutoLayout?: () => void;
+  onOpenCommandPalette?: () => void;
 }
 
-/** 节点画布模式下的浮动覆盖层：编排时间线 + 画布切换 */
-export function CanvasFlowOverlay({ onToggleCanvas }: CanvasFlowOverlayProps) {
+/** 节点画布模式下的浮动覆盖层：编排时间线 + 画布切换 + 工具栏 */
+export function CanvasFlowOverlay({
+  onToggleCanvas,
+  onAutoLayout,
+  onOpenCommandPalette,
+}: CanvasFlowOverlayProps) {
   const ctx = useStudioOrchestrationOptional();
 
   const timeline = ctx?.timelineEvent ?? null;
@@ -17,16 +31,43 @@ export function CanvasFlowOverlay({ onToggleCanvas }: CanvasFlowOverlayProps) {
 
   return (
     <>
-      {/* 右上角：画布模式切换 */}
-      <button
-        type="button"
-        onClick={onToggleCanvas}
-        className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#0f0f0f]/90 px-2.5 py-1.5 text-[11px] text-zinc-400 backdrop-blur hover:border-indigo-500/40 hover:text-indigo-300 transition-colors"
-        title="切换到列表画布"
-      >
-        <ListTree className="size-3.5" />
-        列表视图
-      </button>
+      {/* 右上角：工具栏组 */}
+      <div className="absolute right-3 top-3 z-20 flex items-center gap-1.5">
+        {onOpenCommandPalette ? (
+          <button
+            type="button"
+            onClick={onOpenCommandPalette}
+            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#0f0f0f]/90 px-2.5 py-1.5 text-[11px] text-zinc-400 backdrop-blur hover:border-indigo-500/40 hover:text-indigo-300 transition-colors"
+            title="打开命令面板（/）"
+          >
+            <Terminal className="size-3.5" />
+            <span>
+              <kbd className="rounded bg-white/5 px-1 text-[10px]">/</kbd>{" "}
+              命令
+            </span>
+          </button>
+        ) : null}
+        {onAutoLayout ? (
+          <button
+            type="button"
+            onClick={onAutoLayout}
+            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#0f0f0f]/90 px-2.5 py-1.5 text-[11px] text-zinc-400 backdrop-blur hover:border-indigo-500/40 hover:text-indigo-300 transition-colors"
+            title="一键整理节点布局"
+          >
+            <LayoutGrid className="size-3.5" />
+            一键整理
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={onToggleCanvas}
+          className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#0f0f0f]/90 px-2.5 py-1.5 text-[11px] text-zinc-400 backdrop-blur hover:border-indigo-500/40 hover:text-indigo-300 transition-colors"
+          title="切换到列表画布"
+        >
+          <ListTree className="size-3.5" />
+          列表视图
+        </button>
+      </div>
 
       {/* 顶部中央：编排时间线 */}
       {timeline ? (

@@ -3,8 +3,14 @@
  * 定义节点式无限画布的核心类型，与 React Flow 集成。
  */
 
-/** 五种节点类型 */
-export type CanvasNodeType = "script" | "image" | "video" | "audio" | "text";
+/** 六种节点类型 */
+export type CanvasNodeType =
+  | "script"
+  | "image"
+  | "video"
+  | "audio"
+  | "text"
+  | "output";
 
 /** 节点端口：输入/输出连接点 */
 export interface CanvasNodePort {
@@ -38,6 +44,8 @@ export interface CanvasFlowEdge {
   target: string;
   sourceHandle?: string;
   targetHandle?: string;
+  /** 边语义：reference（参考，灰色虚线）/ trigger（触发，紫色实线）。默认 trigger。 */
+  kind?: "reference" | "trigger";
 }
 
 /** 画布流完整结构 */
@@ -75,6 +83,9 @@ export const NODE_DEFAULT_PORTS: Record<CanvasNodeType, CanvasNodePort[]> = {
   text: [
     { id: "output-0", type: "output", label: "输出" },
   ],
+  output: [
+    { id: "input-0", type: "input", label: "输入" },
+  ],
 };
 
 /** 节点类型中文标签 */
@@ -84,6 +95,7 @@ export const NODE_TYPE_LABELS: Record<CanvasNodeType, string> = {
   video: "视频",
   audio: "音频",
   text: "文本",
+  output: "输出",
 };
 
 /** 节点类型说明 */
@@ -93,6 +105,7 @@ export const NODE_TYPE_DESCRIPTIONS: Record<CanvasNodeType, string> = {
   video: "视频节点，输出视频与音频双轨",
   audio: "音频节点，提供音频源",
   text: "文本节点，输入纯文本内容",
+  output: "输出节点，Agent Run 完成后展示最终产物",
 };
 
 /**

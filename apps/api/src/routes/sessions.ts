@@ -498,10 +498,10 @@ sessions.get("/:sessionId/export", (c) => {
 
 const canvasFlowNodeSchema = z.object({
   id: z.string().min(1).max(80),
-  type: z.enum(["script", "image", "video", "audio", "text"]),
+  type: z.enum(["script", "image", "video", "audio", "text", "output"]),
   position: z.object({ x: z.number(), y: z.number() }),
   data: z.object({
-    type: z.enum(["script", "image", "video", "audio", "text"]),
+    type: z.enum(["script", "image", "video", "audio", "text", "output"]),
     label: z.string().max(100),
     assetId: z.string().uuid().optional(),
     outputId: z.string().uuid().optional(),
@@ -516,6 +516,7 @@ const canvasFlowEdgeSchema = z.object({
   target: z.string().min(1).max(80),
   sourceHandle: z.string().max(40).optional(),
   targetHandle: z.string().max(40).optional(),
+  kind: z.enum(["reference", "trigger"]).optional(),
 });
 
 const canvasFlowSchema = z.object({

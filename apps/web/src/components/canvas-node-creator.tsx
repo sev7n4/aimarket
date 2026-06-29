@@ -7,6 +7,7 @@ import {
   Video,
   Music,
   Type,
+  Sparkles,
 } from "lucide-react";
 import type { CanvasNodeType } from "@/lib/canvas-node-types";
 import {
@@ -22,6 +23,7 @@ const NODE_ICONS: Record<CanvasNodeType, typeof FileCode> = {
   video: Video,
   audio: Music,
   text: Type,
+  output: Sparkles,
 };
 
 /** 节点类型颜色 */
@@ -31,9 +33,17 @@ const NODE_COLORS: Record<CanvasNodeType, string> = {
   video: "text-cyan-400 border-cyan-500/30 hover:border-cyan-500/60 hover:bg-cyan-500/10",
   audio: "text-green-400 border-green-500/30 hover:border-green-500/60 hover:bg-green-500/10",
   text: "text-amber-400 border-amber-500/30 hover:border-amber-500/60 hover:bg-amber-500/10",
+  output: "text-pink-400 border-pink-500/30 hover:border-pink-500/60 hover:bg-pink-500/10",
 };
 
-const NODE_TYPES: CanvasNodeType[] = ["script", "image", "video", "audio", "text"];
+const NODE_TYPES: CanvasNodeType[] = [
+  "script",
+  "image",
+  "video",
+  "audio",
+  "text",
+  "output",
+];
 
 interface CanvasNodeCreatorProps {
   sessionId: string;
