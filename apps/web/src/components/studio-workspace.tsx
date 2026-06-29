@@ -53,9 +53,10 @@ import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
 import { StudioOrchestrationProvider } from "@/components/studio-orchestration-provider";
 import { StudioCanvasWithOrchestration } from "@/components/studio-canvas-with-orchestration";
 import { useAuth } from "@/lib/auth-context";
-import { CanvasFlowCanvas } from "@/components/canvas-flow";
+import { CanvasFlowCanvas, type CanvasFlowHandle } from "@/components/canvas-flow";
 import { CanvasFlowOverlay } from "@/components/canvas-flow-overlay";
 import { CanvasNodeCreator } from "@/components/canvas-node-creator";
+import { CanvasCommandPalette } from "@/components/canvas-command-palette";
 import { isCanvasFlowMode, setCanvasFlowMode } from "@/lib/modes";
 import type { CanvasNodeType } from "@/lib/canvas-node-types";
 import {
@@ -348,6 +349,9 @@ export function StudioWorkspace({
   const [useCanvasFlow, setUseCanvasFlow] = useState(false);
   const [nodeCreatorOpen, setNodeCreatorOpen] = useState(false);
   const [nodeCreatorPosition, setNodeCreatorPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  /** P3.2 Slash 命令面板 */
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const canvasFlowRef = useRef<CanvasFlowHandle>(null);
 
   useEffect(() => {
     setUseCanvasFlow(isCanvasFlowMode());
@@ -358,6 +362,27 @@ export function StudioWorkspace({
     const next = !useCanvasFlow;
     setUseCanvasFlow(next);
     setCanvasFlowMode(next);
+  }, [useCanvasFlow]);
+
+  /** P3.2 Slash 快捷键：在节点画布中按 / 打开命令面板 */
+  useEffect(() => {
+    if (!useCanvasFlow) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "/") return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      // 输入框内不触发
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        (e.target as HTMLElement | null)?.isContentEditable
+      ) {
+        return;
+      }
+      e.preventDefault();
+      setCommandPaletteOpen(true);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [useCanvasFlow]);
 
   const handleWorkspaceChange = useCallback(
@@ -1736,6 +1761,7 @@ export function StudioWorkspace({
             {useCanvasFlow ? (
               <>
                 <CanvasFlowCanvas
+                  ref={canvasFlowRef}
                   sessionId={sessionId}
                   readOnly={readOnly}
                   onPaneDoubleClick={(pos) => {
@@ -1746,7 +1772,11 @@ export function StudioWorkspace({
                     // 节点双击编辑已由节点组件内联处理
                   }}
                 />
-                <CanvasFlowOverlay onToggleCanvas={handleToggleCanvasFlow} />
+                <CanvasFlowOverlay
+                  onToggleCanvas={handleToggleCanvasFlow}
+                  onAutoLayout={() => canvasFlowRef.current?.autoLayout()}
+                  onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+                />
               </>
             ) : (
             <>
@@ -1937,6 +1967,16 @@ export function StudioWorkspace({
                 position={nodeCreatorPosition}
                 onClose={() => setNodeCreatorOpen(false)}
                 onCreated={() => setNodeCreatorOpen(false)}
+              />
+            ) : null}
+
+            {commandPaletteOpen && useCanvasFlow ? (
+              <CanvasCommandPalette
+                open={commandPaletteOpen}
+                sessionId={sessionId}
+                position={canvasFlowRef.current?.getCenterPosition() ?? { x: 0, y: 0 }}
+                onClose={() => setCommandPaletteOpen(false)}
+                onCreated={() => setCommandPaletteOpen(false)}
               />
             ) : null}
 
