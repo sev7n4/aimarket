@@ -1,6 +1,11 @@
 "use client";
 
 import {
+  useEffect,
+  useState,
+  type RefObject,
+} from "react";
+import {
   Workflow,
   ListTree,
   LayoutGrid,
@@ -8,14 +13,20 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
 } from "lucide-react";
 import { useStudioOrchestrationOptional } from "@/components/studio-orchestration-provider";
 import type { OrchestrationTimelineEvent } from "@/lib/canvas-timeline";
+import type { CanvasFlowHandle } from "@/components/canvas-flow";
 
 interface CanvasFlowOverlayProps {
   onToggleCanvas: () => void;
   onAutoLayout?: () => void;
   onOpenCommandPalette?: () => void;
+  /** P4.1: 画布 ref，用于缩放/适配/实时缩放订阅 */
+  canvasRef?: RefObject<CanvasFlowHandle | null>;
 }
 
 /** 节点画布模式下的浮动覆盖层：编排时间线 + 画布切换 + 工具栏 */
@@ -23,11 +34,24 @@ export function CanvasFlowOverlay({
   onToggleCanvas,
   onAutoLayout,
   onOpenCommandPalette,
+  canvasRef,
 }: CanvasFlowOverlayProps) {
   const ctx = useStudioOrchestrationOptional();
 
   const timeline = ctx?.timelineEvent ?? null;
   const actions = ctx?.timelineActions ?? null;
+
+  /** P4.1: 实时缩放百分比（订阅 CanvasFlow 的 onMove） */
+  const [zoom, setZoom] = useState(1);
+  useEffect(() => {
+    if (!canvasRef?.current?.subscribeZoom) return;
+    return canvasRef.current.subscribeZoom(setZoom);
+  }, [canvasRef]);
+
+  const zoomPercent = Math.round(zoom * 100);
+  const handleZoomIn = () => canvasRef?.current?.zoomBy(1);
+  const handleZoomOut = () => canvasRef?.current?.zoomBy(-1);
+  const handleFit = () => canvasRef?.current?.fitView();
 
   return (
     <>
@@ -68,6 +92,44 @@ export function CanvasFlowOverlay({
           列表视图
         </button>
       </div>
+
+      {/* P4.1: 左下角：缩放控制 + 实时百分比 */}
+      {canvasRef ? (
+        <div
+          data-testid="canvas-zoom-controls"
+          className="absolute bottom-3 left-3 z-20 flex items-center gap-1 rounded-lg border border-white/10 bg-[#0f0f0f]/90 p-1 backdrop-blur"
+          title="缩放控制（也可按住 Space + 滚轮）"
+        >
+          <button
+            type="button"
+            onClick={handleZoomOut}
+            className="flex size-7 items-center justify-center rounded text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+            title="缩小（-）"
+          >
+            <ZoomOut className="size-3.5" />
+          </button>
+          <div className="min-w-[44px] text-center text-[10px] font-mono text-zinc-500">
+            {zoomPercent}%
+          </div>
+          <button
+            type="button"
+            onClick={handleZoomIn}
+            className="flex size-7 items-center justify-center rounded text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+            title="放大（+）"
+          >
+            <ZoomIn className="size-3.5" />
+          </button>
+          <div className="mx-0.5 h-4 w-px bg-white/10" />
+          <button
+            type="button"
+            onClick={handleFit}
+            className="flex size-7 items-center justify-center rounded text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+            title="适配视图（0）"
+          >
+            <Maximize2 className="size-3.5" />
+          </button>
+        </div>
+      ) : null}
 
       {/* 顶部中央：编排时间线 */}
       {timeline ? (

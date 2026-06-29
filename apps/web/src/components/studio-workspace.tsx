@@ -1776,6 +1776,7 @@ export function StudioWorkspace({
                   onToggleCanvas={handleToggleCanvasFlow}
                   onAutoLayout={() => canvasFlowRef.current?.autoLayout()}
                   onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+                  canvasRef={canvasFlowRef}
                 />
               </>
             ) : (

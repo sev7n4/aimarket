@@ -11,6 +11,7 @@ import {
 import {
   ReactFlow,
   Background,
+  BackgroundVariant,
   Controls,
   MiniMap,
   addEdge,
@@ -23,6 +24,7 @@ import {
   type OnNodesChange,
   type OnEdgesChange,
   type ReactFlowInstance,
+  type Viewport,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -129,6 +131,18 @@ export interface CanvasFlowHandle {
   autoLayout: () => void;
   /** 获取画布当前中心点的 flow 坐标（用于 slash 命令面板创建节点位置） */
   getCenterPosition: () => { x: number; y: number };
+  /** 获取当前视口（x, y, zoom） */
+  getViewport: () => Viewport;
+  /** 设置缩放级别（用于 overlay 缩放按钮） */
+  setZoom: (zoom: number) => void;
+  /** 缩放步进（delta>0 放大，<0 缩小） */
+  zoomBy: (delta: number) => void;
+  /** 平移视口到指定中心点（flow 坐标） */
+  panTo: (position: { x: number; y: number }) => void;
+  /** 适配视图（与 fitView 相同） */
+  fitView: () => void;
+  /** 订阅缩放级别变化（用于 overlay 实时显示） */
+  subscribeZoom: (cb: (zoom: number) => void) => () => void;
 }
 
 /**
@@ -152,6 +166,19 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
   const lastPaneClickRef = useRef<number>(0);
   const lastRemoteVersionRef = useRef<string | null>(null);
   const localSaveInProgressRef = useRef(false);
+  // 缩放订阅者：overlay 实时显示缩放百分比
+  const zoomSubscribersRef = useRef<Set<(zoom: number) => void>>(new Set());
+  // 当前缓存的视口（避免每次都读 ref）
+  const [currentZoom, setCurrentZoom] = useState(1);
+
+  /** 通知所有订阅者 */
+  const notifyZoom = useCallback((zoom: number) => {
+    setCurrentZoom((prev) => {
+      if (Math.abs(prev - zoom) < 0.001) return prev;
+      return zoom;
+    });
+    zoomSubscribersRef.current.forEach((cb) => cb(zoom));
+  }, []);
 
   // dagre 自动布局：仅在客户端运行时可用
   const handleAutoLayout = useCallback(() => {
@@ -182,7 +209,7 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
     });
   }, [nodes, edges, setNodes, sessionId]);
 
-  // 暴露方法给父组件（overlay 一键整理按钮）
+  // 暴露方法给父组件（overlay 一键整理、缩放、视口控制等）
   useImperativeHandle(
     ref,
     () => ({
@@ -198,8 +225,52 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
           y: rect.top + rect.height / 2,
         });
       },
+      getViewport: () => {
+        return reactFlowInstance.current?.getViewport() ?? { x: 0, y: 0, zoom: 1 };
+      },
+      setZoom: (zoom: number) => {
+        const inst = reactFlowInstance.current;
+        if (!inst) return;
+        const v = inst.getViewport();
+        inst.setViewport({ ...v, zoom });
+        notifyZoom(zoom);
+      },
+      zoomBy: (delta: number) => {
+        const inst = reactFlowInstance.current;
+        if (!inst) return;
+        const v = inst.getViewport();
+        const next = Math.max(0.05, Math.min(4, v.zoom * (delta > 0 ? 1.2 : 1 / 1.2)));
+        inst.setViewport({ ...v, zoom: next });
+        notifyZoom(next);
+      },
+      panTo: (position: { x: number; y: number }) => {
+        const inst = reactFlowInstance.current;
+        if (!inst) return;
+        const dom = document.querySelector(".react-flow") as HTMLElement | null;
+        if (!dom) return;
+        const rect = dom.getBoundingClientRect();
+        const v = inst.getViewport();
+        // 让目标 flow 坐标出现在视口中心
+        // 关系: screen = flow * zoom + viewportOffset
+        //  => viewportOffset = centerScreen - flow * zoom
+        inst.setViewport({
+          x: rect.width / 2 - position.x * v.zoom,
+          y: rect.height / 2 - position.y * v.zoom,
+          zoom: v.zoom,
+        });
+      },
+      fitView: () => {
+        reactFlowInstance.current?.fitView({ padding: 0.2, duration: 400 });
+      },
+      subscribeZoom: (cb: (zoom: number) => void) => {
+        zoomSubscribersRef.current.add(cb);
+        cb(currentZoom);
+        return () => {
+          zoomSubscribersRef.current.delete(cb);
+        };
+      },
     }),
-    [handleAutoLayout],
+    [handleAutoLayout, notifyZoom, currentZoom],
   );
 
   // 加载画布流数据
@@ -442,8 +513,24 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
         isValidConnection={isValidConnectionFn}
         onNodeDoubleClick={handleNodeDoubleClick}
         onPaneClick={readOnly ? undefined : handlePaneClick}
+        /** P4.1: 视口变化时通知订阅者（overlay 实时缩放百分比） */
+        onMove={(_e, viewport) => {
+          notifyZoom(viewport.zoom);
+        }}
+        /** P4.1: 视口平移/缩放结束时持久化视口（修复视口不保存的 bug） */
+        onMoveEnd={() => {
+          debouncedSave(nodes, edges);
+        }}
         fitView
         deleteKeyCode={readOnly ? null : "Delete"}
+        /** P4.1: 真正无限画布：5% - 400% 缩放范围 */
+        minZoom={0.05}
+        maxZoom={4}
+        /** P4.1: 平移/选择/缩放默认行为（drag=pan, shift+drag=box-select, wheel=zoom） */
+        panOnDrag
+        selectionOnDrag={false}
+        zoomOnScroll
+        panOnScroll={false}
         className="bg-[#080808]"
         defaultEdgeOptions={{
           type: "smoothstep",
@@ -451,7 +538,13 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
           style: { stroke: "#6366f1", strokeWidth: 2 },
         }}
       >
-        <Background color="#1a1a2e" gap={20} />
+        <Background
+          /** P4.1: 网格随视口平移（dots 模式） */
+          variant={BackgroundVariant.Dots}
+          color="#1f1f3a"
+          gap={24}
+          size={1.2}
+        />
         <Controls
           className="!border-white/10 !bg-[#0f0f0f] [&>button]:!border-white/10 [&>button]:!bg-[#0f0f0f] [&>button]:!fill-zinc-400"
         />
@@ -464,6 +557,7 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
               video: "#06b6d4",
               audio: "#22c55e",
               text: "#f59e0b",
+              output: "#ec4899",
             };
             return colors[node.type ?? "script"] ?? "#6366f1";
           }}
