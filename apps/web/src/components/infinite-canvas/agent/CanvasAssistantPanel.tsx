@@ -5,7 +5,7 @@ import { Bot, Loader2, PanelRightClose } from "lucide-react";
 
 import { canvasTheme } from "../canvas-theme";
 import { cn } from "@aimarket/ui";
-import type { CanvasAgentSnapshot } from "../utils";
+import type { CanvasAgentOp, CanvasAgentSnapshot } from "../utils";
 import type { OrchestratorMessage, OrchestratorToolCall } from "./types";
 import {
   ALL_AGENT_TOOLS,
@@ -109,8 +109,8 @@ export function CanvasAssistantPanel({
       nodeCount: snapshotRef.current.nodes.length,
     });
 
-    let step = 1;
-    let isFirstStep = true;
+    const step = 1;
+    const isFirstStep = true;
     let pendingCalls: { toolCalls: OrchestratorToolCall[]; step: number } | null = null;
 
     const handleToolPending = (toolCalls: OrchestratorToolCall[], s: number) => {
@@ -249,13 +249,11 @@ export function CanvasAssistantPanel({
       });
 
       // Apply ops
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const allOps = results
         .filter((r) => r.ok && r.data?.ops)
-        .flatMap((r) => (r.data?.ops as any[]) ?? []);
+        .flatMap((r) => (r.data?.ops as CanvasAgentOp[]) ?? []);
       if (allOps.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onApplyOps(allOps as any);
+        onApplyOps(allOps);
       }
 
       // Continue with tool results in messages
@@ -336,10 +334,9 @@ export function CanvasAssistantPanel({
 
         const allOps2 = results2
           .filter((r) => r.ok && r.data?.ops)
-          .flatMap((r) => (r.data?.ops as any[]) ?? []);
+          .flatMap((r) => (r.data?.ops as CanvasAgentOp[]) ?? []);
         if (allOps2.length > 0) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onApplyOps(allOps2 as any);
+          onApplyOps(allOps2);
         }
 
         // Update messages with tool results
