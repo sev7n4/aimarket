@@ -37,6 +37,13 @@ import { assetUrl } from "@/lib/api-client";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { ArrowLeft, Columns2 } from "lucide-react";
 import type { StudioTool } from "@/lib/types";
+import { InfiniteCanvasContainer } from "@/components/infinite-canvas/InfiniteCanvasContainer";
+import {
+  canvasItemsToNodeData,
+  nodeDataToCanvasItems,
+  buildConnectionsFromItems,
+} from "@/components/infinite-canvas/migration";
+import type { CanvasNodeData, CanvasConnection, ViewportTransform } from "@/components/infinite-canvas/types";
 
 export interface DesignCanvasHandle {
   fitToItem: (itemId: string) => void;
@@ -141,6 +148,8 @@ interface DesignCanvasProps {
   onDownloadItem?: (item: CanvasItem) => void;
   onShareItem?: (item: CanvasItem) => void;
   onPublishItem?: (item: CanvasItem) => void;
+  /** 切换到无限画布模式（Phase 1 默认 false，Phase 2 默认 true） */
+  useInfiniteCanvas?: boolean;
 }
 
 export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
@@ -195,6 +204,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onDownloadItem,
       onShareItem,
       onPublishItem,
+      useInfiniteCanvas = false,
     },
     ref,
   ) {
@@ -224,6 +234,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       toolName?: string;
     } | null>(null);
     const [compareMode, setCompareMode] = useState(false);
+    const [infiniteViewport, setInfiniteViewport] = useState<ViewportTransform>({ x: 0, y: 0, k: 1 });
+    const [infiniteSelectedIds, setInfiniteSelectedIds] = useState<string[]>([]);
     const refineChainBeforeRef = useRef<Set<string>>(new Set());
     const refineJobMetaRef = useRef<{ toolName?: string } | null>(null);
     const mobile = useIsMobile(MOBILE_BREAKPOINT);
@@ -831,6 +843,24 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 </div>
               ) : null}
             </div>
+          ) : useInfiniteCanvas ? (
+            <InfiniteCanvasContainer
+              nodes={canvasItemsToNodeData(items)}
+              connections={buildConnectionsFromItems(items)}
+              viewport={infiniteViewport}
+              selectedNodeIds={infiniteSelectedIds}
+              onNodesChange={(nodes: CanvasNodeData[]) => {
+                onItemsChange(nodeDataToCanvasItems(nodes));
+              }}
+              onConnectionsChange={(_connections: CanvasConnection[]) => {
+                // Phase 1: connections not persisted back to CanvasItem
+              }}
+              onViewportChange={setInfiniteViewport}
+              onSelectionChange={setInfiniteSelectedIds}
+              onNodeDoubleClick={(nodeId: string) => {
+                onSelect(nodeId);
+              }}
+            />
           ) : showFreeCanvas ? (
             <FreeCanvas
               ref={freeCanvasRef}
