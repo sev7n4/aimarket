@@ -21,6 +21,7 @@ export function ImageActionBar({
 }: ImageActionBarProps) {
   return (
     <div
+      data-testid="image-action-bar"
       className={`absolute inset-x-0 bottom-0 z-30 flex items-center justify-center gap-0.5 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-1 py-1.5 transition-opacity ${selected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
     >
       <button
