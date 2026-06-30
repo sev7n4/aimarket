@@ -42,6 +42,7 @@ import {
   canvasItemsToNodeData,
   nodeDataToCanvasItems,
   buildConnectionsFromItems,
+  applyNodePositionsToItems,
 } from "@/components/infinite-canvas/migration";
 import type { CanvasNodeData, CanvasConnection, ViewportTransform } from "@/components/infinite-canvas/types";
 
@@ -234,7 +235,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       toolName?: string;
     } | null>(null);
     const [compareMode, setCompareMode] = useState(false);
-    const [infiniteViewport, setInfiniteViewport] = useState<ViewportTransform>({ x: 0, y: 0, k: 1 });
+    const [infiniteViewport, setInfiniteViewport] = useState<ViewportTransform>({ x: 16, y: 16, k: 1 });
     const [infiniteSelectedIds, setInfiniteSelectedIds] = useState<string[]>([]);
     const refineChainBeforeRef = useRef<Set<string>>(new Set());
     const refineJobMetaRef = useRef<{ toolName?: string } | null>(null);
@@ -850,7 +851,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               viewport={infiniteViewport}
               selectedNodeIds={infiniteSelectedIds}
               onNodesChange={(nodes: CanvasNodeData[]) => {
-                onItemsChange(nodeDataToCanvasItems(nodes));
+                onItemsChange(applyNodePositionsToItems(items, nodes));
               }}
               onConnectionsChange={(_connections: CanvasConnection[]) => {
                 // Phase 1: connections not persisted back to CanvasItem

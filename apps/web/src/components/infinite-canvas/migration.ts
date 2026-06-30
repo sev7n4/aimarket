@@ -1,4 +1,5 @@
 import type { CanvasItem } from "@/lib/canvas-tools";
+import { assetUrl } from "@/lib/api-client";
 import { CanvasNodeType, type CanvasNodeData, type CanvasConnection } from "./types";
 
 /**
@@ -13,7 +14,7 @@ export function canvasItemToNodeData(item: CanvasItem): CanvasNodeData {
     width: item.width,
     height: item.height,
     metadata: {
-      content: item.url,
+      content: assetUrl(item.url),
       status: "idle",
       naturalWidth: item.width,
       naturalHeight: item.height,
@@ -53,6 +54,30 @@ export function nodeDataToCanvasItem(node: CanvasNodeData): CanvasItem {
  */
 export function nodeDataToCanvasItems(nodes: CanvasNodeData[]): CanvasItem[] {
   return nodes.map(nodeDataToCanvasItem);
+}
+
+/**
+ * Apply node position/dimension updates to existing CanvasItems without
+ * losing fields that are not represented in CanvasNodeData (thumbUrl,
+ * source, role, outputId, batchIndex, batchTitle, batchSubtitle,
+ * parentBatchId, locked, generationParams, etc.).
+ */
+export function applyNodePositionsToItems(
+  items: CanvasItem[],
+  nodes: CanvasNodeData[],
+): CanvasItem[] {
+  const nodeMap = new Map(nodes.map(n => [n.id, n]));
+  return items.map(item => {
+    const node = nodeMap.get(item.id);
+    if (!node) return item;
+    return {
+      ...item,
+      x: node.position.x,
+      y: node.position.y,
+      width: node.width,
+      height: node.height,
+    };
+  });
 }
 
 /**
