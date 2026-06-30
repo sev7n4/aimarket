@@ -350,6 +350,18 @@ export interface DramaStoryboardShot {
 
 export type DramaProjectType = "short_drama" | "mv" | "creative";
 
+export interface DramaSceneCard {
+  id: string;
+  name: string;
+  location: string;
+  era?: string;
+  atmosphere: string;
+  promptAnchor: string;
+  props: string[];
+  refOutputId?: string;
+  refUrl?: string;
+}
+
 export interface DramaProjectPayload {
   projectType?: DramaProjectType;
   userIdea: string;
@@ -369,16 +381,7 @@ export interface DramaProjectPayload {
     globalContextBlock?: string;
   };
   characters: DramaCharacterCard[];
-  scenes: Array<{
-    id: string;
-    name: string;
-    location: string;
-    atmosphere: string;
-    promptAnchor: string;
-    props: string[];
-    refOutputId?: string;
-    refUrl?: string;
-  }>;
+  scenes: DramaSceneCard[];
   shots: DramaStoryboardShot[];
   timeline?: DramaTimelineTrack[];
   productionParams?: {

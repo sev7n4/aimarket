@@ -13,7 +13,13 @@ import { getTool } from "../lib/tools.js";
 import { db } from "../db/index.js";
 import { enrichPromptWithReferences } from "../lib/references.js";
 import { confirmAgentRun } from "../lib/agent/runner.js";
-import { isAgentLlmEnabled, type PlanStep } from "@aimarket/agent-core";
+import {
+  completeWithFallback,
+  isAgentLlmEnabled,
+  type OrchestratorToolChoice,
+  type OrchestratorToolDefinition,
+  type PlanStep,
+} from "@aimarket/agent-core";
 
 const agent = new Hono<{ Variables: AuthVariables }>();
 
@@ -285,6 +291,53 @@ agent.post("/execute", async (c) => {
       estimatedPoints: pointsCost,
       status: "queued",
       plan,
+    },
+  });
+});
+
+// ── Tool calling endpoint for Canvas Agent loop ──
+
+const toolMessageSchema = z.object({
+  role: z.enum(["system", "user", "assistant"]),
+  content: z.string(),
+});
+
+const toolResponseBody = z.object({
+  messages: z.array(toolMessageSchema).min(1),
+  tools: z.array(
+    z.object({
+      name: z.string(),
+      description: z.string(),
+      parameters: z.object({
+        type: z.literal("object"),
+        properties: z.record(z.unknown()),
+        required: z.array(z.string()).optional(),
+        additionalProperties: z.boolean().optional(),
+      }),
+    }),
+  ),
+  toolChoice: z.enum(["none", "auto", "required"]).default("auto"),
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().int().min(1).max(8192).optional(),
+});
+
+agent.post("/tool-response", async (c) => {
+  const body = toolResponseBody.parse(await c.req.json());
+
+  const result = await completeWithFallback({
+    messages: body.messages,
+    tools: body.tools as OrchestratorToolDefinition[],
+    toolChoice: body.toolChoice as OrchestratorToolChoice,
+    temperature: body.temperature ?? 0.2,
+    maxTokens: body.maxTokens ?? 4096,
+  });
+
+  return c.json({
+    data: {
+      content: result.content,
+      toolCalls: result.toolCalls ?? [],
+      providerId: result.providerId,
+      model: result.model,
     },
   });
 });

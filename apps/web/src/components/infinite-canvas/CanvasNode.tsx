@@ -4,9 +4,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronRight, Image as ImageIcon, Music2, RefreshCw, Star, Video } from "lucide-react";
 
-import { CanvasNodeType, type CanvasNodeData, type Position } from "./types";
+import { ScriptNodeContent } from "./drama/ScriptNodeContent";
+import { ShotNodeContent } from "./drama/ShotNodeContent";
+import { CharacterNodeContent } from "./drama/CharacterNodeContent";
+import { SceneNodeContent } from "./drama/SceneNodeContent";
 import { canvasTheme } from "./canvas-theme";
 import { cn } from "@aimarket/ui";
+import { CanvasNodeType, type CanvasNodeData, type Position } from "./types";
 
 type ResizeCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 const selectionBlue = "#2f80ff";
@@ -340,6 +344,10 @@ const nodeContentRenderers: Partial<Record<CanvasNodeType, (props: NodeContentRe
     [CanvasNodeType.Config]: EmptyImageContent,
     [CanvasNodeType.Video]: VideoNodeContent,
     [CanvasNodeType.Audio]: AudioNodeContent,
+    [CanvasNodeType.Script]: (props: NodeContentRendererProps) => <ScriptNodeContent node={props.node} />,
+    [CanvasNodeType.Shot]: (props: NodeContentRendererProps) => <ShotNodeContent node={props.node} />,
+    [CanvasNodeType.Character]: (props: NodeContentRendererProps) => <CharacterNodeContent node={props.node} />,
+    [CanvasNodeType.Scene]: (props: NodeContentRendererProps) => <SceneNodeContent node={props.node} />,
 };
 
 function LoadingContent({ theme }: Pick<NodeContentRendererProps, "theme">) {

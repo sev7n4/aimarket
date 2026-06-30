@@ -20,6 +20,9 @@ export {
 export type {
   OrchestratorMessage,
   OrchestratorProvider,
+  OrchestratorToolCall,
+  OrchestratorToolChoice,
+  OrchestratorToolDefinition,
   OrchestratorVendor,
 } from "./llm/types.js";
 export { createSessionGraph } from "./graph/session-graph.js";

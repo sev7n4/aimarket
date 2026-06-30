@@ -43,15 +43,40 @@ export type CanvasNodeMetadata = {
   mimeType?: string;
   bytes?: number;
   durationMs?: number;
-  // Phase 2 Drama extension placeholders
-  // scriptTitle?: string;
-  // logline?: string;
-  // acts?: ...
-  // shotDialogue?: string;
-  // visualPrompt?: string;
-  // characterVisualSignature?: string;
-  // sceneLocation?: string;
-  // atmosphere?: string;
+  // ── Drama node metadata ──
+  // Script node
+  scriptTitle?: string;
+  logline?: string;
+  actCount?: number;
+  narratorLineCount?: number;
+  // Shot node
+  shotOrder?: number;
+  sceneId?: string;
+  characterIds?: string[];
+  dialogue?: string;
+  visualPrompt?: string;
+  motionPrompt?: string;
+  cameraShotSize?: string;
+  cameraMovement?: string;
+  cameraLighting?: string;
+  durationSec?: number;
+  shotStatus?: "pending" | "keyframe" | "video" | "audio" | "done" | "failed";
+  keyframeOutputId?: string;
+  videoOutputId?: string;
+  // Character node
+  characterName?: string;
+  characterRole?: string;
+  personalityTone?: string;
+  promptAnchor?: string;
+  turnaroundStatus?: "draft" | "locked";
+  refUrl?: string;
+  // Scene node
+  sceneName?: string;
+  location?: string;
+  atmosphere?: string;
+  era?: string;
+  scenePromptAnchor?: string;
+  sceneRefUrl?: string;
 };
 
 export type CanvasNodeData = {
