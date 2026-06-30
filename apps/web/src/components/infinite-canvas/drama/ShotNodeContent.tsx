@@ -1,10 +1,9 @@
-import React, { type ReactNode } from "react";
-import { Clapperboard, Clock } from "lucide-react";
+import React, { useState, type ReactNode } from "react";
+import { Clapperboard, Clock, Grid3x3 } from "lucide-react";
 
 import type { CanvasNodeData } from "../types";
 import { canvasTheme } from "../canvas-theme";
-import { cn } from "@aimarket/ui";
-
+import { MultiCamGrid } from "./MultiCamGrid";
 function Badge({ children, color }: { children: ReactNode; color: string }) {
   return (
     <span
@@ -48,17 +47,55 @@ export function ShotNodeContent({ node }: ShotNodeContentProps) {
   const lighting = m?.cameraLighting;
   const durationSec = m?.durationSec;
   const visualPrompt = m?.visualPrompt;
+  const keyframeVariantUrls = m?.keyframeVariantUrls || [];
 
   const keyframeSrc = m?.content || (m?.keyframeOutputId ? `/outputs/${m.keyframeOutputId}` : null);
   const hasKeyframe = Boolean(keyframeSrc);
+  const hasVariants = keyframeVariantUrls.length > 0;
+  const [showGrid, setShowGrid] = useState(false);
 
   const cameraParts = [shotSize, movement, lighting].filter(Boolean);
   const cameraLine = cameraParts.length > 0 ? cameraParts.join(" · ") : null;
 
+  // Build variants array: primary keyframe + variant URLs
+  const variants = [
+    ...(keyframeSrc ? [{ id: m!.keyframeOutputId || "primary", url: keyframeSrc!, label: "主图" }] : []),
+    ...keyframeVariantUrls.map((url, i) => ({
+      id: `variant-${i}`,
+      url,
+      label: `变体 ${i + 1}`,
+    })),
+  ];
+
   return (
     <div className="flex h-full w-full flex-col gap-1.5 p-3">
       {/* Keyframe thumbnail area */}
-      {hasKeyframe ? (
+      {hasVariants && showGrid ? (
+        /* Multi-cam grid view */
+        <div className="relative w-full overflow-hidden rounded-lg" style={{ background: canvasTheme.node.panel }}>
+          <MultiCamGrid
+            variants={variants}
+            gridSize={variants.length > 9 ? 5 : 3}
+            heroIndex={m?.keyframeHeroIndex}
+            className="p-1.5"
+          />
+          {/* Grid toggle — return to single view */}
+          <button
+            type="button"
+            onClick={() => setShowGrid(false)}
+            className="absolute right-1.5 top-1.5 z-10 flex size-6 items-center justify-center rounded-md bg-black/60 text-white transition hover:bg-black/80"
+            title="单图视图"
+          >
+            <Clapperboard className="size-3.5" />
+          </button>
+          {/* Badges */}
+          {shotOrder != null && (
+            <div className="absolute left-1.5 top-1.5 z-10">
+              <Badge color="#6366f1">#{shotOrder}</Badge>
+            </div>
+          )}
+        </div>
+      ) : hasKeyframe ? (
         <div className="relative aspect-video w-full overflow-hidden rounded-lg" style={{ background: canvasTheme.node.panel }}>
           <img
             src={keyframeSrc!}
@@ -67,6 +104,17 @@ export function ShotNodeContent({ node }: ShotNodeContentProps) {
             onDragStart={(e) => e.preventDefault()}
             className="pointer-events-none size-full select-none object-cover"
           />
+          {/* Grid toggle — switch to multi-cam view */}
+          {hasVariants && (
+            <button
+              type="button"
+              onClick={() => setShowGrid(true)}
+              className="absolute bottom-1.5 right-1.5 flex size-6 items-center justify-center rounded-md bg-black/60 text-white transition hover:bg-black/80"
+              title="多机位视图"
+            >
+              <Grid3x3 className="size-3.5" />
+            </button>
+          )}
           {/* Shot order badge — top-left */}
           {shotOrder != null && (
             <div className="absolute left-1.5 top-1.5">
@@ -109,7 +157,7 @@ export function ShotNodeContent({ node }: ShotNodeContentProps) {
           className="line-clamp-1 italic text-xs leading-snug"
           style={{ color: canvasTheme.node.muted }}
         >
-          "{dialogue}"
+          &ldquo;{dialogue}&rdquo;
         </div>
       )}
 

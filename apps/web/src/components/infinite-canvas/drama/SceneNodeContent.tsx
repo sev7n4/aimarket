@@ -3,8 +3,6 @@ import { MapPin } from "lucide-react";
 
 import type { CanvasNodeData } from "../types";
 import { canvasTheme } from "../canvas-theme";
-import { cn } from "@aimarket/ui";
-
 function Badge({ children, color }: { children: ReactNode; color: string }) {
   return (
     <span

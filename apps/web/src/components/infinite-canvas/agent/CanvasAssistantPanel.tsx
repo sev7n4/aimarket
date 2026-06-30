@@ -144,7 +144,7 @@ export function CanvasAssistantPanel({
         .flatMap((r) => (r.data?.ops as Parameters<typeof onlineToolToOps>[2] extends (...args: infer A) => unknown ? A[2] : never) ?? []);
 
       if (allOps.length > 0) {
-        handleApplyOps(allOps as Parameters<typeof onApplyOps>[0]);
+        onApplyOps(allOps as Parameters<typeof onApplyOps>[0]);
       }
     };
 

@@ -62,6 +62,8 @@ export type CanvasNodeMetadata = {
   durationSec?: number;
   shotStatus?: "pending" | "keyframe" | "video" | "audio" | "done" | "failed";
   keyframeOutputId?: string;
+  keyframeVariantUrls?: string[];
+  keyframeHeroIndex?: number;
   videoOutputId?: string;
   // Character node
   characterName?: string;

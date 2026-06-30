@@ -40,7 +40,6 @@ import type { StudioTool } from "@/lib/types";
 import { InfiniteCanvasContainer } from "@/components/infinite-canvas/InfiniteCanvasContainer";
 import {
   canvasItemsToNodeData,
-  nodeDataToCanvasItems,
   buildConnectionsFromItems,
   applyNodePositionsToItems,
 } from "@/components/infinite-canvas/migration";
@@ -289,6 +288,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       if (layoutMode !== internalLayoutMode) {
         setInternalLayoutMode(layoutMode);
       }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [layoutMode]);
 
     const pushHistory = useCallback((newItems: CanvasItem[]) => {
@@ -306,8 +306,11 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     }, []);
 
     // Handle assistant ops - applies CanvasAgentOps to the canvas
-    const handleApplyAssistantOps = useCallback((ops: CanvasAgentOp[]): CanvasAgentSnapshot | undefined => {
-      if (!assistantSnapshot) return undefined;
+    const handleApplyAssistantOps = useCallback((ops: CanvasAgentOp[]): CanvasAgentSnapshot => {
+      if (!assistantSnapshot) {
+        // Return empty snapshot to satisfy the required return type
+        return { projectId: "", title: "", nodes: [], connections: [], selectedNodeIds: [], viewport: { x: 0, y: 0, k: 1 } };
+      }
 
       // Build current snapshot from state
       const currentNodes = [...canvasItemsToNodeData(items), ...dramaNodes];
@@ -699,7 +702,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         items,
         undo,
         redo,
-        onLayoutModeChange,
         internalLayoutMode,
       ],
     );
@@ -938,7 +940,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                   if (applyingAssistantOpsRef.current) return;
                   onItemsChange(applyNodePositionsToItems(items, nodes));
                 }}
-                onConnectionsChange={(_connections: CanvasConnection[]) => {
+                onConnectionsChange={() => {
                   // Phase 1: connections not persisted back to CanvasItem
                 }}
                 onViewportChange={setInfiniteViewport}
