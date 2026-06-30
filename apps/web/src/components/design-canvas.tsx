@@ -40,11 +40,31 @@ import type { StudioTool } from "@/lib/types";
 import { InfiniteCanvasContainer } from "@/components/infinite-canvas/InfiniteCanvasContainer";
 import {
   canvasItemsToNodeData,
-  nodeDataToCanvasItems,
   buildConnectionsFromItems,
   applyNodePositionsToItems,
 } from "@/components/infinite-canvas/migration";
-import type { CanvasNodeData, CanvasConnection, ViewportTransform } from "@/components/infinite-canvas/types";
+import type { CanvasNodeData, CanvasConnection, CanvasNodeMetadata, ViewportTransform } from "@/components/infinite-canvas/types";
+import { CanvasNodeType } from "@/components/infinite-canvas/types";
+
+/** Assign sequential batch index to nodes sharing the same batchRootId (1-based). */
+function enrichNodesWithBatchIndex(nodes: CanvasNodeData[]): CanvasNodeData[] {
+  const batchOrder = new Map<string, number>();
+  let next = 1;
+  return nodes.map((n) => {
+    const rootId = n.metadata?.batchRootId;
+    if (!rootId) return n;
+    let idx = batchOrder.get(rootId);
+    if (idx === undefined) {
+      idx = next++;
+      batchOrder.set(rootId, idx);
+    }
+    return { ...n, metadata: { ...(n.metadata as CanvasNodeMetadata), batchIndex: idx } };
+  });
+}
+import { DramaPropertyPanel } from "@/components/infinite-canvas/drama/DramaPropertyPanel";
+import { CanvasAssistantPanel } from "@/components/infinite-canvas/agent/CanvasAssistantPanel";
+import type { CanvasAgentSnapshot, CanvasAgentOp } from "@/components/infinite-canvas/utils";
+import { applyCanvasAgentOps } from "@/components/infinite-canvas/utils";
 
 export interface DesignCanvasHandle {
   fitToItem: (itemId: string) => void;
@@ -151,6 +171,14 @@ interface DesignCanvasProps {
   onPublishItem?: (item: CanvasItem) => void;
   /** 切换到无限画布模式（Phase 1 默认 false，Phase 2 默认 true） */
   useInfiniteCanvas?: boolean;
+  /** Drama 专用画布节点（由 dramaPlanToCanvasNodes 生成，叠加到 InfiniteCanvas 上） */
+  dramaNodes?: CanvasNodeData[];
+  /** Drama 节点间连线 */
+  dramaConnections?: CanvasConnection[];
+  /** Agent 对话面板快照（用于 CanvasAssistantPanel） */
+  assistantSnapshot?: CanvasAgentSnapshot | null;
+  /** Agent 应用 Ops 时的回调 */
+  onApplyAssistantOps?: (ops: CanvasAgentOp[]) => void;
 }
 
 export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
@@ -206,6 +234,10 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onShareItem,
       onPublishItem,
       useInfiniteCanvas = false,
+      dramaNodes = [],
+      dramaConnections = [],
+      assistantSnapshot,
+      onApplyAssistantOps,
     },
     ref,
   ) {
@@ -237,9 +269,19 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     const [compareMode, setCompareMode] = useState(false);
     const [infiniteViewport, setInfiniteViewport] = useState<ViewportTransform>({ x: 16, y: 16, k: 1 });
     const [infiniteSelectedIds, setInfiniteSelectedIds] = useState<string[]>([]);
+    const [dramaPanelNodeId, setDramaPanelNodeId] = useState<string | null>(null);
+
+    // Compute the Drama node data for the right-side property panel
+    const dramaPanelNode = useMemo<CanvasNodeData | null>(() => {
+      if (!dramaPanelNodeId || !useInfiniteCanvas) return null;
+      const allNodes = canvasItemsToNodeData(items);
+      return allNodes.find((n) => n.id === dramaPanelNodeId) ?? null;
+    }, [dramaPanelNodeId, items, useInfiniteCanvas]);
     const refineChainBeforeRef = useRef<Set<string>>(new Set());
     const refineJobMetaRef = useRef<{ toolName?: string } | null>(null);
     const mobile = useIsMobile(MOBILE_BREAKPOINT);
+    // Ref to prevent feedback loop when applying assistant ops
+    const applyingAssistantOpsRef = useRef(false);
 
     const refineItem = refineItemId
       ? items.find((item) => item.id === refineItemId)
@@ -262,6 +304,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       if (layoutMode !== internalLayoutMode) {
         setInternalLayoutMode(layoutMode);
       }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [layoutMode]);
 
     const pushHistory = useCallback((newItems: CanvasItem[]) => {
@@ -277,6 +320,64 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         historyIndexRef.current -= 1;
       }
     }, []);
+
+    // Handle assistant ops - applies CanvasAgentOps to the canvas
+    const handleApplyAssistantOps = useCallback((ops: CanvasAgentOp[]): CanvasAgentSnapshot => {
+      if (!assistantSnapshot) {
+        // Return empty snapshot to satisfy the required return type
+        return { projectId: "", title: "", nodes: [], connections: [], selectedNodeIds: [], viewport: { x: 0, y: 0, k: 1 } };
+      }
+
+      // Build current snapshot from state
+      const currentNodes = [...canvasItemsToNodeData(items), ...dramaNodes];
+      const currentConnections = [...buildConnectionsFromItems(items), ...dramaConnections];
+      const snapshot: CanvasAgentSnapshot = {
+        projectId: assistantSnapshot.projectId ?? "",
+        title: assistantSnapshot.title ?? "",
+        nodes: currentNodes,
+        connections: currentConnections,
+        selectedNodeIds: infiniteSelectedIds,
+        viewport: infiniteViewport,
+      };
+
+      // Apply ops to get new snapshot
+      const newSnapshot = applyCanvasAgentOps(snapshot, ops);
+      const newNodes = newSnapshot.nodes;
+
+      // Set flag to prevent feedback loop
+      applyingAssistantOpsRef.current = true;
+
+      // Separate drama node types
+      const dramaNodeTypes = new Set([CanvasNodeType.Script, CanvasNodeType.Shot, CanvasNodeType.Character, CanvasNodeType.Scene]);
+
+      const dramaNodeIds = new Set(dramaNodes.map(n => n.id));
+      const newDramaNodeIds = new Set(newNodes.filter(n => dramaNodeTypes.has(n.type)).map(n => n.id));
+
+      // Find added and removed drama nodes
+      const addedDramaNodeIds = [...newDramaNodeIds].filter(id => !dramaNodeIds.has(id));
+      const removedDramaNodeIds = [...dramaNodeIds].filter(id => !newDramaNodeIds.has(id));
+
+      // If there are drama node changes, notify parent
+      if ((addedDramaNodeIds.length > 0 || removedDramaNodeIds.length > 0) && onApplyAssistantOps) {
+        onApplyAssistantOps(ops);
+      }
+
+      // Update items with position changes from nodes
+      const itemNodeIds = new Set(items.map(item => item.id));
+      const nodesForItems = newNodes.filter(n => itemNodeIds.has(n.id));
+
+      if (nodesForItems.length > 0 || newNodes.length !== currentNodes.length) {
+        const updatedItems = applyNodePositionsToItems(items, newNodes.filter(n => itemNodeIds.has(n.id)));
+        onItemsChange(updatedItems);
+      }
+
+      // Reset flag after a tick
+      setTimeout(() => {
+        applyingAssistantOpsRef.current = false;
+      }, 0);
+
+      return newSnapshot;
+    }, [items, dramaNodes, dramaConnections, assistantSnapshot, infiniteSelectedIds, infiniteViewport, onItemsChange, onApplyAssistantOps]);
 
     useEffect(() => {
       if (items.length > 0 && historyRef.current.length === 0) {
@@ -617,7 +718,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         items,
         undo,
         redo,
-        onLayoutModeChange,
         internalLayoutMode,
       ],
     );
@@ -845,23 +945,41 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               ) : null}
             </div>
           ) : useInfiniteCanvas ? (
-            <InfiniteCanvasContainer
-              nodes={canvasItemsToNodeData(items)}
-              connections={buildConnectionsFromItems(items)}
-              viewport={infiniteViewport}
-              selectedNodeIds={infiniteSelectedIds}
-              onNodesChange={(nodes: CanvasNodeData[]) => {
-                onItemsChange(applyNodePositionsToItems(items, nodes));
-              }}
-              onConnectionsChange={(_connections: CanvasConnection[]) => {
-                // Phase 1: connections not persisted back to CanvasItem
-              }}
-              onViewportChange={setInfiniteViewport}
-              onSelectionChange={setInfiniteSelectedIds}
-              onNodeDoubleClick={(nodeId: string) => {
-                onSelect(nodeId);
-              }}
-            />
+            <div className="flex min-h-0 flex-1">
+              <InfiniteCanvasContainer
+                nodes={enrichNodesWithBatchIndex([...canvasItemsToNodeData(items), ...dramaNodes])}
+                connections={[...buildConnectionsFromItems(items), ...dramaConnections]}
+                viewport={infiniteViewport}
+                selectedNodeIds={infiniteSelectedIds}
+                onNodesChange={(nodes: CanvasNodeData[]) => {
+                  // Skip if we're applying assistant ops to prevent feedback loop
+                  if (applyingAssistantOpsRef.current) return;
+                  onItemsChange(applyNodePositionsToItems(items, nodes));
+                }}
+                onConnectionsChange={() => {
+                  // Phase 1: connections not persisted back to CanvasItem
+                }}
+                onViewportChange={setInfiniteViewport}
+                onSelectionChange={setInfiniteSelectedIds}
+                onNodeDoubleClick={(nodeId: string) => {
+                  onSelect(nodeId);
+                  setDramaPanelNodeId(nodeId);
+                }}
+              />
+              {dramaPanelNode && (
+                <DramaPropertyPanel
+                  node={dramaPanelNode}
+                  onClose={() => setDramaPanelNodeId(null)}
+                />
+              )}
+              {assistantSnapshot && (
+                <CanvasAssistantPanel
+                  snapshot={assistantSnapshot}
+                  onApplyOps={handleApplyAssistantOps}
+                  initialCollapsed
+                />
+              )}
+            </div>
           ) : showFreeCanvas ? (
             <FreeCanvas
               ref={freeCanvasRef}

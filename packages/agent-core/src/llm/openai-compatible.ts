@@ -37,6 +37,26 @@ export function createOpenAiCompatibleProvider(
         };
       }
 
+      // Tool calling support
+      if (params.tools?.length) {
+        body.tools = params.tools.map((tool) => ({
+          type: "function",
+          function: {
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.parameters,
+          },
+        }));
+        if (params.toolChoice) {
+          body.tool_choice =
+            params.toolChoice === "required"
+              ? { type: "function" }
+              : params.toolChoice === "none"
+              ? { type: "none" }
+              : "auto";
+        }
+      }
+
       const res = await fetch(`${config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",
         headers: {
@@ -54,15 +74,40 @@ export function createOpenAiCompatibleProvider(
       }
 
       const data = (await res.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
+        choices?: Array<{
+          message?: {
+            content?: string;
+            tool_calls?: Array<{
+              id: string;
+              function?: { name?: string; arguments?: string };
+            }>;
+          };
+        }>;
       };
-      const content = data.choices?.[0]?.message?.content?.trim();
-      if (!content) {
+
+      const message = data.choices?.[0]?.message;
+      const content = message?.content?.trim() ?? "";
+
+      const toolCalls =
+        message?.tool_calls?.map((tc) => ({
+          id: tc.id,
+          name: tc.function?.name ?? "",
+          arguments: (() => {
+            try {
+              return JSON.parse(tc.function?.arguments ?? "{}");
+            } catch {
+              return {};
+            }
+          })(),
+        })) ?? [];
+
+      if (!content && toolCalls.length === 0) {
         throw new Error(`[${config.id}] empty completion`);
       }
 
       return {
         content,
+        toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         providerId: config.id,
         model: config.model,
       };

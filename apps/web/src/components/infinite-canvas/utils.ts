@@ -13,7 +13,12 @@ export type CanvasAgentOp =
     | { type: "connect_nodes"; id?: string; fromNodeId: string; toNodeId: string }
     | { type: "set_viewport"; viewport: ViewportTransform }
     | { type: "select_nodes"; ids: string[] }
-    | { type: "run_generation"; nodeId: string; mode?: "text" | "image" | "video" | "audio"; prompt?: string };
+    | { type: "run_generation"; nodeId: string; mode?: "text" | "image" | "video" | "audio"; prompt?: string }
+    // ── Drama-specific Ops ──
+    | { type: "update_shot_status"; shotNodeId: string; status: CanvasNodeMetadata["shotStatus"]; keyframeOutputId?: string; videoOutputId?: string }
+    | { type: "update_character_ref"; characterNodeId: string; refUrl?: string; turnaroundStatus?: "draft" | "locked" }
+    | { type: "update_scene_ref"; sceneNodeId: string; sceneRefUrl?: string }
+    | { type: "focus_drama_node"; nodeId: string };
 
 export type CanvasAgentSnapshot = {
     projectId: string;
@@ -80,6 +85,35 @@ export function applyCanvasAgentOps(snapshot: CanvasAgentSnapshot, ops?: CanvasA
         }
         if (op.type === "set_viewport" && op.viewport) viewport = op.viewport;
         if (op.type === "select_nodes") selectedNodeIds = (op.ids || []).filter((id) => nodes.some((node) => node.id === id));
+        // ── Drama-specific ops ──
+        if (op.type === "update_shot_status") {
+            nodes = nodes.map((node) =>
+                node.id === op.shotNodeId
+                    ? { ...node, metadata: { ...node.metadata, shotStatus: op.status, ...(op.keyframeOutputId != null && { keyframeOutputId: op.keyframeOutputId }), ...(op.videoOutputId != null && { videoOutputId: op.videoOutputId }) } }
+                    : node,
+            );
+        }
+        if (op.type === "update_character_ref") {
+            nodes = nodes.map((node) =>
+                node.id === op.characterNodeId
+                    ? { ...node, metadata: { ...node.metadata, ...(op.refUrl != null && { refUrl: op.refUrl }), ...(op.turnaroundStatus != null && { turnaroundStatus: op.turnaroundStatus }) } }
+                    : node,
+            );
+        }
+        if (op.type === "update_scene_ref") {
+            nodes = nodes.map((node) =>
+                node.id === op.sceneNodeId
+                    ? { ...node, metadata: { ...node.metadata, ...(op.sceneRefUrl != null && { sceneRefUrl: op.sceneRefUrl }) } }
+                    : node,
+            );
+        }
+        if (op.type === "focus_drama_node") {
+            const target = nodes.find((n) => n.id === op.nodeId);
+            if (target) {
+                selectedNodeIds = [op.nodeId];
+                viewport = { x: -target.position.x + 200, y: -target.position.y + 200, k: 1 };
+            }
+        }
     });
 
     return { ...snapshot, nodes, connections, selectedNodeIds, viewport };
@@ -94,5 +128,9 @@ function opLabel(type: string) {
     if (type === "set_viewport") return "调整视图";
     if (type === "select_nodes") return "选择节点";
     if (type === "run_generation") return "触发生成";
+    if (type === "update_shot_status") return "更新分镜状态";
+    if (type === "update_character_ref") return "更新角色参考";
+    if (type === "update_scene_ref") return "更新场景参考";
+    if (type === "focus_drama_node") return "聚焦节点";
     return type;
 }

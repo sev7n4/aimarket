@@ -4,9 +4,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronRight, Image as ImageIcon, Music2, RefreshCw, Star, Video } from "lucide-react";
 
-import { CanvasNodeType, type CanvasNodeData, type Position } from "./types";
+import { ScriptNodeContent } from "./drama/ScriptNodeContent";
+import { ShotNodeContent } from "./drama/ShotNodeContent";
+import { CharacterNodeContent } from "./drama/CharacterNodeContent";
+import { SceneNodeContent } from "./drama/SceneNodeContent";
 import { canvasTheme } from "./canvas-theme";
 import { cn } from "@aimarket/ui";
+import { CanvasNodeType, type CanvasNodeData, type Position } from "./types";
 
 type ResizeCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 const selectionBlue = "#2f80ff";
@@ -231,6 +235,7 @@ export const CanvasNode = React.memo(function CanvasNode({
     return (
         <div
             data-node-id={data.id}
+            data-testid={data.metadata?.batchRootId ? `canvas-batch-section-${data.metadata.batchRootId}` : undefined}
             className={cn("node-element absolute flex select-none flex-col transition-shadow duration-200", isSelected ? "z-50" : "z-10")}
             style={{
                 transform: `translate(${data.position.x}px, ${data.position.y}px)`,
@@ -249,6 +254,9 @@ export const CanvasNode = React.memo(function CanvasNode({
             }}
             onContextMenu={(event) => onContextMenu(event, data.id)}
         >
+            {data.metadata?.batchIndex != null && (
+                <span className="sr-only">批次 {data.metadata.batchIndex}</span>
+            )}
             <div
                 className="relative h-full w-full overflow-visible rounded-3xl border-2"
                 style={{
@@ -340,6 +348,10 @@ const nodeContentRenderers: Partial<Record<CanvasNodeType, (props: NodeContentRe
     [CanvasNodeType.Config]: EmptyImageContent,
     [CanvasNodeType.Video]: VideoNodeContent,
     [CanvasNodeType.Audio]: AudioNodeContent,
+    [CanvasNodeType.Script]: (props: NodeContentRendererProps) => <ScriptNodeContent node={props.node} />,
+    [CanvasNodeType.Shot]: (props: NodeContentRendererProps) => <ShotNodeContent node={props.node} />,
+    [CanvasNodeType.Character]: (props: NodeContentRendererProps) => <CharacterNodeContent node={props.node} />,
+    [CanvasNodeType.Scene]: (props: NodeContentRendererProps) => <SceneNodeContent node={props.node} />,
 };
 
 function LoadingContent({ theme }: Pick<NodeContentRendererProps, "theme">) {

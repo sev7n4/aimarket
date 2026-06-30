@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useState, type ComponentProps } from "react";
+import { forwardRef, useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
 import {
   DesignCanvas,
   type DesignCanvasHandle,
@@ -15,6 +15,9 @@ import type { DramaNodeRerunPatch } from "@/components/drama-node-graph";
 import { retryDramaShot, pickDramaKeyframe, publishCanvasToInspiration, unpublishInspiration } from "@/lib/api-client";
 import { buildDramaPublishPayload } from "@/lib/drama-publish";
 import type { DramaProjectPayload } from "@/lib/types";
+import { dramaPlanToCanvasNodes } from "@/components/infinite-canvas/drama/drama-plan-to-nodes";
+import type { CanvasAgentSnapshot } from "@/components/infinite-canvas/utils";
+import { isCanvasFlowMode } from "@/lib/modes";
 
 type StudioCanvasProps = Omit<
   ComponentProps<typeof DesignCanvas>,
@@ -88,6 +91,33 @@ export const StudioCanvasWithOrchestration = forwardRef<
       setStoryboardView("timeline");
     }
   }, [showShotTimeline, dramaDraftProject?.id]);
+
+  // 无限画布模式遵循 localStorage 标志 (aimarket_canvas_flow)，
+  // E2E 用例通过 addInitScript 设置 "0" 强制使用 ScrollCanvas。
+  const [useInfiniteCanvas, setUseInfiniteCanvas] = useState(false);
+  useEffect(() => {
+    setUseInfiniteCanvas(isCanvasFlowMode());
+  }, []);
+
+  // Compute Drama canvas nodes from the planning result
+  const dramaCanvasData = useMemo(() => {
+    const payload = dramaDraftProject?.project ?? dramaRun?.project;
+    if (!payload) return { nodes: [], connections: [] };
+    return dramaPlanToCanvasNodes(payload);
+  }, [dramaDraftProject?.project, dramaRun?.project]);
+
+  // Assistant snapshot for CanvasAssistantPanel
+  const assistantSnapshot = useMemo<CanvasAgentSnapshot | null>(() => {
+    const payload = dramaDraftProject?.project ?? dramaRun?.project;
+    return {
+      projectId: dramaDraftProject?.id ?? dramaRun?.id ?? "",
+      title: payload?.script?.title ?? "AIMarket Drama",
+      nodes: [],
+      connections: [],
+      selectedNodeIds: [],
+      viewport: { x: 16, y: 16, k: 1 },
+    };
+  }, [dramaDraftProject?.id, dramaRun?.id, dramaDraftProject?.project, dramaRun?.project]);
 
   const handleRerunFromAgent = useCallback(
     (fromAgent: string) => {
@@ -255,12 +285,14 @@ export const StudioCanvasWithOrchestration = forwardRef<
     <DesignCanvas
       ref={ref}
       {...props}
-      // useInfiniteCanvas — Phase 1 默认关闭，保留原有 ScrollCanvas/FreeCanvas
-      // 需要启用时取消注释：useInfiniteCanvas
+      useInfiniteCanvas={useInfiniteCanvas}
       orchestrationEvent={alternateCanvasContent ? null : timelineEvent}
       orchestrationActions={timelineActions ?? undefined}
       alternateCanvasContent={alternateCanvasContent}
       orchestrationExtra={dramaPanel}
+      dramaNodes={dramaCanvasData.nodes}
+      dramaConnections={dramaCanvasData.connections}
+      assistantSnapshot={assistantSnapshot}
     />
   );
 });
