@@ -235,6 +235,7 @@ export const CanvasNode = React.memo(function CanvasNode({
     return (
         <div
             data-node-id={data.id}
+            data-testid={data.metadata?.batchRootId ? `canvas-batch-section-${data.metadata.batchRootId}` : undefined}
             className={cn("node-element absolute flex select-none flex-col transition-shadow duration-200", isSelected ? "z-50" : "z-10")}
             style={{
                 transform: `translate(${data.position.x}px, ${data.position.y}px)`,

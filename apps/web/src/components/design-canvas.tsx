@@ -960,7 +960,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 <CanvasAssistantPanel
                   snapshot={assistantSnapshot}
                   onApplyOps={handleApplyAssistantOps}
-                  initialCollapsed={false}
+                  initialCollapsed
                 />
               )}
             </div>
