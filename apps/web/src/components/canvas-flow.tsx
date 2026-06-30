@@ -13,7 +13,6 @@ import {
   ReactFlow,
   Background,
   BackgroundVariant,
-  Controls,
   MiniMap,
   addEdge,
   useNodesState,
@@ -173,6 +172,8 @@ export interface CanvasFlowHandle {
   subscribeBackground: (cb: (mode: "dots" | "lines" | "blank") => void) => () => void;
   /** P4.3: 获取当前背景主题 */
   getBackgroundMode: () => "dots" | "lines" | "blank";
+  /** P4.4 修复: 删除当前选中的节点和边（Delete 键快捷键入口） */
+  deleteSelected: () => number;
 }
 
 /**
@@ -595,8 +596,26 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
       },
       /** P4.3: 获取当前背景主题 */
       getBackgroundMode: () => backgroundMode,
+      /** P4.4 修复: 删除当前选中的节点 + 与之关联的边 */
+      deleteSelected: () => {
+        const beforeNodes = nodes.length;
+        const beforeEdges = edges.length;
+        const selectedNodeIds = new Set(
+          nodes.filter((n) => n.selected).map((n) => n.id),
+        );
+        if (selectedNodeIds.size === 0) return 0;
+        commitHistory();
+        const nextNodes = nodes.filter((n) => !n.selected);
+        const nextEdges = edges.filter(
+          (e) => !selectedNodeIds.has(e.source) && !selectedNodeIds.has(e.target),
+        );
+        setNodes(nextNodes);
+        setEdges(nextEdges);
+        const removed = beforeNodes + beforeEdges - nextNodes.length - nextEdges.length;
+        return removed;
+      },
     }),
-    [handleAutoLayout, notifyZoom, currentZoom, handleUndo, handleRedo, handleCopy, handlePaste, history, setBackgroundMode, backgroundMode],
+    [handleAutoLayout, notifyZoom, currentZoom, handleUndo, handleRedo, handleCopy, handlePaste, history, setBackgroundMode, backgroundMode, nodes, edges, commitHistory],
   );
 
   // 加载画布流数据
@@ -970,9 +989,7 @@ export const CanvasFlowCanvas = forwardRef<CanvasFlowHandle, CanvasFlowProps>(fu
           gap={24}
           size={1.2}
         />
-        <Controls
-          className="!border-white/10 !bg-[#0f0f0f] [&>button]:!border-white/10 [&>button]:!bg-[#0f0f0f] [&>button]:!fill-zinc-400"
-        />
+        {/* P4.1 修复: React Flow 自带 Controls 已关闭（它默认在左下角，与我们的 zoom 控件并存重复、产生两组 +/- 按钮）。*/}
         <MiniMap
           className="!border-white/10 !bg-[#0f0f0f]"
           /** P4.3: 让 mini-map 可拖动跳转 + 滚轮缩放 */

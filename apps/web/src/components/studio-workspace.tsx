@@ -390,37 +390,53 @@ export function StudioWorkspace({
     if (!useCanvasFlow) return;
     function onKey(e: KeyboardEvent) {
       const mod = e.ctrlKey || e.metaKey;
-      if (!mod) return;
-      const tag = (e.target as HTMLElement | null)?.tagName;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
       const isInTextField =
         tag === "INPUT" ||
         tag === "TEXTAREA" ||
-        (e.target as HTMLElement | null)?.isContentEditable;
+        target?.isContentEditable === true;
       // 文本字段内只允许原生撤销/重做
       if (isInTextField) return;
-      const key = e.key.toLowerCase();
-      // Z 撤销/重做
-      if (key === "z" && !e.shiftKey) {
-        e.preventDefault();
-        canvasFlowRef.current?.undo();
+
+      // P4.4 修复: image-action-bar / batch-tool-strip 等悬浮工具栏内的按钮焦点时，跳过画布快捷键
+      // 避免 cmd+C 同时触发"复制节点"和 hover 工具栏上的"精修"按钮误感
+      if (target && target.closest("[data-testid='image-action-bar'], [data-testid='canvas-batch-tool-strip']")) {
         return;
       }
-      if ((key === "z" && e.shiftKey) || key === "y") {
-        e.preventDefault();
-        canvasFlowRef.current?.redo();
-        return;
-      }
-      // C 复制
-      if (key === "c" && !e.shiftKey) {
-        e.preventDefault();
-        canvasFlowRef.current?.copy();
-        return;
-      }
-      // V 粘贴
-      if (key === "v" && !e.shiftKey) {
-        e.preventDefault();
-        canvasFlowRef.current?.paste();
-        return;
+
+      if (mod) {
+        const key = e.key.toLowerCase();
+        // Z 撤销/重做
+        if (key === "z" && !e.shiftKey) {
+          e.preventDefault();
+          canvasFlowRef.current?.undo();
+          return;
+        }
+        if ((key === "z" && e.shiftKey) || key === "y") {
+          e.preventDefault();
+          canvasFlowRef.current?.redo();
+          return;
+        }
+        // C 复制
+        if (key === "c" && !e.shiftKey) {
+          e.preventDefault();
+          canvasFlowRef.current?.copy();
+          return;
+        }
+        // V 粘贴
+        if (key === "v" && !e.shiftKey) {
+          e.preventDefault();
+          canvasFlowRef.current?.paste();
+          return;
+        }
+      } else {
+        // P4.4 修复: 显式处理 Delete/Backspace 键（不再依赖 React Flow 内部 focus 链路）
+        if (e.key === "Delete" || e.key === "Backspace") {
+          e.preventDefault();
+          canvasFlowRef.current?.deleteSelected();
+          return;
+        }
       }
     }
     window.addEventListener("keydown", onKey);

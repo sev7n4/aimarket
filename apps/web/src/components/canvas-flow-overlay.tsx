@@ -152,6 +152,51 @@ export function CanvasFlowOverlay({
           <ListTree className="size-3.5" />
           列表视图
         </button>
+        {/* P4.3 修复: 背景主题按钮从右下角挪到顶部工具栏，避免与 MiniMap 抢右下角、避免被底部 dock 遮盖 */}
+        {canvasRef ? (
+          <div
+            data-testid="canvas-background-controls"
+            className="flex items-center gap-0.5 rounded-lg border border-white/10 bg-[#0f0f0f]/90 p-0.5 backdrop-blur"
+            title="背景主题"
+          >
+            <button
+              type="button"
+              onClick={() => handleSetBackground("dots")}
+              className={`flex size-7 items-center justify-center rounded transition-colors ${
+                backgroundMode === "dots"
+                  ? "bg-indigo-500/20 text-indigo-300"
+                  : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+              }`}
+              title="点状背景"
+            >
+              <Grid3x3 className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetBackground("lines")}
+              className={`flex size-7 items-center justify-center rounded transition-colors ${
+                backgroundMode === "lines"
+                  ? "bg-indigo-500/20 text-indigo-300"
+                  : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+              }`}
+              title="线状背景"
+            >
+              <Minus className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetBackground("blank")}
+              className={`flex size-7 items-center justify-center rounded transition-colors ${
+                backgroundMode === "blank"
+                  ? "bg-indigo-500/20 text-indigo-300"
+                  : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+              }`}
+              title="无背景"
+            >
+              <Eye className="size-3.5" />
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {/* P4.1: 左下角：缩放控制 + 实时百分比 */}
@@ -192,51 +237,7 @@ export function CanvasFlowOverlay({
         </div>
       ) : null}
 
-      {/* P4.3: 右下角：背景主题切换（dots/lines/blank） */}
-      {canvasRef ? (
-        <div
-          data-testid="canvas-background-controls"
-          className="absolute bottom-3 right-3 z-20 flex items-center gap-0.5 rounded-lg border border-white/10 bg-[#0f0f0f]/90 p-0.5 backdrop-blur"
-          title="背景主题"
-        >
-          <button
-            type="button"
-            onClick={() => handleSetBackground("dots")}
-            className={`flex size-7 items-center justify-center rounded transition-colors ${
-              backgroundMode === "dots"
-                ? "bg-indigo-500/20 text-indigo-300"
-                : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
-            }`}
-            title="点状背景"
-          >
-            <Grid3x3 className="size-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSetBackground("lines")}
-            className={`flex size-7 items-center justify-center rounded transition-colors ${
-              backgroundMode === "lines"
-                ? "bg-indigo-500/20 text-indigo-300"
-                : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
-            }`}
-            title="线状背景"
-          >
-            <Minus className="size-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSetBackground("blank")}
-            className={`flex size-7 items-center justify-center rounded transition-colors ${
-              backgroundMode === "blank"
-                ? "bg-indigo-500/20 text-indigo-300"
-                : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
-            }`}
-            title="无背景"
-          >
-            <Eye className="size-3.5" />
-          </button>
-        </div>
-      ) : null}
+      {/* P4.3 修复: 背景主题按钮已挪到顶部工具栏（避免与 MiniMap 抢右下角、被底部 dock 遮盖） */}
 
       {/* 顶部中央：编排时间线 */}
       {timeline ? (
