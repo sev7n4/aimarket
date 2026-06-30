@@ -255,8 +255,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     <DesignCanvas
       ref={ref}
       {...props}
-      // useInfiniteCanvas — Phase 1 默认关闭，保留原有 ScrollCanvas/FreeCanvas
-      // 需要启用时取消注释：useInfiniteCanvas
+      useInfiniteCanvas
       orchestrationEvent={alternateCanvasContent ? null : timelineEvent}
       orchestrationActions={timelineActions ?? undefined}
       alternateCanvasContent={alternateCanvasContent}
