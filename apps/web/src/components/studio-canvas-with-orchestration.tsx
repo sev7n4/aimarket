@@ -17,6 +17,7 @@ import { buildDramaPublishPayload } from "@/lib/drama-publish";
 import type { DramaProjectPayload } from "@/lib/types";
 import { dramaPlanToCanvasNodes } from "@/components/infinite-canvas/drama/drama-plan-to-nodes";
 import type { CanvasAgentSnapshot } from "@/components/infinite-canvas/utils";
+import { isCanvasFlowMode } from "@/lib/modes";
 
 type StudioCanvasProps = Omit<
   ComponentProps<typeof DesignCanvas>,
@@ -90,6 +91,13 @@ export const StudioCanvasWithOrchestration = forwardRef<
       setStoryboardView("timeline");
     }
   }, [showShotTimeline, dramaDraftProject?.id]);
+
+  // 无限画布模式遵循 localStorage 标志 (aimarket_canvas_flow)，
+  // E2E 用例通过 addInitScript 设置 "0" 强制使用 ScrollCanvas。
+  const [useInfiniteCanvas, setUseInfiniteCanvas] = useState(false);
+  useEffect(() => {
+    setUseInfiniteCanvas(isCanvasFlowMode());
+  }, []);
 
   // Compute Drama canvas nodes from the planning result
   const dramaCanvasData = useMemo(() => {
@@ -277,7 +285,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     <DesignCanvas
       ref={ref}
       {...props}
-      useInfiniteCanvas
+      useInfiniteCanvas={useInfiniteCanvas}
       orchestrationEvent={alternateCanvasContent ? null : timelineEvent}
       orchestrationActions={timelineActions ?? undefined}
       alternateCanvasContent={alternateCanvasContent}
