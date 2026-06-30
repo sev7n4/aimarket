@@ -255,6 +255,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     <DesignCanvas
       ref={ref}
       {...props}
+      useInfiniteCanvas
       orchestrationEvent={alternateCanvasContent ? null : timelineEvent}
       orchestrationActions={timelineActions ?? undefined}
       alternateCanvasContent={alternateCanvasContent}
