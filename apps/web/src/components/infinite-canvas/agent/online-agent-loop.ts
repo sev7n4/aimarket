@@ -290,7 +290,7 @@ export async function continueAgentLoopAfterApproval({
   }
 
   // 继续下一轮
-  const nextStep = step + 1;
+  let nextStep = step + 1;
   const isFirstStep = false;
 
   while (nextStep <= MAX_AGENT_STEPS) {
