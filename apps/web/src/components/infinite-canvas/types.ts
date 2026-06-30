@@ -36,6 +36,7 @@ export type CanvasNodeMetadata = {
   freeResize?: boolean;
   isBatchRoot?: boolean;
   batchRootId?: string;
+  batchIndex?: number;
   batchChildIds?: string[];
   primaryImageId?: string;
   imageBatchExpanded?: boolean;

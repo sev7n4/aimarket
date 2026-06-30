@@ -254,6 +254,9 @@ export const CanvasNode = React.memo(function CanvasNode({
             }}
             onContextMenu={(event) => onContextMenu(event, data.id)}
         >
+            {data.metadata?.batchIndex != null && (
+                <span className="sr-only">批次 {data.metadata.batchIndex}</span>
+            )}
             <div
                 className="relative h-full w-full overflow-visible rounded-3xl border-2"
                 style={{

@@ -43,8 +43,24 @@ import {
   buildConnectionsFromItems,
   applyNodePositionsToItems,
 } from "@/components/infinite-canvas/migration";
-import type { CanvasNodeData, CanvasConnection, ViewportTransform } from "@/components/infinite-canvas/types";
+import type { CanvasNodeData, CanvasConnection, CanvasNodeMetadata, ViewportTransform } from "@/components/infinite-canvas/types";
 import { CanvasNodeType } from "@/components/infinite-canvas/types";
+
+/** Assign sequential batch index to nodes sharing the same batchRootId (1-based). */
+function enrichNodesWithBatchIndex(nodes: CanvasNodeData[]): CanvasNodeData[] {
+  const batchOrder = new Map<string, number>();
+  let next = 1;
+  return nodes.map((n) => {
+    const rootId = n.metadata?.batchRootId;
+    if (!rootId) return n;
+    let idx = batchOrder.get(rootId);
+    if (idx === undefined) {
+      idx = next++;
+      batchOrder.set(rootId, idx);
+    }
+    return { ...n, metadata: { ...(n.metadata as CanvasNodeMetadata), batchIndex: idx } };
+  });
+}
 import { DramaPropertyPanel } from "@/components/infinite-canvas/drama/DramaPropertyPanel";
 import { CanvasAssistantPanel } from "@/components/infinite-canvas/agent/CanvasAssistantPanel";
 import type { CanvasAgentSnapshot, CanvasAgentOp } from "@/components/infinite-canvas/utils";
@@ -931,7 +947,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
           ) : useInfiniteCanvas ? (
             <div className="flex min-h-0 flex-1">
               <InfiniteCanvasContainer
-                nodes={[...canvasItemsToNodeData(items), ...dramaNodes]}
+                nodes={enrichNodesWithBatchIndex([...canvasItemsToNodeData(items), ...dramaNodes])}
                 connections={[...buildConnectionsFromItems(items), ...dramaConnections]}
                 viewport={infiniteViewport}
                 selectedNodeIds={infiniteSelectedIds}
