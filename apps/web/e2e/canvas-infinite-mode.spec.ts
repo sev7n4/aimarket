@@ -1,6 +1,17 @@
 import { test, expect } from "@playwright/test";
 import { registerViaEmail } from "./helpers/auth";
-import { enableCanvasFlow, firstInfiniteNode, infiniteContextMenu, listNodeIds, musicGenPanel, musicGenToggle, templateManagerPanel, templateManagerToggle, waitForFirstNode } from "./helpers/canvas-flow";
+import {
+  enableCanvasFlow,
+  gotoStudioWithCanvasFlow,
+  infiniteContextMenu,
+  listNodeIds,
+  musicGenPanel,
+  musicGenToggle,
+  templateManagerPanel,
+  templateManagerToggle,
+  waitForFirstNode,
+} from "./helpers/canvas-flow";
+import { studioWorkstation } from "./helpers/studio";
 
 /**
  * Phase 1.7 + 1.10：节点式画布（InfiniteCanvas）路径 E2E 覆盖。
@@ -14,28 +25,26 @@ import { enableCanvasFlow, firstInfiniteNode, infiniteContextMenu, listNodeIds, 
 
 const PROMPT = "白底简单产品图测试节点画布";
 
-async function startGeneration(page: import("@playwright/test").Page) {
-  const homePanel = page.locator("#home-creation");
-  const textarea = homePanel.locator("textarea").first();
-  await expect(textarea).toBeVisible({ timeout: 10_000 });
-  await textarea.fill(PROMPT);
-  await homePanel.getByRole("button", { name: "开始生成" }).click();
-  await expect(page).toHaveURL(/\/studio/, { timeout: 20_000 });
-}
-
-async function waitForJobDone(page: import("@playwright/test").Page) {
-  const overlay = page.locator('[role="status"][aria-live="polite"]');
-  await expect(overlay).toBeHidden({ timeout: 180_000 });
+async function generateOne(
+  page: import("@playwright/test").Page,
+  prompt: string,
+) {
+  const station = studioWorkstation(page);
+  const textarea = station.locator("textarea").first();
+  await expect(textarea).toBeVisible({ timeout: 15_000 });
+  await textarea.fill(prompt);
+  await station.getByRole("button", { name: "开始生成" }).click();
 }
 
 test.describe("InfiniteCanvas 节点画布", () => {
   test.beforeEach(async ({ page }) => {
     await enableCanvasFlow(page);
     await registerViaEmail(page, { emailPrefix: "canvasflow" });
+    await gotoStudioWithCanvasFlow(page);
   });
 
-  test("生成后画布出现节点", async ({ page }) => {
-    await startGeneration(page);
+  test("画布上出现节点", async ({ page }) => {
+    await generateOne(page, PROMPT);
     const first = await waitForFirstNode(page);
     await expect(first).toBeVisible();
     const ids = await listNodeIds(page);
@@ -43,18 +52,16 @@ test.describe("InfiniteCanvas 节点画布", () => {
   });
 
   test("节点右键弹出工具菜单", async ({ page }) => {
-    await startGeneration(page);
+    await generateOne(page, PROMPT);
     const first = await waitForFirstNode(page);
-    // 右键节点
     await first.click({ button: "right" });
     const menu = infiniteContextMenu(page);
     await expect(menu).toBeVisible({ timeout: 5_000 });
-    // 至少应包含常用操作
     await expect(menu).toContainText(/抠图|扩图|重生成|删除/);
   });
 
   test("模板浮动入口可打开面板", async ({ page }) => {
-    await startGeneration(page);
+    await generateOne(page, PROMPT);
     await waitForFirstNode(page);
     const toggle = templateManagerToggle(page);
     await expect(toggle).toBeVisible();
@@ -64,7 +71,7 @@ test.describe("InfiniteCanvas 节点画布", () => {
   });
 
   test("音乐浮动入口可打开面板", async ({ page }) => {
-    await startGeneration(page);
+    await generateOne(page, PROMPT);
     await waitForFirstNode(page);
     const toggle = musicGenToggle(page);
     await expect(toggle).toBeVisible();
@@ -74,32 +81,29 @@ test.describe("InfiniteCanvas 节点画布", () => {
   });
 
   test("节点可被拖动且坐标更新", async ({ page }) => {
-    await startGeneration(page);
+    await generateOne(page, PROMPT);
     const first = await waitForFirstNode(page);
     const box1 = await first.boundingBox();
     expect(box1).not.toBeNull();
-    // 拖动 80px
-    const targetX = (box1?.x ?? 0) + 80;
-    const targetY = (box1?.y ?? 0) + 60;
-    await page.mouse.move(box1!.x + box1!.width / 2, box1!.y + box1!.height / 2);
+    const cx = box1!.x + box1!.width / 2;
+    const cy = box1!.y + box1!.height / 2;
+    await page.mouse.move(cx, cy);
     await page.mouse.down();
-    await page.mouse.move(targetX + box1!.width / 2, targetY + box1!.height / 2, { steps: 10 });
+    await page.mouse.move(cx + 80, cy + 60, { steps: 10 });
     await page.mouse.up();
-    // 重新读取
     const box2 = await first.boundingBox();
     expect(box2).not.toBeNull();
-    const dx = Math.abs((box2!.x) - (box1!.x));
-    const dy = Math.abs((box2!.y) - (box1!.y));
+    const dx = Math.abs(box2!.x - box1!.x);
+    const dy = Math.abs(box2!.y - box1!.y);
     expect(dx + dy).toBeGreaterThan(20);
   });
 
   test("外部点击关闭右键菜单", async ({ page }) => {
-    await startGeneration(page);
+    await generateOne(page, PROMPT);
     const first = await waitForFirstNode(page);
     await first.click({ button: "right" });
     const menu = infiniteContextMenu(page);
     await expect(menu).toBeVisible({ timeout: 5_000 });
-    // 点击画布空白处关闭
     await page.mouse.click(20, 20);
     await expect(menu).toBeHidden({ timeout: 5_000 });
   });

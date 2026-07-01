@@ -5,6 +5,9 @@ import { expect } from "@playwright/test";
  * 启用节点式画布模式（InfiniteCanvas 路径）。
  * 默认情况下，`skipStudioCoach` 会强制 `aimarket_canvas_flow=0`（旧 ScrollCanvas），
  * InfiniteCanvas 相关 E2E 用例需调用本 helper 来开启新流程。
+ *
+ * 同时设 localStorage 和 URL 参数 (?canvasFlow=1) 双重保险，
+ * 避免 useState 初始 false → useEffect 同步造成的等待窗口期。
  */
 export async function enableCanvasFlow(page: Page) {
   await page.addInitScript(() => {
@@ -13,6 +16,17 @@ export async function enableCanvasFlow(page: Page) {
     localStorage.setItem("aimarket_studio_dock_mode_v1", "expanded");
     localStorage.setItem("aimarket_canvas_flow", "1");
   });
+}
+
+/** 跳转到带 ?canvasFlow=1 的 studio，等同于开启节点式画布 */
+export async function gotoStudioWithCanvasFlow(
+  page: Page,
+  url = "/studio",
+) {
+  const u = new URL(url, "http://placeholder.local");
+  u.searchParams.set("canvasFlow", "1");
+  await page.goto(u.pathname + u.search, { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/sessionId=/, { timeout: 30_000 });
 }
 
 /** 节点式画布内任一节点（通过 data-node-id 定位） */
@@ -60,3 +74,4 @@ export async function listNodeIds(page: Page): Promise<string[]> {
     els.map((e) => (e as HTMLElement).dataset.nodeId || "").filter(Boolean),
   );
 }
+

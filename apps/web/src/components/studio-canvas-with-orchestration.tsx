@@ -92,11 +92,22 @@ export const StudioCanvasWithOrchestration = forwardRef<
     }
   }, [showShotTimeline, dramaDraftProject?.id]);
 
-  // 无限画布模式遵循 localStorage 标志 (aimarket_canvas_flow)，
+  // 节点式画布模式遵循 localStorage 标志 (aimarket_canvas_flow)，
   // E2E 用例通过 addInitScript 设置 "0" 强制使用 ScrollCanvas。
-  const [useInfiniteCanvas, setUseInfiniteCanvas] = useState(false);
+  // 用 lazy initializer 同步读取 localStorage，避免首次 render 走错路径
+  // (E2E 才能在 addInitScript 后立即检测到节点式画布)。
+  const [useInfiniteCanvas, setUseInfiniteCanvas] = useState(() =>
+    isCanvasFlowMode(),
+  );
   useEffect(() => {
-    setUseInfiniteCanvas(isCanvasFlowMode());
+    // 监听 localStorage 变化（用户切换画布模式后实时同步）
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "aimarket_canvas_flow") {
+        setUseInfiniteCanvas(isCanvasFlowMode());
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   // Compute Drama canvas nodes from the planning result
