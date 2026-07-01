@@ -22,6 +22,7 @@ import { videoInpaintProvider } from "./video-inpaint-provider.js";
 import { gridSplitToolProvider } from "./grid-split-provider.js";
 import { turnaround360Provider } from "./turnaround-360-provider.js";
 import { urlScraperProvider } from "./url-scraper-provider.js";
+import { musicGenToolProvider } from "./music-gen-tool-provider.js";
 import type { ImageToolProvider, ToolRunParams, ToolRunResult } from "./types.js";
 
 /** auto 优先级：扩图 Wan → 扩图 HTTP → OpenAI 变体 → Seedream → 其他 http → mock */
@@ -44,6 +45,7 @@ const providers: ImageToolProvider[] = [
   gridSplitToolProvider,
   turnaround360Provider,
   urlScraperProvider,
+  musicGenToolProvider,
   mockToolProvider,
 ];
 

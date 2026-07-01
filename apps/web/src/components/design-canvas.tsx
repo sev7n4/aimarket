@@ -35,7 +35,7 @@ import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { hapticLight } from "@/lib/haptics";
 import { assetUrl } from "@/lib/api-client";
 import { useIsMobile } from "@/hooks/use-is-mobile";
-import { ArrowLeft, Bookmark, Columns2 } from "lucide-react";
+import { ArrowLeft, Bookmark, Columns2, Music } from "lucide-react";
 import type { StudioTool } from "@/lib/types";
 import { InfiniteCanvasContainer } from "@/components/infinite-canvas/InfiniteCanvasContainer";
 import {
@@ -64,6 +64,7 @@ function enrichNodesWithBatchIndex(nodes: CanvasNodeData[]): CanvasNodeData[] {
 import { DramaPropertyPanel } from "@/components/infinite-canvas/drama/DramaPropertyPanel";
 import { CanvasAssistantPanel } from "@/components/infinite-canvas/agent/CanvasAssistantPanel";
 import { TemplateManager } from "@/components/infinite-canvas/TemplateManager";
+import { MusicGenPanel } from "@/components/infinite-canvas/drama/MusicGenPanel";
 import type { CanvasAgentSnapshot, CanvasAgentOp } from "@/components/infinite-canvas/utils";
 import { applyCanvasAgentOps } from "@/components/infinite-canvas/utils";
 
@@ -275,6 +276,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     const [infiniteSelectedIds, setInfiniteSelectedIds] = useState<string[]>([]);
     const [dramaPanelNodeId, setDramaPanelNodeId] = useState<string | null>(null);
     const [showTemplateManager, setShowTemplateManager] = useState(false);
+    const [showMusicGenPanel, setShowMusicGenPanel] = useState(false);
 
     // Compute the Drama node data for the right-side property panel
     const dramaPanelNode = useMemo<CanvasNodeData | null>(() => {
@@ -1005,6 +1007,21 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 >
                   <Bookmark className="size-4" />
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowMusicGenPanel((v) => !v)}
+                  className={`absolute right-3 top-14 z-20 inline-flex size-8 items-center justify-center rounded-md border transition ${
+                    showMusicGenPanel
+                      ? "bg-white/20 text-white"
+                      : "bg-black/40 text-zinc-300 hover:bg-black/60"
+                  }`}
+                  style={{ borderColor: "rgba(255,255,255,0.15)" }}
+                  aria-label="AI 音乐生成"
+                  title="AI 音乐生成"
+                  data-testid="music-gen-toggle"
+                >
+                  <Music className="size-4" />
+                </button>
               </div>
               {dramaPanelNode && (
                 <DramaPropertyPanel
@@ -1025,6 +1042,12 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                   connections={templateSelectedConnections}
                   sessionId={sessionId}
                   onClose={() => setShowTemplateManager(false)}
+                />
+              )}
+              {showMusicGenPanel && (
+                <MusicGenPanel
+                  sessionId={sessionId}
+                  onClose={() => setShowMusicGenPanel(false)}
                 />
               )}
             </div>

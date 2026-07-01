@@ -2203,3 +2203,19 @@ export async function deleteDramaTemplate(id: string) {
   );
   return res.data;
 }
+
+/** AI 音乐生成 */
+export async function generateMusic(body: {
+  sessionId: string;
+  style?: string;
+  bpm?: number;
+  durationSec?: number;
+}) {
+  const res = await request<{
+    data: { jobId: string; estimatedPoints: number; status: string };
+  }>("/api/v1/ai/music", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return res.data;
+}
