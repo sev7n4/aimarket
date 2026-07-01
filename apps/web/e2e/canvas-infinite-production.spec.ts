@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { registerViaEmail } from "./helpers/auth";
-import { studioWorkstation } from "./helpers/studio";
+import { gotoStudioAndWait, studioWorkstation } from "./helpers/studio";
 
 /**
  * Phase 5 生产路径 smoke 验证。
@@ -9,7 +9,7 @@ import { studioWorkstation } from "./helpers/studio";
  * 模拟真实生产用户 (默认 isCanvasFlowMode()=true, 走 InfiniteCanvas 路径)。
  *
  * 验证：
- * - 主页输入提示 → 进入 studio
+ * - 主页注册 → 进入 studio
  * - 画布出现 InfiniteCanvas 节点 (data-node-id)
  * - 节点右键弹出工具菜单
  * - 模板/音乐浮动入口存在
@@ -21,6 +21,9 @@ test.describe("InfiniteCanvas 生产路径", () => {
   test("生产默认走 InfiniteCanvas 路径", async ({ page }) => {
     // 真实新用户：localStorage 全空，isCanvasFlowMode() 默认 true
     await registerViaEmail(page, { emailPrefix: "prodcv" });
+
+    // 显式跳转到 /studio；registerViaEmail 停在首页
+    await gotoStudioAndWait(page, "/studio");
 
     const station = studioWorkstation(page);
     const textarea = station.locator("textarea").first();
@@ -45,6 +48,7 @@ test.describe("InfiniteCanvas 生产路径", () => {
 
   test("关闭右键菜单后再次打开可用", async ({ page }) => {
     await registerViaEmail(page, { emailPrefix: "prodcv2" });
+    await gotoStudioAndWait(page, "/studio");
 
     const station = studioWorkstation(page);
     const textarea = station.locator("textarea").first();
