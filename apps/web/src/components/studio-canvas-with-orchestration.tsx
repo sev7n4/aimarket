@@ -92,9 +92,10 @@ export const StudioCanvasWithOrchestration = forwardRef<
     }
   }, [showShotTimeline, dramaDraftProject?.id]);
 
-  // 无限画布模式遵循 localStorage 标志 (aimarket_canvas_flow)，
-  // E2E 用例通过 addInitScript 设置 "0" 强制使用 ScrollCanvas。
-  const [useInfiniteCanvas, setUseInfiniteCanvas] = useState(false);
+  // Phase 5.1: 生产路径总是使用 InfiniteCanvas。
+  // E2E 用例通过 addInitScript 设置 localStorage["aimarket_canvas_flow"] = "0"
+  // 或 URL 参数 ?canvasFlow=0 强制回退到 ScrollCanvas 路径。
+  const [useInfiniteCanvas, setUseInfiniteCanvas] = useState(true);
   useEffect(() => {
     setUseInfiniteCanvas(isCanvasFlowMode());
   }, []);
