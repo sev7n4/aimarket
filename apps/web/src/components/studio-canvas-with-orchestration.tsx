@@ -293,6 +293,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
       dramaNodes={dramaCanvasData.nodes}
       dramaConnections={dramaCanvasData.connections}
       assistantSnapshot={assistantSnapshot}
+      sessionId={sessionId}
     />
   );
 });

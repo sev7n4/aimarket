@@ -2123,3 +2123,83 @@ export async function deleteCanvasTemplate(
   );
   return res.data;
 }
+
+// ── Phase 4 Task 4.3 — 工作流模板（drama/templates） ──
+
+export type DramaTemplateCategory =
+  | "short_drama"
+  | "mv"
+  | "tvc"
+  | "custom";
+
+export interface DramaTemplateItem {
+  id: string;
+  name: string;
+  category: DramaTemplateCategory;
+  description?: string;
+  template: Record<string, unknown>;
+  isPreset: boolean;
+  userId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 模板列表（预置 + 当前用户自建） */
+export async function listDramaTemplates() {
+  const res = await request<{ data: DramaTemplateItem[] }>(
+    "/api/v1/drama/templates",
+  );
+  return res.data;
+}
+
+/** 模板详情 */
+export async function getDramaTemplate(id: string) {
+  const res = await request<{ data: DramaTemplateItem }>(
+    `/api/v1/drama/templates/${encodeURIComponent(id)}`,
+  );
+  return res.data;
+}
+
+/** 保存为模板 */
+export async function saveDramaTemplate(body: {
+  name: string;
+  category?: DramaTemplateCategory;
+  description?: string;
+  template: Record<string, unknown>;
+}) {
+  const res = await request<{ data: DramaTemplateItem }>(
+    "/api/v1/drama/templates",
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+  return res.data;
+}
+
+/** 一键重跑 */
+export async function runDramaTemplate(
+  id: string,
+  body: {
+    sessionId: string;
+    autoProduce?: boolean;
+    userIdeaOverride?: string;
+  },
+) {
+  const res = await request<{
+    data: import("./types").DramaPlanRun;
+  }>(`/api/v1/drama/templates/${encodeURIComponent(id)}/run`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return res.data;
+}
+
+/** 删除用户自建模板 */
+export async function deleteDramaTemplate(id: string) {
+  const res = await request<{ data: { ok: boolean } }>(
+    `/api/v1/drama/templates/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
+  return res.data;
+}
