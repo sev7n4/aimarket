@@ -35,7 +35,7 @@ import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { hapticLight } from "@/lib/haptics";
 import { assetUrl } from "@/lib/api-client";
 import { useIsMobile } from "@/hooks/use-is-mobile";
-import { ArrowLeft, Columns2 } from "lucide-react";
+import { ArrowLeft, Bookmark, Columns2 } from "lucide-react";
 import type { StudioTool } from "@/lib/types";
 import { InfiniteCanvasContainer } from "@/components/infinite-canvas/InfiniteCanvasContainer";
 import {
@@ -63,6 +63,7 @@ function enrichNodesWithBatchIndex(nodes: CanvasNodeData[]): CanvasNodeData[] {
 }
 import { DramaPropertyPanel } from "@/components/infinite-canvas/drama/DramaPropertyPanel";
 import { CanvasAssistantPanel } from "@/components/infinite-canvas/agent/CanvasAssistantPanel";
+import { TemplateManager } from "@/components/infinite-canvas/TemplateManager";
 import type { CanvasAgentSnapshot, CanvasAgentOp } from "@/components/infinite-canvas/utils";
 import { applyCanvasAgentOps } from "@/components/infinite-canvas/utils";
 
@@ -179,6 +180,8 @@ interface DesignCanvasProps {
   assistantSnapshot?: CanvasAgentSnapshot | null;
   /** Agent 应用 Ops 时的回调 */
   onApplyAssistantOps?: (ops: CanvasAgentOp[]) => void;
+  /** 当前会话 ID（用于 TemplateManager 一键重跑） */
+  sessionId?: string;
 }
 
 export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
@@ -238,6 +241,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       dramaConnections = [],
       assistantSnapshot,
       onApplyAssistantOps,
+      sessionId,
     },
     ref,
   ) {
@@ -270,6 +274,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     const [infiniteViewport, setInfiniteViewport] = useState<ViewportTransform>({ x: 16, y: 16, k: 1 });
     const [infiniteSelectedIds, setInfiniteSelectedIds] = useState<string[]>([]);
     const [dramaPanelNodeId, setDramaPanelNodeId] = useState<string | null>(null);
+    const [showTemplateManager, setShowTemplateManager] = useState(false);
 
     // Compute the Drama node data for the right-side property panel
     const dramaPanelNode = useMemo<CanvasNodeData | null>(() => {
@@ -277,6 +282,24 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       const allNodes = canvasItemsToNodeData(items);
       return allNodes.find((n) => n.id === dramaPanelNodeId) ?? null;
     }, [dramaPanelNodeId, items, useInfiniteCanvas]);
+
+    // Phase 4 Task 4.3 — 选中的节点组（供 TemplateManager 序列化为模板）
+    const templateSelectedNodes = useMemo<CanvasNodeData[]>(() => {
+      if (!useInfiniteCanvas || infiniteSelectedIds.length === 0) return [];
+      const allNodes = [...canvasItemsToNodeData(items), ...dramaNodes];
+      const idSet = new Set(infiniteSelectedIds);
+      return allNodes.filter((n) => idSet.has(n.id));
+    }, [useInfiniteCanvas, infiniteSelectedIds, items, dramaNodes]);
+
+    const templateSelectedConnections = useMemo<CanvasConnection[]>(() => {
+      if (templateSelectedNodes.length === 0) return [];
+      const idSet = new Set(templateSelectedNodes.map((n) => n.id));
+      const allConnections = [...buildConnectionsFromItems(items), ...dramaConnections];
+      return allConnections.filter(
+        (c) => idSet.has(c.fromNodeId) && idSet.has(c.toNodeId),
+      );
+    }, [templateSelectedNodes, items, dramaConnections]);
+
     const refineChainBeforeRef = useRef<Set<string>>(new Set());
     const refineJobMetaRef = useRef<{ toolName?: string } | null>(null);
     const mobile = useIsMobile(MOBILE_BREAKPOINT);
@@ -946,26 +969,43 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             </div>
           ) : useInfiniteCanvas ? (
             <div className="flex min-h-0 flex-1">
-              <InfiniteCanvasContainer
-                nodes={enrichNodesWithBatchIndex([...canvasItemsToNodeData(items), ...dramaNodes])}
-                connections={[...buildConnectionsFromItems(items), ...dramaConnections]}
-                viewport={infiniteViewport}
-                selectedNodeIds={infiniteSelectedIds}
-                onNodesChange={(nodes: CanvasNodeData[]) => {
-                  // Skip if we're applying assistant ops to prevent feedback loop
-                  if (applyingAssistantOpsRef.current) return;
-                  onItemsChange(applyNodePositionsToItems(items, nodes));
-                }}
-                onConnectionsChange={() => {
-                  // Phase 1: connections not persisted back to CanvasItem
-                }}
-                onViewportChange={setInfiniteViewport}
-                onSelectionChange={setInfiniteSelectedIds}
-                onNodeDoubleClick={(nodeId: string) => {
-                  onSelect(nodeId);
-                  setDramaPanelNodeId(nodeId);
-                }}
-              />
+              <div className="relative flex min-h-0 flex-1">
+                <InfiniteCanvasContainer
+                  nodes={enrichNodesWithBatchIndex([...canvasItemsToNodeData(items), ...dramaNodes])}
+                  connections={[...buildConnectionsFromItems(items), ...dramaConnections]}
+                  viewport={infiniteViewport}
+                  selectedNodeIds={infiniteSelectedIds}
+                  onNodesChange={(nodes: CanvasNodeData[]) => {
+                    // Skip if we're applying assistant ops to prevent feedback loop
+                    if (applyingAssistantOpsRef.current) return;
+                    onItemsChange(applyNodePositionsToItems(items, nodes));
+                  }}
+                  onConnectionsChange={() => {
+                    // Phase 1: connections not persisted back to CanvasItem
+                  }}
+                  onViewportChange={setInfiniteViewport}
+                  onSelectionChange={setInfiniteSelectedIds}
+                  onNodeDoubleClick={(nodeId: string) => {
+                    onSelect(nodeId);
+                    setDramaPanelNodeId(nodeId);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowTemplateManager((v) => !v)}
+                  className={`absolute right-3 top-3 z-20 inline-flex size-8 items-center justify-center rounded-md border transition ${
+                    showTemplateManager
+                      ? "bg-white/20 text-white"
+                      : "bg-black/40 text-zinc-300 hover:bg-black/60"
+                  }`}
+                  style={{ borderColor: "rgba(255,255,255,0.15)" }}
+                  aria-label="工作流模板"
+                  title="工作流模板"
+                  data-testid="template-manager-toggle"
+                >
+                  <Bookmark className="size-4" />
+                </button>
+              </div>
               {dramaPanelNode && (
                 <DramaPropertyPanel
                   node={dramaPanelNode}
@@ -977,6 +1017,14 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                   snapshot={assistantSnapshot}
                   onApplyOps={handleApplyAssistantOps}
                   initialCollapsed
+                />
+              )}
+              {showTemplateManager && (
+                <TemplateManager
+                  selectedNodes={templateSelectedNodes}
+                  connections={templateSelectedConnections}
+                  sessionId={sessionId}
+                  onClose={() => setShowTemplateManager(false)}
                 />
               )}
             </div>

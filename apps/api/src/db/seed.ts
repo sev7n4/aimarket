@@ -1,6 +1,7 @@
 import { db } from "./index.js";
 import { backfillWorkspaces } from "../lib/workspaces.js";
 import { seedInspirationTemplates } from "./inspiration-seed.js";
+import { seedDramaTemplates } from "./drama-templates-seed.js";
 
 const PACKAGES = [
   {
@@ -61,4 +62,5 @@ export function seedDatabase() {
 
   backfillWorkspaces();
   seedInspirationTemplates();
+  seedDramaTemplates();
 }

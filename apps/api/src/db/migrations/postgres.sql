@@ -382,3 +382,20 @@ CREATE INDEX IF NOT EXISTS idx_marketplace_skills_status
   ON marketplace_skills(status, category, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_marketplace_skills_author
   ON marketplace_skills(author_id, created_at DESC);
+
+-- Phase 4 Task 4.3 — 工作流模板保存/复用
+CREATE TABLE IF NOT EXISTS drama_templates (
+  id TEXT PRIMARY KEY,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'custom',
+  description TEXT,
+  template_json TEXT NOT NULL,
+  is_preset INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_drama_templates_user
+  ON drama_templates(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_drama_templates_preset
+  ON drama_templates(is_preset, category);

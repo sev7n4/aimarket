@@ -12,6 +12,7 @@ import {
   serializeDramaProject,
   updateDramaProject,
 } from "../lib/drama/projects.js";
+import { dramaTemplates } from "./drama-templates.js";
 import {
   diffDramaProjectVersions,
   getDramaProjectVersion,
@@ -843,5 +844,8 @@ drama.post("/runs/:id/render", async (c) => {
   const next = getDramaRun(userId, runId)!;
   return c.json({ data: serializeDramaRun(next, projectRow) });
 });
+
+// Phase 4 Task 4.3 — 工作流模板保存/复用
+drama.route("/templates", dramaTemplates);
 
 export { drama };
