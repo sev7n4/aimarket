@@ -1,0 +1,75 @@
+import { test, expect } from "@playwright/test";
+import { registerViaEmail } from "./helpers/auth";
+import { gotoStudioAndWait, studioWorkstation } from "./helpers/studio";
+
+/**
+ * Phase 5 生产路径 smoke 验证。
+ *
+ * 与 canvas-infinite-mode.spec.ts 不同，本测试不调用 enableCanvasFlow()，
+ * 模拟真实生产用户 (默认 isCanvasFlowMode()=true, 走 InfiniteCanvas 路径)。
+ *
+ * 验证：
+ * - 主页注册 → 进入 studio
+ * - 画布出现 InfiniteCanvas 节点 (data-node-id)
+ * - 节点右键弹出工具菜单
+ * - 模板/音乐浮动入口存在
+ */
+
+const PROMPT = "白底极简产品图，节点画布生产路径 smoke 测试";
+
+test.describe("InfiniteCanvas 生产路径", () => {
+  test("生产默认走 InfiniteCanvas 路径", async ({ page }) => {
+    // 真实新用户：localStorage 全空，isCanvasFlowMode() 默认 true
+    await registerViaEmail(page, { emailPrefix: "prodcv" });
+
+    // 显式跳转到 /studio；registerViaEmail 停在首页
+    await gotoStudioAndWait(page, "/studio");
+
+    const station = studioWorkstation(page);
+    const textarea = station.locator("textarea").first();
+    await expect(textarea).toBeVisible({ timeout: 15_000 });
+    await textarea.fill(PROMPT);
+    await station.getByRole("button", { name: "开始生成" }).click();
+
+    // 生产路径下画布走 InfiniteCanvas, 节点用 [data-node-id] 标识
+    const firstNode = page.locator("[data-node-id]").first();
+    await expect(firstNode).toBeVisible({ timeout: 180_000 });
+
+    // 节点右键弹出工具菜单
+    await firstNode.click({ button: "right" });
+    const menu = page.locator('[data-testid="infinite-canvas-context-menu"]');
+    await expect(menu).toBeVisible({ timeout: 5_000 });
+    await expect(menu).toContainText(/抠图|扩图|重生成|删除/);
+
+    // 浮动入口存在
+    await expect(page.getByTestId("template-manager-toggle")).toBeVisible();
+    await expect(page.getByTestId("music-gen-toggle")).toBeVisible();
+  });
+
+  test("关闭右键菜单后再次打开可用", async ({ page }) => {
+    await registerViaEmail(page, { emailPrefix: "prodcv2" });
+    await gotoStudioAndWait(page, "/studio");
+
+    const station = studioWorkstation(page);
+    const textarea = station.locator("textarea").first();
+    await expect(textarea).toBeVisible({ timeout: 15_000 });
+    await textarea.fill("测试再次打开右键");
+    await station.getByRole("button", { name: "开始生成" }).click();
+
+    const firstNode = page.locator("[data-node-id]").first();
+    await expect(firstNode).toBeVisible({ timeout: 180_000 });
+
+    // 第一次打开
+    await firstNode.click({ button: "right" });
+    const menu = page.locator('[data-testid="infinite-canvas-context-menu"]');
+    await expect(menu).toBeVisible({ timeout: 5_000 });
+
+    // 外部点击关闭
+    await page.mouse.click(20, 20);
+    await expect(menu).toBeHidden({ timeout: 5_000 });
+
+    // 第二次打开
+    await firstNode.click({ button: "right" });
+    await expect(menu).toBeVisible({ timeout: 5_000 });
+  });
+});
