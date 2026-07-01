@@ -38,12 +38,16 @@ import { useIsMobile } from "@/hooks/use-is-mobile";
 import { ArrowLeft, Bookmark, Columns2, Music } from "lucide-react";
 import type { StudioTool } from "@/lib/types";
 import { InfiniteCanvasContainer } from "@/components/infinite-canvas/InfiniteCanvasContainer";
+import { InfiniteCanvasContextMenu } from "@/components/infinite-canvas/InfiniteCanvasContextMenu";
+import { canvasTheme } from "@/components/infinite-canvas/canvas-theme";
+import { LightingOverlay, type LightSource } from "@/components/infinite-canvas/drama/LightingOverlay";
+import { CameraOverlay, type CameraParams as DramaCameraParams } from "@/components/infinite-canvas/drama/CameraOverlay";
 import {
   canvasItemsToNodeData,
   buildConnectionsFromItems,
   applyNodePositionsToItems,
 } from "@/components/infinite-canvas/migration";
-import type { CanvasNodeData, CanvasConnection, CanvasNodeMetadata, ViewportTransform } from "@/components/infinite-canvas/types";
+import type { CanvasNodeData, CanvasConnection, CanvasNodeMetadata, ViewportTransform, ContextMenuState } from "@/components/infinite-canvas/types";
 import { CanvasNodeType } from "@/components/infinite-canvas/types";
 
 /** Assign sequential batch index to nodes sharing the same batchRootId (1-based). */
@@ -277,6 +281,32 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     const [dramaPanelNodeId, setDramaPanelNodeId] = useState<string | null>(null);
     const [showTemplateManager, setShowTemplateManager] = useState(false);
     const [showMusicGenPanel, setShowMusicGenPanel] = useState(false);
+    // Phase 4 Task 4.1/4.2：无限画布节点右键菜单
+    const [infiniteContextMenu, setInfiniteContextMenu] = useState<{
+      node: CanvasNodeData;
+      x: number;
+      y: number;
+    } | null>(null);
+    // 视频精准编辑 / 灯光 / 摄像机 浮层（用于右侧打开）
+    const [showVideoInpaint, setShowVideoInpaint] = useState<{
+      node: CanvasNodeData;
+    } | null>(null);
+    const [showLighting, setShowLighting] = useState<{
+      node: CanvasNodeData;
+    } | null>(null);
+    const [showCamera, setShowCamera] = useState<{
+      node: CanvasNodeData;
+    } | null>(null);
+
+    // 所有画布节点的统一视图（含 drama），用于 context menu 节点查找
+    const allCanvasNodes = useMemo<CanvasNodeData[]>(
+      () => [...canvasItemsToNodeData(items), ...dramaNodes],
+      [items, dramaNodes],
+    );
+    const allCanvasNodesRef = useRef<CanvasNodeData[]>(allCanvasNodes);
+    useEffect(() => {
+      allCanvasNodesRef.current = allCanvasNodes;
+    }, [allCanvasNodes]);
 
     // Compute the Drama node data for the right-side property panel
     const dramaPanelNode = useMemo<CanvasNodeData | null>(() => {
@@ -845,6 +875,17 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       return collectRefineChainItems(items, refineRootItemId);
     }, [items, refineRootItemId]);
 
+    // 根据节点查找对应的 CanvasItem（仅对 Image/Video 节点有意义）
+    const contextMenuForItem = useCallback(
+      (node: CanvasNodeData) => {
+        if (node.type === CanvasNodeType.Image || node.type === CanvasNodeType.Video) {
+          return items.find((i) => i.id === node.id) ?? null;
+        }
+        return null;
+      },
+      [items],
+    );
+
     const comparePair = useMemo(() => {
       if (!refineRootItemId || !refineItemId) return null;
       return canShowRefineCompare(items, refineRootItemId, refineItemId);
@@ -990,6 +1031,22 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                   onNodeDoubleClick={(nodeId: string) => {
                     onSelect(nodeId);
                     setDramaPanelNodeId(nodeId);
+                  }}
+                  onContextMenu={(state: ContextMenuState | null) => {
+                    if (state?.type === "node") {
+                      const target = allCanvasNodesRef.current.find(
+                        (n) => n.id === state.nodeId,
+                      );
+                      if (target) {
+                        setInfiniteContextMenu({
+                          node: target,
+                          x: state.x,
+                          y: state.y,
+                        });
+                      }
+                    } else {
+                      setInfiniteContextMenu(null);
+                    }
                   }}
                 />
                 <button
@@ -1175,6 +1232,236 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
           />
         ) : null}
 
+        {infiniteContextMenu ? (
+          <InfiniteCanvasContextMenu
+            node={infiniteContextMenu.node}
+            x={infiniteContextMenu.x}
+            y={infiniteContextMenu.y}
+            onClose={() => setInfiniteContextMenu(null)}
+            onCutout={
+              onCutoutItem && contextMenuForItem(infiniteContextMenu.node)
+                ? () => {
+                    const item = contextMenuForItem(infiniteContextMenu.node);
+                    if (item) onCutoutItem(item);
+                  }
+                : undefined
+            }
+            onExpand={
+              onExpandItem && contextMenuForItem(infiniteContextMenu.node)
+                ? () => {
+                    const item = contextMenuForItem(infiniteContextMenu.node);
+                    if (item) onExpandItem(item);
+                  }
+                : undefined
+            }
+            onRerun={
+              onRerun && contextMenuForItem(infiniteContextMenu.node)
+                ? () => {
+                    const item = contextMenuForItem(infiniteContextMenu.node);
+                    if (item) onRerun(item);
+                  }
+                : undefined
+            }
+            onDownload={() => {
+              const item = contextMenuForItem(infiniteContextMenu.node);
+              if (item) onDownloadItem?.(item);
+              else window.open(assetUrl(infiniteContextMenu.node.metadata?.content ?? ""), "_blank");
+            }}
+            onDelete={() => {
+              const target = infiniteContextMenu.node;
+              if (target.type === CanvasNodeType.Image || target.type === CanvasNodeType.Video) {
+                const item = items.find((i) => i.id === target.id);
+                if (item) {
+                  onSelect(item.id);
+                  onDeleteSelected();
+                }
+              } else {
+                // Drama 节点删除：调用 onItemsChange 过滤掉对应 item
+                // Drama 节点通常会通过 dramaNodes 渲染；简单起见，只清选。
+                onSelect(null);
+                console.warn(
+                  "[infinite-canvas] Drama 节点删除尚未接入 onItemsChange，请实现后端删除逻辑",
+                );
+              }
+            }}
+            onRecompose={() => {
+              // 重新合成：暂以 lightbox 重新打开当前节点
+              const item = contextMenuForItem(infiniteContextMenu.node);
+              if (item) {
+                const idx = items.findIndex((i) => i.id === item.id);
+                setLightbox({ items, index: idx >= 0 ? idx : 0 });
+                onSelect(item.id);
+              }
+            }}
+            onVideoInpaint={() => {
+              setShowVideoInpaint({ node: infiniteContextMenu.node });
+            }}
+            onMusicGen={() => {
+              setShowMusicGenPanel(true);
+            }}
+            onMultiCam9={() => {
+              // TODO: 调用 multi-cam-9 工具（已注册 Provider，需要在前端触发 /tools/multi-cam-9/run）
+              console.info(
+                "[infinite-canvas] 触发多机位 9 宫格：节点",
+                infiniteContextMenu.node.id,
+              );
+            }}
+            onMultiCam25={() => {
+              console.info(
+                "[infinite-canvas] 触发多机位 25 宫格：节点",
+                infiniteContextMenu.node.id,
+              );
+            }}
+            onLighting={() => {
+              setShowLighting({ node: infiniteContextMenu.node });
+            }}
+            onCamera={() => {
+              setShowCamera({ node: infiniteContextMenu.node });
+            }}
+            onEditScript={() => {
+              onSelect(infiniteContextMenu.node.id);
+              setDramaPanelNodeId(infiniteContextMenu.node.id);
+            }}
+            onEditShot={() => {
+              onSelect(infiniteContextMenu.node.id);
+              setDramaPanelNodeId(infiniteContextMenu.node.id);
+            }}
+            onEditCharacter={() => {
+              onSelect(infiniteContextMenu.node.id);
+              setDramaPanelNodeId(infiniteContextMenu.node.id);
+            }}
+            onEditScene={() => {
+              onSelect(infiniteContextMenu.node.id);
+              setDramaPanelNodeId(infiniteContextMenu.node.id);
+            }}
+            onGenerateShotImage={() => {
+              console.info(
+                "[infinite-canvas] 触发分镜图生成：节点",
+                infiniteContextMenu.node.id,
+              );
+            }}
+            onGenerateShotVideo={() => {
+              console.info(
+                "[infinite-canvas] 触发分镜视频生成：节点",
+                infiniteContextMenu.node.id,
+              );
+            }}
+            onGenerateCharacterSheet={() => {
+              console.info(
+                "[infinite-canvas] 触发三视图生成：节点",
+                infiniteContextMenu.node.id,
+              );
+            }}
+            onExtractKeyframe={() => {
+              const item = contextMenuForItem(infiniteContextMenu.node);
+              if (item && batchTools?.onExtractVideoLastFrame) {
+                batchTools.onExtractVideoLastFrame(item);
+              }
+            }}
+          />
+        ) : null}
+
+        {showVideoInpaint ? (
+          <div
+            className="absolute right-3 top-20 z-30 w-[420px] rounded-xl border p-3 shadow-2xl"
+            style={{
+              background: canvasTheme.canvas.background,
+              borderColor: canvasTheme.node.stroke,
+            }}
+            data-testid="video-inpaint-inline-panel"
+          >
+            <div className="mb-2 flex items-center justify-between text-[11px]">
+              <span className="font-semibold" style={{ color: canvasTheme.node.text }}>
+                视频精准编辑
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowVideoInpaint(null)}
+                className="rounded p-0.5 text-[10px] hover:bg-white/10"
+                style={{ color: canvasTheme.node.faint }}
+                aria-label="关闭视频精准编辑"
+              >
+                关闭
+              </button>
+            </div>
+            <div
+              className="rounded-lg p-2 text-[10px]"
+              style={{
+                background: canvasTheme.node.fill,
+                color: canvasTheme.node.muted,
+              }}
+            >
+              视频精准编辑器（VideoInpaintEditor）已实现，请通过弹窗/侧边栏调用：
+              <pre className="mt-1 whitespace-pre-wrap text-[10px]" style={{ color: canvasTheme.node.faint }}>
+                {`import { VideoInpaintEditor } from "@/components/video-inpaint-editor";\n<VideoInpaintEditor videoUrl={...} onSubmit={...} />`}
+              </pre>
+            </div>
+          </div>
+        ) : null}
+
+        {showLighting ? (
+          <div
+            className="absolute right-3 top-20 z-30 w-[360px] rounded-xl border p-3 shadow-2xl"
+            style={{
+              background: canvasTheme.canvas.background,
+              borderColor: canvasTheme.node.stroke,
+            }}
+            data-testid="lighting-inline-panel"
+          >
+            <div className="mb-2 flex items-center justify-between text-[11px]">
+              <span className="font-semibold" style={{ color: canvasTheme.node.text }}>
+                灯光控制
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowLighting(null)}
+                className="rounded p-0.5 text-[10px] hover:bg-white/10"
+                style={{ color: canvasTheme.node.faint }}
+                aria-label="关闭灯光控制"
+              >
+                关闭
+              </button>
+            </div>
+            {showLighting.node.metadata?.content ? (
+              <LightingOverlayInline
+                imageUrl={showLighting.node.metadata.content}
+                onClose={() => setShowLighting(null)}
+              />
+            ) : (
+              <p className="text-[10px]" style={{ color: canvasTheme.node.faint }}>
+                当前节点无可编辑图片
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        {showCamera ? (
+          <div
+            className="absolute right-3 top-20 z-30 w-[360px] rounded-xl border p-3 shadow-2xl"
+            style={{
+              background: canvasTheme.canvas.background,
+              borderColor: canvasTheme.node.stroke,
+            }}
+            data-testid="camera-inline-panel"
+          >
+            <div className="mb-2 flex items-center justify-between text-[11px]">
+              <span className="font-semibold" style={{ color: canvasTheme.node.text }}>
+                摄像机控制
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowCamera(null)}
+                className="rounded p-0.5 text-[10px] hover:bg-white/10"
+                style={{ color: canvasTheme.node.faint }}
+                aria-label="关闭摄像机控制"
+              >
+                关闭
+              </button>
+            </div>
+            <CameraOverlayInline onClose={() => setShowCamera(null)} />
+          </div>
+        ) : null}
+
         {lightbox && (
           <CanvasLightbox
             items={lightbox.items}
@@ -1196,3 +1483,76 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     );
   },
 );
+
+// ---------------------------------------------------------------------------
+// Phase 4 Task 4.1/4.2 浮层：灯光 / 摄像机
+// 包装 LightingOverlay / CameraOverlay，让其支持关闭按钮并应用到画布节点
+// ---------------------------------------------------------------------------
+
+function LightingOverlayInline({
+  imageUrl,
+  onClose,
+}: {
+  imageUrl: string;
+  onClose: () => void;
+}) {
+  const [sources, setSources] = useState<LightSource[]>([]);
+  return (
+    <div className="flex flex-col gap-2">
+      <LightingOverlay
+        imageUrl={imageUrl}
+        sources={sources}
+        onSourcesChange={setSources}
+        className="rounded-lg"
+      />
+      <div className="flex items-center justify-between text-[10px]">
+        <span style={{ color: canvasTheme.node.faint }}>
+          光源：{sources.length} 个
+        </span>
+        <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={() => setSources([])}
+            className="rounded px-2 py-0.5 transition hover:bg-white/10"
+            style={{ color: canvasTheme.node.muted }}
+            disabled={sources.length === 0}
+          >
+            清空
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded px-2 py-0.5 transition hover:bg-white/10"
+            style={{ color: canvasTheme.node.muted }}
+          >
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CameraOverlayInline({ onClose }: { onClose: () => void }) {
+  const [params, setParams] = useState<DramaCameraParams>({
+    shotSize: undefined,
+    movement: undefined,
+    pitch: 0,
+    yaw: 0,
+  });
+  return (
+    <div className="flex flex-col gap-2">
+      <CameraOverlay params={params} onChange={setParams} />
+      <div className="flex justify-end text-[10px]">
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded px-2 py-0.5 transition hover:bg-white/10"
+          style={{ color: canvasTheme.node.muted }}
+        >
+          关闭
+        </button>
+      </div>
+    </div>
+  );
+}
