@@ -562,4 +562,41 @@ ai.get("/jobs/:jobId/stream", (c) => {
   });
 });
 
+/** AI 音乐生成 */
+ai.post("/music", async (c) => {
+  const userId = c.get("userId");
+  await rateLimit(`music:${userId}`, 10, 60_000);
+
+  const body = z
+    .object({
+      sessionId: z.string().uuid(),
+      style: z.string().min(1).max(500).default("轻快电子乐"),
+      bpm: z.number().int().min(60).max(200).default(120),
+      durationSec: z.number().int().min(10).max(120).default(30),
+    })
+    .parse(await c.req.json());
+
+  const { jobId, pointsCost } = createGenerationJob({
+    sessionId: body.sessionId,
+    userId,
+    prompt: `【AI 音乐生成】风格: ${body.style}, BPM: ${body.bpm}, 时长: ${body.durationSec}s`,
+    modelId: "omni-v2",
+    mode: "chat",
+    count: 1,
+    resolution: "1k",
+    toolType: "music-gen",
+    toolContext: {
+      toolId: "music-gen",
+      masks: [],
+      style: body.style,
+      bpm: body.bpm,
+      durationSec: body.durationSec,
+    } as Record<string, unknown>,
+  });
+
+  return c.json({
+    data: { jobId, estimatedPoints: pointsCost, status: "queued" },
+  });
+});
+
 export { ai };

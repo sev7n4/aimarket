@@ -49,8 +49,9 @@ import {
   runLipSync,
   runTts,
 } from "../providers/drama/registry.js";
+import { generateMusic } from "../providers/music-gen-provider.js";
 
-const DRAMA_MEDIA_TOOLS = new Set(["tts", "lipsync", "concat"]);
+const DRAMA_MEDIA_TOOLS = new Set(["tts", "lipsync", "concat", "music-gen"]);
 
 const delayMs = Number(process.env.MOCK_GENERATION_DELAY_MS ?? 2500);
 
@@ -456,6 +457,14 @@ export async function processGenerationJob({
           jobId,
         });
         urls = [result.url];
+        imageProvider = result.provider;
+      } else if (job.tool_type === "music-gen") {
+        const result = await generateMusic({
+          style: (ctx.style as string) || job.prompt || "轻快电子乐",
+          bpm: typeof ctx.bpm === "number" ? ctx.bpm : 120,
+          durationSec: typeof ctx.durationSec === "number" ? ctx.durationSec : 30,
+        });
+        urls = [result.audioUrl];
         imageProvider = result.provider;
       }
     } else if (job.tool_type && job.tool_type !== "video") {
