@@ -41,14 +41,19 @@ export const placeholders: Record<CreationMode, string> = {
 export const PRODUCTION_DOCK_PLACEHOLDER =
   "描述你的短剧创意（至少 10 字），Agent 将自动规划剧本与分镜";
 
-/** 1.3 节点式画布模式：默认开启，可通过 localStorage 或 URL 参数关闭 */
+/** 节点式画布（InfiniteCanvas）模式：默认开启，可通过 localStorage 或 URL 参数关闭。
+ *
+ * Phase 5.1 之后，Studio 总是渲染 DesignCanvas；本函数返回 true 时，
+ * StudioCanvasWithOrchestration 会启用 InfiniteCanvas 路径（即生产体验）。
+ * 返回 false 时，回退到 ScrollCanvas 路径，供 E2E 测试或调试使用。
+ */
 export function isCanvasFlowMode(): boolean {
-  if (typeof window === "undefined") return false;
+  if (typeof window === "undefined") return true;
   // URL 参数 ?canvasFlow=0 可关闭（兼容旧画布）
   const params = new URLSearchParams(window.location.search);
   if (params.get("canvasFlow") === "1") return true;
   if (params.get("canvasFlow") === "0") return false;
-  // localStorage 显式关闭
+  // localStorage 显式关闭（默认开启）
   return localStorage.getItem("aimarket_canvas_flow") !== "0";
 }
 

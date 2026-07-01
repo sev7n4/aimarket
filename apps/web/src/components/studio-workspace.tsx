@@ -9,14 +9,10 @@ import {
   ChevronRight,
   Flag,
   Plus,
-  Workflow,
   X,
 } from "lucide-react";
 import { LoginDialog } from "@/components/login-dialog";
-import {
-  DesignCanvas,
-  type DesignCanvasHandle,
-} from "@/components/design-canvas";
+import type { DesignCanvasHandle } from "@/components/design-canvas";
 import { StudioCreationDock } from "@/components/studio-creation-dock";
 import { CanvasSelectionToolbar } from "@/components/canvas-selection-toolbar";
 import { StudioDock, studioDockScrollInset } from "@/components/studio-dock";
@@ -53,12 +49,6 @@ import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
 import { StudioOrchestrationProvider } from "@/components/studio-orchestration-provider";
 import { StudioCanvasWithOrchestration } from "@/components/studio-canvas-with-orchestration";
 import { useAuth } from "@/lib/auth-context";
-import { CanvasFlowCanvas, type CanvasFlowHandle } from "@/components/canvas-flow";
-import { CanvasFlowOverlay } from "@/components/canvas-flow-overlay";
-import { CanvasNodeCreator } from "@/components/canvas-node-creator";
-import { CanvasCommandPalette } from "@/components/canvas-command-palette";
-import { isCanvasFlowMode, setCanvasFlowMode } from "@/lib/modes";
-import type { CanvasNodeType } from "@/lib/canvas-node-types";
 import {
   assetUrl,
   cancelJob,
@@ -344,104 +334,6 @@ export function StudioWorkspace({
     null,
   );
   const [toolConfirmPending, setToolConfirmPending] = useState(false);
-
-  /** 1.3 节点式画布模式与节点创建器 */
-  const [useCanvasFlow, setUseCanvasFlow] = useState(false);
-  const [nodeCreatorOpen, setNodeCreatorOpen] = useState(false);
-  const [nodeCreatorPosition, setNodeCreatorPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  /** P3.2 Slash 命令面板 */
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const canvasFlowRef = useRef<CanvasFlowHandle>(null);
-
-  useEffect(() => {
-    setUseCanvasFlow(isCanvasFlowMode());
-  }, []);
-
-  /** 切换画布模式 */
-  const handleToggleCanvasFlow = useCallback(() => {
-    const next = !useCanvasFlow;
-    setUseCanvasFlow(next);
-    setCanvasFlowMode(next);
-  }, [useCanvasFlow]);
-
-  /** P3.2 Slash 快捷键：在节点画布中按 / 打开命令面板 */
-  useEffect(() => {
-    if (!useCanvasFlow) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key !== "/") return;
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      // 输入框内不触发
-      if (
-        tag === "INPUT" ||
-        tag === "TEXTAREA" ||
-        (e.target as HTMLElement | null)?.isContentEditable
-      ) {
-        return;
-      }
-      e.preventDefault();
-      setCommandPaletteOpen(true);
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [useCanvasFlow]);
-
-  /** P4.2 快捷键：Ctrl/Cmd+Z 撤销 / Shift+Ctrl/Cmd+Z 重做 / Ctrl/Cmd+C 复制 / Ctrl/Cmd+V 粘贴 */
-  useEffect(() => {
-    if (!useCanvasFlow) return;
-    function onKey(e: KeyboardEvent) {
-      const mod = e.ctrlKey || e.metaKey;
-      const target = e.target as HTMLElement | null;
-      const tag = target?.tagName;
-      const isInTextField =
-        tag === "INPUT" ||
-        tag === "TEXTAREA" ||
-        target?.isContentEditable === true;
-      // 文本字段内只允许原生撤销/重做
-      if (isInTextField) return;
-
-      // P4.4 修复: image-action-bar / batch-tool-strip 等悬浮工具栏内的按钮焦点时，跳过画布快捷键
-      // 避免 cmd+C 同时触发"复制节点"和 hover 工具栏上的"精修"按钮误感
-      if (target && target.closest("[data-testid='image-action-bar'], [data-testid='canvas-batch-tool-strip']")) {
-        return;
-      }
-
-      if (mod) {
-        const key = e.key.toLowerCase();
-        // Z 撤销/重做
-        if (key === "z" && !e.shiftKey) {
-          e.preventDefault();
-          canvasFlowRef.current?.undo();
-          return;
-        }
-        if ((key === "z" && e.shiftKey) || key === "y") {
-          e.preventDefault();
-          canvasFlowRef.current?.redo();
-          return;
-        }
-        // C 复制
-        if (key === "c" && !e.shiftKey) {
-          e.preventDefault();
-          canvasFlowRef.current?.copy();
-          return;
-        }
-        // V 粘贴
-        if (key === "v" && !e.shiftKey) {
-          e.preventDefault();
-          canvasFlowRef.current?.paste();
-          return;
-        }
-      } else {
-        // P4.4 修复: 显式处理 Delete/Backspace 键（不再依赖 React Flow 内部 focus 链路）
-        if (e.key === "Delete" || e.key === "Backspace") {
-          e.preventDefault();
-          canvasFlowRef.current?.deleteSelected();
-          return;
-        }
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [useCanvasFlow]);
 
   const handleWorkspaceChange = useCallback(
     (id: string) => {
@@ -1816,38 +1708,6 @@ export function StudioWorkspace({
                 只读：他人会话，仅创建者或管理员可编辑与生成
               </p>
             ) : null}
-            {useCanvasFlow ? (
-              <>
-                <CanvasFlowCanvas
-                  ref={canvasFlowRef}
-                  sessionId={sessionId}
-                  readOnly={readOnly}
-                  onPaneDoubleClick={(pos) => {
-                    setNodeCreatorPosition(pos);
-                    setNodeCreatorOpen(true);
-                  }}
-                  onNodeDoubleClick={(_nodeId, _nodeType) => {
-                    // 节点双击编辑已由节点组件内联处理
-                  }}
-                />
-                <CanvasFlowOverlay
-                  onToggleCanvas={handleToggleCanvasFlow}
-                  onAutoLayout={() => canvasFlowRef.current?.autoLayout()}
-                  onOpenCommandPalette={() => setCommandPaletteOpen(true)}
-                  canvasRef={canvasFlowRef}
-                />
-              </>
-            ) : (
-            <>
-              <button
-                type="button"
-                onClick={handleToggleCanvasFlow}
-                className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#0f0f0f]/90 px-2.5 py-1.5 text-[11px] text-zinc-400 backdrop-blur hover:border-indigo-500/40 hover:text-indigo-300 transition-colors"
-                title="切换到节点画布"
-              >
-                <Workflow className="size-3.5" />
-                节点画布
-              </button>
             <StudioCanvasWithOrchestration
               ref={canvasRef}
               items={canvasItems}
@@ -2017,27 +1877,6 @@ export function StudioWorkspace({
               }
               statusChip={<ProviderStatusChip />}
             />
-            </>
-            )}
-
-            {nodeCreatorOpen ? (
-              <CanvasNodeCreator
-                sessionId={sessionId}
-                position={nodeCreatorPosition}
-                onClose={() => setNodeCreatorOpen(false)}
-                onCreated={() => setNodeCreatorOpen(false)}
-              />
-            ) : null}
-
-            {commandPaletteOpen && useCanvasFlow ? (
-              <CanvasCommandPalette
-                open={commandPaletteOpen}
-                sessionId={sessionId}
-                position={canvasFlowRef.current?.getCenterPosition() ?? { x: 0, y: 0 }}
-                onClose={() => setCommandPaletteOpen(false)}
-                onCreated={() => setCommandPaletteOpen(false)}
-              />
-            ) : null}
 
             <StudioDock mode={dockMode} onModeChange={setDockMode}>
               <StudioCreationDock
