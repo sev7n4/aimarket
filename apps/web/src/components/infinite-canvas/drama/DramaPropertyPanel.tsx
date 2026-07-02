@@ -236,6 +236,8 @@ export function DramaPropertyPanel({ node, onClose, onSendCommand, busy = false 
 
   return (
     <div
+      data-testid="drama-property-panel"
+      data-drama-node-type={node.type}
       className="flex h-full w-[320px] shrink-0 flex-col border-l"
       style={{
         background: canvasTheme.canvas.background,
