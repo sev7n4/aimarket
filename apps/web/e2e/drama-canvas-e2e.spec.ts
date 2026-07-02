@@ -15,7 +15,7 @@ const API_BASE = process.env.E2E_API_URL ?? "http://127.0.0.1:4000";
 async function registerAndEnsureSession(
   request: APIRequestContext,
   emailPrefix: string,
-): Promise<{ token: string; sessionId: string }> {
+): Promise<{ token: string; sessionId: string; userId: string }> {
   const email = `${emailPrefix}_${Date.now()}_${Math.random()
     .toString(36)
     .slice(2, 8)}@test.local`;
@@ -23,9 +23,13 @@ async function registerAndEnsureSession(
     data: { email, password: "testpass123" },
   });
   expect(register.ok(), `register failed: ${await register.text()}`).toBeTruthy();
-  const body = (await register.json()) as { data?: { token?: string } };
+  const body = (await register.json()) as {
+    data?: { token?: string; user?: { id?: string } };
+  };
   const token = body.data?.token;
+  const userId = body.data?.user?.id;
   expect(token).toBeTruthy();
+  expect(userId, "register response missing user.id").toBeTruthy();
 
   const sessionId = crypto.randomUUID();
   const ensure = await request.post(`${API_BASE}/api/v1/imageSession/ensure`, {
@@ -34,7 +38,7 @@ async function registerAndEnsureSession(
   });
   expect(ensure.ok(), `ensure failed: ${await ensure.text()}`).toBeTruthy();
 
-  return { token: token!, sessionId };
+  return { token: token!, sessionId, userId: userId! };
 }
 
 function buildDramaDraftProject(sessionId: string) {
@@ -102,20 +106,26 @@ async function openStudioWithDramaDraft(
   request: APIRequestContext,
   token: string,
   sessionId: string,
+  userId: string,
 ) {
   const draftProject = buildDramaDraftProject(sessionId);
 
   // 用 addInitScript 在每个页面加载前注入 token + 跳过 coach,
   // 避免 / 页面触发 fetchUser → setToken(null) 把 token 清掉的问题
   await page.addInitScript(
-    ({ t }: { t: string }) => {
+    ({ t, uid }: { t: string; uid: string }) => {
       localStorage.setItem("aimarket_token", t);
+      // studio coach 走 user.id 维度的 storage, 提前写入全局 key 让
+      // user 加载时把 per-user key 一起写好
       localStorage.setItem("aimarket_studio_coach_v2", "1");
-      localStorage.setItem("aimarket_studio_mobile_coach_v1", "1");
+      localStorage.setItem(`aimarket_studio_coach_v2:${uid}`, "1");
+      localStorage.setItem(`aimarket_studio_mobile_coach_v1:${uid}`, "1");
       localStorage.setItem("aimarket_studio_dock_mode_v1", "expanded");
+      // drama coach 同样按 user.id 存
+      localStorage.setItem(`aimarket_drama_coach_v1:${uid}`, "1");
       // 注意: 不设置 aimarket_canvas_flow=0 — 我们要测生产路径
     },
-    { t: token },
+    { t: token, uid: userId },
   );
 
   await page.route(
@@ -151,6 +161,17 @@ async function openStudioWithDramaDraft(
   // 等待创作 Dock 就绪 (drama 生产模式)
   const station = page.locator('[aria-label="创作 Dock"]');
   await expect(station).toBeVisible({ timeout: 15_000 });
+
+  // 兜底: 如果 coach 弹层还在, 主动从 DOM 移除
+  await page.evaluate(() => {
+    document
+      .querySelectorAll('[data-testid="drama-coach-banner"]')
+      .forEach((el) => el.remove());
+    // 工作室 coach (modal) 同样清掉, 避免遮挡 canvas
+    document
+      .querySelectorAll('[aria-label="跳过引导"]')
+      .forEach((el) => el.closest(".fixed.inset-0")?.remove());
+  });
 }
 
 test.describe("drama canvas (InfiniteCanvas 生产路径)", () => {
@@ -160,11 +181,11 @@ test.describe("drama canvas (InfiniteCanvas 生产路径)", () => {
   }) => {
     test.setTimeout(120_000);
 
-    const { token, sessionId } = await registerAndEnsureSession(
+    const { token, sessionId, userId } = await registerAndEnsureSession(
       request,
       "drama_cv",
     );
-    await openStudioWithDramaDraft(page, request, token, sessionId);
+    await openStudioWithDramaDraft(page, request, token, sessionId, userId);
 
     // 1) Drama 节点在 InfiniteCanvas 上渲染 — 走 data-node-id 选择器
     const scriptNode = page.locator('[data-node-id="drama-script"]');
@@ -175,7 +196,9 @@ test.describe("drama canvas (InfiniteCanvas 生产路径)", () => {
     await expect(sceneNode).toBeVisible({ timeout: 15_000 });
 
     // 2) 双击 script 节点 → DramaPropertyPanel 打开
-    await scriptNode.dblclick();
+    // 用 dispatchEvent 显式触发 dblclick, 避免 Playwright dblclick 在
+    // React 合成事件链中失效
+    await scriptNode.dispatchEvent("dblclick");
     const panel = page.getByTestId("drama-property-panel");
     await expect(panel).toBeVisible({ timeout: 10_000 });
     await expect(panel).toHaveAttribute("data-drama-node-type", "script");
@@ -192,11 +215,11 @@ test.describe("drama canvas (InfiniteCanvas 生产路径)", () => {
   test("drama 节点右键菜单可用 (脚本/分镜工具)", async ({ page, request }) => {
     test.setTimeout(120_000);
 
-    const { token, sessionId } = await registerAndEnsureSession(
+    const { token, sessionId, userId } = await registerAndEnsureSession(
       request,
       "drama_cv_ctx",
     );
-    await openStudioWithDramaDraft(page, request, token, sessionId);
+    await openStudioWithDramaDraft(page, request, token, sessionId, userId);
 
     const scriptNode = page.locator('[data-node-id="drama-script"]');
     await expect(scriptNode).toBeVisible({ timeout: 30_000 });

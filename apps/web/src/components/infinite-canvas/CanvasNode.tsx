@@ -46,6 +46,7 @@ type CanvasNodeProps = {
     onGenerateImage?: (node: CanvasNodeData) => void;
     onViewImage?: (node: CanvasNodeData) => void;
     onContextMenu: (event: React.MouseEvent, nodeId: string) => void;
+    onNodeDoubleClick?: (nodeId: string) => void;
 };
 
 type NodeContentRendererProps = {
@@ -98,6 +99,7 @@ export const CanvasNode = React.memo(function CanvasNode({
     onGenerateImage,
     onViewImage,
     onContextMenu,
+    onNodeDoubleClick,
 }: CanvasNodeProps) {
     const theme = canvasTheme;
     const [hovered, setHovered] = useState(false);
@@ -252,6 +254,10 @@ export const CanvasNode = React.memo(function CanvasNode({
             onMouseLeave={() => {
                 setHovered(false);
                 onHoverEnd(data.id);
+            }}
+            onDoubleClick={(event) => {
+                event.stopPropagation();
+                onNodeDoubleClick?.(data.id);
             }}
             onContextMenu={(event) => onContextMenu(event, data.id)}
         >
