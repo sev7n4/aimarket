@@ -104,11 +104,18 @@ async function openStudioWithDramaDraft(
   sessionId: string,
 ) {
   const draftProject = buildDramaDraftProject(sessionId);
-  const stateResponse = page.waitForResponse(
-    (res) =>
-      res.url().includes(`/api/v1/drama/sessions/${sessionId}/state`) &&
-      res.ok(),
-    { timeout: 30_000 },
+
+  // 用 addInitScript 在每个页面加载前注入 token + 跳过 coach,
+  // 避免 / 页面触发 fetchUser → setToken(null) 把 token 清掉的问题
+  await page.addInitScript(
+    ({ t }: { t: string }) => {
+      localStorage.setItem("aimarket_token", t);
+      localStorage.setItem("aimarket_studio_coach_v2", "1");
+      localStorage.setItem("aimarket_studio_mobile_coach_v1", "1");
+      localStorage.setItem("aimarket_studio_dock_mode_v1", "expanded");
+      // 注意: 不设置 aimarket_canvas_flow=0 — 我们要测生产路径
+    },
+    { t: token },
   );
 
   await page.route(
@@ -128,10 +135,12 @@ async function openStudioWithDramaDraft(
     },
   );
 
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.evaluate((t) => {
-    localStorage.setItem("aimarket_token", t);
-  }, token);
+  const stateResponse = page.waitForResponse(
+    (res) =>
+      res.url().includes(`/api/v1/drama/sessions/${sessionId}/state`) &&
+      res.ok(),
+    { timeout: 30_000 },
+  );
 
   await page.goto(
     `/studio?mode=production&sessionId=${sessionId}`,
