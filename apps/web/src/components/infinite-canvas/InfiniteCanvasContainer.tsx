@@ -582,7 +582,10 @@ export function InfiniteCanvasContainer({
     if (onContextMenuProp) {
       onContextMenuProp(localContextMenu);
     }
-  }, [localContextMenu, onContextMenuProp]);
+    // 仅在 localContextMenu 变化时通知父组件，避免父组件传入新函数引用
+    // 触发 effect 把父组件 state 误清为 null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localContextMenu]);
 
   // ---- canvas context menu handler ----
   const handleCanvasContextMenu = useCallback(
@@ -683,6 +686,7 @@ export function InfiniteCanvasContainer({
             onResize={handleNodeResize}
             onContentChange={handleContentChange}
             onContextMenu={handleNodeContextMenu}
+            onNodeDoubleClick={onNodeDoubleClick}
             renderNodeContent={renderNodeContent}
           />
         ))}

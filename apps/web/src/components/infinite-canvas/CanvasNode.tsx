@@ -46,6 +46,7 @@ type CanvasNodeProps = {
     onGenerateImage?: (node: CanvasNodeData) => void;
     onViewImage?: (node: CanvasNodeData) => void;
     onContextMenu: (event: React.MouseEvent, nodeId: string) => void;
+    onNodeDoubleClick?: (nodeId: string) => void;
 };
 
 type NodeContentRendererProps = {
@@ -98,6 +99,7 @@ export const CanvasNode = React.memo(function CanvasNode({
     onGenerateImage,
     onViewImage,
     onContextMenu,
+    onNodeDoubleClick,
 }: CanvasNodeProps) {
     const theme = canvasTheme;
     const [hovered, setHovered] = useState(false);
@@ -235,6 +237,7 @@ export const CanvasNode = React.memo(function CanvasNode({
     return (
         <div
             data-node-id={data.id}
+            data-node-type={data.type}
             data-testid={data.metadata?.batchRootId ? `canvas-batch-section-${data.metadata.batchRootId}` : undefined}
             className={cn("node-element absolute flex select-none flex-col transition-shadow duration-200", isSelected ? "z-50" : "z-10")}
             style={{
@@ -251,6 +254,10 @@ export const CanvasNode = React.memo(function CanvasNode({
             onMouseLeave={() => {
                 setHovered(false);
                 onHoverEnd(data.id);
+            }}
+            onDoubleClick={(event) => {
+                event.stopPropagation();
+                onNodeDoubleClick?.(data.id);
             }}
             onContextMenu={(event) => onContextMenu(event, data.id)}
         >

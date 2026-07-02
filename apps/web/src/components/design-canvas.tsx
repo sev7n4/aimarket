@@ -309,11 +309,12 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     }, [allCanvasNodes]);
 
     // Compute the Drama node data for the right-side property panel
+    // (must look in all canvas nodes — including dramaNodes — since drama
+    // Script/Shot/Character/Scene only live in dramaNodes, not in items)
     const dramaPanelNode = useMemo<CanvasNodeData | null>(() => {
       if (!dramaPanelNodeId || !useInfiniteCanvas) return null;
-      const allNodes = canvasItemsToNodeData(items);
-      return allNodes.find((n) => n.id === dramaPanelNodeId) ?? null;
-    }, [dramaPanelNodeId, items, useInfiniteCanvas]);
+      return allCanvasNodes.find((n) => n.id === dramaPanelNodeId) ?? null;
+    }, [dramaPanelNodeId, allCanvasNodes, useInfiniteCanvas]);
 
     // Phase 4 Task 4.3 — 选中的节点组（供 TemplateManager 序列化为模板）
     const templateSelectedNodes = useMemo<CanvasNodeData[]>(() => {
