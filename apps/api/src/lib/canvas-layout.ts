@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const canvasItemSchema = z.object({
   id: z.string().min(1).max(80),
-  url: z.string().min(1).max(2000),
+  url: z.string().max(2000).default(""),
   x: z.number(),
   y: z.number(),
   width: z.number().min(40).max(2000),
@@ -20,6 +20,13 @@ export const canvasItemSchema = z.object({
   parentBatchId: z.string().min(1).max(120).optional(),
   sourceItemId: z.string().min(1).max(120).optional(),
   infiniteNodeType: z.enum(["text", "config"]).optional(),
+  infiniteNodeMeta: z
+    .object({
+      content: z.string().max(8000).optional(),
+      generationMode: z.enum(["text", "image", "video", "audio"]).optional(),
+      prompt: z.string().max(4000).optional(),
+    })
+    .optional(),
 });
 
 export const canvasConnectionSchema = z.object({

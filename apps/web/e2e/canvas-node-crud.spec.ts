@@ -63,16 +63,20 @@ test.describe("canvas node crud (InfiniteCanvas)", () => {
     await page.getByTestId("connection-context-delete").click();
     await expect(page.locator("[data-connection-id]")).toHaveCount(0);
 
+    // 等待 debounced canvas_layout 持久化
+    await page.waitForTimeout(1200);
+
     const sessionId = new URL(page.url()).searchParams.get("sessionId");
     expect(sessionId).toBeTruthy();
     const token = await page.evaluate(() =>
       localStorage.getItem("aimarket_token"),
     );
+    expect(token).toBeTruthy();
     const layoutRes = await request.get(
       `${API_BASE}/api/v1/imageSession/${sessionId}/canvas`,
       { headers: { Authorization: `Bearer ${token}` } },
     );
-    expect(layoutRes.ok()).toBeTruthy();
+    expect(layoutRes.ok(), `layout GET failed: ${await layoutRes.text()}`).toBeTruthy();
     const layout = (await layoutRes.json()) as {
       data?: { infiniteConnections?: unknown[] };
     };

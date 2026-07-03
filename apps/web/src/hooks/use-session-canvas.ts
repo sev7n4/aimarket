@@ -122,6 +122,8 @@ function toLayoutDto(
       batchSubtitle: i.batchSubtitle,
       parentBatchId: i.parentBatchId,
       sourceItemId: i.sourceItemId,
+      infiniteNodeType: i.infiniteNodeType,
+      infiniteNodeMeta: i.infiniteNodeMeta,
     })),
   };
 }
