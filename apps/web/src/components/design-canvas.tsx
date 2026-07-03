@@ -43,7 +43,7 @@ import {
 } from "@/lib/infinite-node-tool-run";
 import { VideoInpaintEditor } from "@/components/video-inpaint-editor";
 import { useIsMobile } from "@/hooks/use-is-mobile";
-import { ArrowLeft, Bookmark, Columns2, Music } from "lucide-react";
+import { ArrowLeft, Bookmark, Columns2, Music, Plus } from "lucide-react";
 import type { StudioTool } from "@/lib/types";
 import { InfiniteCanvasContainer } from "@/components/infinite-canvas/InfiniteCanvasContainer";
 import { InfiniteCanvasContextMenu } from "@/components/infinite-canvas/InfiniteCanvasContextMenu";
@@ -77,6 +77,12 @@ import { DramaPropertyPanel } from "@/components/infinite-canvas/drama/DramaProp
 import { CanvasAssistantPanel } from "@/components/infinite-canvas/agent/CanvasAssistantPanel";
 import { TemplateManager } from "@/components/infinite-canvas/TemplateManager";
 import { MusicGenPanel } from "@/components/infinite-canvas/drama/MusicGenPanel";
+import { NodeCreateMenu } from "@/components/infinite-canvas/NodeCreateMenu";
+import { extractDramaCanvasOps } from "@/components/infinite-canvas/drama/drama-canvas-mutations";
+import {
+  buildAddNodeOp,
+  mergeSnapshotToCanvasItems,
+} from "@/components/infinite-canvas/sync-infinite-snapshot";
 import {
   applyCanvasAgentOps,
   isCanvasStateOp,
@@ -197,8 +203,10 @@ interface DesignCanvasProps {
   dramaConnections?: CanvasConnection[];
   /** Agent 对话面板快照（用于 CanvasAssistantPanel） */
   assistantSnapshot?: CanvasAgentSnapshot | null;
-  /** Agent 应用 Ops 时的回调 */
+  /** Agent 应用 Ops 时的回调（Drama 草稿写回） */
   onApplyAssistantOps?: (ops: CanvasAgentOp[]) => void;
+  /** 制片草稿存在时展示 Drama 类节点创建项 */
+  allowDramaNodeCreate?: boolean;
   /** Agent 外部动作（规划/制作/生成）回调，由 Studio 对接 API */
   onAgentExternalAction?: (action: AgentExternalAction) => void;
   /** 当前会话 ID（用于 TemplateManager 一键重跑） */
@@ -280,6 +288,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       assistantSnapshot,
       onApplyAssistantOps,
       onAgentExternalAction,
+      allowDramaNodeCreate = false,
       sessionId,
       onRunInfiniteNodeTool,
       onPatchDramaShotNode,
@@ -324,6 +333,13 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       x: number;
       y: number;
     } | null>(null);
+    const [paneCreateMenu, setPaneCreateMenu] = useState<{
+      x: number;
+      y: number;
+      worldX: number;
+      worldY: number;
+    } | null>(null);
+    const infiniteCanvasAreaRef = useRef<HTMLDivElement>(null);
     // 视频精准编辑 / 灯光 / 摄像机 浮层（用于右侧打开）
     const [showVideoInpaint, setShowVideoInpaint] = useState<{
       node: CanvasNodeData;
@@ -486,23 +502,21 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       }
 
       const newSnapshot = applyCanvasAgentOps(snapshot, canvasOps);
-      const newNodes = newSnapshot.nodes;
 
       applyingAssistantOpsRef.current = true;
 
-      const dramaNodeTypes = new Set([CanvasNodeType.Script, CanvasNodeType.Shot, CanvasNodeType.Character, CanvasNodeType.Scene]);
-      const dramaNodeIds = new Set(dramaNodes.map((n) => n.id));
-      const newDramaNodeIds = new Set(newNodes.filter((n) => dramaNodeTypes.has(n.type)).map((n) => n.id));
-      const addedDramaNodeIds = [...newDramaNodeIds].filter((id) => !dramaNodeIds.has(id));
-      const removedDramaNodeIds = [...dramaNodeIds].filter((id) => !newDramaNodeIds.has(id));
-
-      if ((addedDramaNodeIds.length > 0 || removedDramaNodeIds.length > 0) && onApplyAssistantOps) {
-        onApplyAssistantOps(ops);
+      const mergedItems = mergeSnapshotToCanvasItems(items, newSnapshot.nodes);
+      const itemsChanged =
+        mergedItems.length !== items.length ||
+        mergedItems.some((item, index) => item !== items[index]);
+      if (itemsChanged) {
+        pushHistory(mergedItems);
+        onItemsChange(mergedItems);
       }
 
-      const itemNodeIds = new Set(items.map((item) => item.id));
-      if (newNodes.some((n) => itemNodeIds.has(n.id))) {
-        onItemsChange(applyNodePositionsToItems(items, newNodes.filter((n) => itemNodeIds.has(n.id))));
+      const dramaOps = extractDramaCanvasOps(canvasOps);
+      if (dramaOps.length > 0) {
+        onApplyAssistantOps?.(dramaOps);
       }
 
       setInfiniteSelectedIds(newSnapshot.selectedNodeIds);
@@ -523,7 +537,36 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onItemsChange,
       onApplyAssistantOps,
       onAgentExternalAction,
+      pushHistory,
     ]);
+
+    const commitCanvasOps = useCallback(
+      (ops: CanvasAgentOp[]) => {
+        if (readOnly || ops.length === 0) return;
+        handleApplyAssistantOps(ops);
+      },
+      [readOnly, handleApplyAssistantOps],
+    );
+
+    const handleCreateNodeAt = useCallback(
+      (nodeType: CanvasNodeType, worldX: number, worldY: number) => {
+        commitCanvasOps([buildAddNodeOp(nodeType, worldX, worldY)]);
+      },
+      [commitCanvasOps],
+    );
+
+    const handleDeleteInfiniteNodes = useCallback(
+      (nodeIds: string[]) => {
+        if (readOnly || nodeIds.length === 0) return;
+        commitCanvasOps([{ type: "delete_node", ids: nodeIds }]);
+        setInfiniteContextMenu(null);
+        setInfiniteSelectedIds((prev) => prev.filter((id) => !nodeIds.includes(id)));
+        if (selectedId && nodeIds.includes(selectedId)) {
+          onSelect(null);
+        }
+      },
+      [readOnly, commitCanvasOps, selectedId, onSelect],
+    );
 
     useEffect(() => {
       if (items.length > 0 && historyRef.current.length === 0) {
@@ -886,8 +929,13 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
 
         if (e.key === "Delete" || e.key === "Backspace") {
           if (inInput) return;
-          if (readOnly || !selectedId) return;
+          if (readOnly) return;
           e.preventDefault();
+          if (useInfiniteCanvas && infiniteSelectedIds.length > 0) {
+            handleDeleteInfiniteNodes(infiniteSelectedIds);
+            return;
+          }
+          if (!selectedId) return;
           onDeleteSelected();
         } else if ((e.metaKey || e.ctrlKey) && e.key === "z") {
           if (inInput) return;
@@ -927,6 +975,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       internalLayoutMode,
       exitRefineMode,
       tool,
+      useInfiniteCanvas,
+      infiniteSelectedIds,
+      handleDeleteInfiniteNodes,
     ]);
 
     const batchSections = useMemo(() => {
@@ -1085,7 +1136,10 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
           ) : null}
 
           {useInfiniteCanvas ? (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div
+              ref={infiniteCanvasAreaRef}
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
+            >
               <div className="relative flex min-h-0 flex-1">
                 <div className="relative min-h-0 flex-1">
                   {showInfiniteJobOverlay || jobFailed ? (
@@ -1122,6 +1176,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                     }}
                     onContextMenu={(state: ContextMenuState | null) => {
                       if (state?.type === "node") {
+                        setPaneCreateMenu(null);
                         const target = allCanvasNodesRef.current.find(
                           (n) => n.id === state.nodeId,
                         );
@@ -1132,11 +1187,48 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                             y: state.y,
                           });
                         }
+                      } else if (state?.type === "pane") {
+                        if (readOnly) return;
+                        setInfiniteContextMenu(null);
+                        setPaneCreateMenu({
+                          x: state.x,
+                          y: state.y,
+                          worldX: state.worldX,
+                          worldY: state.worldY,
+                        });
                       } else {
                         setInfiniteContextMenu(null);
+                        setPaneCreateMenu(null);
                       }
                     }}
                   />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      if (readOnly) return;
+                      const btn = e.currentTarget.getBoundingClientRect();
+                      const area = infiniteCanvasAreaRef.current?.getBoundingClientRect();
+                      const worldX = area
+                        ? (-infiniteViewport.x + area.width / 2) / infiniteViewport.k
+                        : 120;
+                      const worldY = area
+                        ? (-infiniteViewport.y + area.height / 2) / infiniteViewport.k
+                        : 120;
+                      setPaneCreateMenu({
+                        x: btn.left,
+                        y: btn.bottom + 4,
+                        worldX,
+                        worldY,
+                      });
+                    }}
+                    className="absolute right-3 top-[6.25rem] z-20 inline-flex size-8 items-center justify-center rounded-md border transition bg-black/40 text-zinc-300 hover:bg-black/60"
+                    style={{ borderColor: "rgba(255,255,255,0.15)" }}
+                    aria-label="添加节点"
+                    title="添加节点"
+                    data-testid="node-create-toggle"
+                  >
+                    <Plus className="size-4" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => setShowTemplateManager((v) => !v)}
@@ -1407,21 +1499,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               else window.open(assetUrl(infiniteContextMenu.node.metadata?.content ?? ""), "_blank");
             }}
             onDelete={() => {
-              const target = infiniteContextMenu.node;
-              if (target.type === CanvasNodeType.Image || target.type === CanvasNodeType.Video) {
-                const item = items.find((i) => i.id === target.id);
-                if (item) {
-                  onSelect(item.id);
-                  onDeleteSelected();
-                }
-              } else {
-                // Drama 节点删除：调用 onItemsChange 过滤掉对应 item
-                // Drama 节点通常会通过 dramaNodes 渲染；简单起见，只清选。
-                onSelect(null);
-                console.warn(
-                  "[infinite-canvas] Drama 节点删除尚未接入 onItemsChange，请实现后端删除逻辑",
-                );
-              }
+              handleDeleteInfiniteNodes([infiniteContextMenu.node.id]);
             }}
             onRecompose={() => {
               // 重新合成：暂以 lightbox 重新打开当前节点
@@ -1490,6 +1568,18 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 batchTools.onExtractVideoLastFrame(item);
               }
             }}
+          />
+        ) : null}
+
+        {paneCreateMenu ? (
+          <NodeCreateMenu
+            x={paneCreateMenu.x}
+            y={paneCreateMenu.y}
+            showDramaTypes={allowDramaNodeCreate}
+            onSelect={(type) =>
+              handleCreateNodeAt(type, paneCreateMenu.worldX, paneCreateMenu.worldY)
+            }
+            onClose={() => setPaneCreateMenu(null)}
           />
         ) : null}
 

@@ -18,6 +18,8 @@ import type { DramaProjectPayload } from "@/lib/types";
 import { dramaPlanToCanvasNodes } from "@/components/infinite-canvas/drama/drama-plan-to-nodes";
 import { applyTemplateLayoutToCanvas } from "@/components/infinite-canvas/template-node-layout";
 import type { AgentExternalAction, CanvasAgentSnapshot } from "@/components/infinite-canvas/utils";
+import type { CanvasAgentOp } from "@/components/infinite-canvas/utils";
+import { applyDramaCanvasOps } from "@/components/infinite-canvas/drama/drama-canvas-mutations";
 import { dramaShotIdFromNodeId } from "@/lib/infinite-node-tool-run";
 import { isCanvasFlowMode } from "@/lib/modes";
 
@@ -316,6 +318,16 @@ export const StudioCanvasWithOrchestration = forwardRef<
     ],
   );
 
+  const handleDramaCanvasOps = useCallback(
+    (ops: CanvasAgentOp[]) => {
+      const base = dramaDraftProject?.project ?? dramaRun?.project;
+      if (!base) return;
+      const next = applyDramaCanvasOps(base, ops);
+      void saveDramaDraft(next);
+    },
+    [dramaDraftProject?.project, dramaRun?.project, saveDramaDraft],
+  );
+
   const dramaPanel =
     isDramaPlanning || dramaRun || dramaDraftProject ? (
       <DramaStudioPanel
@@ -418,6 +430,8 @@ export const StudioCanvasWithOrchestration = forwardRef<
       dramaConnections={dramaCanvasData.connections}
       assistantSnapshot={assistantSnapshot}
       onAgentExternalAction={handleAgentExternalAction}
+      onApplyAssistantOps={handleDramaCanvasOps}
+      allowDramaNodeCreate={Boolean(dramaDraftProject?.project)}
       onPatchDramaShotNode={handlePatchDramaShotNode}
       onTemplatePlanRunStarted={handleTemplatePlanRunStarted}
       sessionId={sessionId}

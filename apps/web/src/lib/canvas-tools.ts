@@ -103,6 +103,13 @@ export interface CanvasItem {
     qualityTier?: "standard" | "pro";
     sourceLane?: "agent" | "image" | "video";
   };
+  /** InfiniteCanvas 手动节点：text / config（无 url 时持久化到 canvas_layout） */
+  infiniteNodeType?: "text" | "config";
+  infiniteNodeMeta?: {
+    content?: string;
+    generationMode?: "text" | "image" | "video" | "audio";
+    prompt?: string;
+  };
 }
 
 /** 工具/编辑 job 完成前登记，用于写入新批次的血缘 */
