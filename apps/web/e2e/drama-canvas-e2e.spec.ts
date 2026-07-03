@@ -169,10 +169,9 @@ async function openStudioWithDramaDraft(
       .forEach((el) => el.closest(".fixed.inset-0")?.remove());
   });
 
-  const station = page.locator('[aria-label="创作 Dock"]');
-  await expect(
-    page.locator('[data-node-id="drama-script"]').or(station),
-  ).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('[data-node-id="drama-script"]')).toBeVisible({
+    timeout: 30_000,
+  });
 }
 
 test.describe("drama canvas (InfiniteCanvas 生产路径)", () => {
