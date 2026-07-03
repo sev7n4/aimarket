@@ -1,18 +1,41 @@
 import { expect, test } from "@playwright/test";
-import { registerViaEmail } from "./helpers/auth";
 
 const API_BASE = process.env.E2E_API_URL ?? "http://127.0.0.1:4000";
 
 async function prepareInfiniteCanvasStudio(
   page: import("@playwright/test").Page,
+  request: import("@playwright/test").APIRequestContext,
 ) {
   await page.addInitScript(() => {
     localStorage.setItem("aimarket_studio_coach_v2", "1");
     localStorage.setItem("aimarket_studio_mobile_coach_v1", "1");
     localStorage.setItem("aimarket_studio_dock_mode_v1", "expanded");
   });
-  await registerViaEmail(page, { emailPrefix: "e2e_node_crud" });
-  await page.goto("/studio", { waitUntil: "domcontentloaded" });
+  const email = `e2e_node_crud_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2, 8)}@test.local`;
+  const register = await request.post(`${API_BASE}/api/v1/auth/register`, {
+    data: { email, password: "testpass123" },
+  });
+  expect(register.ok(), `register failed: ${await register.text()}`).toBeTruthy();
+  const body = (await register.json()) as { data?: { token?: string } };
+  const token = body.data?.token;
+  expect(token).toBeTruthy();
+
+  const sessionId = crypto.randomUUID();
+  const ensure = await request.post(`${API_BASE}/api/v1/imageSession/ensure`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { sessionId, mode: "chat", kind: "canvas", title: "node-crud-e2e" },
+  });
+  expect(ensure.ok(), `ensure failed: ${await ensure.text()}`).toBeTruthy();
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.evaluate((t) => {
+    localStorage.setItem("aimarket_token", t);
+  }, token!);
+  await page.goto(`/studio?sessionId=${sessionId}`, {
+    waitUntil: "domcontentloaded",
+  });
   await expect(page).toHaveURL(/sessionId=/, { timeout: 30_000 });
   await expect(page.getByTestId("node-create-toggle")).toBeVisible({
     timeout: 15_000,
@@ -25,7 +48,7 @@ test.describe("canvas node crud (InfiniteCanvas)", () => {
     request,
   }) => {
     test.setTimeout(120_000);
-    await prepareInfiniteCanvasStudio(page);
+    await prepareInfiniteCanvasStudio(page, request);
     const pane = page.getByTestId("infinite-canvas-pane");
 
     await pane.click({ button: "right", position: { x: 240, y: 200 } });
