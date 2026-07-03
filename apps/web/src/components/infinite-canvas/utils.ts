@@ -18,7 +18,32 @@ export type CanvasAgentOp =
     | { type: "update_shot_status"; shotNodeId: string; status: CanvasNodeMetadata["shotStatus"]; keyframeOutputId?: string; videoOutputId?: string }
     | { type: "update_character_ref"; characterNodeId: string; refUrl?: string; turnaroundStatus?: "draft" | "locked" }
     | { type: "update_scene_ref"; sceneNodeId: string; sceneRefUrl?: string }
-    | { type: "focus_drama_node"; nodeId: string };
+    | { type: "focus_drama_node"; nodeId: string }
+    // ── External Ops（不直接改 snapshot，由 design-canvas 回调 Studio）──
+    | { type: "plan_drama"; idea: string; aspectRatio?: string; targetDurationSec?: number }
+    | { type: "run_drama_production"; projectPatch?: Record<string, unknown> }
+    | { type: "generate_character_sheet"; characterNodeId: string }
+    | { type: "generate_shot_image"; shotNodeId: string }
+    | { type: "generate_shot_video"; shotNodeId: string };
+
+export type AgentExternalAction = Extract<
+    CanvasAgentOp,
+    | { type: "plan_drama" }
+    | { type: "run_drama_production" }
+    | { type: "generate_character_sheet" }
+    | { type: "generate_shot_image" }
+    | { type: "generate_shot_video" }
+>;
+
+/** 仅改动画布状态的 Op（可交给 applyCanvasAgentOps） */
+export function isCanvasStateOp(op: CanvasAgentOp): boolean {
+    return !["plan_drama", "run_drama_production", "generate_character_sheet", "generate_shot_image", "generate_shot_video"].includes(op.type);
+}
+
+/** 需 Studio/API 回调的外部 Op */
+export function isExternalAgentOp(op: CanvasAgentOp): boolean {
+    return !isCanvasStateOp(op);
+}
 
 export type CanvasAgentSnapshot = {
     projectId: string;
@@ -85,6 +110,22 @@ export function applyCanvasAgentOps(snapshot: CanvasAgentSnapshot, ops?: CanvasA
         }
         if (op.type === "set_viewport" && op.viewport) viewport = op.viewport;
         if (op.type === "select_nodes") selectedNodeIds = (op.ids || []).filter((id) => nodes.some((node) => node.id === id));
+        if (op.type === "run_generation" && op.nodeId) {
+            nodes = nodes.map((node) =>
+                node.id === op.nodeId
+                    ? {
+                          ...node,
+                          metadata: {
+                              ...node.metadata,
+                              status: "loading",
+                              ...(op.prompt != null ? { prompt: op.prompt } : {}),
+                              ...(op.mode != null ? { generationMode: op.mode } : {}),
+                          },
+                      }
+                    : node,
+            );
+            selectedNodeIds = [op.nodeId];
+        }
         // ── Drama-specific ops ──
         if (op.type === "update_shot_status") {
             nodes = nodes.map((node) =>
@@ -128,6 +169,11 @@ function opLabel(type: string) {
     if (type === "set_viewport") return "调整视图";
     if (type === "select_nodes") return "选择节点";
     if (type === "run_generation") return "触发生成";
+    if (type === "plan_drama") return "规划短剧";
+    if (type === "run_drama_production") return "触发制作";
+    if (type === "generate_character_sheet") return "生成角色三视图";
+    if (type === "generate_shot_image") return "生成分镜图";
+    if (type === "generate_shot_video") return "生成分镜视频";
     if (type === "update_shot_status") return "更新分镜状态";
     if (type === "update_character_ref") return "更新角色参考";
     if (type === "update_scene_ref") return "更新场景参考";

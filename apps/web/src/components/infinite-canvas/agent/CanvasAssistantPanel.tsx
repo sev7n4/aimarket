@@ -7,12 +7,11 @@ import { canvasTheme } from "../canvas-theme";
 import { cn } from "@aimarket/ui";
 import type { CanvasAgentOp, CanvasAgentSnapshot } from "../utils";
 import type { OrchestratorMessage, OrchestratorToolCall } from "./types";
+import { ALL_AGENT_TOOLS } from "./agent-tools";
 import {
-  ALL_AGENT_TOOLS,
-  describeSnapshotForAgent,
-  onlineToolToOps,
-} from "./agent-tools";
-import type { ToolCallResult } from "./online-agent-loop";
+  runCanvasAgentLoop,
+  type ToolCallResult,
+} from "./online-agent-loop";
 
 type PanelTab = "chat" | "history" | "log";
 type MessageRole = "user" | "assistant" | "tool" | "error";
@@ -34,12 +33,9 @@ interface AgentLog {
   data?: unknown;
 }
 
-const MAX_AGENT_STEPS = 6;
-
 type CanvasAssistantPanelProps = {
   snapshot: CanvasAgentSnapshot;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onApplyOps: (ops: any) => CanvasAgentSnapshot;
+  onApplyOps: (ops: CanvasAgentOp[]) => CanvasAgentSnapshot;
   initialCollapsed?: boolean;
   confirmTools?: boolean;
 };
@@ -60,30 +56,28 @@ export function CanvasAssistantPanel({
   const [input, setInput] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const [logs, setLogs] = useState<AgentLog[]>([]);
-  const [pendingToolCalls, setPendingToolCalls] = useState<{ toolCalls: OrchestratorToolCall[]; step: number } | null>(null);
+  const [pendingToolCalls, setPendingToolCalls] = useState<{
+    toolCalls: OrchestratorToolCall[];
+    step: number;
+  } | null>(null);
 
-  // Snapshot ref for agent loop (updated on each render)
   const snapshotRef = useRef(snapshot);
   snapshotRef.current = snapshot;
 
-  // Message history for agent loop
   const historyMessagesRef = useRef<OrchestratorMessage[]>([]);
+  const loopMessagesRef = useRef<OrchestratorMessage[]>([]);
 
   const addLog = useCallback((title: string, data?: unknown) => {
-    setLogs((prev) => [
-      { id: nanoid(), time: new Date().toLocaleTimeString(), title, data },
-      ...prev,
-    ].slice(0, 80));
+    setLogs((prev) =>
+      [{ id: nanoid(), time: new Date().toLocaleTimeString(), title, data }, ...prev].slice(
+        0,
+        80,
+      ),
+    );
   }, []);
 
   const appendMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => [...prev, msg]);
-  }, []);
-
-  const upsertMessage = useCallback((id: string, patch: Partial<ChatMessage>) => {
-    setMessages((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, ...patch } : m)),
-    );
   }, []);
 
   const handleSend = useCallback(async () => {
@@ -93,14 +87,6 @@ export function CanvasAssistantPanel({
     setInput("");
     setIsRunning(true);
     setTab("chat");
-
-    // Build history for agent
-    const historyForAgent: OrchestratorMessage[] = [
-      ...historyMessagesRef.current,
-      { role: "user", content: text },
-    ];
-
-    // Add user message
     appendMessage({ id: nanoid(), role: "user", text });
 
     addLog("发送请求", {
@@ -109,257 +95,84 @@ export function CanvasAssistantPanel({
       nodeCount: snapshotRef.current.nodes.length,
     });
 
-    const step = 1;
-    const isFirstStep = true;
-    let pendingCalls: { toolCalls: OrchestratorToolCall[]; step: number } | null = null;
+    const userTurn: OrchestratorMessage = { role: "user", content: text };
 
-    const handleToolPending = (toolCalls: OrchestratorToolCall[], s: number) => {
-      pendingCalls = { toolCalls, step: s };
-      setPendingToolCalls({ toolCalls, step: s });
-      upsertMessage(nanoid(), {
-        id: nanoid(),
-        role: "assistant",
-        text: "准备执行操作，等待确认…",
-        toolCalls,
-        pending: true,
-      });
-    };
-
-    const handleToolApproved = (results: ToolCallResult[], s: number) => {
-      addLog(`步骤 ${s} 执行完成`, results);
-      setPendingToolCalls(null);
-      pendingCalls = null;
-
-      // Add tool result message
-      appendMessage({
-        id: nanoid(),
-        role: "tool",
-        text: results.map((r) => `${r.name}: ${r.message}`).join("\n"),
-        toolResults: results,
-      });
-
-      // Apply ops
-      const allOps = results
-        .filter((r) => r.ok && r.data?.ops)
-        .flatMap((r) => (r.data?.ops as Parameters<typeof onlineToolToOps>[2] extends (...args: infer A) => unknown ? A[2] : never) ?? []);
-
-      if (allOps.length > 0) {
-        onApplyOps(allOps as Parameters<typeof onApplyOps>[0]);
-      }
-    };
-
-    const handleAssistantMessage = (text: string) => {
-      upsertMessage(nanoid(), { id: nanoid(), role: "assistant", text });
-    };
-
-    const handleError = (error: string) => {
-      addLog("Agent 错误", error);
-      appendMessage({ id: nanoid(), role: "error", text: error });
-    };
-
-    const handleComplete = (finalText: string) => {
-      addLog("Agent 完成", finalText);
-      if (finalText) {
-        appendMessage({ id: nanoid(), role: "assistant", text: finalText });
-      }
-      historyMessagesRef.current = [
-        ...historyMessagesRef.current,
-        { role: "user", content: text },
-        ...(finalText ? [{ role: "assistant" as const, content: finalText }] : []),
-      ];
-      setIsRunning(false);
-    };
-
-    // Run the agent loop (simplified - handles auto-execute mode)
-    // Note: confirm mode would require additional state management
     try {
-      // First call - forced tool choice
-      const res = await fetch("/api/v1/agent/tool-response", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [
-            {
-              role: "system",
-              content: `你是 AIMarket 画布助手。当前画布：\n${describeSnapshotForAgent(snapshotRef.current)}`,
-            },
-            ...historyForAgent,
-          ],
-          tools: ALL_AGENT_TOOLS,
-          toolChoice: "required",
-          maxTokens: 4096,
-        }),
+      await runCanvasAgentLoop({
+        snapshot: snapshotRef.current,
+        userMessage: text,
+        historyMessages: historyMessagesRef.current,
+        tools: ALL_AGENT_TOOLS,
+        onApplyOps: (ops) => {
+          const updated = onApplyOps(ops);
+          snapshotRef.current = updated;
+          return updated;
+        },
+        confirmTools,
+        callbacks: {
+          onAssistantMessage: (assistantText) => {
+            appendMessage({ id: nanoid(), role: "assistant", text: assistantText });
+          },
+          onToolCallPending: (toolCalls, step) => {
+            setPendingToolCalls({ toolCalls, step });
+            appendMessage({
+              id: nanoid(),
+              role: "assistant",
+              text: "准备执行操作，等待确认…",
+              toolCalls,
+              pending: true,
+            });
+          },
+          onToolCallApproved: (results, step) => {
+            addLog(`步骤 ${step} 执行完成`, results);
+            setPendingToolCalls(null);
+            appendMessage({
+              id: nanoid(),
+              role: "tool",
+              text: results.map((r) => `${r.name}: ${r.message}`).join("\n"),
+              toolResults: results,
+            });
+          },
+          onToolCallRejected: (step) => {
+            addLog(`步骤 ${step} 已取消`, null);
+            setPendingToolCalls(null);
+          },
+          onMaxStepsReached: () => {
+            addLog("达到最大步数上限", { maxSteps: 6 });
+            appendMessage({
+              id: nanoid(),
+              role: "assistant",
+              text: "已达到最大步数限制 (6 步)。",
+            });
+          },
+          onError: (error) => {
+            addLog("Agent 错误", error);
+            appendMessage({ id: nanoid(), role: "error", text: error });
+          },
+          onComplete: (finalText) => {
+            addLog("Agent 完成", finalText);
+            if (finalText) {
+              appendMessage({ id: nanoid(), role: "assistant", text: finalText });
+            }
+            historyMessagesRef.current = [
+              ...historyMessagesRef.current,
+              userTurn,
+              ...(finalText ? [{ role: "assistant" as const, content: finalText }] : []),
+            ];
+          },
+        },
       });
-
-      if (!res.ok) {
-        const err = await res.text();
-        handleError(`Agent 请求失败 ${res.status}: ${err}`);
-        setIsRunning(false);
-        return;
-      }
-
-      const { data } = await res.json() as { data: { content: string; toolCalls: OrchestratorToolCall[] } };
-
-      if (data.toolCalls?.length === 0) {
-        handleAssistantMessage(data.content || "没有回复内容");
-        handleComplete(data.content || "");
-        return;
-      }
-
-      // Add assistant message
-      appendMessage({ id: nanoid(), role: "assistant", text: data.content || "正在执行工具…" });
-
-      // Build message list for next round
-      const messagesForRound: OrchestratorMessage[] = [
-        ...historyForAgent,
-        { role: "assistant", content: data.content || "" },
-      ];
-
-      // Execute tools locally
-      const results: ToolCallResult[] = data.toolCalls.map((tc) => {
-        try {
-          const args = typeof tc.arguments === "string" ? JSON.parse(tc.arguments) : tc.arguments;
-          const ops = onlineToolToOps(tc.name, args as Record<string, unknown>, snapshotRef.current);
-          if (ops.length === 0) {
-            return { toolCallId: tc.id, name: tc.name, ok: true, message: "无画布变更" };
-          }
-          return {
-            toolCallId: tc.id,
-            name: tc.name,
-            ok: true,
-            message: ops.map((op) => `${op.type} 执行`).join("; "),
-            data: { ops },
-          };
-        } catch (err) {
-          return {
-            toolCallId: tc.id,
-            name: tc.name,
-            ok: false,
-            message: err instanceof Error ? err.message : "执行失败",
-          };
-        }
-      });
-
-      addLog("工具执行结果", results);
+    } catch (err) {
+      addLog("Agent 异常", err);
       appendMessage({
         id: nanoid(),
-        role: "tool",
-        text: results.map((r) => `${r.name}: ${r.message}`).join("\n"),
-        toolResults: results,
+        role: "error",
+        text: err instanceof Error ? err.message : "未知错误",
       });
-
-      // Apply ops
-      const allOps = results
-        .filter((r) => r.ok && r.data?.ops)
-        .flatMap((r) => (r.data?.ops as CanvasAgentOp[]) ?? []);
-      if (allOps.length > 0) {
-        onApplyOps(allOps);
-      }
-
-      // Continue with tool results in messages
-      const messagesWithResults: OrchestratorMessage[] = [
-        ...messagesForRound,
-        ...data.toolCalls.map((tc) => {
-          const r = results.find((x) => x.toolCallId === tc.id);
-          return {
-            role: "tool" as const,
-            content: JSON.stringify(r ?? { ok: false, message: "unknown" }),
-          };
-        }),
-      ];
-
-      // Second call - auto tool choice (up to MAX_AGENT_STEPS - 1 more rounds)
-      for (let i = 1; i < MAX_AGENT_STEPS; i++) {
-        const res2 = await fetch("/api/v1/agent/tool-response", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messages: messagesWithResults,
-            tools: ALL_AGENT_TOOLS,
-            toolChoice: "auto",
-            maxTokens: 4096,
-          }),
-        });
-
-        if (!res2.ok) {
-          const err = await res2.text();
-          handleError(`Agent 循环错误 ${res2.status}: ${err}`);
-          setIsRunning(false);
-          return;
-        }
-
-        const { data: data2 } = await res2.json() as { data: { content: string; toolCalls: OrchestratorToolCall[] } };
-
-        if (data2.toolCalls?.length === 0) {
-          handleAssistantMessage(data2.content || "操作完成");
-          handleComplete(data2.content || "");
-          return;
-        }
-
-        // Add assistant message
-        appendMessage({ id: nanoid(), role: "assistant", text: data2.content || "正在执行…" });
-
-        // Execute tools
-        const results2: ToolCallResult[] = data2.toolCalls.map((tc) => {
-          try {
-            const args = typeof tc.arguments === "string" ? JSON.parse(tc.arguments) : tc.arguments;
-            const ops = onlineToolToOps(tc.name, args as Record<string, unknown>, snapshotRef.current);
-            if (ops.length === 0) {
-              return { toolCallId: tc.id, name: tc.name, ok: true, message: "无画布变更" };
-            }
-            return {
-              toolCallId: tc.id,
-              name: tc.name,
-              ok: true,
-              message: ops.map((op) => `${op.type} 执行`).join("; "),
-              data: { ops },
-            };
-          } catch (err) {
-            return {
-              toolCallId: tc.id,
-              name: tc.name,
-              ok: false,
-              message: err instanceof Error ? err.message : "执行失败",
-            };
-          }
-        });
-
-        addLog(`步骤 ${i + 1} 执行`, results2);
-        appendMessage({
-          id: nanoid(),
-          role: "tool",
-          text: results2.map((r) => `${r.name}: ${r.message}`).join("\n"),
-          toolResults: results2,
-        });
-
-        const allOps2 = results2
-          .filter((r) => r.ok && r.data?.ops)
-          .flatMap((r) => (r.data?.ops as CanvasAgentOp[]) ?? []);
-        if (allOps2.length > 0) {
-          onApplyOps(allOps2);
-        }
-
-        // Update messages with tool results
-        messagesForRound.push({ role: "assistant", content: data2.content || "" });
-        messagesForRound.push(
-          ...data2.toolCalls.map((tc) => {
-            const r = results2.find((x) => x.toolCallId === tc.id);
-            return {
-              role: "tool" as const,
-              content: JSON.stringify(r ?? { ok: false, message: "unknown" }),
-            };
-          }),
-        );
-      }
-
-      addLog("达到最大步数上限", { maxSteps: MAX_AGENT_STEPS });
-      appendMessage({ id: nanoid(), role: "assistant", text: `已达到最大步数限制 (${MAX_AGENT_STEPS} 步)。` });
-      setIsRunning(false);
-    } catch (err) {
-      handleError(err instanceof Error ? err.message : "未知错误");
+    } finally {
       setIsRunning(false);
     }
-  }, [input, isRunning, appendMessage, addLog, onApplyOps, upsertMessage]);
+  }, [input, isRunning, appendMessage, addLog, onApplyOps, confirmTools]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -393,7 +206,6 @@ export function CanvasAssistantPanel({
         borderColor: canvasTheme.node.stroke,
       }}
     >
-      {/* Header */}
       <div
         className="flex items-center justify-between border-b px-4 py-3"
         style={{ borderColor: canvasTheme.node.stroke }}
@@ -403,25 +215,21 @@ export function CanvasAssistantPanel({
           <span className="text-sm font-semibold" style={{ color: canvasTheme.node.text }}>
             画布助手
           </span>
-          {isRunning && <Loader2 className="size-3.5 animate-spin" style={{ color: canvasTheme.node.muted }} />}
+          {isRunning && (
+            <Loader2 className="size-3.5 animate-spin" style={{ color: canvasTheme.node.muted }} />
+          )}
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setCollapsed(true)}
-            className="rounded p-1 transition hover:bg-white/10"
-            aria-label="收起面板"
-          >
-            <PanelRightClose className="size-4" style={{ color: canvasTheme.node.faint }} />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setCollapsed(true)}
+          className="rounded p-1 transition hover:bg-white/10"
+          aria-label="收起面板"
+        >
+          <PanelRightClose className="size-4" style={{ color: canvasTheme.node.faint }} />
+        </button>
       </div>
 
-      {/* Tab bar */}
-      <div
-        className="flex border-b"
-        style={{ borderColor: canvasTheme.node.stroke }}
-      >
+      <div className="flex border-b" style={{ borderColor: canvasTheme.node.stroke }}>
         {(["chat", "history", "log"] as PanelTab[]).map((t) => (
           <button
             key={t}
@@ -429,9 +237,7 @@ export function CanvasAssistantPanel({
             onClick={() => setTab(t)}
             className={cn(
               "flex-1 px-3 py-2 text-xs font-medium transition",
-              tab === t
-                ? "border-b-2"
-                : "text-white/40 hover:text-white/60",
+              tab === t ? "border-b-2" : "text-white/40 hover:text-white/60",
             )}
             style={{
               color: tab === t ? canvasTheme.node.text : undefined,
@@ -443,7 +249,6 @@ export function CanvasAssistantPanel({
         ))}
       </div>
 
-      {/* Content */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {tab === "chat" && (
           <div className="flex flex-col gap-2 p-3">
@@ -491,7 +296,6 @@ export function CanvasAssistantPanel({
         )}
       </div>
 
-      {/* Tool confirmation */}
       {pendingToolCalls && (
         <div
           className="border-t p-3"
@@ -530,7 +334,6 @@ export function CanvasAssistantPanel({
         </div>
       )}
 
-      {/* Input */}
       <div
         className="flex items-end gap-2 border-t p-3"
         style={{ borderColor: canvasTheme.node.stroke }}
@@ -572,24 +375,23 @@ export function CanvasAssistantPanel({
   );
 }
 
-// ── Chat message item ──
-
 function ChatMessageItem({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   const isError = message.role === "error";
 
   return (
-    <div
-      className={cn("flex flex-col gap-1", isUser ? "items-end" : "items-start")}
-    >
+    <div className={cn("flex flex-col gap-1", isUser ? "items-end" : "items-start")}>
       <div
-        className={cn("max-w-[85%] rounded-2xl px-3 py-2 text-xs", isUser ? "rounded-br-md" : "rounded-bl-md")}
+        className={cn(
+          "max-w-[85%] rounded-2xl px-3 py-2 text-xs",
+          isUser ? "rounded-br-md" : "rounded-bl-md",
+        )}
         style={
           isError
             ? { background: "#ef444422", color: "#fca5a5" }
             : isUser
-            ? { background: "#6366f1", color: "#fff" }
-            : { background: canvasTheme.node.fill, color: canvasTheme.node.text }
+              ? { background: "#6366f1", color: "#fff" }
+              : { background: canvasTheme.node.fill, color: canvasTheme.node.text }
         }
       >
         {message.title && (
@@ -598,9 +400,7 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
           </div>
         )}
         <p className="whitespace-pre-wrap">{message.text}</p>
-        {message.pending && (
-          <Loader2 className="mt-1 size-3 animate-spin" />
-        )}
+        {message.pending && <Loader2 className="mt-1 size-3 animate-spin" />}
       </div>
       {message.toolResults && message.toolResults.length > 0 && (
         <div

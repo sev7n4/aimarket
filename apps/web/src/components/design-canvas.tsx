@@ -69,8 +69,14 @@ import { DramaPropertyPanel } from "@/components/infinite-canvas/drama/DramaProp
 import { CanvasAssistantPanel } from "@/components/infinite-canvas/agent/CanvasAssistantPanel";
 import { TemplateManager } from "@/components/infinite-canvas/TemplateManager";
 import { MusicGenPanel } from "@/components/infinite-canvas/drama/MusicGenPanel";
-import type { CanvasAgentSnapshot, CanvasAgentOp } from "@/components/infinite-canvas/utils";
-import { applyCanvasAgentOps } from "@/components/infinite-canvas/utils";
+import {
+  applyCanvasAgentOps,
+  isCanvasStateOp,
+  isExternalAgentOp,
+  type AgentExternalAction,
+  type CanvasAgentOp,
+  type CanvasAgentSnapshot,
+} from "@/components/infinite-canvas/utils";
 
 export interface DesignCanvasHandle {
   fitToItem: (itemId: string) => void;
@@ -185,6 +191,8 @@ interface DesignCanvasProps {
   assistantSnapshot?: CanvasAgentSnapshot | null;
   /** Agent 应用 Ops 时的回调 */
   onApplyAssistantOps?: (ops: CanvasAgentOp[]) => void;
+  /** Agent 外部动作（规划/制作/生成）回调，由 Studio 对接 API */
+  onAgentExternalAction?: (action: AgentExternalAction) => void;
   /** 当前会话 ID（用于 TemplateManager 一键重跑） */
   sessionId?: string;
 }
@@ -246,6 +254,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       dramaConnections = [],
       assistantSnapshot,
       onApplyAssistantOps,
+      onAgentExternalAction,
       sessionId,
     },
     ref,
@@ -333,6 +342,27 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       );
     }, [templateSelectedNodes, items, dramaConnections]);
 
+    // Agent 面板使用实时画布快照（含 items + dramaNodes），而非 Studio 传入的空 nodes
+    const effectiveAssistantSnapshot = useMemo<CanvasAgentSnapshot | null>(() => {
+      if (!useInfiniteCanvas && !assistantSnapshot) return null;
+      return {
+        projectId: assistantSnapshot?.projectId ?? "",
+        title: assistantSnapshot?.title ?? "AIMarket Canvas",
+        nodes: [...canvasItemsToNodeData(items), ...dramaNodes],
+        connections: [...buildConnectionsFromItems(items), ...dramaConnections],
+        selectedNodeIds: infiniteSelectedIds,
+        viewport: infiniteViewport,
+      };
+    }, [
+      useInfiniteCanvas,
+      assistantSnapshot,
+      items,
+      dramaNodes,
+      dramaConnections,
+      infiniteSelectedIds,
+      infiniteViewport,
+    ]);
+
     const refineChainBeforeRef = useRef<Set<string>>(new Set());
     const refineJobMetaRef = useRef<{ toolName?: string } | null>(null);
     const mobile = useIsMobile(MOBILE_BREAKPOINT);
@@ -379,61 +409,63 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
 
     // Handle assistant ops - applies CanvasAgentOps to the canvas
     const handleApplyAssistantOps = useCallback((ops: CanvasAgentOp[]): CanvasAgentSnapshot => {
-      if (!assistantSnapshot) {
-        // Return empty snapshot to satisfy the required return type
-        return { projectId: "", title: "", nodes: [], connections: [], selectedNodeIds: [], viewport: { x: 0, y: 0, k: 1 } };
-      }
-
-      // Build current snapshot from state
       const currentNodes = [...canvasItemsToNodeData(items), ...dramaNodes];
       const currentConnections = [...buildConnectionsFromItems(items), ...dramaConnections];
       const snapshot: CanvasAgentSnapshot = {
-        projectId: assistantSnapshot.projectId ?? "",
-        title: assistantSnapshot.title ?? "",
+        projectId: assistantSnapshot?.projectId ?? "",
+        title: assistantSnapshot?.title ?? "AIMarket Canvas",
         nodes: currentNodes,
         connections: currentConnections,
         selectedNodeIds: infiniteSelectedIds,
         viewport: infiniteViewport,
       };
 
-      // Apply ops to get new snapshot
-      const newSnapshot = applyCanvasAgentOps(snapshot, ops);
+      const externalOps = ops.filter(isExternalAgentOp);
+      const canvasOps = ops.filter(isCanvasStateOp);
+
+      for (const op of externalOps) {
+        onAgentExternalAction?.(op as AgentExternalAction);
+      }
+
+      const newSnapshot = applyCanvasAgentOps(snapshot, canvasOps);
       const newNodes = newSnapshot.nodes;
 
-      // Set flag to prevent feedback loop
       applyingAssistantOpsRef.current = true;
 
-      // Separate drama node types
       const dramaNodeTypes = new Set([CanvasNodeType.Script, CanvasNodeType.Shot, CanvasNodeType.Character, CanvasNodeType.Scene]);
+      const dramaNodeIds = new Set(dramaNodes.map((n) => n.id));
+      const newDramaNodeIds = new Set(newNodes.filter((n) => dramaNodeTypes.has(n.type)).map((n) => n.id));
+      const addedDramaNodeIds = [...newDramaNodeIds].filter((id) => !dramaNodeIds.has(id));
+      const removedDramaNodeIds = [...dramaNodeIds].filter((id) => !newDramaNodeIds.has(id));
 
-      const dramaNodeIds = new Set(dramaNodes.map(n => n.id));
-      const newDramaNodeIds = new Set(newNodes.filter(n => dramaNodeTypes.has(n.type)).map(n => n.id));
-
-      // Find added and removed drama nodes
-      const addedDramaNodeIds = [...newDramaNodeIds].filter(id => !dramaNodeIds.has(id));
-      const removedDramaNodeIds = [...dramaNodeIds].filter(id => !newDramaNodeIds.has(id));
-
-      // If there are drama node changes, notify parent
       if ((addedDramaNodeIds.length > 0 || removedDramaNodeIds.length > 0) && onApplyAssistantOps) {
         onApplyAssistantOps(ops);
       }
 
-      // Update items with position changes from nodes
-      const itemNodeIds = new Set(items.map(item => item.id));
-      const nodesForItems = newNodes.filter(n => itemNodeIds.has(n.id));
-
-      if (nodesForItems.length > 0 || newNodes.length !== currentNodes.length) {
-        const updatedItems = applyNodePositionsToItems(items, newNodes.filter(n => itemNodeIds.has(n.id)));
-        onItemsChange(updatedItems);
+      const itemNodeIds = new Set(items.map((item) => item.id));
+      if (newNodes.some((n) => itemNodeIds.has(n.id))) {
+        onItemsChange(applyNodePositionsToItems(items, newNodes.filter((n) => itemNodeIds.has(n.id))));
       }
 
-      // Reset flag after a tick
+      setInfiniteSelectedIds(newSnapshot.selectedNodeIds);
+      setInfiniteViewport(newSnapshot.viewport);
+
       setTimeout(() => {
         applyingAssistantOpsRef.current = false;
       }, 0);
 
       return newSnapshot;
-    }, [items, dramaNodes, dramaConnections, assistantSnapshot, infiniteSelectedIds, infiniteViewport, onItemsChange, onApplyAssistantOps]);
+    }, [
+      items,
+      dramaNodes,
+      dramaConnections,
+      assistantSnapshot,
+      infiniteSelectedIds,
+      infiniteViewport,
+      onItemsChange,
+      onApplyAssistantOps,
+      onAgentExternalAction,
+    ]);
 
     useEffect(() => {
       if (items.length > 0 && historyRef.current.length === 0) {
@@ -994,25 +1026,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             </div>
           ) : null}
 
-          {alternateCanvasContent ? (
-            <div
-              className="absolute inset-0 flex min-h-0 flex-col overflow-hidden"
-              style={{ paddingBottom: scrollBottomInset }}
-            >
-              <div className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-3">
-                {alternateCanvasContent}
-              </div>
-              {orchestrationExtra ? (
-                <div
-                  className="shrink-0 border-t border-white/5 p-2 sm:p-3"
-                  data-testid="orchestration-extra-section"
-                >
-                  {orchestrationExtra}
-                </div>
-              ) : null}
-            </div>
-          ) : useInfiniteCanvas ? (
-            <div className="flex min-h-0 flex-1">
+          {useInfiniteCanvas ? (
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="relative flex min-h-0 flex-1">
                 <InfiniteCanvasContainer
                   nodes={enrichNodesWithBatchIndex([...canvasItemsToNodeData(items), ...dramaNodes])}
@@ -1020,7 +1035,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                   viewport={infiniteViewport}
                   selectedNodeIds={infiniteSelectedIds}
                   onNodesChange={(nodes: CanvasNodeData[]) => {
-                    // Skip if we're applying assistant ops to prevent feedback loop
                     if (applyingAssistantOpsRef.current) return;
                     onItemsChange(applyNodePositionsToItems(items, nodes));
                   }}
@@ -1080,34 +1094,68 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 >
                   <Music className="size-4" />
                 </button>
+                {dramaPanelNode && (
+                  <DramaPropertyPanel
+                    node={dramaPanelNode}
+                    onClose={() => setDramaPanelNodeId(null)}
+                  />
+                )}
+                {effectiveAssistantSnapshot && (
+                  <CanvasAssistantPanel
+                    snapshot={effectiveAssistantSnapshot}
+                    onApplyOps={handleApplyAssistantOps}
+                    initialCollapsed
+                  />
+                )}
+                {showTemplateManager && (
+                  <TemplateManager
+                    selectedNodes={templateSelectedNodes}
+                    connections={templateSelectedConnections}
+                    sessionId={sessionId}
+                    onClose={() => setShowTemplateManager(false)}
+                  />
+                )}
+                {showMusicGenPanel && (
+                  <MusicGenPanel
+                    sessionId={sessionId}
+                    onClose={() => setShowMusicGenPanel(false)}
+                  />
+                )}
               </div>
-              {dramaPanelNode && (
-                <DramaPropertyPanel
-                  node={dramaPanelNode}
-                  onClose={() => setDramaPanelNodeId(null)}
-                />
-              )}
-              {assistantSnapshot && (
-                <CanvasAssistantPanel
-                  snapshot={assistantSnapshot}
-                  onApplyOps={handleApplyAssistantOps}
-                  initialCollapsed
-                />
-              )}
-              {showTemplateManager && (
-                <TemplateManager
-                  selectedNodes={templateSelectedNodes}
-                  connections={templateSelectedConnections}
-                  sessionId={sessionId}
-                  onClose={() => setShowTemplateManager(false)}
-                />
-              )}
-              {showMusicGenPanel && (
-                <MusicGenPanel
-                  sessionId={sessionId}
-                  onClose={() => setShowMusicGenPanel(false)}
-                />
-              )}
+              {alternateCanvasContent ? (
+                <div
+                  className="shrink-0 overflow-y-auto border-t border-white/10 p-2 sm:p-3"
+                  style={{ maxHeight: "42vh" }}
+                  data-testid="drama-canvas-overlay"
+                >
+                  {alternateCanvasContent}
+                </div>
+              ) : null}
+              {orchestrationExtra ? (
+                <div
+                  className="shrink-0 border-t border-white/5 p-2 sm:p-3"
+                  data-testid="orchestration-extra-section"
+                >
+                  {orchestrationExtra}
+                </div>
+              ) : null}
+            </div>
+          ) : alternateCanvasContent ? (
+            <div
+              className="absolute inset-0 flex min-h-0 flex-col overflow-hidden"
+              style={{ paddingBottom: scrollBottomInset }}
+            >
+              <div className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-3">
+                {alternateCanvasContent}
+              </div>
+              {orchestrationExtra ? (
+                <div
+                  className="shrink-0 border-t border-white/5 p-2 sm:p-3"
+                  data-testid="orchestration-extra-section"
+                >
+                  {orchestrationExtra}
+                </div>
+              ) : null}
             </div>
           ) : showFreeCanvas ? (
             <FreeCanvas
