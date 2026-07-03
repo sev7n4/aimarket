@@ -591,9 +591,21 @@ export function InfiniteCanvasContainer({
   const handleCanvasContextMenu = useCallback(
     (event: React.MouseEvent) => {
       event.preventDefault();
-      setLocalContextMenu(null);
+      const world = screenToCanvas(event.clientX, event.clientY);
+      const state: ContextMenuState = {
+        type: "pane",
+        x: event.clientX,
+        y: event.clientY,
+        worldX: world.x,
+        worldY: world.y,
+      };
+      if (onContextMenuProp) {
+        onContextMenuProp(state);
+      } else {
+        setLocalContextMenu(state);
+      }
     },
-    [],
+    [onContextMenuProp, screenToCanvas],
   );
 
   // ---- build a lookup for node data (used in connection rendering) ----

@@ -6,6 +6,37 @@ import { CanvasNodeType, type CanvasNodeData, type CanvasConnection } from "./ty
  * Convert a CanvasItem (aimarket legacy) to a CanvasNodeData (infinite-canvas format).
  */
 export function canvasItemToNodeData(item: CanvasItem): CanvasNodeData {
+  if (item.infiniteNodeType === "text") {
+    return {
+      id: item.id,
+      type: CanvasNodeType.Text,
+      title: item.label || "Note",
+      position: { x: item.x, y: item.y },
+      width: item.width,
+      height: item.height,
+      metadata: {
+        content: item.infiniteNodeMeta?.content ?? "",
+        status: "idle",
+        fontSize: 14,
+      },
+    };
+  }
+  if (item.infiniteNodeType === "config") {
+    return {
+      id: item.id,
+      type: CanvasNodeType.Config,
+      title: item.label || "生成配置",
+      position: { x: item.x, y: item.y },
+      width: item.width,
+      height: item.height,
+      metadata: {
+        content: "",
+        status: "idle",
+        generationMode: item.infiniteNodeMeta?.generationMode ?? "image",
+        prompt: item.infiniteNodeMeta?.prompt ?? "",
+      },
+    };
+  }
   return {
     id: item.id,
     type: item.isVideo ? CanvasNodeType.Video : CanvasNodeType.Image,
@@ -35,6 +66,39 @@ export function canvasItemsToNodeData(items: CanvasItem[]): CanvasNodeData[] {
  * Convert a CanvasNodeData back to a CanvasItem (aimarket legacy format).
  */
 export function nodeDataToCanvasItem(node: CanvasNodeData): CanvasItem {
+  if (node.type === CanvasNodeType.Text) {
+    return {
+      id: node.id,
+      url: "",
+      x: node.position.x,
+      y: node.position.y,
+      width: node.width,
+      height: node.height,
+      isVideo: false,
+      label: node.title,
+      infiniteNodeType: "text",
+      infiniteNodeMeta: {
+        content: node.metadata?.content ?? "",
+      },
+    };
+  }
+  if (node.type === CanvasNodeType.Config) {
+    return {
+      id: node.id,
+      url: "",
+      x: node.position.x,
+      y: node.position.y,
+      width: node.width,
+      height: node.height,
+      isVideo: false,
+      label: node.title,
+      infiniteNodeType: "config",
+      infiniteNodeMeta: {
+        generationMode: node.metadata?.generationMode ?? "image",
+        prompt: node.metadata?.prompt ?? "",
+      },
+    };
+  }
   return {
     id: node.id,
     url: node.metadata?.content || "",
