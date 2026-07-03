@@ -417,6 +417,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
       dramaNodes={dramaCanvasData.nodes}
       dramaConnections={dramaCanvasData.connections}
       assistantSnapshot={assistantSnapshot}
+      onAgentExternalAction={handleAgentExternalAction}
       onPatchDramaShotNode={handlePatchDramaShotNode}
       onTemplatePlanRunStarted={handleTemplatePlanRunStarted}
       sessionId={sessionId}
