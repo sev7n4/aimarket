@@ -90,6 +90,15 @@ interface StudioOrchestrationContextValue {
   ) => Promise<SkillRun | null>;
   confirmOrchestration: () => Promise<AgentRun | SkillRun | DramaRun | null>;
   produceDramaDraft: () => Promise<DramaRun | null>;
+  startDramaPlan: (
+    userIdea: string,
+    options?: {
+      targetDurationSec?: number;
+      aspectRatio?: "9:16" | "16:9";
+      autoProduce?: boolean;
+      projectType?: DramaProjectType;
+    },
+  ) => Promise<unknown>;
   rerunDramaPlan: (fromAgent: string, projectPatch?: Record<string, unknown>) => Promise<unknown>;
   dramaAutoProduce: boolean;
   setDramaAutoProduce: (value: boolean) => void;
@@ -797,6 +806,7 @@ export function StudioOrchestrationProvider({
       setInput,
       confirmOrchestration,
       produceDramaDraft,
+      startDramaPlan,
       rerunDramaPlan,
       dramaAutoProduce,
       setDramaAutoProduce,
@@ -843,6 +853,7 @@ export function StudioOrchestrationProvider({
       timelineActions,
       confirmOrchestration,
       produceDramaDraft,
+      startDramaPlan,
       rerunDramaPlan,
       dramaAutoProduce,
       setDramaAutoProduce,

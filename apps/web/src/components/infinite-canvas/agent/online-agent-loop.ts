@@ -125,6 +125,11 @@ export function executeToolCallsLocally(
             if (op.type === "set_viewport") return `已调整视口`;
             if (op.type === "select_nodes") return `已选中 ${(op.ids ?? []).length} 个节点`;
             if (op.type === "run_generation") return `已触发节点 ${op.nodeId} 生成`;
+            if (op.type === "plan_drama") return `已提交短剧规划: "${op.idea.slice(0, 40)}"`;
+            if (op.type === "run_drama_production") return `已触发 Drama 制作流水线`;
+            if (op.type === "generate_character_sheet") return `已请求生成角色三视图 ${op.characterNodeId}`;
+            if (op.type === "generate_shot_image") return `已请求生成分镜图 ${op.shotNodeId}`;
+            if (op.type === "generate_shot_video") return `已请求生成分镜视频 ${op.shotNodeId}`;
             if (op.type === "update_shot_status") return `已更新分镜状态: ${op.status}`;
             if (op.type === "update_character_ref") return `已更新角色参考`;
             if (op.type === "update_scene_ref") return `已更新场景参考`;

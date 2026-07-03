@@ -16,7 +16,7 @@ import { retryDramaShot, pickDramaKeyframe, publishCanvasToInspiration, unpublis
 import { buildDramaPublishPayload } from "@/lib/drama-publish";
 import type { DramaProjectPayload } from "@/lib/types";
 import { dramaPlanToCanvasNodes } from "@/components/infinite-canvas/drama/drama-plan-to-nodes";
-import type { CanvasAgentSnapshot } from "@/components/infinite-canvas/utils";
+import type { AgentExternalAction, CanvasAgentSnapshot } from "@/components/infinite-canvas/utils";
 import { isCanvasFlowMode } from "@/lib/modes";
 
 type StudioCanvasProps = Omit<
@@ -42,12 +42,16 @@ export const StudioCanvasWithOrchestration = forwardRef<
     saveDramaDraft,
     confirmOrchestration,
     produceDramaDraft,
+    startDramaPlan,
     rerunDramaPlan,
     dramaPlanBusy,
     setDramaRun,
     dramaProduceHint,
     retryDramaProduction,
     rerunDramaFromNode,
+    dramaAspectRatio,
+    dramaTargetDurationSec,
+    dramaProjectType,
   } = useStudioOrchestration();
 
   const isDramaPlanning = dramaPlanRun?.status === "planning";
@@ -107,18 +111,26 @@ export const StudioCanvasWithOrchestration = forwardRef<
     return dramaPlanToCanvasNodes(payload);
   }, [dramaDraftProject?.project, dramaRun?.project]);
 
-  // Assistant snapshot for CanvasAssistantPanel
+  // Assistant snapshot metadata（节点/连线由 design-canvas effectiveAssistantSnapshot 实时合并）
   const assistantSnapshot = useMemo<CanvasAgentSnapshot | null>(() => {
     const payload = dramaDraftProject?.project ?? dramaRun?.project;
+    if (!payload && dramaCanvasData.nodes.length === 0) return null;
     return {
       projectId: dramaDraftProject?.id ?? dramaRun?.id ?? "",
       title: payload?.script?.title ?? "AIMarket Drama",
-      nodes: [],
-      connections: [],
+      nodes: dramaCanvasData.nodes,
+      connections: dramaCanvasData.connections,
       selectedNodeIds: [],
       viewport: { x: 16, y: 16, k: 1 },
     };
-  }, [dramaDraftProject?.id, dramaRun?.id, dramaDraftProject?.project, dramaRun?.project]);
+  }, [
+    dramaDraftProject?.id,
+    dramaRun?.id,
+    dramaDraftProject?.project,
+    dramaRun?.project,
+    dramaCanvasData.nodes,
+    dramaCanvasData.connections,
+  ]);
 
   const handleRerunFromAgent = useCallback(
     (fromAgent: string) => {
@@ -193,6 +205,49 @@ export const StudioCanvasWithOrchestration = forwardRef<
     [rerunDramaFromNode],
   );
 
+  const handleAgentExternalAction = useCallback(
+    (action: AgentExternalAction) => {
+      switch (action.type) {
+        case "plan_drama":
+          void startDramaPlan(action.idea, {
+            aspectRatio:
+              (action.aspectRatio as "9:16" | "16:9" | undefined) ??
+              dramaAspectRatio,
+            targetDurationSec: action.targetDurationSec ?? dramaTargetDurationSec,
+            projectType: dramaProjectType,
+          });
+          break;
+        case "run_drama_production":
+          void produceDramaDraft();
+          break;
+        case "generate_character_sheet":
+          void rerunDramaFromNode("char_refs", {});
+          break;
+        case "generate_shot_image": {
+          const shotId = action.shotNodeId.replace(/^drama-shot-/, "");
+          handleRetryShot(shotId, "keyframe");
+          break;
+        }
+        case "generate_shot_video": {
+          const shotId = action.shotNodeId.replace(/^drama-shot-/, "");
+          handleRetryShot(shotId, "video");
+          break;
+        }
+        default:
+          break;
+      }
+    },
+    [
+      startDramaPlan,
+      dramaAspectRatio,
+      dramaTargetDurationSec,
+      dramaProjectType,
+      produceDramaDraft,
+      rerunDramaFromNode,
+      handleRetryShot,
+    ],
+  );
+
   const dramaPanel =
     isDramaPlanning || dramaRun || dramaDraftProject ? (
       <DramaStudioPanel
@@ -202,9 +257,9 @@ export const StudioCanvasWithOrchestration = forwardRef<
         runGraph={dramaRunGraph}
         planning={isDramaPlanning}
         busy={dramaBusy || dramaPlanBusy}
-        shotTimelineOnCanvas={showShotTimeline}
-        productionTimelineOnCanvas={showProductionTimeline}
-        finalVideoOnCanvas={showFinalVideo}
+        shotTimelineOnCanvas={!useInfiniteCanvas && showShotTimeline}
+        productionTimelineOnCanvas={!useInfiniteCanvas && showProductionTimeline}
+        finalVideoOnCanvas={!useInfiniteCanvas && showFinalVideo}
         storyboardView={storyboardView}
         onStoryboardViewChange={setStoryboardView}
         onRerunFromAgent={
@@ -287,13 +342,14 @@ export const StudioCanvasWithOrchestration = forwardRef<
       ref={ref}
       {...props}
       useInfiniteCanvas={useInfiniteCanvas}
-      orchestrationEvent={alternateCanvasContent ? null : timelineEvent}
+      orchestrationEvent={timelineEvent}
       orchestrationActions={timelineActions ?? undefined}
       alternateCanvasContent={alternateCanvasContent}
       orchestrationExtra={dramaPanel}
       dramaNodes={dramaCanvasData.nodes}
       dramaConnections={dramaCanvasData.connections}
       assistantSnapshot={assistantSnapshot}
+      onAgentExternalAction={handleAgentExternalAction}
       sessionId={sessionId}
     />
   );

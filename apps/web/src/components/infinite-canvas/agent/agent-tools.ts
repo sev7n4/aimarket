@@ -643,6 +643,58 @@ export function onlineToolToOps(
       return [{ type: "focus_drama_node", nodeId }];
     }
 
+    case "drama_plan":
+      return [
+        {
+          type: "plan_drama",
+          idea: (args.idea as string) || "",
+          aspectRatio: args.aspectRatio as string | undefined,
+          targetDurationSec: args.targetDurationSec as number | undefined,
+        },
+      ];
+
+    case "drama_generate_character_sheet": {
+      const characterNodeId = args.characterNodeId as string;
+      if (!characterNodeId || !ensureNodeExists(snapshot, characterNodeId)) return [];
+      return [
+        { type: "generate_character_sheet", characterNodeId },
+        {
+          type: "update_node",
+          id: characterNodeId,
+          metadata: { status: "loading", turnaroundStatus: "draft" },
+        },
+        { type: "focus_drama_node", nodeId: characterNodeId },
+      ];
+    }
+
+    case "drama_generate_shot_image": {
+      const shotNodeId = args.shotNodeId as string;
+      if (!shotNodeId || !ensureNodeExists(snapshot, shotNodeId)) return [];
+      return [
+        { type: "generate_shot_image", shotNodeId },
+        { type: "update_shot_status", shotNodeId, status: "keyframe" },
+        { type: "focus_drama_node", nodeId: shotNodeId },
+      ];
+    }
+
+    case "drama_generate_shot_video": {
+      const shotNodeId = args.shotNodeId as string;
+      if (!shotNodeId || !ensureNodeExists(snapshot, shotNodeId)) return [];
+      return [
+        { type: "generate_shot_video", shotNodeId },
+        { type: "update_shot_status", shotNodeId, status: "video" },
+        { type: "focus_drama_node", nodeId: shotNodeId },
+      ];
+    }
+
+    case "drama_run_production":
+      return [
+        {
+          type: "run_drama_production",
+          projectPatch: args.projectPatch as Record<string, unknown> | undefined,
+        },
+      ];
+
     default:
       // Unknown tool — skip silently
       return [];
