@@ -20,7 +20,7 @@
 - [x] grid-split 工具可将宫格图切分为独立图片
 - [x] video-inpaint 工具可对视频关键帧进行局部编辑（首帧 mask + i2v 简化方案）
 - [x] music-gen 工具可根据风格描述生成背景音乐
-- [ ] 音乐生成已接入 MV Skill 流水线（`drama-mv-v1` executor 待接 `music_gen` step）
+- [x] 音乐生成已接入 MV Skill 流水线（`drama-mv-v1` `bgm` → `music-gen` job → concat）
 - [x] 所有 P1 新增工具已注册到 tools.ts 并有计费系数
 - [x] 所有 P1 功能 TypeScript 编译零错误
 

@@ -15,6 +15,7 @@ export interface VideoInpaintSubmitPayload {
   maskBbox: CanvasMaskSelection["bbox"];
   maskNormalizedBbox: CanvasMaskSelection["normalizedBbox"];
   prompt: string;
+  timestampSec?: number;
 }
 
 interface VideoInpaintEditorProps {
@@ -35,6 +36,7 @@ export function VideoInpaintEditor({
   const [videoUrl, setVideoUrl] = useState(initialVideoUrl ?? "");
   const [frameDataUrl, setFrameDataUrl] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
+  const [timestampSec, setTimestampSec] = useState(0);
   const [isDrawing, setIsDrawing] = useState(false);
 
   const [frameWidth, setFrameWidth] = useState(720);
@@ -172,8 +174,9 @@ export function VideoInpaintEditor({
       maskBbox: selection.bbox,
       maskNormalizedBbox: selection.normalizedBbox,
       prompt: prompt.trim(),
+      timestampSec,
     });
-  }, [videoUrl, maskBrush, prompt, frameWidth, frameHeight, onSubmit]);
+  }, [videoUrl, maskBrush, prompt, timestampSec, frameWidth, frameHeight, onSubmit]);
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -260,6 +263,23 @@ export function VideoInpaintEditor({
           </div>
         </div>
       )}
+
+      {/* 关键帧时间 */}
+      {frameDataUrl ? (
+        <label className="flex items-center gap-2 text-xs text-white/60">
+          <span className="shrink-0">关键帧时间</span>
+          <input
+            type="range"
+            min={0}
+            max={30}
+            step={0.5}
+            value={timestampSec}
+            onChange={(e) => setTimestampSec(Number(e.target.value))}
+            className="flex-1"
+          />
+          <span className="w-10 text-right tabular-nums">{timestampSec}s</span>
+        </label>
+      ) : null}
 
       {/* 编辑 prompt */}
       <textarea

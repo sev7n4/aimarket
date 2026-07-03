@@ -7,7 +7,7 @@ import {
 } from "./estimate.js";
 import type { DramaProgress, DramaRunStatus } from "./schema.js";
 import { publishDramaRunStreamUpdate } from "./run-stream.js";
-import { DRAMA_PIPELINE_STEPS } from "./schema.js";
+import { DRAMA_PIPELINE_STEPS, resolveDramaPipelineSteps } from "./schema.js";
 import {
   getDramaProject,
   parseProjectJson,
@@ -42,9 +42,10 @@ export interface DramaRunRow {
   updated_at: string;
 }
 
-export function defaultProgress(): DramaProgress {
+export function defaultProgress(skillId?: string): DramaProgress {
+  const steps = resolveDramaPipelineSteps(skillId ?? "drama-short-v1");
   return {
-    currentPipelineStep: DRAMA_PIPELINE_STEPS[0]!,
+    currentPipelineStep: steps[0]!,
     charRefIndex: 0,
     charRefAngleIndex: 0,
     sceneRefIndex: 0,
@@ -57,11 +58,11 @@ export function defaultProgress(): DramaProgress {
 }
 
 export function parseProgress(row: DramaRunRow): DramaProgress {
-  if (!row.progress_json) return defaultProgress();
+  if (!row.progress_json) return defaultProgress(row.skill_id);
   try {
-    return { ...defaultProgress(), ...JSON.parse(row.progress_json) };
+    return { ...defaultProgress(row.skill_id), ...JSON.parse(row.progress_json) };
   } catch {
-    return defaultProgress();
+    return defaultProgress(row.skill_id);
   }
 }
 
@@ -101,7 +102,7 @@ export function createDramaRun(input: {
     input.userId,
     skillId,
     status,
-    JSON.stringify(defaultProgress()),
+    JSON.stringify(defaultProgress(skillId)),
     estimated,
   );
 
@@ -297,7 +298,7 @@ export function serializeDramaRun(row: DramaRunRow, projectRow: DramaProjectRow)
     error: row.error,
     progress,
     project: { ...project, shots: shotsWithMedia },
-    pipelineSteps: DRAMA_PIPELINE_STEPS.map((step, i) => ({
+    pipelineSteps: resolveDramaPipelineSteps(row.skill_id).map((step, i) => ({
       id: step,
       label: pipelineStepLabel(step),
       index: i,

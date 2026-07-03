@@ -198,6 +198,7 @@ export type DramaRunStatus =
   | "cancelled";
 
 export type DramaPipelineStep =
+  | "bgm"
   | "char_refs"
   | "scene_refs"
   | "keyframes"
@@ -218,6 +219,18 @@ export const DRAMA_PIPELINE_STEPS: DramaPipelineStep[] = [
   "concat",
 ];
 
+/** MV / 创意片 Skill 在标准流水线前增加 BGM 生成步骤 */
+export const DRAMA_MV_PIPELINE_STEPS: DramaPipelineStep[] = [
+  "bgm",
+  ...DRAMA_PIPELINE_STEPS,
+];
+
+export function resolveDramaPipelineSteps(skillId: string): DramaPipelineStep[] {
+  return skillId === "drama-mv-v1"
+    ? DRAMA_MV_PIPELINE_STEPS
+    : DRAMA_PIPELINE_STEPS;
+}
+
 export interface DramaPendingBatchJob {
   shotId: string;
   jobId: string;
@@ -235,6 +248,8 @@ export interface DramaProgress {
   /** 同场景无尾帧依赖的关键帧/视频可并行 */
   pendingBatch?: DramaPendingBatchJob[];
   narratorAudioOutputId?: string;
+  /** MV Skill：music_gen 步骤产出的 BGM URL */
+  bgmOutputUrl?: string;
   finalVideoUrl?: string;
   /** concat 成片 outputId，供灵感发布 */
   finalVideoOutputId?: string;

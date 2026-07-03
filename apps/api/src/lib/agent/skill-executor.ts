@@ -21,10 +21,14 @@ import {
 } from "./skill-runs.js";
 
 function resolveSourceOutputId(
-  step: Extract<SkillStep, { type: "tool" } | { type: "video" }>,
+  step: Extract<SkillStep, { type: "tool" | "video" }>,
   outputs: SkillStepOutputs,
 ): string {
-  const src = outputs[step.sourceStep];
+  const sourceStep = step.sourceStep;
+  if (!sourceStep) {
+    throw new Error("缺少 sourceStep");
+  }
+  const src = outputs[sourceStep];
   if (!src?.outputIds?.length) {
     throw new Error(`缺少上一步输出: ${step.sourceStep}`);
   }
@@ -68,16 +72,21 @@ function startStepJob(
   const sourceLane = inferSkillStepSourceLane(step);
 
   if (step.type === "generate_set") {
+    const slideCount = step.count ?? ECOMMERCE_SLIDES.length;
+    const labels =
+      step.count != null
+        ? Array.from({ length: slideCount }, (_, i) => `展示图 ${i + 1}`)
+        : ECOMMERCE_SLIDES.map((s) => s.label);
     const { jobId } = createGenerationJob({
       sessionId: row.session_id,
       userId: row.user_id,
       prompt: enrichedPrompt,
       modelId: route.modelId,
       mode: "ecommerce",
-      count: ECOMMERCE_SLIDES.length,
+      count: slideCount,
       resolution: "2k",
       aspectRatio: "1:1",
-      slideLabels: ECOMMERCE_SLIDES.map((s) => s.label),
+      slideLabels: labels,
       sourceLane,
     });
     linkSkillRunJob(row.id, jobId, step.id);
@@ -86,7 +95,9 @@ function startStepJob(
 
   if (step.type === "tool") {
     getTool(step.toolId);
-    const sourceOutputId = resolveSourceOutputId(step, outputs);
+    const sourceOutputId = step.sourceStep
+      ? resolveSourceOutputId(step, outputs)
+      : undefined;
     const { jobId } = createGenerationJob({
       sessionId: row.session_id,
       userId: row.user_id,
@@ -118,6 +129,29 @@ function startStepJob(
       toolType: "video",
       sourceOutputId,
       sourceLane,
+    });
+    linkSkillRunJob(row.id, jobId, step.id);
+    return jobId;
+  }
+
+  if (step.type === "music_gen") {
+    const { jobId } = createGenerationJob({
+      sessionId: row.session_id,
+      userId: row.user_id,
+      prompt: enrichedPrompt || "生成背景音乐",
+      modelId: route.modelId,
+      mode: "chat",
+      count: 1,
+      resolution: "1k",
+      aspectRatio: "16:9",
+      toolType: "music-gen",
+      sourceLane,
+      toolContext: {
+        toolId: "music-gen",
+        style: enrichedPrompt || "轻快氛围配乐",
+        bpm: step.options?.defaultBpm ?? 120,
+        durationSec: step.options?.defaultDurationSec ?? 30,
+      },
     });
     linkSkillRunJob(row.id, jobId, step.id);
     return jobId;

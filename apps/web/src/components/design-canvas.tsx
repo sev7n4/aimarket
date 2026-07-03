@@ -1797,6 +1797,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                   prompt: payload.prompt,
                   toolContext: {
                     toolId: "video-inpaint",
+                    timestampSec: payload.timestampSec ?? 0,
                     masks: [
                       {
                         itemId: showVideoInpaint.node.id,
