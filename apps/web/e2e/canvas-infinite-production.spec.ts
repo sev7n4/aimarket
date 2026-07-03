@@ -44,6 +44,10 @@ test.describe("InfiniteCanvas 生产路径", () => {
     await expect(menu).toContainText(/多机位 9 宫格/);
     await expect(menu).toContainText(/灯光控制/);
 
+    // 关闭右键菜单后再点浮动入口
+    await page.mouse.click(20, 20);
+    await expect(menu).toBeHidden({ timeout: 5_000 });
+
     // 浮动入口存在
     await expect(page.getByTestId("template-manager-toggle")).toBeVisible();
     await expect(page.getByTestId("music-gen-toggle")).toBeVisible();
