@@ -1029,71 +1029,73 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
           {useInfiniteCanvas ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="relative flex min-h-0 flex-1">
-                <InfiniteCanvasContainer
-                  nodes={enrichNodesWithBatchIndex([...canvasItemsToNodeData(items), ...dramaNodes])}
-                  connections={[...buildConnectionsFromItems(items), ...dramaConnections]}
-                  viewport={infiniteViewport}
-                  selectedNodeIds={infiniteSelectedIds}
-                  onNodesChange={(nodes: CanvasNodeData[]) => {
-                    if (applyingAssistantOpsRef.current) return;
-                    onItemsChange(applyNodePositionsToItems(items, nodes));
-                  }}
-                  onConnectionsChange={() => {
-                    // Phase 1: connections not persisted back to CanvasItem
-                  }}
-                  onViewportChange={setInfiniteViewport}
-                  onSelectionChange={setInfiniteSelectedIds}
-                  onNodeDoubleClick={(nodeId: string) => {
-                    onSelect(nodeId);
-                    setDramaPanelNodeId(nodeId);
-                  }}
-                  onContextMenu={(state: ContextMenuState | null) => {
-                    if (state?.type === "node") {
-                      const target = allCanvasNodesRef.current.find(
-                        (n) => n.id === state.nodeId,
-                      );
-                      if (target) {
-                        setInfiniteContextMenu({
-                          node: target,
-                          x: state.x,
-                          y: state.y,
-                        });
+                <div className="relative min-h-0 flex-1">
+                  <InfiniteCanvasContainer
+                    nodes={enrichNodesWithBatchIndex([...canvasItemsToNodeData(items), ...dramaNodes])}
+                    connections={[...buildConnectionsFromItems(items), ...dramaConnections]}
+                    viewport={infiniteViewport}
+                    selectedNodeIds={infiniteSelectedIds}
+                    onNodesChange={(nodes: CanvasNodeData[]) => {
+                      if (applyingAssistantOpsRef.current) return;
+                      onItemsChange(applyNodePositionsToItems(items, nodes));
+                    }}
+                    onConnectionsChange={() => {
+                      // Phase 1: connections not persisted back to CanvasItem
+                    }}
+                    onViewportChange={setInfiniteViewport}
+                    onSelectionChange={setInfiniteSelectedIds}
+                    onNodeDoubleClick={(nodeId: string) => {
+                      onSelect(nodeId);
+                      setDramaPanelNodeId(nodeId);
+                    }}
+                    onContextMenu={(state: ContextMenuState | null) => {
+                      if (state?.type === "node") {
+                        const target = allCanvasNodesRef.current.find(
+                          (n) => n.id === state.nodeId,
+                        );
+                        if (target) {
+                          setInfiniteContextMenu({
+                            node: target,
+                            x: state.x,
+                            y: state.y,
+                          });
+                        }
+                      } else {
+                        setInfiniteContextMenu(null);
                       }
-                    } else {
-                      setInfiniteContextMenu(null);
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowTemplateManager((v) => !v)}
-                  className={`absolute right-3 top-3 z-20 inline-flex size-8 items-center justify-center rounded-md border transition ${
-                    showTemplateManager
-                      ? "bg-white/20 text-white"
-                      : "bg-black/40 text-zinc-300 hover:bg-black/60"
-                  }`}
-                  style={{ borderColor: "rgba(255,255,255,0.15)" }}
-                  aria-label="工作流模板"
-                  title="工作流模板"
-                  data-testid="template-manager-toggle"
-                >
-                  <Bookmark className="size-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowMusicGenPanel((v) => !v)}
-                  className={`absolute right-3 top-14 z-20 inline-flex size-8 items-center justify-center rounded-md border transition ${
-                    showMusicGenPanel
-                      ? "bg-white/20 text-white"
-                      : "bg-black/40 text-zinc-300 hover:bg-black/60"
-                  }`}
-                  style={{ borderColor: "rgba(255,255,255,0.15)" }}
-                  aria-label="AI 音乐生成"
-                  title="AI 音乐生成"
-                  data-testid="music-gen-toggle"
-                >
-                  <Music className="size-4" />
-                </button>
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowTemplateManager((v) => !v)}
+                    className={`absolute right-3 top-3 z-20 inline-flex size-8 items-center justify-center rounded-md border transition ${
+                      showTemplateManager
+                        ? "bg-white/20 text-white"
+                        : "bg-black/40 text-zinc-300 hover:bg-black/60"
+                    }`}
+                    style={{ borderColor: "rgba(255,255,255,0.15)" }}
+                    aria-label="工作流模板"
+                    title="工作流模板"
+                    data-testid="template-manager-toggle"
+                  >
+                    <Bookmark className="size-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowMusicGenPanel((v) => !v)}
+                    className={`absolute right-3 top-14 z-20 inline-flex size-8 items-center justify-center rounded-md border transition ${
+                      showMusicGenPanel
+                        ? "bg-white/20 text-white"
+                        : "bg-black/40 text-zinc-300 hover:bg-black/60"
+                    }`}
+                    style={{ borderColor: "rgba(255,255,255,0.15)" }}
+                    aria-label="AI 音乐生成"
+                    title="AI 音乐生成"
+                    data-testid="music-gen-toggle"
+                  >
+                    <Music className="size-4" />
+                  </button>
+                </div>
                 {dramaPanelNode && (
                   <DramaPropertyPanel
                     node={dramaPanelNode}
