@@ -269,9 +269,13 @@ export function StudioWorkspace({
     void trackEvent("studio_open", { sessionId, mode });
   }, [user, sessionId, mode]);
 
-  const {
+    const {
     items: canvasItems,
     setItems: setCanvasItems,
+    infiniteConnections,
+    setInfiniteConnections,
+    dramaNodePositions,
+    setDramaNodePositions,
     load: loadCanvas,
     registerBatchLineage,
     canEdit: canvasCanEdit,
@@ -1788,6 +1792,10 @@ export function StudioWorkspace({
             <StudioCanvasWithOrchestration
               ref={canvasRef}
               items={canvasItems}
+              infiniteConnections={infiniteConnections}
+              onInfiniteConnectionsChange={setInfiniteConnections}
+              dramaNodePositions={dramaNodePositions}
+              onDramaNodePositionsChange={setDramaNodePositions}
               onRunInfiniteNodeTool={(req) => void handleRunInfiniteNodeTool(req)}
               onJumpToParentBatch={handleJumpToParentBatch}
               selectedId={selectedCanvasId}

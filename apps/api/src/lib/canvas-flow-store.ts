@@ -3,6 +3,13 @@ import { z } from "zod";
 import { db } from "../db/index.js";
 import { AppError } from "./errors.js";
 import { assertSessionRead, assertSessionWrite } from "./session-access.js";
+import {
+  applyFlowToLayout,
+  canvasLayoutToFlow,
+  newFlowNodeId,
+  readCanvasLayoutFromDb,
+  serializeLayout,
+} from "./canvas-flow-layout-bridge.js";
 
 /**
  * 画布流（节点式画布）存储层。
@@ -63,25 +70,30 @@ const DEFAULT_LABELS: Record<CanvasNodeType, string> = {
 };
 
 interface CanvasFlowRow {
+  canvas_layout: string | null;
   canvas_flow: string | null;
 }
 
-function loadCanvasFlowRaw(sessionId: string): CanvasFlow {
+function loadLayoutRaw(sessionId: string) {
   const row = db
-    .prepare("SELECT canvas_flow FROM image_sessions WHERE id = ?")
+    .prepare("SELECT canvas_layout, canvas_flow FROM image_sessions WHERE id = ?")
     .get(sessionId) as CanvasFlowRow | undefined;
-  if (!row?.canvas_flow) return { nodes: [], edges: [] };
-  try {
-    return canvasFlowSchema.parse(JSON.parse(row.canvas_flow));
-  } catch {
-    return { nodes: [], edges: [] };
-  }
+  return readCanvasLayoutFromDb(row);
+}
+
+function saveLayoutFromFlow(sessionId: string, flow: CanvasFlow): void {
+  const layout = applyFlowToLayout(loadLayoutRaw(sessionId), flow);
+  db.prepare(
+    `UPDATE image_sessions SET canvas_layout = ?, updated_at = datetime('now') WHERE id = ?`,
+  ).run(serializeLayout(layout), sessionId);
+}
+
+function loadCanvasFlowRaw(sessionId: string): CanvasFlow {
+  return canvasLayoutToFlow(loadLayoutRaw(sessionId));
 }
 
 function saveCanvasFlow(sessionId: string, flow: CanvasFlow): void {
-  db.prepare(
-    `UPDATE image_sessions SET canvas_flow = ?, updated_at = datetime('now') WHERE id = ?`,
-  ).run(JSON.stringify(canvasFlowSchema.parse(flow)), sessionId);
+  saveLayoutFromFlow(sessionId, canvasFlowSchema.parse(flow));
 }
 
 /** 读取（读权限校验） */
@@ -134,7 +146,7 @@ export function createCanvasNode(
   assertSessionWrite(userId, sessionId);
   const body = createCanvasNodeInputSchema.parse(input);
   const flow = loadCanvasFlowRaw(sessionId);
-  const id = randomUUID();
+  const id = newFlowNodeId();
   const node: CanvasFlowNode = {
     id,
     type: body.type,

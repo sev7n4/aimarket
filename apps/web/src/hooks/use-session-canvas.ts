@@ -9,6 +9,7 @@ import {
   type CanvasBundleDto,
   type CanvasLayoutDto,
 } from "@/lib/api-client";
+import type { CanvasConnection } from "@/components/infinite-canvas/types";
 import {
   applyPendingBatchLineage,
   buildCanvasItemsFromMessages,
@@ -82,9 +83,25 @@ export function invalidateSessionCanvasBundle(sessionId: string) {
   canvasBundleCache.delete(sessionId);
 }
 
-function toLayoutDto(items: CanvasItem[]): CanvasLayoutDto {
+function toLayoutDto(
+  items: CanvasItem[],
+  infiniteConnections: CanvasConnection[],
+  dramaNodePositions: Record<string, { x: number; y: number }>,
+): CanvasLayoutDto {
   return {
     version: 1,
+    infiniteConnections:
+      infiniteConnections.length > 0
+        ? infiniteConnections.map((c) => ({
+            id: c.id,
+            fromNodeId: c.fromNodeId,
+            toNodeId: c.toNodeId,
+          }))
+        : undefined,
+    dramaNodePositions:
+      Object.keys(dramaNodePositions).length > 0
+        ? dramaNodePositions
+        : undefined,
     items: items.map((i) => ({
       id: i.id,
       url: i.url,
@@ -105,6 +122,8 @@ function toLayoutDto(items: CanvasItem[]): CanvasLayoutDto {
       batchSubtitle: i.batchSubtitle,
       parentBatchId: i.parentBatchId,
       sourceItemId: i.sourceItemId,
+      infiniteNodeType: i.infiniteNodeType,
+      infiniteNodeMeta: i.infiniteNodeMeta,
     })),
   };
 }
@@ -115,6 +134,10 @@ export function useSessionCanvas(
   options?: { autoLoad?: boolean },
 ) {
   const [items, setItems] = useState<CanvasItem[]>([]);
+  const [infiniteConnections, setInfiniteConnections] = useState<CanvasConnection[]>([]);
+  const [dramaNodePositions, setDramaNodePositions] = useState<
+    Record<string, { x: number; y: number }>
+  >({});
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [canEdit, setCanEdit] = useState(true);
   const persistReady = useRef(false);
@@ -138,6 +161,8 @@ export function useSessionCanvas(
   useEffect(() => {
     activeSessionRef.current = sessionId;
     setItems([]);
+    setInfiniteConnections([]);
+    setDramaNodePositions({});
     setMessages([]);
     setCanEdit(true);
     persistReady.current = false;
@@ -183,6 +208,14 @@ export function useSessionCanvas(
     merged = withPendingLineage(merged);
     skipNextSave.current = true;
     setItems(merged);
+    setInfiniteConnections(
+      (layout.infiniteConnections ?? []).map((c) => ({
+        id: c.id,
+        fromNodeId: c.fromNodeId,
+        toNodeId: c.toNodeId,
+      })),
+    );
+    setDramaNodePositions(layout.dramaNodePositions ?? {});
     persistReady.current = true;
   }, [sessionId, withPendingLineage]);
 
@@ -210,12 +243,15 @@ export function useSessionCanvas(
       return;
     }
     const timer = setTimeout(() => {
-      void saveCanvasLayout(sessionId, toLayoutDto(items))
+      void saveCanvasLayout(
+        sessionId,
+        toLayoutDto(items, infiniteConnections, dramaNodePositions),
+      )
         .then(() => invalidateSessionCanvasBundle(sessionId))
         .catch(() => {});
     }, 700);
     return () => clearTimeout(timer);
-  }, [items, sessionId, enabled, canEdit]);
+  }, [items, infiniteConnections, dramaNodePositions, sessionId, enabled, canEdit]);
 
   const updateItems = useCallback(
     (next: CanvasItem[] | ((prev: CanvasItem[]) => CanvasItem[])) => {
@@ -225,9 +261,39 @@ export function useSessionCanvas(
     [canEdit],
   );
 
+  const updateConnections = useCallback(
+    (
+      next:
+        | CanvasConnection[]
+        | ((prev: CanvasConnection[]) => CanvasConnection[]),
+    ) => {
+      if (!canEdit) return;
+      setInfiniteConnections(next);
+    },
+    [canEdit],
+  );
+
+  const updateDramaPositions = useCallback(
+    (
+      next:
+        | Record<string, { x: number; y: number }>
+        | ((
+            prev: Record<string, { x: number; y: number }>,
+          ) => Record<string, { x: number; y: number }>),
+    ) => {
+      if (!canEdit) return;
+      setDramaNodePositions(next);
+    },
+    [canEdit],
+  );
+
   return {
     items,
     setItems: updateItems,
+    infiniteConnections,
+    setInfiniteConnections: updateConnections,
+    dramaNodePositions,
+    setDramaNodePositions: updateDramaPositions,
     messages,
     setMessages,
     load,

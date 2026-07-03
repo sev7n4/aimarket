@@ -169,3 +169,37 @@ export function buildConnectionsFromItems(items: CanvasItem[]): CanvasConnection
 
   return connections;
 }
+
+function connectionKey(conn: Pick<CanvasConnection, "fromNodeId" | "toNodeId">): string {
+  return `${conn.fromNodeId}->${conn.toNodeId}`;
+}
+
+/** 合并血缘、手动与 Drama 连线，按 from→to 去重 */
+export function mergeCanvasConnections(
+  items: CanvasItem[],
+  manualConnections: CanvasConnection[] = [],
+  dramaConnections: CanvasConnection[] = [],
+): CanvasConnection[] {
+  const seen = new Set<string>();
+  const merged: CanvasConnection[] = [];
+  for (const conn of [
+    ...buildConnectionsFromItems(items),
+    ...manualConnections,
+    ...dramaConnections,
+  ]) {
+    const key = connectionKey(conn);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(conn);
+  }
+  return merged;
+}
+
+export function isLineageConnection(
+  conn: CanvasConnection,
+  items: CanvasItem[],
+): boolean {
+  return items.some(
+    (item) => item.id === conn.toNodeId && item.sourceItemId === conn.fromNodeId,
+  );
+}

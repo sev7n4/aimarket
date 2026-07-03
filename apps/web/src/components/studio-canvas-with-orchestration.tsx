@@ -15,7 +15,7 @@ import type { DramaNodeRerunPatch } from "@/components/drama-node-graph";
 import { retryDramaShot, pickDramaKeyframe, publishCanvasToInspiration, unpublishInspiration } from "@/lib/api-client";
 import { buildDramaPublishPayload } from "@/lib/drama-publish";
 import type { DramaProjectPayload } from "@/lib/types";
-import { dramaPlanToCanvasNodes } from "@/components/infinite-canvas/drama/drama-plan-to-nodes";
+import { dramaPlanToCanvasNodes, applyDramaNodePositions } from "@/components/infinite-canvas/drama/drama-plan-to-nodes";
 import { applyTemplateLayoutToCanvas } from "@/components/infinite-canvas/template-node-layout";
 import type { AgentExternalAction, CanvasAgentSnapshot } from "@/components/infinite-canvas/utils";
 import type { CanvasAgentOp } from "@/components/infinite-canvas/utils";
@@ -139,11 +139,13 @@ export const StudioCanvasWithOrchestration = forwardRef<
     const payload = dramaDraftProject?.project ?? dramaRun?.project;
     if (!payload) return { nodes: [], connections: [] };
     const base = dramaPlanToCanvasNodes(payload);
-    return applyTemplateLayoutToCanvas(base, pendingTemplateLayout);
+    const withTemplate = applyTemplateLayoutToCanvas(base, pendingTemplateLayout);
+    return applyDramaNodePositions(withTemplate, props.dramaNodePositions);
   }, [
     dramaDraftProject?.project,
     dramaRun?.project,
     pendingTemplateLayout,
+    props.dramaNodePositions,
   ]);
 
   // Assistant snapshot metadata（节点/连线由 design-canvas effectiveAssistantSnapshot 实时合并）

@@ -52,9 +52,10 @@ import { LightingOverlay, type LightSource } from "@/components/infinite-canvas/
 import { CameraOverlay, type CameraParams as DramaCameraParams } from "@/components/infinite-canvas/drama/CameraOverlay";
 import {
   canvasItemsToNodeData,
-  buildConnectionsFromItems,
+  mergeCanvasConnections,
   applyNodePositionsToItems,
 } from "@/components/infinite-canvas/migration";
+import { ConnectionContextMenu } from "@/components/infinite-canvas/ConnectionContextMenu";
 import type { CanvasNodeData, CanvasConnection, CanvasNodeMetadata, ViewportTransform, ContextMenuState } from "@/components/infinite-canvas/types";
 import { CanvasNodeType } from "@/components/infinite-canvas/types";
 
@@ -78,9 +79,13 @@ import { CanvasAssistantPanel } from "@/components/infinite-canvas/agent/CanvasA
 import { TemplateManager } from "@/components/infinite-canvas/TemplateManager";
 import { MusicGenPanel } from "@/components/infinite-canvas/drama/MusicGenPanel";
 import { NodeCreateMenu } from "@/components/infinite-canvas/NodeCreateMenu";
+import { ConnectionCreateMenu } from "@/components/infinite-canvas/ConnectionCreateMenu";
 import { extractDramaCanvasOps } from "@/components/infinite-canvas/drama/drama-canvas-mutations";
 import {
   buildAddNodeOp,
+  buildDeleteConnectionOps,
+  extractPersistedConnections,
+  isDramaNodeId,
   mergeSnapshotToCanvasItems,
 } from "@/components/infinite-canvas/sync-infinite-snapshot";
 import {
@@ -112,6 +117,13 @@ export interface DesignCanvasHandle {
 
 interface DesignCanvasProps {
   items: CanvasItem[];
+  /** InfiniteCanvas 手动连线（持久化到 canvas_layout.infiniteConnections） */
+  infiniteConnections?: CanvasConnection[];
+  onInfiniteConnectionsChange?: (connections: CanvasConnection[]) => void;
+  dramaNodePositions?: Record<string, { x: number; y: number }>;
+  onDramaNodePositionsChange?: (
+    positions: Record<string, { x: number; y: number }>,
+  ) => void;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onItemsChange: (items: CanvasItem[]) => void;
@@ -234,6 +246,10 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
   function DesignCanvas(
     {
       items,
+      infiniteConnections = [],
+      onInfiniteConnectionsChange,
+      dramaNodePositions = {},
+      onDramaNodePositionsChange,
       selectedId,
       onSelect,
       onItemsChange,
@@ -339,6 +355,16 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       worldX: number;
       worldY: number;
     } | null>(null);
+    const [connectionContextMenu, setConnectionContextMenu] = useState<{
+      connectionId: string;
+      x: number;
+      y: number;
+    } | null>(null);
+    const [connectionCreateMenu, setConnectionCreateMenu] = useState<{
+      sourceNodeId: string;
+      x: number;
+      y: number;
+    } | null>(null);
     const infiniteCanvasAreaRef = useRef<HTMLDivElement>(null);
     // 视频精准编辑 / 灯光 / 摄像机 浮层（用于右侧打开）
     const [showVideoInpaint, setShowVideoInpaint] = useState<{
@@ -371,6 +397,10 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       () => [...canvasItemsToNodeData(items), ...dramaNodes],
       [items, dramaNodes],
     );
+    const canvasConnections = useMemo(
+      () => mergeCanvasConnections(items, infiniteConnections, dramaConnections),
+      [items, infiniteConnections, dramaConnections],
+    );
     const allCanvasNodesRef = useRef<CanvasNodeData[]>(allCanvasNodes);
     useEffect(() => {
       allCanvasNodesRef.current = allCanvasNodes;
@@ -395,11 +425,10 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     const templateSelectedConnections = useMemo<CanvasConnection[]>(() => {
       if (templateSelectedNodes.length === 0) return [];
       const idSet = new Set(templateSelectedNodes.map((n) => n.id));
-      const allConnections = [...buildConnectionsFromItems(items), ...dramaConnections];
-      return allConnections.filter(
+      return canvasConnections.filter(
         (c) => idSet.has(c.fromNodeId) && idSet.has(c.toNodeId),
       );
-    }, [templateSelectedNodes, items, dramaConnections]);
+    }, [templateSelectedNodes, canvasConnections]);
 
     const showInfiniteJobOverlay =
       Boolean(jobStreamStatus) &&
@@ -423,7 +452,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         projectId: assistantSnapshot?.projectId ?? "",
         title: assistantSnapshot?.title ?? "AIMarket Canvas",
         nodes: [...canvasItemsToNodeData(items), ...dramaNodes],
-        connections: [...buildConnectionsFromItems(items), ...dramaConnections],
+        connections: canvasConnections,
         selectedNodeIds: infiniteSelectedIds,
         viewport: infiniteViewport,
       };
@@ -432,7 +461,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       assistantSnapshot,
       items,
       dramaNodes,
-      dramaConnections,
+      canvasConnections,
       infiniteSelectedIds,
       infiniteViewport,
     ]);
@@ -484,7 +513,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     // Handle assistant ops - applies CanvasAgentOps to the canvas
     const handleApplyAssistantOps = useCallback((ops: CanvasAgentOp[]): CanvasAgentSnapshot => {
       const currentNodes = [...canvasItemsToNodeData(items), ...dramaNodes];
-      const currentConnections = [...buildConnectionsFromItems(items), ...dramaConnections];
+      const currentConnections = canvasConnections;
       const snapshot: CanvasAgentSnapshot = {
         projectId: assistantSnapshot?.projectId ?? "",
         title: assistantSnapshot?.title ?? "AIMarket Canvas",
@@ -519,6 +548,17 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         onApplyAssistantOps?.(dramaOps);
       }
 
+      const persistedConnections = extractPersistedConnections(
+        newSnapshot.connections,
+        mergedItems,
+      );
+      const connectionsChanged =
+        persistedConnections.length !== infiniteConnections.length ||
+        persistedConnections.some((conn, index) => conn !== infiniteConnections[index]);
+      if (connectionsChanged) {
+        onInfiniteConnectionsChange?.(persistedConnections);
+      }
+
       setInfiniteSelectedIds(newSnapshot.selectedNodeIds);
       setInfiniteViewport(newSnapshot.viewport);
 
@@ -530,13 +570,15 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     }, [
       items,
       dramaNodes,
-      dramaConnections,
+      canvasConnections,
+      infiniteConnections,
       assistantSnapshot,
       infiniteSelectedIds,
       infiniteViewport,
       onItemsChange,
       onApplyAssistantOps,
       onAgentExternalAction,
+      onInfiniteConnectionsChange,
       pushHistory,
     ]);
 
@@ -555,6 +597,28 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       [commitCanvasOps],
     );
 
+    const handleCreateDownstreamNode = useCallback(
+      (sourceNodeId: string, nodeType: CanvasNodeType) => {
+        const source = allCanvasNodesRef.current.find((n) => n.id === sourceNodeId);
+        if (!source) return;
+        const gap = 80;
+        const addOp = buildAddNodeOp(
+          nodeType,
+          source.position.x + source.width + gap,
+          source.position.y,
+        );
+        const newNodeId =
+          addOp.type === "add_node" && addOp.id ? addOp.id : null;
+        if (!newNodeId) return;
+        commitCanvasOps([
+          addOp,
+          { type: "connect_nodes", fromNodeId: sourceNodeId, toNodeId: newNodeId },
+        ]);
+        setConnectionCreateMenu(null);
+      },
+      [commitCanvasOps],
+    );
+
     const handleDeleteInfiniteNodes = useCallback(
       (nodeIds: string[]) => {
         if (readOnly || nodeIds.length === 0) return;
@@ -566,6 +630,35 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         }
       },
       [readOnly, commitCanvasOps, selectedId, onSelect],
+    );
+
+    const handleDeleteConnection = useCallback(
+      (connectionId: string) => {
+        if (readOnly) return;
+        const { itemPatches, ops } = buildDeleteConnectionOps(
+          connectionId,
+          items,
+          infiniteConnections,
+          dramaConnections,
+        );
+        if (itemPatches) {
+          pushHistory(itemPatches);
+          onItemsChange(itemPatches);
+        }
+        if (ops.length > 0) {
+          commitCanvasOps(ops);
+        }
+        setConnectionContextMenu(null);
+      },
+      [
+        readOnly,
+        items,
+        infiniteConnections,
+        dramaConnections,
+        pushHistory,
+        onItemsChange,
+        commitCanvasOps,
+      ],
     );
 
     useEffect(() => {
@@ -1139,6 +1232,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             <div
               ref={infiniteCanvasAreaRef}
               className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              data-testid="infinite-canvas-pane"
             >
               <div className="relative flex min-h-0 flex-1">
                 <div className="relative min-h-0 flex-1">
@@ -1158,21 +1252,65 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                   ) : null}
                   <InfiniteCanvasContainer
                     nodes={enrichNodesWithBatchIndex([...canvasItemsToNodeData(items), ...dramaNodes])}
-                    connections={[...buildConnectionsFromItems(items), ...dramaConnections]}
+                    connections={canvasConnections}
                     viewport={infiniteViewport}
                     selectedNodeIds={infiniteSelectedIds}
                     onNodesChange={(nodes: CanvasNodeData[]) => {
                       if (applyingAssistantOpsRef.current) return;
-                      onItemsChange(applyNodePositionsToItems(items, nodes));
+                      const itemNodes = nodes.filter((n) => !isDramaNodeId(n.id));
+                      onItemsChange(applyNodePositionsToItems(items, itemNodes));
+                      if (onDramaNodePositionsChange) {
+                        const next = { ...dramaNodePositions };
+                        let changed = false;
+                        for (const node of nodes) {
+                          if (!isDramaNodeId(node.id)) continue;
+                          const prev = dramaNodePositions[node.id];
+                          if (
+                            !prev ||
+                            prev.x !== node.position.x ||
+                            prev.y !== node.position.y
+                          ) {
+                            next[node.id] = {
+                              x: node.position.x,
+                              y: node.position.y,
+                            };
+                            changed = true;
+                          }
+                        }
+                        if (changed) onDramaNodePositionsChange(next);
+                      }
                     }}
-                    onConnectionsChange={() => {
-                      // Phase 1: connections not persisted back to CanvasItem
+                    onConnectionsChange={(nextConnections) => {
+                      if (applyingAssistantOpsRef.current || readOnly) return;
+                      onInfiniteConnectionsChange?.(
+                        extractPersistedConnections(nextConnections, items),
+                      );
                     }}
                     onViewportChange={setInfiniteViewport}
                     onSelectionChange={setInfiniteSelectedIds}
                     onNodeDoubleClick={(nodeId: string) => {
                       onSelect(nodeId);
                       setDramaPanelNodeId(nodeId);
+                    }}
+                    onConnectionCreateClick={(event, nodeId) => {
+                      if (readOnly) return;
+                      setConnectionCreateMenu({
+                        sourceNodeId: nodeId,
+                        x: event.clientX,
+                        y: event.clientY,
+                      });
+                    }}
+                    onCanvasDoubleClick={(world, client) => {
+                      if (readOnly) return;
+                      setInfiniteContextMenu(null);
+                      setConnectionContextMenu(null);
+                      setConnectionCreateMenu(null);
+                      setPaneCreateMenu({
+                        x: client.x,
+                        y: client.y,
+                        worldX: world.x,
+                        worldY: world.y,
+                      });
                     }}
                     onContextMenu={(state: ContextMenuState | null) => {
                       if (state?.type === "node") {
@@ -1190,15 +1328,26 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                       } else if (state?.type === "pane") {
                         if (readOnly) return;
                         setInfiniteContextMenu(null);
+                        setConnectionContextMenu(null);
                         setPaneCreateMenu({
                           x: state.x,
                           y: state.y,
                           worldX: state.worldX,
                           worldY: state.worldY,
                         });
+                      } else if (state?.type === "connection") {
+                        if (readOnly) return;
+                        setInfiniteContextMenu(null);
+                        setPaneCreateMenu(null);
+                        setConnectionContextMenu({
+                          connectionId: state.connectionId,
+                          x: state.x,
+                          y: state.y,
+                        });
                       } else {
                         setInfiniteContextMenu(null);
                         setPaneCreateMenu(null);
+                        setConnectionContextMenu(null);
                       }
                     }}
                   />
@@ -1580,6 +1729,26 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               handleCreateNodeAt(type, paneCreateMenu.worldX, paneCreateMenu.worldY)
             }
             onClose={() => setPaneCreateMenu(null)}
+          />
+        ) : null}
+
+        {connectionCreateMenu ? (
+          <ConnectionCreateMenu
+            x={connectionCreateMenu.x}
+            y={connectionCreateMenu.y + 4}
+            onSelect={(type) =>
+              handleCreateDownstreamNode(connectionCreateMenu.sourceNodeId, type)
+            }
+            onClose={() => setConnectionCreateMenu(null)}
+          />
+        ) : null}
+
+        {connectionContextMenu ? (
+          <ConnectionContextMenu
+            x={connectionContextMenu.x}
+            y={connectionContextMenu.y}
+            onDelete={() => handleDeleteConnection(connectionContextMenu.connectionId)}
+            onClose={() => setConnectionContextMenu(null)}
           />
         ) : null}
 
