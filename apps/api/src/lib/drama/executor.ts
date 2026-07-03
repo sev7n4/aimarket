@@ -25,9 +25,11 @@ import {
 } from "./runs.js";
 import { clearRunEvents } from "./run-events.js";
 import { mergeDramaProjectPatch } from "./merge-patch.js";
+import { loadSkill } from "@aimarket/agent-skills";
 import {
   dramaProjectSchema,
   DRAMA_PIPELINE_STEPS,
+  resolveDramaPipelineSteps,
   type CharacterAngle,
   type DramaPipelineStep,
   type DramaProgress,
@@ -159,29 +161,38 @@ function characterHasManualRef(char: DramaProjectData["characters"][number]): bo
   return Boolean(char.refUrl);
 }
 
-function pipelineStepIndex(step: DramaPipelineStep): number {
-  return DRAMA_PIPELINE_STEPS.indexOf(step);
+function pipelineStepsFor(row: DramaRunRow): DramaPipelineStep[] {
+  return resolveDramaPipelineSteps(row.skill_id);
+}
+
+function pipelineStepIndex(
+  step: DramaPipelineStep,
+  steps: DramaPipelineStep[],
+): number {
+  return steps.indexOf(step);
 }
 
 function advancePipeline(
   progress: DramaProgress,
+  steps: DramaPipelineStep[],
   project?: DramaProjectData,
 ): DramaProgress | null {
-  const idx = pipelineStepIndex(progress.currentPipelineStep);
-  if (idx < 0 || idx >= DRAMA_PIPELINE_STEPS.length - 1) return null;
+  const idx = pipelineStepIndex(progress.currentPipelineStep, steps);
+  if (idx < 0 || idx >= steps.length - 1) return null;
   let nextIdx = idx + 1;
   if (
     project?.productionParams?.previewTier === "low" &&
-    DRAMA_PIPELINE_STEPS[nextIdx] === "lipsync"
+    steps[nextIdx] === "lipsync"
   ) {
     nextIdx += 1;
   }
-  const next = DRAMA_PIPELINE_STEPS[nextIdx]!;
+  const next = steps[nextIdx]!;
   return {
     ...defaultProgress(),
     currentPipelineStep: next,
     keyframeRetries: progress.keyframeRetries,
     narratorAudioOutputId: progress.narratorAudioOutputId,
+    bgmOutputUrl: progress.bgmOutputUrl,
     finalVideoUrl: progress.finalVideoUrl,
   };
 }
@@ -484,6 +495,41 @@ function startLipsyncJob(
   return jobId;
 }
 
+function startBgmJob(row: DramaRunRow, project: DramaProjectData): string {
+  const skill = loadSkill(row.skill_id);
+  const bgmStep = skill.steps.find(
+    (s) => s.id === "bgm" && s.type === "music_gen",
+  );
+  const bpm =
+    bgmStep?.type === "music_gen"
+      ? (bgmStep.options?.defaultBpm ?? 120)
+      : 120;
+  const durationSec =
+    bgmStep?.type === "music_gen"
+      ? (bgmStep.options?.defaultDurationSec ?? 60)
+      : 60;
+  const { jobId } = createGenerationJob({
+    sessionId: row.session_id,
+    userId: row.user_id,
+    prompt: `${project.script.title} 背景音乐`,
+    modelId: "omni-v2",
+    mode: "chat",
+    count: 1,
+    resolution: "1k",
+    aspectRatio: project.styleBible.aspectRatio,
+    toolType: "music-gen",
+    sourceLane: "agent",
+    toolContext: {
+      toolId: "music-gen",
+      style: `${project.script.title}，${project.script.logline ?? "电影感氛围配乐"}`,
+      bpm,
+      durationSec,
+    },
+  });
+  linkDramaRunJob(row.id, jobId, "bgm");
+  return jobId;
+}
+
 function startConcatJob(
   row: DramaRunRow,
   project: DramaProjectData,
@@ -505,7 +551,9 @@ function startConcatJob(
     ? resolveReferenceUrls([progress.narratorAudioOutputId])[0]
     : undefined;
   const bgmUrl =
-    project.productionParams?.bgmUrl ?? process.env.DRAMA_BGM_URL;
+    progress.bgmOutputUrl ??
+    project.productionParams?.bgmUrl ??
+    process.env.DRAMA_BGM_URL;
   const { jobId } = createGenerationJob({
     sessionId: row.session_id,
     userId: row.user_id,
@@ -529,6 +577,8 @@ function startJobForStep(
   progress: DramaProgress,
 ): string {
   switch (progress.currentPipelineStep) {
+    case "bgm":
+      return startBgmJob(row, project);
     case "char_refs": {
       let p = progress;
       while (p.charRefIndex < project.characters.length) {
@@ -580,6 +630,8 @@ function isStepComplete(
   progress: DramaProgress,
 ): boolean {
   switch (progress.currentPipelineStep) {
+    case "bgm":
+      return Boolean(progress.bgmOutputUrl);
     case "char_refs":
       return progress.charRefIndex >= project.characters.length;
     case "scene_refs":
@@ -636,12 +688,13 @@ export async function startDramaRunStep(
   let progress = parseProgress(row);
 
   if (isStepComplete(project, progress)) {
-    const next = advancePipeline(progress, project);
+    const steps = pipelineStepsFor(row);
+    const next = advancePipeline(progress, steps, project);
     if (!next) {
       updateDramaRun(dramaRunId, {
         status: "completed",
         pendingJobId: null,
-        currentStepIndex: DRAMA_PIPELINE_STEPS.length,
+        currentStepIndex: steps.length,
       });
       updateDramaProject(row.project_id, { status: "completed" });
       return getDramaRun(userId, dramaRunId);
@@ -649,7 +702,10 @@ export async function startDramaRunStep(
     progress = next;
     updateDramaRun(dramaRunId, {
       progress,
-      currentStepIndex: pipelineStepIndex(progress.currentPipelineStep),
+      currentStepIndex: pipelineStepIndex(
+        progress.currentPipelineStep,
+        steps,
+      ),
       status: "running",
     });
   }
@@ -804,6 +860,9 @@ export async function resumeDramaRunOnJobCompleted(jobId: string) {
 
   if (step === "char_refs") {
     nextProgress = await handleCharRefComplete(row, project, nextProgress, outputId);
+  } else if (step === "bgm") {
+    nextProgress.bgmOutputUrl =
+      outputUrl ?? resolveReferenceUrls([outputId])[0] ?? undefined;
   } else if (step === "scene_refs") {
     const scene = project.scenes[nextProgress.sceneRefIndex]!;
     scene.refOutputId = outputId;
@@ -888,7 +947,10 @@ export async function resumeDramaRunOnJobCompleted(jobId: string) {
       progress: nextProgress,
       pendingJobId: null,
       status: "running",
-      currentStepIndex: pipelineStepIndex(nextProgress.currentPipelineStep),
+      currentStepIndex: pipelineStepIndex(
+        nextProgress.currentPipelineStep,
+        pipelineStepsFor(row),
+      ),
     });
     await startDramaRunStep(row.id, row.user_id);
     return;
@@ -926,7 +988,10 @@ export async function resumeDramaRunOnJobCompleted(jobId: string) {
       progress: nextProgress,
       pendingJobId: null,
       status: "running",
-      currentStepIndex: pipelineStepIndex(nextProgress.currentPipelineStep),
+      currentStepIndex: pipelineStepIndex(
+        nextProgress.currentPipelineStep,
+        pipelineStepsFor(row),
+      ),
     });
     await startDramaRunStep(row.id, row.user_id);
     return;
@@ -955,7 +1020,7 @@ export async function resumeDramaRunOnJobCompleted(jobId: string) {
       progress: nextProgress,
       pendingJobId: null,
       status: "completed",
-      currentStepIndex: DRAMA_PIPELINE_STEPS.length,
+      currentStepIndex: pipelineStepsFor(row).length,
     });
     updateDramaProject(row.project_id, { status: "completed" });
     return;
@@ -965,7 +1030,10 @@ export async function resumeDramaRunOnJobCompleted(jobId: string) {
     progress: nextProgress,
     pendingJobId: null,
     status: "running",
-    currentStepIndex: pipelineStepIndex(nextProgress.currentPipelineStep),
+    currentStepIndex: pipelineStepIndex(
+      nextProgress.currentPipelineStep,
+      pipelineStepsFor(row),
+    ),
   });
 
   await startDramaRunStep(row.id, row.user_id);
@@ -981,9 +1049,12 @@ export function resetProgressFromStep(
     currentPipelineStep: step,
     keyframeRetries: { ...prior.keyframeRetries },
     narratorAudioOutputId: prior.narratorAudioOutputId,
+    bgmOutputUrl: prior.bgmOutputUrl,
     finalVideoUrl: prior.finalVideoUrl,
   };
   switch (step) {
+    case "bgm":
+      return { ...base, bgmOutputUrl: undefined };
     case "char_refs":
       return { ...base, charRefIndex: 0, charRefAngleIndex: 0 };
     case "scene_refs":
@@ -1089,7 +1160,10 @@ export async function rerunDramaRunFromNode(
     pendingJobId: null,
     error: null,
     finalVideoUrl: null,
-    currentStepIndex: pipelineStepIndex(fromStep),
+    currentStepIndex: pipelineStepIndex(
+      fromStep,
+      pipelineStepsFor(row),
+    ),
   });
   updateDramaProject(row.project_id, { status: "producing" });
   dispatchDramaRun(runId, userId);
@@ -1118,7 +1192,10 @@ export async function retryDramaRun(
     status: "queued",
     pendingJobId: null,
     error: null,
-    currentStepIndex: pipelineStepIndex(progress.currentPipelineStep),
+    currentStepIndex: pipelineStepIndex(
+      progress.currentPipelineStep,
+      pipelineStepsFor(row),
+    ),
   });
   updateDramaProject(row.project_id, { status: "producing" });
   return startDramaRunStep(runId, userId);

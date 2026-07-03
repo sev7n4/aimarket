@@ -1,6 +1,6 @@
 import { loadSkill, type SkillStep } from "@aimarket/agent-skills";
 import {
-  DRAMA_PIPELINE_STEPS,
+  resolveDramaPipelineSteps,
   type DramaPipelineStep,
 } from "./schema.js";
 import type { DramaProjectRow } from "./projects.js";
@@ -35,13 +35,18 @@ export interface DramaRunGraph {
 }
 
 const SKILL_STEP_TO_PIPELINE: Record<string, DramaPipelineStep> = {
+  bgm: "bgm",
   final_edit: "concat",
 };
 
-function toPipelineStepId(skillStepId: string): DramaPipelineStep | null {
+function toPipelineStepId(
+  skillStepId: string,
+  skillId: string,
+): DramaPipelineStep | null {
   const mapped = SKILL_STEP_TO_PIPELINE[skillStepId];
   if (mapped) return mapped;
-  if ((DRAMA_PIPELINE_STEPS as readonly string[]).includes(skillStepId)) {
+  const steps = resolveDramaPipelineSteps(skillId);
+  if ((steps as readonly string[]).includes(skillStepId)) {
     return skillStepId as DramaPipelineStep;
   }
   return null;
@@ -94,7 +99,7 @@ export function buildDramaRunGraph(
   >();
 
   for (const step of skill.steps) {
-    const pipelineId = toPipelineStepId(step.id);
+    const pipelineId = toPipelineStepId(step.id, run.skill_id);
     if (!pipelineId) continue;
     stepMeta.set(pipelineId, {
       label: step.label,
@@ -103,7 +108,8 @@ export function buildDramaRunGraph(
     });
   }
 
-  const nodes: DramaRunGraphNode[] = DRAMA_PIPELINE_STEPS.map(
+  const pipeline = resolveDramaPipelineSteps(run.skill_id);
+  const nodes: DramaRunGraphNode[] = pipeline.map(
     (pipelineId, index) => {
       const meta = stepMeta.get(pipelineId);
       return {
@@ -119,10 +125,10 @@ export function buildDramaRunGraph(
 
   const edges: DramaRunGraphEdge[] = [];
   for (const step of skill.steps) {
-    const target = toPipelineStepId(step.id);
+    const target = toPipelineStepId(step.id, run.skill_id);
     if (!target) continue;
     for (const dep of skillStepDeps(step)) {
-      const source = toPipelineStepId(dep);
+      const source = toPipelineStepId(dep, run.skill_id);
       if (!source || source === target) continue;
       const edgeId = `${source}->${target}`;
       if (!edges.some((e) => e.id === edgeId)) {
@@ -132,9 +138,9 @@ export function buildDramaRunGraph(
   }
 
   if (edges.length === 0) {
-    for (let i = 1; i < DRAMA_PIPELINE_STEPS.length; i++) {
-      const source = DRAMA_PIPELINE_STEPS[i - 1]!;
-      const target = DRAMA_PIPELINE_STEPS[i]!;
+    for (let i = 1; i < pipeline.length; i++) {
+      const source = pipeline[i - 1]!;
+      const target = pipeline[i]!;
       edges.push({ id: `${source}->${target}`, source, target });
     }
   }

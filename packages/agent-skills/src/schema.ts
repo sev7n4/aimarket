@@ -11,13 +11,14 @@ export const skillStepSchema = z.discriminatedUnion("type", [
     id: z.string().min(1),
     type: z.literal("generate_set"),
     label: z.string().min(1),
+    count: z.number().int().min(1).max(12).optional(),
   }),
   z.object({
     id: z.string().min(1),
     type: z.literal("tool"),
     toolId: z.string().min(1),
     label: z.string().min(1),
-    sourceStep: z.string().min(1),
+    sourceStep: z.string().min(1).optional(),
     sourceOutputIndex: z.number().int().min(0).default(0),
   }),
   z.object({
@@ -65,9 +66,21 @@ export const skillStepSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     id: z.string().min(1),
+    type: z.literal("music_gen"),
+    label: z.string().min(1),
+    options: z
+      .object({
+        defaultBpm: z.number().optional(),
+        defaultDurationSec: z.number().optional(),
+      })
+      .optional(),
+  }),
+  z.object({
+    id: z.string().min(1),
     type: z.literal("concat"),
     label: z.string().min(1),
-    sourceStep: z.string().min(1),
+    sourceStep: z.string().min(1).optional(),
+    sourceSteps: z.array(z.string()).optional(),
     options: z
       .object({
         subtitles: z.boolean().default(true),

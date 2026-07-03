@@ -85,7 +85,9 @@ export const videoInpaintProvider: ImageToolProvider = {
 
     // 获取 mask 数据（从 toolContext）
     const mask = params.toolContext?.masks?.[0];
-    const timestampSec = 0; // 简化：默认从首帧开始
+    const ctx = (params.toolContext ?? {}) as Record<string, unknown>;
+    const timestampSec =
+      typeof ctx.timestampSec === "number" ? ctx.timestampSec : 0;
 
     // 创建临时工作目录
     const workDir = join(tmpdir(), `vi-${randomUUID()}`);

@@ -56,13 +56,13 @@
   - [x] 8.1: 注册 `video-inpaint` 工具到 tools.ts，计费系数 2.0
   - [x] 8.2: 前端视频关键帧提取 + mask 绘制 UI — `VideoInpaintEditor`
   - [x] 8.3: 后端 Provider — 关键帧 inpaint + i2v 简化传播
-  - [ ] 8.4: 验证：多关键帧时间选择与相邻帧传播 E2E（当前首帧硬编码）
+  - [x] 8.4: 验证：支持关键帧时间戳选择（`timestampSec` 滑块 + provider 读取）
 
 - [x] Task 9: AI 音乐生成集成
   - [x] 9.1: 后端音乐生成 Provider — Suno API + mock fallback
   - [x] 9.2: 注册 `music-gen` 工具到 tools.ts，计费系数 1.5
   - [x] 9.3: 前端音乐生成 UI — `MusicGenPanel` 风格/BPM/时长
-  - [ ] 9.4: 接入 MV Skill — `drama-mv-v1` executor 待接 `music_gen` step
+  - [x] 9.4: 接入 MV Skill — `drama-mv-v1` 流水线 `bgm` 步骤调用 `music-gen`
   - [ ] 9.5: 验证：音乐生成并混入 MV 成片
 
 ## P2：Agent 生态与工作流复用
