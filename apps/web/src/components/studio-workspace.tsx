@@ -30,6 +30,11 @@ import {
   type ToolConfirmRequest,
 } from "@/components/tool-confirm-dialog";
 import { GridSplitPanel } from "@/components/grid-split-panel";
+import {
+  ToolGridResultPanel,
+  type ToolGridResultState,
+} from "@/components/tool-grid-result-panel";
+import { isToolGridToolId } from "@/lib/tool-grid-labels";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { WorkspaceProvider } from "@/lib/workspace-context";
 import {
@@ -291,6 +296,8 @@ export function StudioWorkspace({
   const [tools, setTools] = useState<StudioTool[]>([]);
   const [ready, setReady] = useState(false);
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
+  const [toolGridResult, setToolGridResult] =
+    useState<ToolGridResultState | null>(null);
   /** SSE 早断时递增以重新挂载 watchJob */
   const [jobWatchSeq, setJobWatchSeq] = useState(0);
   const [jobStreamStatus, setJobStreamStatus] = useState<string | null>(null);
@@ -688,9 +695,11 @@ export function StudioWorkspace({
     let toolType: string | undefined;
     let failedJobError: string | null = null;
     let failedPointsCost = 0;
+    let completedJob: Awaited<ReturnType<typeof fetchJob>> | undefined;
     if (completedJobId) {
       try {
         const job = await fetchJob(completedJobId);
+        completedJob = job;
         jobStatus = job.status;
         toolType = job.tool_type ?? undefined;
         if (job.status === "failed") {
@@ -740,6 +749,19 @@ export function StudioWorkspace({
       setJobFailed(false);
       setJobError(null);
       setJobFailedToolType(null);
+      if (
+        completedJob &&
+        toolType &&
+        isToolGridToolId(toolType)
+      ) {
+        const urls = [...(completedJob.outputs ?? [])]
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((o) => o.url)
+          .filter(Boolean);
+        if (urls.length > 0) {
+          setToolGridResult({ toolId: toolType, urls });
+        }
+      }
     } else if (
       completedJobId &&
       (jobStatus === "queued" || jobStatus === "running")
@@ -2162,6 +2184,12 @@ export function StudioWorkspace({
               prompt: `宫格切分 ${opts.rows}×${opts.cols}`,
             });
           }}
+        />
+      ) : null}
+      {toolGridResult ? (
+        <ToolGridResultPanel
+          result={toolGridResult}
+          onClose={() => setToolGridResult(null)}
         />
       ) : null}
       <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />

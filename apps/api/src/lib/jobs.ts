@@ -32,6 +32,7 @@ import { enqueueJob } from "./queue/index.js";
 import type { JobQueuePayload } from "./queue/types.js";
 import { notifyAgentJobCompleted } from "./agent/job-events.js";
 import { assertEmailVerifiedForSpend } from "./email-verification.js";
+import { applyCameraPreset } from "./camera-presets.js";
 import { encodeCameraPrompt, type CameraParams } from "./camera-prompt.js";
 import { ensureThumbnail, ensureThumbnails } from "./thumbnails.js";
 import type {
@@ -361,10 +362,19 @@ export async function processGenerationJob({
             videoReferences?.some((r) => r.role === "last_frame") ?? false,
         });
 
-      // 摄像机运镜参数 → prompt 后缀
-      const cameraData = (toolContext as Record<string, unknown>)?.camera as CameraParams | undefined;
-      const cameraPromptSuffix = cameraData ? encodeCameraPrompt(cameraData) : "";
-      const effectivePrompt = cameraPromptSuffix ? `${job.prompt}。${cameraPromptSuffix}` : job.prompt;
+      // 摄像机运镜参数 / 大师运镜预设 → prompt 后缀
+      const tc = toolContext as Record<string, unknown>;
+      const cameraPresetId = tc?.cameraPresetId as string | undefined;
+      const cameraData = tc?.camera as CameraParams | undefined;
+      let effectivePrompt = job.prompt;
+      if (cameraPresetId) {
+        effectivePrompt = applyCameraPreset(cameraPresetId, effectivePrompt);
+      } else if (cameraData) {
+        const cameraPromptSuffix = encodeCameraPrompt(cameraData);
+        if (cameraPromptSuffix) {
+          effectivePrompt = `${effectivePrompt}。${cameraPromptSuffix}`;
+        }
+      }
 
       const video = await generateVideos({
         prompt: effectivePrompt,

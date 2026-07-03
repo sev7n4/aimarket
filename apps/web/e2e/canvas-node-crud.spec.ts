@@ -40,6 +40,37 @@ async function prepareInfiniteCanvasStudio(
   await expect(page.getByTestId("node-create-toggle")).toBeVisible({
     timeout: 15_000,
   });
+
+  return { sessionId, token: token! };
+}
+
+async function createTextNodeAtPane(
+  page: import("@playwright/test").Page,
+  pane: ReturnType<typeof page.getByTestId>,
+  position: { x: number; y: number },
+) {
+  await pane.click({ button: "right", position });
+  await expect(page.getByTestId("node-create-menu")).toBeVisible({
+    timeout: 10_000,
+  });
+  await page.getByTestId("node-create-text").click();
+  const textNode = page.locator('[data-node-id^="text-"]').last();
+  await expect(textNode).toBeVisible({ timeout: 10_000 });
+  return textNode;
+}
+
+async function createDownstreamFromSource(
+  page: import("@playwright/test").Page,
+  source: ReturnType<typeof page.locator>,
+  nodeType: "config" | "text",
+) {
+  await source.hover();
+  await page.getByTestId("connection-create-toggle").first().click();
+  await expect(page.getByTestId("connection-create-menu")).toBeVisible();
+  await page.getByTestId(`connection-create-${nodeType}`).click();
+  await expect(
+    page.locator(`[data-node-id^="${nodeType}-"]`).last(),
+  ).toBeVisible({ timeout: 10_000 });
 }
 
 test.describe("canvas node crud (InfiniteCanvas)", () => {
@@ -51,14 +82,9 @@ test.describe("canvas node crud (InfiniteCanvas)", () => {
     await prepareInfiniteCanvasStudio(page, request);
     const pane = page.getByTestId("infinite-canvas-pane");
 
-    await pane.click({ button: "right", position: { x: 240, y: 200 } });
-    await expect(page.getByTestId("node-create-menu")).toBeVisible({
-      timeout: 10_000,
-    });
-    await page.getByTestId("node-create-text").click();
-    const textNode = page.locator('[data-node-id^="text-"]').first();
-    await expect(textNode).toBeVisible({ timeout: 10_000 });
+    await createTextNodeAtPane(page, pane, { x: 240, y: 200 });
 
+    const textNode = page.locator('[data-node-id^="text-"]').first();
     await textNode.click();
     await page.keyboard.press("Delete");
     await expect(page.locator('[data-node-id^="text-"]')).toHaveCount(0);
@@ -69,24 +95,17 @@ test.describe("canvas node crud (InfiniteCanvas)", () => {
     await expect(page.locator('[data-node-id^="text-"]')).toBeVisible();
 
     const source = page.locator('[data-node-id^="text-"]').first();
-    await source.hover();
-    await page.getByTestId("connection-create-toggle").first().click();
-    await expect(page.getByTestId("connection-create-menu")).toBeVisible();
-    await page.getByTestId("connection-create-config").click();
-    await expect(page.locator('[data-node-id^="config-"]')).toBeVisible({
-      timeout: 10_000,
-    });
+    await createDownstreamFromSource(page, source, "config");
 
-    const connection = page.locator("[data-connection-id]").first();
     await expect(page.locator("[data-connection-id]")).toHaveCount(1, {
       timeout: 10_000,
     });
+    const connection = page.locator("[data-connection-id]").first();
     await connection.click({ button: "right", force: true });
     await expect(page.getByTestId("connection-context-menu")).toBeVisible();
     await page.getByTestId("connection-context-delete").click();
     await expect(page.locator("[data-connection-id]")).toHaveCount(0);
 
-    // 等待 debounced canvas_layout 持久化
     await page.waitForTimeout(1200);
 
     const sessionId = new URL(page.url()).searchParams.get("sessionId");
@@ -117,5 +136,55 @@ test.describe("canvas node crud (InfiniteCanvas)", () => {
       (e) => e.kind === "trigger",
     );
     expect(triggerEdges).toHaveLength(0);
+  });
+
+  test("一对多分支：源 text 端口+两个下游 → 删一条分支连线", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(120_000);
+    const { sessionId } = await prepareInfiniteCanvasStudio(page, request);
+    const pane = page.getByTestId("infinite-canvas-pane");
+
+    const source = await createTextNodeAtPane(page, pane, { x: 200, y: 180 });
+    const sourceId = await source.getAttribute("data-node-id");
+    expect(sourceId).toBeTruthy();
+
+    await createDownstreamFromSource(page, source, "config");
+    await createDownstreamFromSource(page, source, "text");
+
+    await expect(page.locator('[data-node-id^="config-"]')).toHaveCount(1);
+    await expect(page.locator('[data-node-id^="text-"]')).toHaveCount(2);
+    await expect(page.locator("[data-connection-id]")).toHaveCount(2, {
+      timeout: 10_000,
+    });
+
+    const firstConnection = page.locator("[data-connection-id]").first();
+    await firstConnection.click({ button: "right", force: true });
+    await expect(page.getByTestId("connection-context-menu")).toBeVisible();
+    await page.getByTestId("connection-context-delete").click();
+    await expect(page.locator("[data-connection-id]")).toHaveCount(1);
+
+    await page.waitForTimeout(1200);
+
+    const token = await page.evaluate(() =>
+      localStorage.getItem("aimarket_token"),
+    );
+    const layoutRes = await request.get(
+      `${API_BASE}/api/v1/imageSession/${sessionId}/canvas`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    expect(layoutRes.ok(), `layout GET failed: ${await layoutRes.text()}`).toBeTruthy();
+    const layout = (await layoutRes.json()) as {
+      data?: {
+        infiniteConnections?: Array<{
+          fromNodeId: string;
+          toNodeId: string;
+        }>;
+      };
+    };
+    const connections = layout.data?.infiniteConnections ?? [];
+    expect(connections).toHaveLength(1);
+    expect(connections[0]?.fromNodeId).toBe(sourceId);
   });
 });

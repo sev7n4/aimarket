@@ -20,7 +20,7 @@
 
 - [x] `canvas_flow` REST API 桥接到 `canvas_layout`（`canvas-flow-layout-bridge`）
 - [x] `e2e/canvas-node-crud.spec.ts`：空白加 text → 删 → 端口+连线 → 删连线
-- [ ] close-libtv-gap Task 1.7 全量 E2E 覆盖
+- [x] close-libtv-gap Task 1.7 全量 E2E 覆盖（含一对多分支连线用例）
 
 ## 已知限制
 

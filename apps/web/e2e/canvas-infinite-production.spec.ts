@@ -42,6 +42,8 @@ test.describe("InfiniteCanvas 生产路径", () => {
     await expect(menu).toContainText(/抠图|扩图|重生成|删除/);
     // Phase 4 专业能力入口
     await expect(menu).toContainText(/多机位 9 宫格/);
+    await expect(menu).toContainText(/剧情推演四宫格/);
+    await expect(menu).toContainText(/360° 角度呈现/);
     await expect(menu).toContainText(/灯光控制/);
 
     // 关闭右键菜单后再点浮动入口

@@ -6,12 +6,14 @@ import {
   Clapperboard,
   Compass,
   Download,
+  GitBranch,
   Grid3x3,
   Image as ImageIcon,
   Lightbulb,
   Music,
   Pencil,
   RefreshCw,
+  RotateCcw,
   Scissors,
   Sparkles,
   Square,
@@ -62,6 +64,8 @@ export interface InfiniteCanvasContextMenuProps {
   onMusicGen?: () => void;
   onMultiCam9?: () => void;
   onMultiCam25?: () => void;
+  onStoryboardEvolve?: () => void;
+  onTurnaround360?: () => void;
   onLighting?: () => void;
   onCamera?: () => void;
   onEditScript?: () => void;
@@ -99,6 +103,8 @@ export function InfiniteCanvasContextMenu({
   onMusicGen,
   onMultiCam9,
   onMultiCam25,
+  onStoryboardEvolve,
+  onTurnaround360,
   onLighting,
   onCamera,
   onEditScript,
@@ -135,6 +141,8 @@ export function InfiniteCanvasContextMenu({
             action("rerun", "重新生成", RefreshCw, invoke(onRerun), { separatorAfter: true }),
             action("multi-cam-9", "多机位 9 宫格", Grid3x3, invoke(onMultiCam9)),
             action("multi-cam-25", "多机位 25 宫格", Compass, invoke(onMultiCam25)),
+            action("storyboard-evolve", "剧情推演四宫格", GitBranch, invoke(onStoryboardEvolve)),
+            action("turnaround-360", "360° 角度呈现", RotateCcw, invoke(onTurnaround360)),
             action("lighting", "灯光控制", Lightbulb, invoke(onLighting)),
             action("camera", "摄像机控制", Camera, invoke(onCamera), { separatorAfter: true }),
             action("music", "AI 音乐生成", Music, invoke(onMusicGen), { separatorAfter: true }),
@@ -184,6 +192,8 @@ export function InfiniteCanvasContextMenu({
             action("edit-shot", "编辑对白", Pencil, invoke(onEditShot)),
             action("multi-cam-9", "多机位 9 宫格", Grid3x3, invoke(onMultiCam9)),
             action("multi-cam-25", "多机位 25 宫格", Compass, invoke(onMultiCam25)),
+            action("storyboard-evolve", "剧情推演四宫格", GitBranch, invoke(onStoryboardEvolve)),
+            action("turnaround-360", "360° 角度呈现", RotateCcw, invoke(onTurnaround360)),
             action("rerun", "重新生成", RefreshCw, invoke(onRerun), { separatorAfter: true }),
             action("lighting", "灯光控制", Lightbulb, invoke(onLighting)),
             action("camera", "摄像机控制", Camera, invoke(onCamera), { separatorAfter: true }),
@@ -199,6 +209,7 @@ export function InfiniteCanvasContextMenu({
           id: "character",
           actions: [
             action("char-sheet", "生成三视图", Sparkles, invoke(onGenerateCharacterSheet)),
+            action("turnaround-360", "360° 角度呈现", RotateCcw, invoke(onTurnaround360)),
             action("edit-character", "编辑三视图", Pencil, invoke(onEditCharacter), { separatorAfter: true }),
             action("delete", "删除", Trash2, invoke(onDelete), { danger: true }),
           ],
@@ -242,6 +253,8 @@ export function InfiniteCanvasContextMenu({
     onMusicGen,
     onMultiCam9,
     onMultiCam25,
+    onStoryboardEvolve,
+    onTurnaround360,
     onLighting,
     onCamera,
     onEditScript,

@@ -40,11 +40,41 @@ export const toolMaskSchema = z.object({
   }),
 });
 
-export const toolContextSchema = z.object({
-  toolId: z.string().min(1).max(40),
-  masks: z.array(toolMaskSchema).max(4).default([]),
-  extend: expandExtendSchema.optional(),
+const lightSourceSchema = z.object({
+  id: z.string().min(1),
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  colorTemp: z.enum(["warm-white", "cool-white", "warm-yellow"]),
+  intensity: z.number().min(0).max(1),
+  lightType: z.enum(["point", "area", "spot"]),
 });
+
+const infiniteLightSourceSchema = z.object({
+  id: z.string().optional(),
+  x: z.number().optional(),
+  y: z.number().optional(),
+  colorTemp: z.enum(["warm", "neutral", "cool"]).optional(),
+  intensity: z.number().optional(),
+  type: z.enum(["point", "area", "spotlight"]).optional(),
+});
+
+const infiniteCameraSchema = z.object({
+  shotSize: z.string().optional(),
+  movement: z.string().optional(),
+  pitch: z.number().optional(),
+  yaw: z.number().optional(),
+});
+
+export const toolContextSchema = z
+  .object({
+    toolId: z.string().min(1).max(40),
+    masks: z.array(toolMaskSchema).max(4).default([]),
+    extend: expandExtendSchema.optional(),
+    sources: z.array(infiniteLightSourceSchema).max(12).optional(),
+    camera: infiniteCameraSchema.optional(),
+    cameraPresetId: z.string().max(40).optional(),
+  })
+  .passthrough();
 
 export type ToolContext = z.infer<typeof toolContextSchema>;
 
@@ -253,6 +283,15 @@ export const STUDIO_TOOLS: StudioToolDefinition[] = [
     requiresSource: false,
   },
   {
+    id: "storyboard-evolve",
+    name: "剧情推演四宫格",
+    description: "基于关键帧推演 3秒前/当前/3秒后/5秒后 四格画面",
+    category: "compose",
+    defaultPrompt: "推演当前画面在时间轴上的前后变化",
+    pricingFactor: 2.0,
+    requiresSource: true,
+  },
+  {
     id: "lighting-control",
     name: "灯光控制",
     description: "基于光源配置（位置/色温/强度）重新生成图像",
@@ -294,6 +333,7 @@ const toolRunBodySchema = z.object({
   extend: expandExtendSchema.optional(),
   focusPoints: z.array(focusPointEntrySchema).min(1).max(10).optional(),
   intent: z.enum(["edit", "replace"]).optional(),
+  lights: z.array(lightSourceSchema).max(12).optional(),
 });
 
 export { expandExtendSchema };

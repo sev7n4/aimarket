@@ -14,6 +14,7 @@ import {
 import { CompactDockSheet } from "@/components/compact-dock-sheet";
 import { assetUrl } from "@/lib/api-client";
 import { VIDEO_CAMERA_TEMPLATES } from "@/lib/video-camera-templates";
+import { MASTER_CAMERA_PRESETS } from "@/lib/camera-presets-data";
 import { assignOmniRefLabels } from "@/lib/video-mention";
 import type { VideoPickCandidate } from "@/lib/canvas-video-reference-bind";
 import { VideoRefMediaThumb } from "@/components/video-ref-media-thumb";
@@ -510,6 +511,20 @@ function FirstLastEditor({
                 className="rounded-md bg-white/5 px-1.5 py-0.5 text-[9px] text-zinc-400 transition hover:bg-sky-500/20 hover:text-sky-200"
               >
                 {tpl.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {MASTER_CAMERA_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                disabled={disabled}
+                onClick={() => onMotionPromptChange(preset.promptSuffix)}
+                className="rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[9px] text-violet-300/80 transition hover:bg-violet-500/25 hover:text-violet-200"
+                title={preset.promptSuffix}
+              >
+                {preset.name}
               </button>
             ))}
           </div>
