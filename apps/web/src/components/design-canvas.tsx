@@ -390,8 +390,15 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       jobStreamStatus !== "succeeded" &&
       jobStreamStatus !== "failed";
 
+    // 草稿仅展示画布节点时不必在底部重复挂载 DramaStudioPanel（规划/时间线阶段仍需要）
+    const showInfiniteOrchestrationExtra =
+      Boolean(orchestrationExtra) &&
+      (Boolean(orchestrationEvent) || Boolean(alternateCanvasContent));
+
     const infiniteOrchestrationDock =
-      alternateCanvasContent || orchestrationEvent || orchestrationExtra;
+      alternateCanvasContent ||
+      orchestrationEvent ||
+      showInfiniteOrchestrationExtra;
 
     // Agent 面板使用实时画布快照（含 items + dramaNodes），而非 Studio 传入的空 nodes
     const effectiveAssistantSnapshot = useMemo<CanvasAgentSnapshot | null>(() => {
@@ -1208,7 +1215,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                       />
                     </section>
                   ) : null}
-                  {orchestrationExtra ? (
+                  {showInfiniteOrchestrationExtra ? (
                     <div
                       data-testid="orchestration-extra-section"
                       className={

@@ -158,20 +158,21 @@ async function openStudioWithDramaDraft(
   );
   await stateResponse;
   await expect(page).toHaveURL(/sessionId=/, { timeout: 30_000 });
-  // 等待创作 Dock 就绪 (drama 生产模式)
-  const station = page.locator('[aria-label="创作 Dock"]');
-  await expect(station).toBeVisible({ timeout: 15_000 });
 
   // 兜底: 如果 coach 弹层还在, 主动从 DOM 移除
   await page.evaluate(() => {
     document
       .querySelectorAll('[data-testid="drama-coach-banner"]')
       .forEach((el) => el.remove());
-    // 工作室 coach (modal) 同样清掉, 避免遮挡 canvas
     document
       .querySelectorAll('[aria-label="跳过引导"]')
       .forEach((el) => el.closest(".fixed.inset-0")?.remove());
   });
+
+  const station = page.locator('[aria-label="创作 Dock"]');
+  await expect(
+    page.locator('[data-node-id="drama-script"]').or(station),
+  ).toBeVisible({ timeout: 30_000 });
 }
 
 test.describe("drama canvas (InfiniteCanvas 生产路径)", () => {
