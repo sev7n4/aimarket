@@ -1018,13 +1018,27 @@ export async function runTool(
     }>;
     toolContext?: {
       toolId: string;
-      masks: Array<{
+      masks?: Array<{
         itemId: string;
         mode: "brush" | "box";
         maskDataUrl: string;
         bbox: { x: number; y: number; width: number; height: number };
         normalizedBbox: { x: number; y: number; width: number; height: number };
       }>;
+      sources?: Array<{
+        id?: string;
+        x?: number;
+        y?: number;
+        colorTemp?: "warm" | "neutral" | "cool";
+        intensity?: number;
+        type?: "point" | "area" | "spotlight";
+      }>;
+      camera?: {
+        shotSize?: string;
+        movement?: string;
+        pitch?: number;
+        yaw?: number;
+      };
     };
   },
 ) {

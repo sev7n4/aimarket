@@ -17,6 +17,7 @@ import { buildDramaPublishPayload } from "@/lib/drama-publish";
 import type { DramaProjectPayload } from "@/lib/types";
 import { dramaPlanToCanvasNodes } from "@/components/infinite-canvas/drama/drama-plan-to-nodes";
 import type { AgentExternalAction, CanvasAgentSnapshot } from "@/components/infinite-canvas/utils";
+import { dramaShotIdFromNodeId } from "@/lib/infinite-node-tool-run";
 import { isCanvasFlowMode } from "@/lib/modes";
 
 type StudioCanvasProps = Omit<
@@ -180,6 +181,41 @@ export const StudioCanvasWithOrchestration = forwardRef<
   const handleTimelineSave = useCallback(
     (project: DramaProjectPayload) => saveDramaDraft(project),
     [saveDramaDraft],
+  );
+
+  const handlePatchDramaShotNode = useCallback(
+    (
+      nodeId: string,
+      patch: {
+        cameraShotSize?: string;
+        cameraMovement?: string;
+        cameraLighting?: string;
+        visualPrompt?: string;
+      },
+    ) => {
+      const shotId = dramaShotIdFromNodeId(nodeId);
+      const baseProject = dramaDraftProject?.project ?? dramaRun?.project;
+      if (!shotId || !baseProject) return;
+      const nextProject: DramaProjectPayload = {
+        ...baseProject,
+        shots: baseProject.shots.map((shot) =>
+          shot.id === shotId
+            ? {
+                ...shot,
+                visualPrompt: patch.visualPrompt ?? shot.visualPrompt,
+                cameraSpec: {
+                  ...shot.cameraSpec,
+                  shotSize: patch.cameraShotSize ?? shot.cameraSpec?.shotSize,
+                  movement: patch.cameraMovement ?? shot.cameraSpec?.movement,
+                  lighting: patch.cameraLighting ?? shot.cameraSpec?.lighting,
+                },
+              }
+            : shot,
+        ),
+      };
+      void saveDramaDraft(nextProject);
+    },
+    [dramaDraftProject?.project, dramaRun?.project, saveDramaDraft],
   );
 
   const handlePublishToInspiration = useCallback(async () => {
@@ -350,6 +386,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
       dramaConnections={dramaCanvasData.connections}
       assistantSnapshot={assistantSnapshot}
       onAgentExternalAction={handleAgentExternalAction}
+      onPatchDramaShotNode={handlePatchDramaShotNode}
       sessionId={sessionId}
     />
   );

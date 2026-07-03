@@ -130,6 +130,8 @@ export function dramaPlanToCanvasNodes(
         durationSec: shot.durationSec,
         shotStatus: shot.status,
         keyframeOutputId: shot.keyframeOutputId,
+        keyframeVariantUrls: shot.keyframeVariantUrls,
+        keyframeHeroIndex: shot.keyframeHeroIndex,
         videoOutputId: shot.videoOutputId,
       },
     };
