@@ -1,4 +1,8 @@
-import { loadSkill, type SkillDefinition, type SkillStep } from "@aimarket/agent-skills";
+import {
+  loadSkill,
+  type SkillDefinition,
+  type SkillStep,
+} from "@aimarket/agent-skills";
 import { ECOMMERCE_SLIDES } from "../ecommerce.js";
 import { createGenerationJob } from "../jobs.js";
 import { inferSkillStepSourceLane } from "../source-lane.js";
@@ -20,6 +24,31 @@ import {
   type SkillStepOutputs,
 } from "./skill-runs.js";
 
+const DEFAULT_SHOT_VIDEO_MODEL = "wan-2.6";
+
+function buildEnrichedPrompt(row: SkillRunRow): string {
+  let enrichedPrompt = row.prompt;
+  const inputs = row.inputs_json
+    ? (JSON.parse(row.inputs_json) as {
+        productAssetId?: string;
+        referenceAssetId?: string;
+      })
+    : {};
+
+  const assetUrls: string[] = [];
+  for (const assetId of [inputs.productAssetId, inputs.referenceAssetId]) {
+    if (!assetId) continue;
+    const asset = db
+      .prepare("SELECT url FROM assets WHERE id = ? AND user_id = ?")
+      .get(assetId, row.user_id) as { url: string } | undefined;
+    if (asset) assetUrls.push(asset.url);
+  }
+  if (assetUrls.length) {
+    enrichedPrompt = enrichPromptWithReferences(enrichedPrompt, assetUrls);
+  }
+  return enrichedPrompt;
+}
+
 function resolveSourceOutputId(
   step: Extract<SkillStep, { type: "tool" | "video" }>,
   outputs: SkillStepOutputs,
@@ -40,6 +69,95 @@ function resolveSourceOutputId(
   return outputId;
 }
 
+function startShotVideoBatchJob(
+  row: SkillRunRow,
+  step: Extract<SkillStep, { type: "shot_video_batch" }>,
+  outputs: SkillStepOutputs,
+  batchIndex: number,
+  enrichedPrompt: string,
+): string {
+  const src = outputs[step.sourceStep];
+  if (!src?.outputIds?.length) {
+    throw new Error(`缺少上一步输出: ${step.sourceStep}`);
+  }
+  if (batchIndex >= src.outputIds.length) {
+    throw new Error("shot_video_batch 批次已完成");
+  }
+  const sourceOutputId = src.outputIds[batchIndex]!;
+  const refUrls = resolveReferenceUrls([sourceOutputId]);
+  const { jobId } = createGenerationJob({
+    sessionId: row.session_id,
+    userId: row.user_id,
+    prompt: `${enrichedPrompt}\n产品宣传镜头 ${batchIndex + 1}/${src.outputIds.length}`,
+    modelId: DEFAULT_SHOT_VIDEO_MODEL,
+    mode: "chat",
+    count: 1,
+    resolution: "1k",
+    aspectRatio: "16:9",
+    toolType: "video",
+    sourceOutputId,
+    referenceUrls: refUrls,
+    sourceLane: "video",
+  });
+  linkSkillRunJob(row.id, jobId, step.id);
+  return jobId;
+}
+
+function startConcatJob(
+  row: SkillRunRow,
+  skill: SkillDefinition,
+  step: Extract<SkillStep, { type: "concat" }>,
+  outputs: SkillStepOutputs,
+): string {
+  const sourceStepIds =
+    step.sourceSteps ?? (step.sourceStep ? [step.sourceStep] : []);
+  if (!sourceStepIds.length) {
+    throw new Error("concat 缺少 sourceSteps");
+  }
+
+  let clipUrls: string[] = [];
+  let bgmUrl: string | undefined;
+  for (const srcId of sourceStepIds) {
+    const srcOut = outputs[srcId];
+    if (!srcOut?.urls?.length) {
+      throw new Error(`缺少步骤输出: ${srcId}`);
+    }
+    const srcStepDef = skill.steps.find((s) => s.id === srcId);
+    if (srcStepDef?.type === "music_gen") {
+      bgmUrl = srcOut.urls[0];
+    } else {
+      clipUrls.push(...srcOut.urls.filter(Boolean));
+    }
+  }
+  if (!clipUrls.length) {
+    throw new Error("concat 缺少视频片段");
+  }
+
+  const subtitles = step.options?.subtitles
+    ? clipUrls.map((_, i) => ({
+        startSec: i * 5,
+        endSec: (i + 1) * 5,
+        text: `镜头 ${i + 1}`,
+      }))
+    : undefined;
+
+  const { jobId } = createGenerationJob({
+    sessionId: row.session_id,
+    userId: row.user_id,
+    prompt: row.prompt || "产品宣传成片",
+    modelId: "agnes-image",
+    mode: "chat",
+    count: 1,
+    resolution: "1k",
+    aspectRatio: "16:9",
+    toolType: "concat",
+    sourceLane: "agent",
+    toolContext: { clipUrls, subtitles, bgmUrl },
+  });
+  linkSkillRunJob(row.id, jobId, step.id);
+  return jobId;
+}
+
 function startStepJob(
   row: SkillRunRow,
   skill: SkillDefinition,
@@ -48,27 +166,7 @@ function startStepJob(
 ): string {
   const step = skill.steps[stepIndex];
   const route = suggestModel("ecommerce", row.prompt);
-  let enrichedPrompt = row.prompt;
-
-  const inputs = row.inputs_json
-    ? (JSON.parse(row.inputs_json) as {
-        productAssetId?: string;
-        referenceAssetId?: string;
-      })
-    : {};
-
-  const assetUrls: string[] = [];
-  for (const assetId of [inputs.productAssetId, inputs.referenceAssetId]) {
-    if (!assetId) continue;
-    const asset = db
-      .prepare("SELECT url FROM assets WHERE id = ? AND user_id = ?")
-      .get(assetId, row.user_id) as { url: string } | undefined;
-    if (asset) assetUrls.push(asset.url);
-  }
-  if (assetUrls.length) {
-    enrichedPrompt = enrichPromptWithReferences(enrichedPrompt, assetUrls);
-  }
-
+  const enrichedPrompt = buildEnrichedPrompt(row);
   const sourceLane = inferSkillStepSourceLane(step);
 
   if (step.type === "generate_set") {
@@ -134,6 +232,18 @@ function startStepJob(
     return jobId;
   }
 
+  if (step.type === "shot_video_batch") {
+    const existing = outputs[step.id];
+    const batchIndex = existing?.outputIds?.length ?? 0;
+    return startShotVideoBatchJob(
+      row,
+      step,
+      outputs,
+      batchIndex,
+      enrichedPrompt,
+    );
+  }
+
   if (step.type === "music_gen") {
     const { jobId } = createGenerationJob({
       sessionId: row.session_id,
@@ -155,6 +265,10 @@ function startStepJob(
     });
     linkSkillRunJob(row.id, jobId, step.id);
     return jobId;
+  }
+
+  if (step.type === "concat") {
+    return startConcatJob(row, skill, step, outputs);
   }
 
   throw new Error(`UNSUPPORTED_STEP`);
@@ -233,21 +347,8 @@ export async function resumeSkillRunOnJobCompleted(jobId: string) {
     urls: observation.urls,
   };
 
-  if (
-    observation.status === "succeeded" &&
-    step.type === "generate_set" &&
-    observation.urls.length > 0
-  ) {
-    stepOutput.heroOutputIndex = await pickSkillHeroIndex({
-      prompt: row.prompt,
-      jobId,
-      urls: observation.urls,
-    });
-  }
-
-  outputs[step.id] = stepOutput;
-
   if (observation.status === "failed") {
+    outputs[step.id] = stepOutput;
     updateSkillRun(row.id, {
       status: "failed",
       error: observation.error ?? "步骤失败",
@@ -255,6 +356,48 @@ export async function resumeSkillRunOnJobCompleted(jobId: string) {
       pendingJobId: null,
     });
     return;
+  }
+
+  if (step.type === "shot_video_batch") {
+    const batchStep = step;
+    const prev = outputs[step.id];
+    const merged: SkillStepOutput = {
+      jobId,
+      outputIds: [...(prev?.outputIds ?? []), ...observation.outputIds],
+      urls: [...(prev?.urls ?? []), ...observation.urls],
+    };
+    outputs[step.id] = merged;
+
+    const src = outputs[batchStep.sourceStep];
+    const total = src?.outputIds?.length ?? 0;
+    if (merged.outputIds.length < total) {
+      const nextJobId = startShotVideoBatchJob(
+        row,
+        batchStep,
+        outputs,
+        merged.outputIds.length,
+        buildEnrichedPrompt(row),
+      );
+      updateSkillRun(row.id, {
+        stepOutputs: outputs,
+        pendingJobId: nextJobId,
+        status: "waiting_job",
+      });
+      return;
+    }
+  } else {
+    outputs[step.id] = stepOutput;
+  }
+
+  if (
+    step.type === "generate_set" &&
+    observation.urls.length > 0
+  ) {
+    outputs[step.id]!.heroOutputIndex = await pickSkillHeroIndex({
+      prompt: row.prompt,
+      jobId,
+      urls: observation.urls,
+    });
   }
 
   const nextStepIndex = row.current_step_index + 1;

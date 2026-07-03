@@ -222,3 +222,21 @@ export function rejectMarketplaceSkill(
     .get(skillId) as unknown as MarketplaceSkillRow;
   return serialize(updated);
 }
+
+/** 记录市场 Skill 安装（递增 install_count） */
+export function recordMarketplaceInstall(slug: string): MarketplaceSkill {
+  const row = db
+    .prepare("SELECT * FROM marketplace_skills WHERE slug = ?")
+    .get(slug) as unknown as MarketplaceSkillRow | undefined;
+  if (!row || row.status !== "published") {
+    throw new AppError(404, "NOT_FOUND", "Skill 不存在或未发布");
+  }
+  const now = sqlNow();
+  db.prepare(
+    `UPDATE marketplace_skills SET install_count = install_count + 1, updated_at = ${now} WHERE id = ?`,
+  ).run(row.id);
+  const updated = db
+    .prepare("SELECT * FROM marketplace_skills WHERE id = ?")
+    .get(row.id) as unknown as MarketplaceSkillRow;
+  return serialize(updated);
+}
