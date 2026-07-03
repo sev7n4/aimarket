@@ -1131,14 +1131,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                   {alternateCanvasContent}
                 </div>
               ) : null}
-              {orchestrationExtra ? (
-                <div
-                  className="shrink-0 border-t border-white/5 p-2 sm:p-3"
-                  data-testid="orchestration-extra-section"
-                >
-                  {orchestrationExtra}
-                </div>
-              ) : null}
             </div>
           ) : alternateCanvasContent ? (
             <div
