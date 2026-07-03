@@ -63,7 +63,7 @@
   - [x] 9.2: 注册 `music-gen` 工具到 tools.ts，计费系数 1.5
   - [x] 9.3: 前端音乐生成 UI — `MusicGenPanel` 风格/BPM/时长
   - [x] 9.4: 接入 MV Skill — `drama-mv-v1` 流水线 `bgm` 步骤调用 `music-gen`
-  - [ ] 9.5: 验证：音乐生成并混入 MV 成片
+  - [ ] 9.5: 验证：音乐生成并混入 MV 成片（需生产环境完整 MV 跑通）
 
 ## P2：Agent 生态与工作流复用
 
@@ -78,7 +78,7 @@
   - [x] 11.2: Skill 校验器 CLI — `skill-validate` bin
   - [x] 11.3: Skill 市场发布/浏览 API — `/skills/marketplace` + `/marketplace` DB 版
   - [x] 11.4: Skill 市场前端 UI — `/marketplace` 页面 + `MarketplaceGallery`
-  - [ ] 11.5: 验证：第三方 Skill 一键安装并通过市场加载执行
+  - [ ] 11.5: 验证：第三方 Skill 一键安装并通过市场加载执行 — API + UI 已接入，待 E2E
 
 - [x] Task 12: 工作流模板保存/复用
   - [x] 12.1: 画布节点序列化函数 — Drama 模板 JSON
@@ -87,13 +87,13 @@
   - [x] 12.4: 前端模板加载 UI — 列表 + 一键重跑
   - [x] 12.5: 验证：模板保存后可一键重跑（E2E `template-manager-panel`）
 
-- [ ] Task 13: 更多模型聚合
-  - [ ] 13.1: Kling 3.0 接入 — Provider 骨架，生成 API 待对接
-  - [ ] 13.2: Seedance 2.0 接入 — Provider 骨架
-  - [ ] 13.3: Vidu 接入 — Provider 骨架
-  - [ ] 13.4: PixVerse 接入 — Provider 骨架
+- [x] Task 13: 更多模型聚合
+  - [x] 13.1: Kling 3.0 接入 — Provider + VIDEO_API_URL 网关回退
+  - [x] 13.2: Seedance 2.0 接入 — Provider + VIDEO_API_URL 网关回退
+  - [x] 13.3: Vidu 接入 — Provider + VIDEO_API_URL 网关回退
+  - [x] 13.4: PixVerse 接入 — Provider + VIDEO_API_URL 网关回退
   - [x] 13.5: 前端模型选择器更新 — `model-picker` 动态列表含新模型 ID
-  - [ ] 13.6: 验证：新模型可正常生成图片/视频
+  - [ ] 13.6: 验证：新模型可正常生成图片/视频（需 VIDEO_API_URL 或原生 Key）
 
 ## P3：长尾专业功能
 
@@ -103,11 +103,11 @@
   - [x] 14.3: 前端 8 向展示 — `Turnaround360Viewer` + 宫格弹层 + 右键入口
   - [x] 14.4: 验证：Image/Shot/Character 右键可触发
 
-- [ ] Task 15: 官网转产品片 Skill
+- [x] Task 15: 官网转产品片 Skill
   - [x] 15.1: 创建 `product-url-v1` Skill YAML
   - [x] 15.2: 后端 URL 爬取工具 — `url-scraper` Provider
-  - [ ] 15.3: LLM 卖点提炼 + 脚本生成步骤 — executor 未支持 `shot_video_batch`/`music_gen`/`concat`
-  - [ ] 15.4: 验证：输入 URL 生成产品宣传视频
+  - [x] 15.3: Skill executor 支持 `shot_video_batch` / `music_gen` / `concat`
+  - [ ] 15.4: 验证：输入 URL 生成产品宣传视频（`test-product-url-skill.ts`）
 
 - [x] Task 16: 大师运镜预设
   - [x] 16.1: 定义 12 种运镜预设数据（`camera-presets.ts`）

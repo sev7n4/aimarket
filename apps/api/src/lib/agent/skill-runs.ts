@@ -50,11 +50,23 @@ export function estimateSkillPoints(skill: SkillDefinition): number {
   let total = 0;
   for (const step of skill.steps) {
     if (step.type === "generate_set") {
-      total += estimatePoints(route.modelId, ECOMMERCE_SLIDES.length, "2k");
+      const count = step.count ?? ECOMMERCE_SLIDES.length;
+      total += estimatePoints(route.modelId, count, "2k");
     } else if (step.type === "tool") {
       total += estimateToolPoints(step.toolId, "2k", 1);
     } else if (step.type === "video") {
       total += estimatePoints(step.modelId, 1, step.resolution);
+    } else if (step.type === "shot_video_batch") {
+      const src = skill.steps.find((s) => s.id === step.sourceStep);
+      const count =
+        src?.type === "generate_set"
+          ? (src.count ?? ECOMMERCE_SLIDES.length)
+          : 4;
+      total += estimatePoints("wan-2.6", count, "1k");
+    } else if (step.type === "music_gen") {
+      total += estimateToolPoints("music-gen", "1k", 1);
+    } else if (step.type === "concat") {
+      total += estimateToolPoints("concat", "1k", 1);
     }
   }
   return total;

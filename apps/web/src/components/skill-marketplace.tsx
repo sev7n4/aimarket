@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Search, Package, Download, Tag } from "lucide-react";
+import { getInstalledSkillIds } from "@/lib/installed-skills";
 
 // ─── 类型定义 ─────────────────────────────
 
@@ -45,15 +46,9 @@ async function fetchSkillMarketplace(opts?: {
   };
 }
 
-async function installSkill(skillId: string) {
-  // 简化：安装 = 将 skillId 添加到用户偏好（localStorage）
-  const installed: string[] = JSON.parse(
-    localStorage.getItem("aimarket_installed_skills") ?? "[]",
-  );
-  if (!installed.includes(skillId)) {
-    installed.push(skillId);
-    localStorage.setItem("aimarket_installed_skills", JSON.stringify(installed));
-  }
+async function installSkill(skillId: string, skillYaml?: string) {
+  const { installSkillToStudio } = await import("@/lib/installed-skills");
+  installSkillToStudio(skillId, skillYaml);
 }
 
 // ─── 组件 ─────────────────────────────
@@ -72,10 +67,7 @@ export function SkillMarketplace({ onInstall }: SkillMarketplaceProps) {
 
   // 加载已安装列表
   useEffect(() => {
-    const list: string[] = JSON.parse(
-      localStorage.getItem("aimarket_installed_skills") ?? "[]",
-    );
-    setInstalled(new Set(list));
+    setInstalled(new Set(getInstalledSkillIds()));
   }, []);
 
   // 获取市场列表

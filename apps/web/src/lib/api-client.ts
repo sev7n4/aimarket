@@ -1810,6 +1810,14 @@ export async function fetchMarketplaceSkill(slug: string) {
   return res.data;
 }
 
+export async function installMarketplaceSkill(slug: string) {
+  const res = await request<{ data: MarketplaceSkill }>(
+    `/api/v1/marketplace/skills/${encodeURIComponent(slug)}/install`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
 export async function fetchMyMarketplaceSkills() {
   const res = await request<{ data: MarketplaceSkill[] }>(
     `/api/v1/marketplace/my/skills`,

@@ -9,6 +9,7 @@ import {
   listPendingMarketplaceSkills,
   listPublishedMarketplaceSkills,
   publishMarketplaceSkill,
+  recordMarketplaceInstall,
   rejectMarketplaceSkill,
 } from "../lib/marketplace.js";
 
@@ -39,6 +40,12 @@ marketplace.get("/skills/:slug/yaml", (c) => {
     throw new AppError(404, "NOT_FOUND", "Skill 不存在或未发布");
   }
   return c.text(skill.skillYaml, 200, { "Content-Type": "text/yaml" });
+});
+
+marketplace.post("/skills/:slug/install", (c) => {
+  const slug = c.req.param("slug");
+  const skill = recordMarketplaceInstall(slug);
+  return c.json({ data: skill });
 });
 
 /** 认证路由 — 上架 / 管理自己的 Skill */

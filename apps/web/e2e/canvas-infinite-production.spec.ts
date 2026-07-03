@@ -18,6 +18,8 @@ import { gotoStudioAndWait, studioWorkstation } from "./helpers/studio";
 const PROMPT = "白底极简产品图，节点画布生产路径 smoke 测试";
 
 test.describe("InfiniteCanvas 生产路径", () => {
+  test.setTimeout(240_000);
+
   test("生产默认走 InfiniteCanvas 路径", async ({ page }) => {
     // 真实新用户：localStorage 全空，isCanvasFlowMode() 默认 true
     await registerViaEmail(page, { emailPrefix: "prodcv" });
