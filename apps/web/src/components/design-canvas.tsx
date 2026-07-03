@@ -27,6 +27,7 @@ import { TOOL_DISPLAY_NAMES } from "@/lib/studio-tool-meta";
 import { CanvasToolbar } from "@/components/canvas-toolbar";
 import { CanvasContextMenu } from "@/components/canvas-context-menu";
 import { CanvasLightbox } from "@/components/canvas-lightbox";
+import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
 import { ScrollCanvas } from "@/components/scroll-canvas";
 import type { ScrollCanvasHandle } from "@/components/scroll-canvas";
 import { FreeCanvas } from "@/components/free-canvas";
@@ -382,6 +383,11 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         (c) => idSet.has(c.fromNodeId) && idSet.has(c.toNodeId),
       );
     }, [templateSelectedNodes, items, dramaConnections]);
+
+    const showInfiniteJobOverlay =
+      Boolean(jobStreamStatus) &&
+      jobStreamStatus !== "succeeded" &&
+      jobStreamStatus !== "failed";
 
     // Agent 面板使用实时画布快照（含 items + dramaNodes），而非 Studio 传入的空 nodes
     const effectiveAssistantSnapshot = useMemo<CanvasAgentSnapshot | null>(() => {
@@ -1071,6 +1077,20 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="relative flex min-h-0 flex-1">
                 <div className="relative min-h-0 flex-1">
+                  {showInfiniteJobOverlay || jobFailed ? (
+                    <CanvasJobOverlay
+                      status={jobStreamStatus ?? null}
+                      failed={jobFailed}
+                      errorMessage={jobErrorMessage}
+                      onOpenChat={onOpenChatPanel}
+                      onCancel={onCancelJob}
+                      onDismiss={jobFailed ? onDismissJobFailure : undefined}
+                      completed={jobProgressCompleted}
+                      total={jobProgressTotal}
+                      elapsedMs={jobElapsedMs}
+                      queueAhead={queueAhead}
+                    />
+                  ) : null}
                   <InfiniteCanvasContainer
                     nodes={enrichNodesWithBatchIndex([...canvasItemsToNodeData(items), ...dramaNodes])}
                     connections={[...buildConnectionsFromItems(items), ...dramaConnections]}
