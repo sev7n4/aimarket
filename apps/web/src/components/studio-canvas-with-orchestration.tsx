@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import {
   DesignCanvas,
   type DesignCanvasHandle,
@@ -16,6 +16,7 @@ import { retryDramaShot, pickDramaKeyframe, publishCanvasToInspiration, unpublis
 import { buildDramaPublishPayload } from "@/lib/drama-publish";
 import type { DramaProjectPayload } from "@/lib/types";
 import { dramaPlanToCanvasNodes } from "@/components/infinite-canvas/drama/drama-plan-to-nodes";
+import { applyTemplateLayoutToCanvas } from "@/components/infinite-canvas/template-node-layout";
 import type { AgentExternalAction, CanvasAgentSnapshot } from "@/components/infinite-canvas/utils";
 import { dramaShotIdFromNodeId } from "@/lib/infinite-node-tool-run";
 import { isCanvasFlowMode } from "@/lib/modes";
@@ -55,6 +56,31 @@ export const StudioCanvasWithOrchestration = forwardRef<
     dramaProjectType,
     resumeDramaPlanRun,
   } = useStudioOrchestration();
+
+  const templatePlanRunIdRef = useRef<string | null>(null);
+  const [pendingTemplateLayout, setPendingTemplateLayout] = useState<
+    Record<string, unknown> | null
+  >(null);
+
+  useEffect(() => {
+    if (
+      dramaPlanRun?.id &&
+      templatePlanRunIdRef.current &&
+      dramaPlanRun.id !== templatePlanRunIdRef.current
+    ) {
+      setPendingTemplateLayout(null);
+      templatePlanRunIdRef.current = null;
+    }
+  }, [dramaPlanRun?.id]);
+
+  const handleTemplatePlanRunStarted = useCallback(
+    (planRunId: string, template: Record<string, unknown>) => {
+      templatePlanRunIdRef.current = planRunId;
+      setPendingTemplateLayout(template);
+      resumeDramaPlanRun(planRunId);
+    },
+    [resumeDramaPlanRun],
+  );
 
   const isDramaPlanning = dramaPlanRun?.status === "planning";
   const [publishedInspirationId, setPublishedInspirationId] = useState<
@@ -110,8 +136,13 @@ export const StudioCanvasWithOrchestration = forwardRef<
   const dramaCanvasData = useMemo(() => {
     const payload = dramaDraftProject?.project ?? dramaRun?.project;
     if (!payload) return { nodes: [], connections: [] };
-    return dramaPlanToCanvasNodes(payload);
-  }, [dramaDraftProject?.project, dramaRun?.project]);
+    const base = dramaPlanToCanvasNodes(payload);
+    return applyTemplateLayoutToCanvas(base, pendingTemplateLayout);
+  }, [
+    dramaDraftProject?.project,
+    dramaRun?.project,
+    pendingTemplateLayout,
+  ]);
 
   // Assistant snapshot metadata（节点/连线由 design-canvas effectiveAssistantSnapshot 实时合并）
   const assistantSnapshot = useMemo<CanvasAgentSnapshot | null>(() => {
@@ -386,9 +417,8 @@ export const StudioCanvasWithOrchestration = forwardRef<
       dramaNodes={dramaCanvasData.nodes}
       dramaConnections={dramaCanvasData.connections}
       assistantSnapshot={assistantSnapshot}
-      onAgentExternalAction={handleAgentExternalAction}
       onPatchDramaShotNode={handlePatchDramaShotNode}
-      onTemplatePlanRunStarted={resumeDramaPlanRun}
+      onTemplatePlanRunStarted={handleTemplatePlanRunStarted}
       sessionId={sessionId}
     />
   );

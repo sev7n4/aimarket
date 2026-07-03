@@ -203,8 +203,11 @@ interface DesignCanvasProps {
   sessionId?: string;
   /** Phase 4：InfiniteCanvas 节点右键触发后端工具 */
   onRunInfiniteNodeTool?: (request: InfiniteNodeToolRequest) => void;
-  /** Phase 4：模板一键重跑后监听规划进度 */
-  onTemplatePlanRunStarted?: (planRunId: string) => void;
+  /** Phase 4.3：模板重跑启动（planRunId + 模板 payload，用于节点布局还原） */
+  onTemplatePlanRunStarted?: (
+    planRunId: string,
+    template: Record<string, unknown>,
+  ) => void;
   /** Phase 4：更新 Drama 分镜节点摄影参数（不触发重新生成） */
   onPatchDramaShotNode?: (
     nodeId: string,
