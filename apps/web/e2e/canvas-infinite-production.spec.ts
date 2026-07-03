@@ -40,10 +40,19 @@ test.describe("InfiniteCanvas 生产路径", () => {
     const menu = page.locator('[data-testid="infinite-canvas-context-menu"]');
     await expect(menu).toBeVisible({ timeout: 5_000 });
     await expect(menu).toContainText(/抠图|扩图|重生成|删除/);
+    // Phase 4 专业能力入口
+    await expect(menu).toContainText(/多机位 9 宫格/);
+    await expect(menu).toContainText(/灯光控制/);
 
     // 浮动入口存在
     await expect(page.getByTestId("template-manager-toggle")).toBeVisible();
     await expect(page.getByTestId("music-gen-toggle")).toBeVisible();
+
+    // 模板管理面板可打开并展示预置模板
+    await page.getByTestId("template-manager-toggle").click();
+    const templatePanel = page.getByTestId("template-manager-panel");
+    await expect(templatePanel).toBeVisible({ timeout: 5_000 });
+    await expect(templatePanel).toContainText(/短剧标准流程|MV 制作|TVC/);
   });
 
   test("关闭右键菜单后再次打开可用", async ({ page }) => {

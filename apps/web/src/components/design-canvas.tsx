@@ -203,6 +203,8 @@ interface DesignCanvasProps {
   sessionId?: string;
   /** Phase 4：InfiniteCanvas 节点右键触发后端工具 */
   onRunInfiniteNodeTool?: (request: InfiniteNodeToolRequest) => void;
+  /** Phase 4：模板一键重跑后监听规划进度 */
+  onTemplatePlanRunStarted?: (planRunId: string) => void;
   /** Phase 4：更新 Drama 分镜节点摄影参数（不触发重新生成） */
   onPatchDramaShotNode?: (
     nodeId: string,
@@ -276,6 +278,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       sessionId,
       onRunInfiniteNodeTool,
       onPatchDramaShotNode,
+      onTemplatePlanRunStarted,
     },
     ref,
   ) {
@@ -1149,6 +1152,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                     selectedNodes={templateSelectedNodes}
                     connections={templateSelectedConnections}
                     sessionId={sessionId}
+                    onRunStarted={onTemplatePlanRunStarted}
                     onClose={() => setShowTemplateManager(false)}
                   />
                 )}

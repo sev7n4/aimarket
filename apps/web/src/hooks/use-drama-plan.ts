@@ -239,6 +239,15 @@ export function useDramaPlan({
     [watchRun],
   );
 
+  /** 监听已创建的规划 Run（如模板一键重跑） */
+  const resumePlanRun = useCallback(
+    (runId: string) => {
+      setPlanRun({ id: runId, status: "planning" });
+      watchRun(runId, true);
+    },
+    [watchRun],
+  );
+
   return {
     planRun,
     events,
@@ -248,5 +257,6 @@ export function useDramaPlan({
     cancelWatch,
     resetPlan,
     restorePlan,
+    resumePlanRun,
   };
 }

@@ -100,6 +100,7 @@ interface StudioOrchestrationContextValue {
     },
   ) => Promise<unknown>;
   rerunDramaPlan: (fromAgent: string, projectPatch?: Record<string, unknown>) => Promise<unknown>;
+  resumeDramaPlanRun: (planRunId: string) => void;
   dramaAutoProduce: boolean;
   setDramaAutoProduce: (value: boolean) => void;
   dramaTargetDurationSec: number;
@@ -290,6 +291,7 @@ export function StudioOrchestrationProvider({
     cancelWatch: cancelDramaPlanWatch,
     resetPlan: resetDramaPlan,
     restorePlan: restoreDramaPlan,
+    resumePlanRun: resumeDramaPlanRun,
   } = useDramaPlan({
     sessionId,
     enabled: orchestrationEnabled,
@@ -808,6 +810,7 @@ export function StudioOrchestrationProvider({
       produceDramaDraft,
       startDramaPlan,
       rerunDramaPlan,
+      resumeDramaPlanRun,
       dramaAutoProduce,
       setDramaAutoProduce,
       dramaTargetDurationSec,
@@ -855,6 +858,7 @@ export function StudioOrchestrationProvider({
       produceDramaDraft,
       startDramaPlan,
       rerunDramaPlan,
+      resumeDramaPlanRun,
       dramaAutoProduce,
       setDramaAutoProduce,
       dramaTargetDurationSec,

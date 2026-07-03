@@ -53,6 +53,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     dramaAspectRatio,
     dramaTargetDurationSec,
     dramaProjectType,
+    resumeDramaPlanRun,
   } = useStudioOrchestration();
 
   const isDramaPlanning = dramaPlanRun?.status === "planning";
@@ -387,6 +388,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
       assistantSnapshot={assistantSnapshot}
       onAgentExternalAction={handleAgentExternalAction}
       onPatchDramaShotNode={handlePatchDramaShotNode}
+      onTemplatePlanRunStarted={resumeDramaPlanRun}
       sessionId={sessionId}
     />
   );
