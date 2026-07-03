@@ -1671,6 +1671,12 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             onMultiCam25={() => {
               runInfiniteNodeTool("multi-cam-25", infiniteContextMenu.node);
             }}
+            onStoryboardEvolve={() => {
+              runInfiniteNodeTool("storyboard-evolve", infiniteContextMenu.node);
+            }}
+            onTurnaround360={() => {
+              runInfiniteNodeTool("turnaround-360", infiniteContextMenu.node);
+            }}
             onLighting={() => {
               setShowLighting({ node: infiniteContextMenu.node });
             }}

@@ -83,6 +83,7 @@ tools.post("/:toolId/run", async (c) => {
       prompt,
       body.focusPoints,
       body.intent ?? "edit",
+      body.lights,
     );
     const coordHints = body.focusPoints
       .map((p, i) => {
