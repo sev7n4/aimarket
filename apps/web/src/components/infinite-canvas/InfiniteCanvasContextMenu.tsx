@@ -182,6 +182,8 @@ export function InfiniteCanvasContextMenu({
             action("shot-image", "生成分镜图", ImageIcon, invoke(onGenerateShotImage)),
             action("shot-video", "生成分镜视频", Clapperboard, invoke(onGenerateShotVideo)),
             action("edit-shot", "编辑对白", Pencil, invoke(onEditShot)),
+            action("multi-cam-9", "多机位 9 宫格", Grid3x3, invoke(onMultiCam9)),
+            action("multi-cam-25", "多机位 25 宫格", Compass, invoke(onMultiCam25)),
             action("rerun", "重新生成", RefreshCw, invoke(onRerun), { separatorAfter: true }),
             action("lighting", "灯光控制", Lightbulb, invoke(onLighting)),
             action("camera", "摄像机控制", Camera, invoke(onCamera), { separatorAfter: true }),

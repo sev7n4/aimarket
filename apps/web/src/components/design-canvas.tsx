@@ -34,6 +34,12 @@ import type { FreeCanvasHandle } from "@/components/free-canvas";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { hapticLight } from "@/lib/haptics";
 import { assetUrl } from "@/lib/api-client";
+import type { InfiniteNodeToolRequest } from "@/lib/infinite-node-tool-run";
+import {
+  resolveNodeImageUrl,
+  resolveNodeToolPrompt,
+} from "@/lib/infinite-node-tool-run";
+import { VideoInpaintEditor } from "@/components/video-inpaint-editor";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { ArrowLeft, Bookmark, Columns2, Music } from "lucide-react";
 import type { StudioTool } from "@/lib/types";
@@ -195,6 +201,20 @@ interface DesignCanvasProps {
   onAgentExternalAction?: (action: AgentExternalAction) => void;
   /** 当前会话 ID（用于 TemplateManager 一键重跑） */
   sessionId?: string;
+  /** Phase 4：InfiniteCanvas 节点右键触发后端工具 */
+  onRunInfiniteNodeTool?: (request: InfiniteNodeToolRequest) => void;
+  /** Phase 4：模板一键重跑后监听规划进度 */
+  onTemplatePlanRunStarted?: (planRunId: string) => void;
+  /** Phase 4：更新 Drama 分镜节点摄影参数（不触发重新生成） */
+  onPatchDramaShotNode?: (
+    nodeId: string,
+    patch: {
+      cameraShotSize?: string;
+      cameraMovement?: string;
+      cameraLighting?: string;
+      visualPrompt?: string;
+    },
+  ) => void;
 }
 
 export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
@@ -256,6 +276,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onApplyAssistantOps,
       onAgentExternalAction,
       sessionId,
+      onRunInfiniteNodeTool,
+      onPatchDramaShotNode,
+      onTemplatePlanRunStarted,
     },
     ref,
   ) {
@@ -306,8 +329,23 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     const [showCamera, setShowCamera] = useState<{
       node: CanvasNodeData;
     } | null>(null);
+    const [videoInpaintSubmitting, setVideoInpaintSubmitting] = useState(false);
 
-    // 所有画布节点的统一视图（含 drama），用于 context menu 节点查找
+    const runInfiniteNodeTool = useCallback(
+      (toolId: string, node: CanvasNodeData, extra?: Partial<InfiniteNodeToolRequest>) => {
+        if (!onRunInfiniteNodeTool) {
+          console.warn("[infinite-canvas] onRunInfiniteNodeTool 未接入");
+          return;
+        }
+        onRunInfiniteNodeTool({
+          toolId,
+          node,
+          prompt: extra?.prompt ?? resolveNodeToolPrompt(node),
+          toolContext: extra?.toolContext,
+        });
+      },
+      [onRunInfiniteNodeTool],
+    );
     const allCanvasNodes = useMemo<CanvasNodeData[]>(
       () => [...canvasItemsToNodeData(items), ...dramaNodes],
       [items, dramaNodes],
@@ -1114,6 +1152,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                     selectedNodes={templateSelectedNodes}
                     connections={templateSelectedConnections}
                     sessionId={sessionId}
+                    onRunStarted={onTemplatePlanRunStarted}
                     onClose={() => setShowTemplateManager(false)}
                   />
                 )}
@@ -1343,17 +1382,10 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               setShowMusicGenPanel(true);
             }}
             onMultiCam9={() => {
-              // TODO: 调用 multi-cam-9 工具（已注册 Provider，需要在前端触发 /tools/multi-cam-9/run）
-              console.info(
-                "[infinite-canvas] 触发多机位 9 宫格：节点",
-                infiniteContextMenu.node.id,
-              );
+              runInfiniteNodeTool("multi-cam-9", infiniteContextMenu.node);
             }}
             onMultiCam25={() => {
-              console.info(
-                "[infinite-canvas] 触发多机位 25 宫格：节点",
-                infiniteContextMenu.node.id,
-              );
+              runInfiniteNodeTool("multi-cam-25", infiniteContextMenu.node);
             }}
             onLighting={() => {
               setShowLighting({ node: infiniteContextMenu.node });
@@ -1427,18 +1459,37 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 关闭
               </button>
             </div>
-            <div
-              className="rounded-lg p-2 text-[10px]"
-              style={{
-                background: canvasTheme.node.fill,
-                color: canvasTheme.node.muted,
+            <VideoInpaintEditor
+              videoUrl={
+                contextMenuForItem(showVideoInpaint.node)?.url ??
+                showVideoInpaint.node.metadata?.content ??
+                undefined
+              }
+              submitting={videoInpaintSubmitting}
+              onSubmit={(payload) => {
+                if (!onRunInfiniteNodeTool) return;
+                setVideoInpaintSubmitting(true);
+                onRunInfiniteNodeTool({
+                  toolId: "video-inpaint",
+                  node: showVideoInpaint.node,
+                  prompt: payload.prompt,
+                  toolContext: {
+                    toolId: "video-inpaint",
+                    masks: [
+                      {
+                        itemId: showVideoInpaint.node.id,
+                        mode: "brush",
+                        maskDataUrl: payload.maskDataUrl,
+                        bbox: payload.maskBbox,
+                        normalizedBbox: payload.maskNormalizedBbox,
+                      },
+                    ],
+                  },
+                });
+                setVideoInpaintSubmitting(false);
+                setShowVideoInpaint(null);
               }}
-            >
-              视频精准编辑器（VideoInpaintEditor）已实现，请通过弹窗/侧边栏调用：
-              <pre className="mt-1 whitespace-pre-wrap text-[10px]" style={{ color: canvasTheme.node.faint }}>
-                {`import { VideoInpaintEditor } from "@/components/video-inpaint-editor";\n<VideoInpaintEditor videoUrl={...} onSubmit={...} />`}
-              </pre>
-            </div>
+            />
           </div>
         ) : null}
 
@@ -1465,9 +1516,15 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 关闭
               </button>
             </div>
-            {showLighting.node.metadata?.content ? (
+            {resolveNodeImageUrl(showLighting.node) ? (
               <LightingOverlayInline
-                imageUrl={showLighting.node.metadata.content}
+                imageUrl={resolveNodeImageUrl(showLighting.node)!}
+                onApply={(sources) => {
+                  runInfiniteNodeTool("lighting-control", showLighting.node, {
+                    toolContext: { toolId: "lighting-control", sources },
+                  });
+                  setShowLighting(null);
+                }}
                 onClose={() => setShowLighting(null)}
               />
             ) : (
@@ -1501,7 +1558,24 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 关闭
               </button>
             </div>
-            <CameraOverlayInline onClose={() => setShowCamera(null)} />
+            <CameraOverlayInline
+              node={showCamera.node}
+              onApply={(params) => {
+                const hasImage = Boolean(resolveNodeImageUrl(showCamera.node));
+                if (hasImage) {
+                  runInfiniteNodeTool("camera-control", showCamera.node, {
+                    toolContext: { toolId: "camera-control", camera: params },
+                  });
+                } else {
+                  onPatchDramaShotNode?.(showCamera.node.id, {
+                    cameraShotSize: params.shotSize,
+                    cameraMovement: params.movement,
+                  });
+                }
+                setShowCamera(null);
+              }}
+              onClose={() => setShowCamera(null)}
+            />
           </div>
         ) : null}
 
@@ -1534,9 +1608,11 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
 
 function LightingOverlayInline({
   imageUrl,
+  onApply,
   onClose,
 }: {
   imageUrl: string;
+  onApply: (sources: LightSource[]) => void;
   onClose: () => void;
 }) {
   const [sources, setSources] = useState<LightSource[]>([]);
@@ -1564,6 +1640,15 @@ function LightingOverlayInline({
           </button>
           <button
             type="button"
+            onClick={() => onApply(sources)}
+            className="rounded px-2 py-0.5 transition hover:bg-white/10"
+            style={{ color: "#a5b4fc" }}
+            disabled={sources.length === 0}
+          >
+            应用并重生成
+          </button>
+          <button
+            type="button"
             onClick={onClose}
             className="rounded px-2 py-0.5 transition hover:bg-white/10"
             style={{ color: canvasTheme.node.muted }}
@@ -1576,17 +1661,27 @@ function LightingOverlayInline({
   );
 }
 
-function CameraOverlayInline({ onClose }: { onClose: () => void }) {
+function CameraOverlayInline({
+  node,
+  onApply,
+  onClose,
+}: {
+  node: CanvasNodeData;
+  onApply: (params: DramaCameraParams) => void;
+  onClose: () => void;
+}) {
+  const m = node.metadata;
   const [params, setParams] = useState<DramaCameraParams>({
-    shotSize: undefined,
-    movement: undefined,
+    shotSize: m?.cameraShotSize,
+    movement: m?.cameraMovement,
     pitch: 0,
     yaw: 0,
   });
+  const hasImage = Boolean(resolveNodeImageUrl(node));
   return (
     <div className="flex flex-col gap-2">
       <CameraOverlay params={params} onChange={setParams} />
-      <div className="flex justify-end text-[10px]">
+      <div className="flex justify-end gap-1 text-[10px]">
         <button
           type="button"
           onClick={onClose}
@@ -1594,6 +1689,14 @@ function CameraOverlayInline({ onClose }: { onClose: () => void }) {
           style={{ color: canvasTheme.node.muted }}
         >
           关闭
+        </button>
+        <button
+          type="button"
+          onClick={() => onApply(params)}
+          className="rounded px-2 py-0.5 transition hover:bg-white/10"
+          style={{ color: "#a5b4fc" }}
+        >
+          {hasImage ? "应用并重生成" : "保存摄影参数"}
         </button>
       </div>
     </div>

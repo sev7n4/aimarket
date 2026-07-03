@@ -46,6 +46,11 @@ import { formatJobErrorMessage } from "@/lib/job-error-message";
 import { type CreationMode } from "@aimarket/ui";
 import type { ImageSession, StudioTool } from "@/lib/types";
 import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
+import type { InfiniteNodeToolRequest } from "@/lib/infinite-node-tool-run";
+import {
+  resolveNodeToolPrompt,
+  resolveNodeToolReferences,
+} from "@/lib/infinite-node-tool-run";
 import { StudioOrchestrationProvider } from "@/components/studio-orchestration-provider";
 import { StudioCanvasWithOrchestration } from "@/components/studio-canvas-with-orchestration";
 import { useAuth } from "@/lib/auth-context";
@@ -1032,6 +1037,78 @@ export function StudioWorkspace({
     }
   }
 
+  const handleRunInfiniteNodeTool = useCallback(
+    async (request: InfiniteNodeToolRequest) => {
+      if (readOnly || !sessionId) return;
+      const tool =
+        tools.find((t) => t.id === request.toolId) ??
+        ({
+          id: request.toolId,
+          name: request.toolId,
+          description: "",
+          defaultPrompt: "",
+        } satisfies StudioTool);
+      const item =
+        canvasItems.find((i) => i.id === request.node.id) ?? null;
+      const refs = resolveNodeToolReferences(request.node, item);
+      const prompt =
+        request.prompt?.trim() ||
+        resolveNodeToolPrompt(request.node, tool.defaultPrompt);
+
+      if (tool.requiresSource && !refs.referenceOutputIds?.length && !refs.assetIds?.length) {
+        setSelectSourceBanner(
+          `${tool.name}：请先生成分镜图或选择带参考图的节点`,
+        );
+        return;
+      }
+
+      setPendingToolId(tool.id);
+      try {
+        const { jobId } = await runTool(tool.id, {
+          sessionId,
+          prompt,
+          referenceOutputIds: refs.referenceOutputIds,
+          assetIds: refs.assetIds,
+          resolution: resolveToolResolution(tool.id),
+          aspectRatio: tool.id === "expand" ? "auto" : undefined,
+          toolContext: request.toolContext
+            ? {
+                toolId: request.toolId,
+                ...request.toolContext,
+              }
+            : undefined,
+        });
+        void trackEvent("tool_run", {
+          tool_id: tool.id,
+          job_id: jobId,
+          has_reference: Boolean(
+            refs.referenceOutputIds?.length || refs.assetIds?.length,
+          ),
+          source: "infinite_context_menu",
+        });
+        if (item) {
+          registerToolBatchLineage(jobId, item, tool.name);
+        }
+        handleJobStarted(jobId);
+        setSelectSourceBanner(null);
+      } catch (err) {
+        setSelectSourceBanner(
+          err instanceof Error ? err.message : "工具执行失败",
+        );
+      } finally {
+        setPendingToolId(null);
+      }
+    },
+    [
+      readOnly,
+      sessionId,
+      tools,
+      canvasItems,
+      registerToolBatchLineage,
+      handleJobStarted,
+    ],
+  );
+
   async function handleToolConfirm(opts: ToolConfirmOptions) {
     if (!toolConfirm) return;
     const { tool, item } = toolConfirm;
@@ -1711,6 +1788,7 @@ export function StudioWorkspace({
             <StudioCanvasWithOrchestration
               ref={canvasRef}
               items={canvasItems}
+              onRunInfiniteNodeTool={(req) => void handleRunInfiniteNodeTool(req)}
               onJumpToParentBatch={handleJumpToParentBatch}
               selectedId={selectedCanvasId}
               onSelect={(id) => {
