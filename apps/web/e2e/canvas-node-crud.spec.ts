@@ -55,7 +55,9 @@ test.describe("canvas node crud (InfiniteCanvas)", () => {
     });
 
     const connection = page.locator("[data-connection-id]").first();
-    await expect(connection).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("[data-connection-id]")).toHaveCount(1, {
+      timeout: 10_000,
+    });
     await connection.click({ button: "right", force: true });
     await expect(page.getByTestId("connection-context-menu")).toBeVisible();
     await page.getByTestId("connection-context-delete").click();
