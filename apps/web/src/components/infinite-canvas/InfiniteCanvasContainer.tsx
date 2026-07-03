@@ -33,6 +33,12 @@ export type InfiniteCanvasContainerProps = {
   onViewportChange: (viewport: ViewportTransform) => void;
   onSelectionChange: (ids: string[]) => void;
   onNodeDoubleClick?: (nodeId: string) => void;
+  onConnectionCreateClick?: (
+    event: React.MouseEvent,
+    nodeId: string,
+    world: Position,
+  ) => void;
+  onCanvasDoubleClick?: (world: Position, client: { x: number; y: number }) => void;
   onContextMenu?: (state: ContextMenuState | null) => void;
   renderNodeContent?: (node: CanvasNodeData) => ReactNode;
   renderPanel?: (node: CanvasNodeData) => ReactNode;
@@ -77,6 +83,8 @@ export function InfiniteCanvasContainer({
   onViewportChange,
   onSelectionChange,
   onNodeDoubleClick,
+  onConnectionCreateClick,
+  onCanvasDoubleClick,
   onContextMenu: onContextMenuProp,
   renderNodeContent,
   renderPanel,
@@ -279,6 +287,8 @@ export function InfiniteCanvasContainer({
   // ---- connection context menu ----
   const handleConnectionContextMenu = useCallback(
     (event: React.MouseEvent<SVGPathElement>, connectionId: string) => {
+      event.preventDefault();
+      event.stopPropagation();
       const state: ContextMenuState = {
         type: "connection",
         x: event.clientX,
@@ -587,6 +597,26 @@ export function InfiniteCanvasContainer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localContextMenu]);
 
+  // ---- connection create menu trigger ----
+  const handleConnectionCreateClick = useCallback(
+    (event: React.MouseEvent, nodeId: string) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const world = screenToCanvas(event.clientX, event.clientY);
+      onConnectionCreateClick?.(event, nodeId, world);
+    },
+    [onConnectionCreateClick, screenToCanvas],
+  );
+
+  // ---- canvas double click (blank) ----
+  const handleCanvasDoubleClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      const world = screenToCanvas(event.clientX, event.clientY);
+      onCanvasDoubleClick?.(world, { x: event.clientX, y: event.clientY });
+    },
+    [onCanvasDoubleClick, screenToCanvas],
+  );
+
   // ---- canvas context menu handler ----
   const handleCanvasContextMenu = useCallback(
     (event: React.MouseEvent) => {
@@ -645,6 +675,7 @@ export function InfiniteCanvasContainer({
         backgroundMode={backgroundMode}
         onViewportChange={onViewportChange}
         onCanvasMouseDown={handleCanvasMouseDown}
+        onCanvasDoubleClick={handleCanvasDoubleClick}
         onCanvasDeselect={deselectAll}
         onContextMenu={handleCanvasContextMenu}
       >
@@ -695,6 +726,9 @@ export function InfiniteCanvasContainer({
             onHoverStart={setHoveredNodeId}
             onHoverEnd={() => setHoveredNodeId(null)}
             onConnectStart={handleConnectStart}
+            onConnectionCreateClick={
+              onConnectionCreateClick ? handleConnectionCreateClick : undefined
+            }
             onResize={handleNodeResize}
             onContentChange={handleContentChange}
             onContextMenu={handleNodeContextMenu}

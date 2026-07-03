@@ -13,6 +13,13 @@ import {
   parseCanvasLayout,
   serializeCanvasLayout,
 } from "../lib/canvas-layout.js";
+import {
+  applyFlowToLayout,
+  canvasLayoutToFlow,
+  readCanvasLayoutFromDb,
+  serializeLayout,
+} from "../lib/canvas-flow-layout-bridge.js";
+import type { CanvasFlow } from "../lib/canvas-flow-store.js";
 import { sessionKindSchema } from "../lib/session-kind.js";
 import {
   assertSessionRead,
@@ -525,9 +532,8 @@ const canvasFlowSchema = z.object({
   viewport: z.object({ x: z.number(), y: z.number(), zoom: z.number() }).optional(),
 });
 
-type CanvasFlowRow = { canvas_flow: string | null };
+type CanvasFlowRow = { canvas_layout: string | null; canvas_flow: string | null };
 
-// 画布流内部结构类型（用于 CRUD 操作的中间态）
 type CanvasFlowNodeRow = {
   id: string;
   type: string;
@@ -541,6 +547,7 @@ type CanvasFlowEdgeRow = {
   target: string;
   sourceHandle?: string;
   targetHandle?: string;
+  kind?: "reference" | "trigger";
 };
 
 type CanvasFlowData = {
@@ -551,20 +558,21 @@ type CanvasFlowData = {
 
 function loadCanvasFlow(sessionId: string): CanvasFlowData {
   const row = db
-    .prepare("SELECT canvas_flow FROM image_sessions WHERE id = ?")
+    .prepare("SELECT canvas_layout, canvas_flow FROM image_sessions WHERE id = ?")
     .get(sessionId) as CanvasFlowRow | undefined;
-  if (!row?.canvas_flow) return { nodes: [], edges: [] };
-  try {
-    return JSON.parse(row.canvas_flow) as CanvasFlowData;
-  } catch {
-    return { nodes: [], edges: [] };
-  }
+  const layout = readCanvasLayoutFromDb(row);
+  return canvasLayoutToFlow(layout) as CanvasFlowData;
 }
 
 function saveCanvasFlow(sessionId: string, flow: unknown): void {
+  const row = db
+    .prepare("SELECT canvas_layout, canvas_flow FROM image_sessions WHERE id = ?")
+    .get(sessionId) as CanvasFlowRow | undefined;
+  const layout = readCanvasLayoutFromDb(row);
+  const next = applyFlowToLayout(layout, flow as CanvasFlow);
   db.prepare(
-    `UPDATE image_sessions SET canvas_flow = ?, updated_at = datetime('now') WHERE id = ?`,
-  ).run(JSON.stringify(flow), sessionId);
+    `UPDATE image_sessions SET canvas_layout = ?, updated_at = datetime('now') WHERE id = ?`,
+  ).run(serializeLayout(next), sessionId);
 }
 
 /** POST /sessions/:id/canvas/nodes — 创建节点 */
@@ -768,24 +776,40 @@ const canvasTemplateSchema = z.object({
 
 type CanvasTemplateRow = z.infer<typeof canvasTemplateSchema>;
 
-/** 从 canvas_flow 中读取 templates 数组 */
+/** 从 canvas_flow 遗留 JSON 中读取 templates（与 canvas_layout 节点数据分离） */
 function loadTemplates(sessionId: string): CanvasTemplateRow[] {
-  const flow = loadCanvasFlow(sessionId) as CanvasFlowData & {
-    templates?: CanvasTemplateRow[];
-  };
-  return flow.templates ?? [];
+  const row = db
+    .prepare("SELECT canvas_flow FROM image_sessions WHERE id = ?")
+    .get(sessionId) as { canvas_flow: string | null } | undefined;
+  if (!row?.canvas_flow) return [];
+  try {
+    const parsed = JSON.parse(row.canvas_flow) as { templates?: CanvasTemplateRow[] };
+    return parsed.templates ?? [];
+  } catch {
+    return [];
+  }
 }
 
-/** 将 templates 保存到 canvas_flow */
+/** 将 templates 写入 canvas_flow 遗留字段（节点/边已统一到 canvas_layout） */
 function saveTemplates(
   sessionId: string,
   templates: CanvasTemplateRow[],
 ): void {
-  const flow = loadCanvasFlow(sessionId) as CanvasFlowData & {
-    templates?: CanvasTemplateRow[];
-  };
-  flow.templates = templates;
-  saveCanvasFlow(sessionId, flow);
+  const row = db
+    .prepare("SELECT canvas_flow FROM image_sessions WHERE id = ?")
+    .get(sessionId) as { canvas_flow: string | null } | undefined;
+  let parsed: Record<string, unknown> = {};
+  if (row?.canvas_flow) {
+    try {
+      parsed = JSON.parse(row.canvas_flow) as Record<string, unknown>;
+    } catch {
+      parsed = {};
+    }
+  }
+  parsed.templates = templates;
+  db.prepare(
+    `UPDATE image_sessions SET canvas_flow = ?, updated_at = datetime('now') WHERE id = ?`,
+  ).run(JSON.stringify(parsed), sessionId);
 }
 
 /** POST /sessions/:id/templates — 保存模板 */

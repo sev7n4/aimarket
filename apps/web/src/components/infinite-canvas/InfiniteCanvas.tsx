@@ -9,13 +9,14 @@ type InfiniteCanvasProps = {
     backgroundMode?: CanvasBackgroundMode;
     onViewportChange: (viewport: ViewportTransform) => void;
     onCanvasMouseDown?: (event: React.PointerEvent<HTMLDivElement>) => void;
+    onCanvasDoubleClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
     onCanvasDeselect?: () => void;
     onContextMenu?: (event: React.MouseEvent) => void;
     onDrop?: (event: React.DragEvent<HTMLDivElement>) => void;
     children: React.ReactNode;
 };
 
-export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines", onViewportChange, onCanvasMouseDown, onCanvasDeselect, onContextMenu, onDrop, children }: InfiniteCanvasProps) {
+export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines", onViewportChange, onCanvasMouseDown, onCanvasDoubleClick, onCanvasDeselect, onContextMenu, onDrop, children }: InfiniteCanvasProps) {
     const panState = useRef({
         isPanning: false,
         startX: 0,
@@ -169,6 +170,13 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
             className="relative h-full w-full cursor-grab select-none overflow-hidden"
             style={{ background: canvasTheme.canvas.background }}
             onPointerDown={handlePointerDown}
+            onDoubleClick={(event) => {
+                const target = event.target instanceof Element ? event.target : null;
+                if (target?.closest("[data-node-id],[data-connection-id],[data-connection-create-menu]")) {
+                    return;
+                }
+                onCanvasDoubleClick?.(event);
+            }}
             onWheel={handleWheel}
             onContextMenu={onContextMenu}
             onDragOver={(event) => event.preventDefault()}

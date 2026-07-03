@@ -363,8 +363,16 @@ export async function fetchMessages(sessionId: string) {
   return { messages: res.data, meta: res.meta };
 }
 
+export interface CanvasLayoutConnectionDto {
+  id: string;
+  fromNodeId: string;
+  toNodeId: string;
+}
+
 export interface CanvasLayoutDto {
   version: 1;
+  infiniteConnections?: CanvasLayoutConnectionDto[];
+  dramaNodePositions?: Record<string, { x: number; y: number }>;
   items: {
     id: string;
     url: string;

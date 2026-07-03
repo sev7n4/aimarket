@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { ChevronRight, Image as ImageIcon, Music2, RefreshCw, Star, Video } from "lucide-react";
+import { ChevronRight, Image as ImageIcon, Music2, Plus, RefreshCw, Star, Video } from "lucide-react";
 
 import { ScriptNodeContent } from "./drama/ScriptNodeContent";
 import { ShotNodeContent } from "./drama/ShotNodeContent";
@@ -38,6 +38,7 @@ type CanvasNodeProps = {
     onHoverStart: (nodeId: string) => void;
     onHoverEnd: (nodeId: string) => void;
     onConnectStart: (event: React.MouseEvent, nodeId: string, handleType: "source" | "target") => void;
+    onConnectionCreateClick?: (event: React.MouseEvent, nodeId: string) => void;
     onResize: (nodeId: string, width: number, height: number, position?: Position) => void;
     onContentChange: (nodeId: string, content: string) => void;
     onToggleBatch?: (nodeId: string) => void;
@@ -91,6 +92,7 @@ export const CanvasNode = React.memo(function CanvasNode({
     onHoverStart,
     onHoverEnd,
     onConnectStart,
+    onConnectionCreateClick,
     onResize,
     onContentChange,
     onToggleBatch,
@@ -332,7 +334,17 @@ export const CanvasNode = React.memo(function CanvasNode({
             </div>
 
             <ConnectionHandleDot side="left" visible={hovered || isSelected || isConnecting} onMouseDown={(event) => onConnectStart(event, data.id, "target")} />
-            <ConnectionHandleDot side="right" visible={data.type !== CanvasNodeType.Config && (hovered || isSelected || isConnecting)} onMouseDown={(event) => onConnectStart(event, data.id, "source")} />
+            <ConnectionHandleDot
+                side="right"
+                visible={data.type !== CanvasNodeType.Config && (hovered || isSelected || isConnecting)}
+                onMouseDown={(event) => onConnectStart(event, data.id, "source")}
+                showCreatePlus={Boolean(onConnectionCreateClick) && data.type !== CanvasNodeType.Config}
+                onCreateClick={
+                    onConnectionCreateClick
+                        ? (event) => onConnectionCreateClick(event, data.id)
+                        : undefined
+                }
+            />
 
             {showPanel && renderPanel ? <div className="absolute left-1/2 top-full z-[70] w-[500px] -translate-x-1/2 pt-4">{renderPanel(data)}</div> : null}
         </div>
@@ -660,19 +672,60 @@ function ResizeHandle({ corner, onMouseDown }: { corner: ResizeCorner; onMouseDo
     return <div className={cn("absolute z-50 size-7", positionClass)} onMouseDown={(event) => onMouseDown(event, corner)} />;
 }
 
-function ConnectionHandleDot({ side, visible, onMouseDown }: { side: "left" | "right"; visible: boolean; onMouseDown: (event: React.MouseEvent) => void }) {
+function ConnectionHandleDot({
+    side,
+    visible,
+    onMouseDown,
+    showCreatePlus,
+    onCreateClick,
+}: {
+    side: "left" | "right";
+    visible: boolean;
+    onMouseDown: (event: React.MouseEvent) => void;
+    showCreatePlus?: boolean;
+    onCreateClick?: (event: React.MouseEvent) => void;
+}) {
     const theme = canvasTheme;
 
     return (
         <div
             className={cn(
-                "absolute top-1/2 z-30 flex size-12 -translate-y-1/2 cursor-crosshair items-center justify-center transition-opacity duration-150",
-                side === "left" ? "-left-6" : "-right-6",
+                "absolute top-1/2 z-30 flex -translate-y-1/2 items-center justify-center transition-opacity duration-150",
+                side === "left" ? "-left-6 size-12" : "-right-8 gap-0.5",
                 visible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
             )}
-            onMouseDown={onMouseDown}
         >
-            <div className="size-3 rounded-full border-2 transition-all hover:scale-125" style={{ background: theme.node.panel, borderColor: theme.node.muted }} />
+            {side === "right" && showCreatePlus && onCreateClick ? (
+                <button
+                    type="button"
+                    data-testid="connection-create-toggle"
+                    data-connection-create-menu
+                    className="flex size-5 cursor-pointer items-center justify-center rounded-full border text-[11px] font-bold transition hover:scale-110"
+                    style={{
+                        background: theme.toolbar.activeBg,
+                        borderColor: theme.node.muted,
+                        color: theme.node.text,
+                    }}
+                    title="创建下游节点"
+                    aria-label="创建下游节点"
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onCreateClick(event);
+                    }}
+                >
+                    <Plus className="size-3" />
+                </button>
+            ) : null}
+            <div
+                className="flex size-12 cursor-crosshair items-center justify-center"
+                onMouseDown={onMouseDown}
+            >
+                <div
+                    className="size-3 rounded-full border-2 transition-all hover:scale-125"
+                    style={{ background: theme.node.panel, borderColor: theme.node.muted }}
+                />
+            </div>
         </div>
     );
 }

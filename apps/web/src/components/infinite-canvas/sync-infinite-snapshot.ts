@@ -2,6 +2,8 @@ import type { CanvasItem } from "@/lib/canvas-tools";
 import { randomUUID } from "@/lib/uuid";
 import {
   canvasItemToNodeData,
+  isLineageConnection,
+  mergeCanvasConnections,
   nodeDataToCanvasItem,
 } from "./migration";
 import { CanvasNodeType, type CanvasConnection, type CanvasNodeData } from "./types";
@@ -166,4 +168,54 @@ export function snapshotFromParts(
 
 export function isDramaNodeId(nodeId: string): boolean {
   return nodeId.startsWith("drama-");
+}
+
+function isDramaConnection(conn: CanvasConnection): boolean {
+  return isDramaNodeId(conn.fromNodeId) || isDramaNodeId(conn.toNodeId);
+}
+
+/** 从完整连线列表提取应写入 canvas_layout.infiniteConnections 的手动连线 */
+export function extractPersistedConnections(
+  connections: CanvasConnection[],
+  items: CanvasItem[],
+): CanvasConnection[] {
+  const itemIds = new Set(items.map((item) => item.id));
+  return connections.filter((conn) => {
+    if (isLineageConnection(conn, items)) return false;
+    if (isDramaConnection(conn)) return false;
+    return itemIds.has(conn.fromNodeId) && itemIds.has(conn.toNodeId);
+  });
+}
+
+/** 删除连线：血缘连线清除 sourceItemId，手动连线返回 delete_connections op */
+export function buildDeleteConnectionOps(
+  connectionId: string,
+  items: CanvasItem[],
+  manualConnections: CanvasConnection[],
+  dramaConnections: CanvasConnection[],
+): {
+  itemPatches?: CanvasItem[];
+  ops: import("./utils").CanvasAgentOp[];
+} {
+  const all = mergeCanvasConnections(items, manualConnections, dramaConnections);
+  const conn = all.find((c) => c.id === connectionId);
+  if (!conn) {
+    return { ops: [] };
+  }
+  if (isLineageConnection(conn, items)) {
+    return {
+      itemPatches: items.map((item) =>
+        item.id === conn.toNodeId
+          ? { ...item, sourceItemId: undefined }
+          : item,
+      ),
+      ops: [],
+    };
+  }
+  if (isDramaConnection(conn)) {
+    return { ops: [] };
+  }
+  return {
+    ops: [{ type: "delete_connections", ids: [connectionId] }],
+  };
 }

@@ -171,3 +171,19 @@ export function dramaPlanToCanvasNodes(
 
   return { nodes, connections };
 }
+
+/** 将持久化的 Drama 节点坐标覆盖到规划布局上 */
+export function applyDramaNodePositions(
+  data: { nodes: CanvasNodeData[]; connections: CanvasConnection[] },
+  positions?: Record<string, { x: number; y: number }> | null,
+): { nodes: CanvasNodeData[]; connections: CanvasConnection[] } {
+  if (!positions || Object.keys(positions).length === 0) return data;
+  return {
+    ...data,
+    nodes: data.nodes.map((node) => {
+      const pos = positions[node.id];
+      if (!pos) return node;
+      return { ...node, position: { x: pos.x, y: pos.y } };
+    }),
+  };
+}
