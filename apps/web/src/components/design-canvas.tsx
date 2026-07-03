@@ -195,6 +195,11 @@ interface DesignCanvasProps {
   onAgentExternalAction?: (action: AgentExternalAction) => void;
   /** 当前会话 ID（用于 TemplateManager 一键重跑） */
   sessionId?: string;
+  /** Phase 4.3：模板重跑启动（planRunId + 模板 payload，用于节点布局还原） */
+  onTemplatePlanRunStarted?: (
+    planRunId: string,
+    template: Record<string, unknown>,
+  ) => void;
 }
 
 export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
@@ -256,6 +261,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onApplyAssistantOps,
       onAgentExternalAction,
       sessionId,
+      onTemplatePlanRunStarted,
     },
     ref,
   ) {
@@ -1114,6 +1120,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                     selectedNodes={templateSelectedNodes}
                     connections={templateSelectedConnections}
                     sessionId={sessionId}
+                    onRunStarted={onTemplatePlanRunStarted}
                     onClose={() => setShowTemplateManager(false)}
                   />
                 )}

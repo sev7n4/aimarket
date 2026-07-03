@@ -239,6 +239,14 @@ export function useDramaPlan({
     [watchRun],
   );
 
+  const resumePlanRun = useCallback(
+    (runId: string) => {
+      setPlanRun({ id: runId, status: "planning" });
+      watchRun(runId, true);
+    },
+    [watchRun],
+  );
+
   return {
     planRun,
     events,
@@ -248,5 +256,6 @@ export function useDramaPlan({
     cancelWatch,
     resetPlan,
     restorePlan,
+    resumePlanRun,
   };
 }
