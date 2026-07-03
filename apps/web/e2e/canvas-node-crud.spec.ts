@@ -3,7 +3,14 @@ import { registerViaEmail } from "./helpers/auth";
 
 const API_BASE = process.env.E2E_API_URL ?? "http://127.0.0.1:4000";
 
-async function openStudioWithInfiniteCanvas(page: import("@playwright/test").Page) {
+async function prepareInfiniteCanvasStudio(
+  page: import("@playwright/test").Page,
+) {
+  await page.addInitScript(() => {
+    localStorage.setItem("aimarket_studio_coach_v2", "1");
+    localStorage.setItem("aimarket_studio_mobile_coach_v1", "1");
+    localStorage.setItem("aimarket_studio_dock_mode_v1", "expanded");
+  });
   await registerViaEmail(page, { emailPrefix: "e2e_node_crud" });
   await page.goto("/studio", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/sessionId=/, { timeout: 30_000 });
@@ -12,20 +19,16 @@ async function openStudioWithInfiniteCanvas(page: import("@playwright/test").Pag
   });
 }
 
-function infiniteCanvasPane(page: import("@playwright/test").Page) {
-  return page.locator(".relative.min-h-0.flex-1").first();
-}
-
 test.describe("canvas node crud (InfiniteCanvas)", () => {
   test("空白右键添加 text → 删除 → 端口+下游 Config → 删连线", async ({
     page,
     request,
   }) => {
     test.setTimeout(120_000);
-    await openStudioWithInfiniteCanvas(page);
-    const pane = infiniteCanvasPane(page);
+    await prepareInfiniteCanvasStudio(page);
+    const pane = page.getByTestId("infinite-canvas-pane");
 
-    await pane.click({ button: "right", position: { x: 220, y: 180 } });
+    await pane.click({ button: "right", position: { x: 240, y: 200 } });
     await expect(page.getByTestId("node-create-menu")).toBeVisible({
       timeout: 10_000,
     });
@@ -37,7 +40,7 @@ test.describe("canvas node crud (InfiniteCanvas)", () => {
     await page.getByRole("menuitem", { name: "删除" }).click();
     await expect(page.locator('[data-node-id^="text-"]')).toHaveCount(0);
 
-    await pane.dblclick({ position: { x: 280, y: 220 } });
+    await pane.dblclick({ position: { x: 300, y: 240 } });
     await expect(page.getByTestId("node-create-menu")).toBeVisible();
     await page.getByTestId("node-create-text").click();
     await expect(page.locator('[data-node-id^="text-"]')).toBeVisible();

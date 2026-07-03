@@ -1232,6 +1232,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             <div
               ref={infiniteCanvasAreaRef}
               className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              data-testid="infinite-canvas-pane"
             >
               <div className="relative flex min-h-0 flex-1">
                 <div className="relative min-h-0 flex-1">
