@@ -27,8 +27,10 @@ import { TOOL_DISPLAY_NAMES } from "@/lib/studio-tool-meta";
 import { CanvasToolbar } from "@/components/canvas-toolbar";
 import { CanvasContextMenu } from "@/components/canvas-context-menu";
 import { CanvasLightbox } from "@/components/canvas-lightbox";
+import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
 import { ScrollCanvas } from "@/components/scroll-canvas";
 import type { ScrollCanvasHandle } from "@/components/scroll-canvas";
+import { ScrollCanvasOrchestrationCard } from "@/components/scroll-canvas-orchestration-card";
 import { FreeCanvas } from "@/components/free-canvas";
 import type { FreeCanvasHandle } from "@/components/free-canvas";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
@@ -203,8 +205,11 @@ interface DesignCanvasProps {
   sessionId?: string;
   /** Phase 4：InfiniteCanvas 节点右键触发后端工具 */
   onRunInfiniteNodeTool?: (request: InfiniteNodeToolRequest) => void;
-  /** Phase 4：模板一键重跑后监听规划进度 */
-  onTemplatePlanRunStarted?: (planRunId: string) => void;
+  /** Phase 4.3：模板重跑启动（planRunId + 模板 payload，用于节点布局还原） */
+  onTemplatePlanRunStarted?: (
+    planRunId: string,
+    template: Record<string, unknown>,
+  ) => void;
   /** Phase 4：更新 Drama 分镜节点摄影参数（不触发重新生成） */
   onPatchDramaShotNode?: (
     nodeId: string,
@@ -379,6 +384,21 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         (c) => idSet.has(c.fromNodeId) && idSet.has(c.toNodeId),
       );
     }, [templateSelectedNodes, items, dramaConnections]);
+
+    const showInfiniteJobOverlay =
+      Boolean(jobStreamStatus) &&
+      jobStreamStatus !== "succeeded" &&
+      jobStreamStatus !== "failed";
+
+    // 草稿仅展示画布节点时不必在底部重复挂载 DramaStudioPanel（规划/时间线阶段仍需要）
+    const showInfiniteOrchestrationExtra =
+      Boolean(orchestrationExtra) &&
+      (Boolean(orchestrationEvent) || Boolean(alternateCanvasContent));
+
+    const infiniteOrchestrationDock =
+      alternateCanvasContent ||
+      orchestrationEvent ||
+      showInfiniteOrchestrationExtra;
 
     // Agent 面板使用实时画布快照（含 items + dramaNodes），而非 Studio 传入的空 nodes
     const effectiveAssistantSnapshot = useMemo<CanvasAgentSnapshot | null>(() => {
@@ -1068,6 +1088,20 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="relative flex min-h-0 flex-1">
                 <div className="relative min-h-0 flex-1">
+                  {showInfiniteJobOverlay || jobFailed ? (
+                    <CanvasJobOverlay
+                      status={jobStreamStatus ?? null}
+                      failed={jobFailed}
+                      errorMessage={jobErrorMessage}
+                      onOpenChat={onOpenChatPanel}
+                      onCancel={onCancelJob}
+                      onDismiss={jobFailed ? onDismissJobFailure : undefined}
+                      completed={jobProgressCompleted}
+                      total={jobProgressTotal}
+                      elapsedMs={jobElapsedMs}
+                      queueAhead={queueAhead}
+                    />
+                  ) : null}
                   <InfiniteCanvasContainer
                     nodes={enrichNodesWithBatchIndex([...canvasItemsToNodeData(items), ...dramaNodes])}
                     connections={[...buildConnectionsFromItems(items), ...dramaConnections]}
@@ -1163,13 +1197,36 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                   />
                 )}
               </div>
-              {alternateCanvasContent ? (
+              {infiniteOrchestrationDock ? (
                 <div
                   className="shrink-0 overflow-y-auto border-t border-white/10 p-2 sm:p-3"
                   style={{ maxHeight: "42vh" }}
                   data-testid="drama-canvas-overlay"
                 >
                   {alternateCanvasContent}
+                  {orchestrationEvent ? (
+                    <section
+                      data-testid="orchestration-timeline-section"
+                      className={alternateCanvasContent ? "mt-3" : undefined}
+                    >
+                      <ScrollCanvasOrchestrationCard
+                        event={orchestrationEvent}
+                        actions={orchestrationActions}
+                      />
+                    </section>
+                  ) : null}
+                  {showInfiniteOrchestrationExtra ? (
+                    <div
+                      data-testid="orchestration-extra-section"
+                      className={
+                        alternateCanvasContent || orchestrationEvent
+                          ? "mt-3"
+                          : undefined
+                      }
+                    >
+                      {orchestrationExtra}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>

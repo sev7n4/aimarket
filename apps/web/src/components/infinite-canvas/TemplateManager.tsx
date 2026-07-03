@@ -147,8 +147,8 @@ type TemplateManagerProps = {
   connections: CanvasConnection[];
   /** 当前会话 ID（用于"一键重跑"） */
   sessionId?: string;
-  /** 重跑已启动回调（plan run id） */
-  onRunStarted?: (planRunId: string) => void;
+  /** 重跑已启动回调（plan run id + 模板 payload，用于布局还原） */
+  onRunStarted?: (planRunId: string, template: Record<string, unknown>) => void;
   onClose?: () => void;
   initialCollapsed?: boolean;
 };
@@ -262,6 +262,7 @@ export function TemplateManager({
       setRunningId(templateId);
       setError(null);
       try {
+        const tpl = templates.find((t) => t.id === templateId);
         const planRun = await runDramaTemplate(templateId, {
           sessionId,
           autoProduce: false,
@@ -272,14 +273,14 @@ export function TemplateManager({
         });
         setRunDialogId(null);
         setRunIdeaOverride("");
-        onRunStarted?.(planRun.id);
+        onRunStarted?.(planRun.id, tpl?.template ?? {});
       } catch (err) {
         setError(err instanceof Error ? err.message : "重跑失败");
       } finally {
         setRunningId(null);
       }
     },
-    [sessionId, runIdeaOverride, onRunStarted],
+    [sessionId, runIdeaOverride, onRunStarted, templates],
   );
 
   const handleDelete = useCallback(
