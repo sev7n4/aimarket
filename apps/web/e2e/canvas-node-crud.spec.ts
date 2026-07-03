@@ -36,8 +36,8 @@ test.describe("canvas node crud (InfiniteCanvas)", () => {
     const textNode = page.locator('[data-node-id^="text-"]').first();
     await expect(textNode).toBeVisible({ timeout: 10_000 });
 
-    await textNode.click({ button: "right" });
-    await page.getByRole("menuitem", { name: "删除" }).click();
+    await textNode.click();
+    await page.keyboard.press("Delete");
     await expect(page.locator('[data-node-id^="text-"]')).toHaveCount(0);
 
     await pane.dblclick({ position: { x: 300, y: 240 } });
