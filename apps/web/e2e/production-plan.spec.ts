@@ -133,7 +133,9 @@ test.describe("production plan SSE", () => {
 
     const panel = page.getByTestId("drama-studio-panel");
     await expect(panel).toBeVisible({ timeout: 30_000 });
-    await expect(panel.getByText(/分镜板（\d+ 镜）/)).toBeVisible({
+    await expect(
+      panel.getByText(/分镜板（\d+ 镜）/).or(page.locator('[data-node-id^="drama-shot-"]').first()),
+    ).toBeVisible({
       timeout: 30_000,
     });
     await expect(panel.getByText(/角色资产（\d+）/)).toBeVisible();

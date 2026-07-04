@@ -42,6 +42,8 @@ interface DramaStudioPanelProps {
   run?: DramaRun | null;
   runGraph?: DramaRunGraph | null;
   planning?: boolean;
+  /** agent：Scroll 车道完整三栏；workflow：Infinite 节点编排下的精简操作条 */
+  presentation?: "agent" | "workflow";
   shotTimelineOnCanvas?: boolean;
   productionTimelineOnCanvas?: boolean;
   finalVideoOnCanvas?: boolean;
@@ -77,6 +79,7 @@ export function DramaStudioPanel({
   run,
   runGraph = null,
   planning,
+  presentation = "agent",
   shotTimelineOnCanvas,
   productionTimelineOnCanvas,
   finalVideoOnCanvas,
@@ -255,6 +258,8 @@ export function DramaStudioPanel({
 
   if (!project) return null;
 
+  const isWorkflowPresentation = presentation === "workflow";
+
   const pipeline = run?.pipelineSteps ?? [];
   const previewTier = project.productionParams?.previewTier ?? "full";
   const confirmThreshold =
@@ -391,10 +396,12 @@ export function DramaStudioPanel({
         </div>
       ) : null}
 
-      <DramaPlanThread
-        sessionId={sessionId}
-        refreshKey={`${reviewProjectId ?? ""}:${planning ? "p" : "d"}`}
-      />
+      {!isWorkflowPresentation ? (
+        <DramaPlanThread
+          sessionId={sessionId}
+          refreshKey={`${reviewProjectId ?? ""}:${planning ? "p" : "d"}`}
+        />
+      ) : null}
 
       {produceHint ? (
         <div
@@ -405,7 +412,15 @@ export function DramaStudioPanel({
         </div>
       ) : null}
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,0.9fr)]">
+      <div
+        className={
+          isWorkflowPresentation
+            ? "space-y-3"
+            : "grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,0.9fr)]"
+        }
+      >
+        {!isWorkflowPresentation ? (
+        <>
         {/* 左栏：剧本 / 角色 / 场景 */}
         <div className="space-y-3 overflow-y-auto max-h-[70vh] pr-1">
           <section>
@@ -624,6 +639,19 @@ export function DramaStudioPanel({
             />
           )}
         </div>
+        </>
+        ) : (
+          <p
+            className="text-[11px] leading-relaxed text-zinc-500"
+            data-testid="drama-workflow-canvas-hint"
+          >
+            剧本、角色与{" "}
+            <span data-testid="drama-storyboard-on-canvas-hint">
+              分镜板（{project.shots.length} 镜）
+            </span>{" "}
+            已在节点画布中展示；此处为制作与版本操作。
+          </p>
+        )}
 
         {/* 右栏：设置 / 进度 / 操作 */}
         <div className="space-y-3 overflow-y-auto max-h-[70vh]">
