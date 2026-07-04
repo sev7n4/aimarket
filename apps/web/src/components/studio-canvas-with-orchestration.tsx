@@ -21,6 +21,7 @@ import type { AgentExternalAction, CanvasAgentSnapshot } from "@/components/infi
 import type { CanvasAgentOp } from "@/components/infinite-canvas/utils";
 import { applyDramaCanvasOps } from "@/components/infinite-canvas/drama/drama-canvas-mutations";
 import { dramaShotIdFromNodeId } from "@/lib/infinite-node-tool-run";
+import type { DramaStudioViewPhase } from "@/lib/drama-studio-view";
 import { isCanvasFlowMode } from "@/lib/modes";
 
 type StudioCanvasProps = Omit<
@@ -127,13 +128,43 @@ export const StudioCanvasWithOrchestration = forwardRef<
     }
   }, [showShotTimeline, dramaDraftProject?.id]);
 
-  // Phase 5.1: 生产路径总是使用 InfiniteCanvas。
-  // E2E 用例通过 addInitScript 设置 localStorage["aimarket_canvas_flow"] = "0"
-  // 或 URL 参数 ?canvasFlow=0 强制回退到 ScrollCanvas 路径。
-  const [useInfiniteCanvas, setUseInfiniteCanvas] = useState(true);
+  // Phase 5.1 + 阶段分离：规划/迭代走 ScrollCanvas（Agent 车道），方案完成后切 InfiniteCanvas（节点编排）。
+  // E2E 可通过 localStorage["aimarket_canvas_flow"]="0" 或 ?canvasFlow=0 全程 ScrollCanvas。
+  const [canvasFlowEnabled, setCanvasFlowEnabled] = useState(true);
   useEffect(() => {
-    setUseInfiniteCanvas(isCanvasFlowMode());
+    setCanvasFlowEnabled(isCanvasFlowMode());
   }, []);
+
+  const dramaPhaseSplitEnabled =
+    studioMode === "production" &&
+    canvasFlowEnabled &&
+    Boolean(
+      isDramaPlanning ||
+        dramaPlanRun ||
+        dramaDraftProject ||
+        dramaRun,
+    );
+
+  const derivedViewPhase: DramaStudioViewPhase = !dramaPhaseSplitEnabled
+    ? "workflow"
+    : isDramaPlanning
+      ? "agent"
+      : dramaDraftProject?.project || dramaRun?.project
+        ? "workflow"
+        : "agent";
+
+  /** 用户手动切换时覆盖自动推导；新一轮规划开始后清除 */
+  const [manualViewPhase, setManualViewPhase] =
+    useState<DramaStudioViewPhase | null>(null);
+  useEffect(() => {
+    if (isDramaPlanning) setManualViewPhase(null);
+  }, [isDramaPlanning, dramaPlanRun?.id]);
+
+  const viewPhase = manualViewPhase ?? derivedViewPhase;
+
+  const useInfiniteCanvas = dramaPhaseSplitEnabled
+    ? viewPhase === "workflow"
+    : canvasFlowEnabled;
 
   // Compute Drama canvas nodes from the planning result
   const dramaCanvasData = useMemo(() => {
@@ -331,6 +362,11 @@ export const StudioCanvasWithOrchestration = forwardRef<
     [dramaDraftProject?.project, dramaRun?.project, saveDramaDraft],
   );
 
+  const panelPresentation: "agent" | "workflow" =
+    dramaPhaseSplitEnabled && viewPhase === "workflow" && useInfiniteCanvas
+      ? "workflow"
+      : "agent";
+
   const dramaPanel =
     isDramaPlanning || dramaRun || dramaDraftProject ? (
       <DramaStudioPanel
@@ -339,10 +375,11 @@ export const StudioCanvasWithOrchestration = forwardRef<
         run={dramaRun}
         runGraph={dramaRunGraph}
         planning={isDramaPlanning}
+        presentation={panelPresentation}
         busy={dramaBusy || dramaPlanBusy}
-        shotTimelineOnCanvas={!useInfiniteCanvas && showShotTimeline}
-        productionTimelineOnCanvas={!useInfiniteCanvas && showProductionTimeline}
-        finalVideoOnCanvas={!useInfiniteCanvas && showFinalVideo}
+        shotTimelineOnCanvas={useInfiniteCanvas && showShotTimeline}
+        productionTimelineOnCanvas={useInfiniteCanvas && showProductionTimeline}
+        finalVideoOnCanvas={showFinalVideo}
         storyboardView={storyboardView}
         onStoryboardViewChange={setStoryboardView}
         onRerunFromAgent={
@@ -406,14 +443,14 @@ export const StudioCanvasWithOrchestration = forwardRef<
         onPublish={handlePublishToInspiration}
         onUnpublish={handleUnpublishFromInspiration}
       />
-    ) : showProductionTimeline && dramaRun ? (
+    ) : showProductionTimeline && dramaRun && !useInfiniteCanvas ? (
       <DramaProductionTimeline
         run={dramaRun}
         busy={dramaBusy}
         onRetryShot={handleRetryShot}
         onPickKeyframe={handlePickKeyframe}
       />
-    ) : showShotTimeline && timelineProject ? (
+    ) : showShotTimeline && timelineProject && !useInfiniteCanvas ? (
       <DramaShotTimeline
         project={timelineProject}
         readOnly={props.readOnly}
@@ -430,6 +467,11 @@ export const StudioCanvasWithOrchestration = forwardRef<
       ref={ref}
       {...props}
       useInfiniteCanvas={useInfiniteCanvas}
+      dramaPhaseSplitEnabled={dramaPhaseSplitEnabled}
+      dramaViewPhase={dramaPhaseSplitEnabled ? viewPhase : undefined}
+      onDramaViewPhaseChange={
+        dramaPhaseSplitEnabled ? setManualViewPhase : undefined
+      }
       orchestrationEvent={timelineEvent}
       orchestrationActions={timelineActions ?? undefined}
       alternateCanvasContent={alternateCanvasContent}

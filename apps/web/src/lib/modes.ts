@@ -43,9 +43,8 @@ export const PRODUCTION_DOCK_PLACEHOLDER =
 
 /** 节点式画布（InfiniteCanvas）模式：默认开启，可通过 localStorage 或 URL 参数关闭。
  *
- * Phase 5.1 之后，Studio 总是渲染 DesignCanvas；本函数返回 true 时，
- * StudioCanvasWithOrchestration 会启用 InfiniteCanvas 路径（即生产体验）。
- * 返回 false 时，回退到 ScrollCanvas 路径，供 E2E 测试或调试使用。
+ * 制片模式在开启时会做「Agent 车道 (ScrollCanvas) ↔ 节点编排 (InfiniteCanvas)」阶段分离；
+ * 规划/迭代走 Scroll，方案完成后自动切 Infinite。关闭本开关则全程 ScrollCanvas（E2E 兼容）。
  */
 export function isCanvasFlowMode(): boolean {
   if (typeof window === "undefined") return true;

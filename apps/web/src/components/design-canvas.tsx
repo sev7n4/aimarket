@@ -25,6 +25,8 @@ import {
 } from "@/lib/canvas-tools";
 import { TOOL_DISPLAY_NAMES } from "@/lib/studio-tool-meta";
 import { CanvasToolbar } from "@/components/canvas-toolbar";
+import type { DramaStudioViewPhase } from "@/lib/drama-studio-view";
+import { toggleDramaStudioViewPhase } from "@/lib/drama-studio-view";
 import { CanvasContextMenu } from "@/components/canvas-context-menu";
 import { CanvasLightbox } from "@/components/canvas-lightbox";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
@@ -43,7 +45,7 @@ import {
 } from "@/lib/infinite-node-tool-run";
 import { VideoInpaintEditor } from "@/components/video-inpaint-editor";
 import { useIsMobile } from "@/hooks/use-is-mobile";
-import { ArrowLeft, Bookmark, Columns2, Music, Plus } from "lucide-react";
+import { ArrowLeft, Bookmark, Columns2, MessageCircle, Music, Network, Plus } from "lucide-react";
 import type { StudioTool } from "@/lib/types";
 import { InfiniteCanvasContainer } from "@/components/infinite-canvas/InfiniteCanvasContainer";
 import { InfiniteCanvasContextMenu } from "@/components/infinite-canvas/InfiniteCanvasContextMenu";
@@ -209,6 +211,10 @@ interface DesignCanvasProps {
   onPublishItem?: (item: CanvasItem) => void;
   /** 切换到无限画布模式（Phase 1 默认 false，Phase 2 默认 true） */
   useInfiniteCanvas?: boolean;
+  /** 制片模式：Agent 对话车道 vs 节点编排阶段分离 */
+  dramaPhaseSplitEnabled?: boolean;
+  dramaViewPhase?: DramaStudioViewPhase;
+  onDramaViewPhaseChange?: (phase: DramaStudioViewPhase) => void;
   /** Drama 专用画布节点（由 dramaPlanToCanvasNodes 生成，叠加到 InfiniteCanvas 上） */
   dramaNodes?: CanvasNodeData[];
   /** Drama 节点间连线 */
@@ -299,6 +305,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onShareItem,
       onPublishItem,
       useInfiniteCanvas = false,
+      dramaPhaseSplitEnabled = false,
+      dramaViewPhase = "agent",
+      onDramaViewPhaseChange,
       dramaNodes = [],
       dramaConnections = [],
       assistantSnapshot,
@@ -435,15 +444,29 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       jobStreamStatus !== "succeeded" &&
       jobStreamStatus !== "failed";
 
-    // 草稿仅展示画布节点时不必在底部重复挂载 DramaStudioPanel（规划/时间线阶段仍需要）
+    // 节点编排阶段：Infinite 主区 + 精简操作条；Agent 阶段：Scroll 时间线 + 完整 Studio 面板
+    const isWorkflowInfinite =
+      useInfiniteCanvas &&
+      dramaPhaseSplitEnabled &&
+      dramaViewPhase === "workflow";
+
     const showInfiniteOrchestrationExtra =
       Boolean(orchestrationExtra) &&
-      (Boolean(orchestrationEvent) || Boolean(alternateCanvasContent));
+      isWorkflowInfinite;
+
+    const showLegacyInfiniteOrchestration =
+      useInfiniteCanvas &&
+      !dramaPhaseSplitEnabled &&
+      Boolean(orchestrationEvent);
 
     const infiniteOrchestrationDock =
-      alternateCanvasContent ||
-      orchestrationEvent ||
-      showInfiniteOrchestrationExtra;
+      isWorkflowInfinite &&
+      (Boolean(alternateCanvasContent) || showInfiniteOrchestrationExtra);
+    const legacyInfiniteOrchestrationDock =
+      showLegacyInfiniteOrchestration &&
+      (Boolean(alternateCanvasContent) ||
+        Boolean(orchestrationEvent) ||
+        Boolean(orchestrationExtra));
 
     // Agent 面板使用实时画布快照（含 items + dramaNodes），而非 Studio 传入的空 nodes
     const effectiveAssistantSnapshot = useMemo<CanvasAgentSnapshot | null>(() => {
@@ -1202,6 +1225,28 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 <span>{compareMode ? "退出对比" : "Before/After"}</span>
               </button>
             ) : null}
+            {dramaPhaseSplitEnabled && onDramaViewPhaseChange ? (
+              <button
+                type="button"
+                data-testid="drama-view-phase-toggle"
+                onClick={() =>
+                  onDramaViewPhaseChange(toggleDramaStudioViewPhase(dramaViewPhase))
+                }
+                className="flex items-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs text-violet-200 transition hover:bg-violet-500/20"
+              >
+                {dramaViewPhase === "agent" ? (
+                  <>
+                    <Network className="size-3.5" />
+                    <span>节点视图</span>
+                  </>
+                ) : (
+                  <>
+                    <MessageCircle className="size-3.5" />
+                    <span>对话视图</span>
+                  </>
+                )}
+              </button>
+            ) : null}
           </div>
 
           {focusClickActive && focusClickRequest ? (
@@ -1445,6 +1490,22 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                   data-testid="drama-canvas-overlay"
                 >
                   {alternateCanvasContent}
+                  {showInfiniteOrchestrationExtra ? (
+                    <div
+                      data-testid="orchestration-extra-section"
+                      className={alternateCanvasContent ? "mt-3" : undefined}
+                    >
+                      {orchestrationExtra}
+                    </div>
+                  ) : null}
+                </div>
+              ) : legacyInfiniteOrchestrationDock ? (
+                <div
+                  className="shrink-0 overflow-y-auto border-t border-white/10 p-2 sm:p-3"
+                  style={{ maxHeight: "42vh" }}
+                  data-testid="drama-canvas-overlay"
+                >
+                  {alternateCanvasContent}
                   {orchestrationEvent ? (
                     <section
                       data-testid="orchestration-timeline-section"
@@ -1456,7 +1517,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                       />
                     </section>
                   ) : null}
-                  {showInfiniteOrchestrationExtra ? (
+                  {orchestrationExtra ? (
                     <div
                       data-testid="orchestration-extra-section"
                       className={
