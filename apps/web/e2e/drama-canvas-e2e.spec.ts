@@ -1,13 +1,14 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 /**
- * Phase 5.7.1: drama 节点在 InfiniteCanvas 生产路径下渲染 + DramaPropertyPanel 双击可打开。
+ * Phase 5.7.1: drama 节点在 InfiniteCanvas 节点视图下渲染 + 选中节点出现创作台。
  *
  * 注意:
  * - 不调用 skipStudioCoach, 以便 isCanvasFlowMode() 默认返回 true (生产路径)。
  * - 不调用 enableCanvasFlow() (helper 默认是 scroll 模式)。
  * - drama 节点来自 dramaPlanToCanvasNodes(dramaDraftProject.project), 因此 mock state 需带 draftProject。
  * - 故意 shots=[] 以避免 showShotTimeline 替换 InfiniteCanvas 主区。
+ * - 有 draft 时默认 Agent 车道；测试需手动点「节点视图」再断言 Infinite 节点。
  */
 
 const API_BASE = process.env.E2E_API_URL ?? "http://127.0.0.1:4000";
@@ -168,14 +169,22 @@ async function openStudioWithDramaDraft(
       .querySelectorAll('[aria-label="跳过引导"]')
       .forEach((el) => el.closest(".fixed.inset-0")?.remove());
   });
+}
 
+async function switchToInfiniteNodeView(page: Page) {
+  const toggle = page.getByTestId("drama-view-phase-toggle");
+  await expect(toggle).toBeVisible({ timeout: 15_000 });
+  await toggle.click();
+  await expect(page.getByTestId("infinite-canvas-pane")).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page.locator('[data-node-id="drama-script"]')).toBeVisible({
     timeout: 30_000,
   });
 }
 
 test.describe("drama canvas (InfiniteCanvas 生产路径)", () => {
-  test("drama 节点渲染 + DramaPropertyPanel 双击可打开", async ({
+  test("drama 节点渲染 + 选中节点出现创作台", async ({
     page,
     request,
   }) => {
@@ -186,6 +195,7 @@ test.describe("drama canvas (InfiniteCanvas 生产路径)", () => {
       "drama_cv",
     );
     await openStudioWithDramaDraft(page, request, token, sessionId, userId);
+    await switchToInfiniteNodeView(page);
 
     // 1) Drama 节点在 InfiniteCanvas 上渲染 — 走 data-node-id 选择器
     const scriptNode = page.locator('[data-node-id="drama-script"]');
@@ -195,21 +205,19 @@ test.describe("drama canvas (InfiniteCanvas 生产路径)", () => {
     const sceneNode = page.locator('[data-node-id="drama-scene-scene-1"]');
     await expect(sceneNode).toBeVisible({ timeout: 15_000 });
 
-    // 2) 双击 script 节点 → DramaPropertyPanel 打开
-    // 用 dispatchEvent 显式触发 dblclick, 避免 Playwright dblclick 在
-    // React 合成事件链中失效
-    await scriptNode.dispatchEvent("dblclick");
-    const panel = page.getByTestId("drama-property-panel");
-    await expect(panel).toBeVisible({ timeout: 10_000 });
-    await expect(panel).toHaveAttribute("data-drama-node-type", "script");
+    // 2) 单击 script 节点 → 节点下方创作台
+    await scriptNode.click();
+    const dock = page.getByTestId("infinite-node-studio-dock");
+    await expect(dock).toBeVisible({ timeout: 10_000 });
+    await expect(dock).toHaveAttribute("data-node-id", "drama-script");
 
-    // 3) 关闭面板后, 双击 character 节点切换 panel 内容
-    await panel.getByRole("button", { name: "关闭面板" }).click();
-    await expect(panel).toBeHidden({ timeout: 5_000 });
+    // 3) 关闭后选中 character 节点切换创作台
+    await dock.getByRole("button", { name: "关闭节点创作台" }).click();
+    await expect(dock).toBeHidden({ timeout: 5_000 });
 
-    await charNode.dblclick();
-    await expect(panel).toBeVisible({ timeout: 10_000 });
-    await expect(panel).toHaveAttribute("data-drama-node-type", "character");
+    await charNode.click();
+    await expect(dock).toBeVisible({ timeout: 10_000 });
+    await expect(dock).toHaveAttribute("data-node-id", "drama-char-char-owner");
   });
 
   test("drama 节点右键菜单可用 (脚本/分镜工具)", async ({ page, request }) => {
@@ -220,6 +228,7 @@ test.describe("drama canvas (InfiniteCanvas 生产路径)", () => {
       "drama_cv_ctx",
     );
     await openStudioWithDramaDraft(page, request, token, sessionId, userId);
+    await switchToInfiniteNodeView(page);
 
     const scriptNode = page.locator('[data-node-id="drama-script"]');
     await expect(scriptNode).toBeVisible({ timeout: 30_000 });
