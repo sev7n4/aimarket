@@ -13,6 +13,22 @@ export type DramaPlanStreamEvent =
       project: import("./types").DramaProjectPayload;
     }
   | {
+      type: "project_snapshot";
+      projectId: string;
+      project: import("./types").DramaProjectPayload;
+    }
+  | {
+      type: "character_tool_start";
+      characterId: string;
+      characterName: string;
+      tool: "turnaround" | "voice";
+    }
+  | {
+      type: "character_tool_done";
+      characterId: string;
+      tool: "turnaround" | "voice";
+    }
+  | {
       type: "plan_complete";
       projectId: string;
       estimatedPoints: number;

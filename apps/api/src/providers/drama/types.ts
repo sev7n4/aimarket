@@ -1,6 +1,7 @@
 export interface TtsParams {
   text: string;
   voiceStyle?: string;
+  voiceId?: string;
   characterId?: string;
   jobId?: string;
 }

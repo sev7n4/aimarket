@@ -1,9 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useCallback } from "react";
 import { Loader2, Palette, Users } from "lucide-react";
 import type { DramaPlanStreamEvent } from "@/lib/drama-plan-stream";
 import type { DramaProjectPayload } from "@/lib/types";
+import { fetchDramaVoices } from "@/lib/api-client";
 import { allCharactersLockedForProduce } from "@/lib/drama-character-helpers";
 import { DramaScriptCard } from "@/components/drama/drama-script-card";
 import { DramaSceneCardView } from "@/components/drama/drama-scene-card";
@@ -13,10 +15,15 @@ import { DramaBadge } from "@/components/drama/drama-badge";
 
 interface DramaPlanDocumentPanelProps {
   partialProject?: DramaProjectPayload | null;
+  projectId?: string;
+  readOnly?: boolean;
+  busy?: boolean;
   currentAgent?: string | null;
   events?: DramaPlanStreamEvent[];
   status?: "planning" | "completed" | "failed";
   planTitle?: string;
+  onProjectUpdate?: (project: DramaProjectPayload) => void;
+  onSaveProject?: (project: DramaProjectPayload) => Promise<void>;
   onConfirmProduce?: () => void;
   produceBusy?: boolean;
   produceHint?: string | null;
@@ -135,10 +142,15 @@ function hasStyle(project: DramaProjectPayload): boolean {
 
 export function DramaPlanDocumentPanel({
   partialProject,
+  projectId,
+  readOnly,
+  busy,
   currentAgent,
   events = [],
   status = "planning",
   planTitle,
+  onProjectUpdate,
+  onSaveProject,
   onConfirmProduce,
   produceBusy,
   produceHint,
@@ -147,6 +159,49 @@ export function DramaPlanDocumentPanel({
   const charactersLocked = partialProject
     ? allCharactersLockedForProduce(partialProject.characters)
     : false;
+
+  const handleProjectUpdate = useCallback(
+    (project: DramaProjectPayload) => {
+      onProjectUpdate?.(project);
+    },
+    [onProjectUpdate],
+  );
+
+  const handleVoiceChange = useCallback(
+    async (characterId: string, voiceId: string) => {
+      if (!partialProject || readOnly) return;
+      const voices = await fetchDramaVoices().catch(() => []);
+      const voice = voices.find((v) => v.id === voiceId);
+      const next: DramaProjectPayload = {
+        ...partialProject,
+        characters: partialProject.characters.map((c) =>
+          c.id === characterId
+            ? { ...c, voiceId, voiceStyle: voice?.label ?? c.voiceStyle }
+            : c,
+        ),
+      };
+      handleProjectUpdate(next);
+      if (onSaveProject) await onSaveProject(next);
+    },
+    [partialProject, readOnly, handleProjectUpdate, onSaveProject],
+  );
+
+  const handleLockCharacter = useCallback(
+    async (characterId: string, lockStatus: "draft" | "locked") => {
+      if (!partialProject || readOnly) return;
+      const next: DramaProjectPayload = {
+        ...partialProject,
+        characters: partialProject.characters.map((c) =>
+          c.id === characterId ? { ...c, turnaroundStatus: lockStatus } : c,
+        ),
+      };
+      handleProjectUpdate(next);
+      if (onSaveProject) await onSaveProject(next);
+    },
+    [partialProject, readOnly, handleProjectUpdate, onSaveProject],
+  );
+
+  const interactive = Boolean(projectId) && !readOnly;
   const title =
     planTitle ??
     partialProject?.script?.title ??
@@ -237,9 +292,18 @@ export function DramaPlanDocumentPanel({
                     <DramaCharacterCardView
                       key={character.id}
                       character={character}
-                      projectId=""
-                      readOnly
-                      onProjectUpdate={() => {}}
+                      projectId={projectId ?? ""}
+                      readOnly={!interactive}
+                      busy={busy}
+                      onProjectUpdate={handleProjectUpdate}
+                      onLockCharacter={
+                        interactive && onSaveProject
+                          ? handleLockCharacter
+                          : undefined
+                      }
+                      onVoiceChange={
+                        interactive && onSaveProject ? handleVoiceChange : undefined
+                      }
                     />
                   ))}
                 </div>

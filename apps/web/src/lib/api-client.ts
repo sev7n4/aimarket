@@ -1697,6 +1697,13 @@ export async function updateDramaProjectApi(
   return res.data;
 }
 
+export async function fetchDramaVoices() {
+  const res = await request<{ data: import("./types").DramaVoiceOption[] }>(
+    "/api/v1/drama/voices",
+  );
+  return res.data;
+}
+
 export async function estimateDramaPoints(query?: {
   shotCount?: number;
   charCount?: number;

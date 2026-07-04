@@ -22,6 +22,7 @@ import {
   planDramaProjectMultiAgentWithEvents,
 } from "./planner/index.js";
 import { mergePlanningContext } from "./planner/merge.js";
+import { dispatchPlanningCharacterTurnarounds } from "./planning-character-assets.js";
 import { projectToPlanningContext } from "./planner/project-to-context.js";
 import { isDramaMultiAgentPlanEnabled } from "./planner/reasoning.js";
 import {
@@ -107,7 +108,10 @@ function handlePlanStreamEvent(
   ) {
     updateDramaPlanRun(runId, { agents, reasoning });
   } else if (event.type === "agent_snapshot") {
-    persistPlanSnapshot(row, userId, runId, event.project);
+    const projectId = persistPlanSnapshot(row, userId, runId, event.project);
+    if (event.agent === "character") {
+      dispatchPlanningCharacterTurnarounds({ runId, userId, projectId });
+    }
   }
 }
 

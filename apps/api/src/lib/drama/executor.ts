@@ -39,6 +39,7 @@ import {
 import { buildJobObservation } from "../agent/job-observation.js";
 import { db } from "../../db/index.js";
 import { dramaImageGenerationJobParams } from "./image-job.js";
+import { characterTurnaroundRefsComplete } from "./character-turnaround.js";
 
 const MAX_KEYFRAME_RETRIES = 2;
 const MAX_KEYFRAME_PARALLEL = Number(process.env.DRAMA_KEYFRAME_PARALLEL ?? 3);
@@ -454,6 +455,7 @@ function startTtsJob(
     sourceLane: "agent",
     toolContext: {
       voiceStyle: char?.voiceStyle,
+      voiceId: char?.voiceId,
       characterId: line.characterId,
       dramaShotId: shot.id,
     },
@@ -583,7 +585,7 @@ function startJobForStep(
       let p = progress;
       while (p.charRefIndex < project.characters.length) {
         const char = project.characters[p.charRefIndex]!;
-        if (characterHasManualRef(char)) {
+        if (characterHasManualRef(char) || characterTurnaroundRefsComplete(char)) {
           p = { ...p, charRefAngleIndex: 0, charRefIndex: p.charRefIndex + 1 };
           continue;
         }

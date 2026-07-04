@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { User } from "lucide-react";
 
+import { DramaVoicePicker } from "@/components/drama-voice-picker";
 import { DramaAssetCardShell } from "@/components/drama/drama-asset-card-shell";
 import {
   fetchDramaProject,
@@ -27,6 +28,7 @@ interface DramaCharacterCardViewProps {
     characterId: string,
     status: "draft" | "locked",
   ) => Promise<void>;
+  onVoiceChange?: (characterId: string, voiceId: string) => void;
   onUploadRef?: () => void;
   uploadingRef?: boolean;
 }
@@ -39,6 +41,7 @@ export function DramaCharacterCardView({
   busy,
   onProjectUpdate,
   onLockCharacter,
+  onVoiceChange,
   onUploadRef,
   uploadingRef,
 }: DramaCharacterCardViewProps) {
@@ -53,12 +56,31 @@ export function DramaCharacterCardView({
   }, []);
 
   const refreshProject = useCallback(async () => {
+    if (!projectId) return null as unknown as DramaProjectPayload;
     const next = await fetchDramaProject(projectId);
     onProjectUpdate(next.project);
     return next.project;
   }, [projectId, onProjectUpdate]);
 
+  const locked = character.turnaroundStatus === "locked";
+  const refsComplete = characterTurnaroundRefsComplete(character);
+
   useEffect(() => () => stopPoll(), [stopPoll]);
+
+  useEffect(() => {
+    if (readOnly || !projectId || refsComplete) return;
+    setGenerating(true);
+    const timer = setInterval(() => {
+      void refreshProject().then((project) => {
+        if (!project) return;
+        const char = project.characters.find((c) => c.id === character.id);
+        if (char && characterTurnaroundRefsComplete(char)) {
+          setGenerating(false);
+        }
+      });
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [readOnly, projectId, refsComplete, refreshProject, character.id]);
 
   const handleGenerate = useCallback(async () => {
     if (readOnly || busy || generating) return;
@@ -103,8 +125,6 @@ export function DramaCharacterCardView({
     [readOnly, busy, onLockCharacter, character.id],
   );
 
-  const locked = character.turnaroundStatus === "locked";
-  const refsComplete = characterTurnaroundRefsComplete(character);
   const vs = character.visualSignature;
   const frontUrl = characterRefImageUrl(character, "front");
 
@@ -211,6 +231,18 @@ export function DramaCharacterCardView({
         <span>·</span>
         <span>{vs.signatureOutfit}</span>
       </div>
+
+      {onVoiceChange ? (
+        <DramaVoicePicker
+          value={character.voiceId}
+          disabled={readOnly || busy || locked}
+          onChange={(voiceId) => onVoiceChange(character.id, voiceId)}
+        />
+      ) : character.voiceStyle ? (
+        <p className="text-[10px] text-violet-300/80">
+          音色：{character.voiceStyle}
+        </p>
+      ) : null}
 
       <div
         className="grid grid-cols-3 gap-1.5"

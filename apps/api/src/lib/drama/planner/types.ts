@@ -143,6 +143,18 @@ export type DramaPlanEvent =
   | { type: "agent_reasoning"; agent: DramaPlanAgentId; chunk: string }
   | { type: "agent_done"; agent: DramaPlanAgentId; summary: string }
   | { type: "agent_snapshot"; agent: DramaPlanAgentId; project: DramaProjectData }
+  | { type: "project_snapshot"; projectId: string; project: DramaProjectData }
+  | {
+      type: "character_tool_start";
+      characterId: string;
+      characterName: string;
+      tool: "turnaround" | "voice";
+    }
+  | {
+      type: "character_tool_done";
+      characterId: string;
+      tool: "turnaround" | "voice";
+    }
   | {
       type: "plan_complete";
       projectId: string;

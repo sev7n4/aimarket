@@ -289,6 +289,7 @@ export interface DramaCharacterCard {
   personalityTone: string;
   promptAnchor: string;
   voiceStyle?: string;
+  voiceId?: string;
   visualSignature: {
     ageRange: string;
     faceShape: string;
@@ -313,6 +314,13 @@ export interface DramaCharacterCard {
     three_quarter: string;
     side: string;
   }>;
+}
+
+export interface DramaVoiceOption {
+  id: string;
+  label: string;
+  description: string;
+  sampleText: string;
 }
 
 export interface DramaStoryboardShot {

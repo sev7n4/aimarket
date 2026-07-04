@@ -76,6 +76,7 @@ interface StudioOrchestrationContextValue {
   dramaPlanRun: DramaPlanRunState | null;
   dramaPlanEvents: DramaPlanStreamEvent[];
   dramaPlanPartialProject: DramaProjectPayload | null;
+  updateDramaPlanPartialProject: (project: DramaProjectPayload) => void;
   orchestrationPrompt: string;
   saveDramaDraft: ReturnType<typeof useDramaRun>["saveDraftProject"];
   agentBusy: boolean;
@@ -303,6 +304,7 @@ export function StudioOrchestrationProvider({
     resetPlan: resetDramaPlan,
     restorePlan: restoreDramaPlan,
     resumePlanRun: resumeDramaPlanRun,
+    updatePartialProject: updateDramaPlanPartialProject,
   } = useDramaPlan({
     sessionId,
     enabled: orchestrationEnabled,
@@ -870,6 +872,7 @@ export function StudioOrchestrationProvider({
       dramaPlanRun,
       dramaPlanEvents,
       dramaPlanPartialProject,
+      updateDramaPlanPartialProject,
       orchestrationPrompt: input.prompt,
       saveDramaDraft,
       agentBusy,
@@ -923,6 +926,7 @@ export function StudioOrchestrationProvider({
       dramaPlanRun,
       dramaPlanEvents,
       dramaPlanPartialProject,
+      updateDramaPlanPartialProject,
       input.prompt,
       saveDramaDraft,
       agentBusy,

@@ -11,9 +11,14 @@ interface DramaAgentPlanWorkspaceProps {
   events: DramaPlanStreamEvent[];
   currentAgent?: string | null;
   partialProject?: DramaProjectPayload | null;
+  projectId?: string;
+  readOnly?: boolean;
+  busy?: boolean;
   status?: "planning" | "completed" | "failed";
   error?: string | null;
   refreshKey?: string | number;
+  onProjectUpdate?: (project: DramaProjectPayload) => void;
+  onSaveProject?: (project: DramaProjectPayload) => Promise<void>;
   onRerunFromAgent?: (agent: string) => void;
   rerunBusy?: boolean;
   onConfirmProduce?: () => void;
@@ -28,9 +33,14 @@ export function DramaAgentPlanWorkspace({
   events,
   currentAgent,
   partialProject,
+  projectId,
+  readOnly,
+  busy,
   status = "planning",
   error,
   refreshKey,
+  onProjectUpdate,
+  onSaveProject,
   onRerunFromAgent,
   rerunBusy,
   onConfirmProduce,
@@ -58,10 +68,15 @@ export function DramaAgentPlanWorkspace({
       <div className="min-h-0 w-full flex-1 lg:w-[55%]">
         <DramaPlanDocumentPanel
           partialProject={partialProject}
+          projectId={projectId}
+          readOnly={readOnly}
+          busy={busy}
           currentAgent={currentAgent}
           events={events}
           status={status}
           planTitle={partialProject?.script?.title}
+          onProjectUpdate={onProjectUpdate}
+          onSaveProject={onSaveProject}
           onConfirmProduce={onConfirmProduce}
           produceBusy={produceBusy}
           produceHint={produceHint}

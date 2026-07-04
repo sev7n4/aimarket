@@ -26,6 +26,7 @@ const TASK_TREE: {
     label: "设计角色与主体形象",
     subSteps: [
       { id: "char-features", label: "设计角色特征" },
+      { id: "char-voice", label: "选择旁白音色", tool: true },
       { id: "char-gen", label: "调用工具生成角色图", tool: true },
     ],
   },
@@ -40,6 +41,44 @@ const TASK_TREE: {
     subSteps: [{ id: "sb-table", label: "分镜字段与时长" }],
   },
 ];
+
+function toolEvents(events: DramaPlanStreamEvent[]) {
+  const started = new Set<string>();
+  const done = new Set<string>();
+  for (const e of events) {
+    if (e.type === "character_tool_start") {
+      started.add(`${e.characterId}:${e.tool}`);
+    }
+    if (e.type === "character_tool_done") {
+      done.add(`${e.characterId}:${e.tool}`);
+    }
+  }
+  return { started, done };
+}
+
+function subStepState(
+  subId: string,
+  agentDone: boolean,
+  current: boolean,
+  tools: ReturnType<typeof toolEvents>,
+): "pending" | "running" | "done" {
+  if (subId === "char-features") {
+    return agentDone ? "done" : current ? "running" : "pending";
+  }
+  if (subId === "char-voice") {
+    const voiceDone = [...tools.done].some((k) => k.endsWith(":voice"));
+    if (voiceDone) return "done";
+    const voiceRunning = [...tools.started].some((k) => k.endsWith(":voice"));
+    return voiceRunning || (agentDone && !voiceDone) ? "running" : "pending";
+  }
+  if (subId === "char-gen") {
+    const genDone = [...tools.done].some((k) => k.endsWith(":turnaround"));
+    if (genDone) return "done";
+    const genRunning = [...tools.started].some((k) => k.endsWith(":turnaround"));
+    return genRunning ? "running" : agentDone ? "pending" : "pending";
+  }
+  return agentDone ? "done" : current ? "running" : "pending";
+}
 
 function doneAgents(events: DramaPlanStreamEvent[]): Set<string> {
   return new Set(
@@ -61,6 +100,7 @@ export function DramaPlanTaskTree({
   status = "planning",
 }: DramaPlanTaskTreeProps) {
   const completed = useMemo(() => doneAgents(events), [events]);
+  const tools = useMemo(() => toolEvents(events), [events]);
   const [expanded, setExpanded] = useState<Set<string>>(
     () => new Set(TASK_TREE.map((t) => t.agent)),
   );
@@ -143,16 +183,23 @@ export function DramaPlanTaskTree({
 
             {hasSubs && open ? (
               <ul className="ml-9 mt-2 space-y-1 border-l border-white/10 pl-3">
-                {task.subSteps!.map((sub) => (
+                {task.subSteps!.map((sub) => {
+                  const subState = subStepState(
+                    sub.id,
+                    done,
+                    current,
+                    tools,
+                  );
+                  return (
                   <li
                     key={sub.id}
                     className="flex items-center gap-2 text-[10px] text-zinc-500"
                   >
                     <span
                       className={`size-1.5 shrink-0 rounded-full ${
-                        done
+                        subState === "done"
                           ? "bg-emerald-500/80"
-                          : current
+                          : subState === "running"
                             ? "bg-orange-400/80"
                             : "bg-white/20"
                       }`}
@@ -161,7 +208,8 @@ export function DramaPlanTaskTree({
                       {sub.label}
                     </span>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             ) : null}
           </li>

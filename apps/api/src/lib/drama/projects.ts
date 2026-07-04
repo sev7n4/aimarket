@@ -36,6 +36,15 @@ function enrichProjectCharacters(project: DramaProjectData): DramaProjectData {
   };
 }
 
+export function getEnrichedProjectData(
+  userId: string,
+  projectId: string,
+): DramaProjectData | null {
+  const row = getDramaProject(userId, projectId);
+  if (!row) return null;
+  return enrichProjectCharacters(parseProjectJson(row));
+}
+
 export interface DramaProjectRow {
   id: string;
   session_id: string;
