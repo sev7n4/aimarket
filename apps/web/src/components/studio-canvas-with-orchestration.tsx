@@ -9,6 +9,7 @@ import { DramaFinalVideoPanel } from "@/components/drama-final-video-panel";
 import { DramaProductionTimeline } from "@/components/drama-production-timeline";
 import { DramaShotTimeline } from "@/components/drama-shot-timeline";
 import { DramaTimelineEditor } from "@/components/drama-timeline-editor";
+import { DramaAgentPlanWorkspace } from "@/components/drama-agent-plan-workspace";
 import { DramaStudioPanel } from "@/components/drama-studio-panel";
 import { useStudioOrchestration } from "@/components/studio-orchestration-provider";
 import type { DramaNodeRerunPatch } from "@/components/drama-node-graph";
@@ -45,6 +46,9 @@ export const StudioCanvasWithOrchestration = forwardRef<
     dramaRunGraph,
     dramaDraftProject,
     dramaPlanRun,
+    dramaPlanEvents,
+    dramaPlanPartialProject,
+    orchestrationPrompt,
     dramaBusy,
     saveDramaDraft,
     confirmOrchestration,
@@ -102,12 +106,6 @@ export const StudioCanvasWithOrchestration = forwardRef<
     dramaRun != null &&
     dramaRun.status !== "waiting_confirm" &&
     !showFinalVideo;
-  const showShotTimeline =
-    studioMode === "production" &&
-    Boolean(dramaDraftProject?.project.shots.length) &&
-    !isDramaPlanning &&
-    !showProductionTimeline &&
-    !showFinalVideo;
 
   const [timelineProject, setTimelineProject] =
     useState<DramaProjectPayload | null>(null);
@@ -123,12 +121,6 @@ export const StudioCanvasWithOrchestration = forwardRef<
       setTimelineProject(null);
     }
   }, [dramaDraftProject?.id, dramaDraftProject?.project]);
-
-  useEffect(() => {
-    if (showShotTimeline) {
-      setStoryboardView("timeline");
-    }
-  }, [showShotTimeline, dramaDraftProject?.id]);
 
   // Phase 5.1 + 阶段分离：默认 ScrollCanvas（Agent 车道）；仅用户手动点「节点视图」才进 InfiniteCanvas。
   // E2E 可通过 localStorage["aimarket_canvas_flow"]="0" 或 ?canvasFlow=0 全程 ScrollCanvas。
@@ -165,6 +157,40 @@ export const StudioCanvasWithOrchestration = forwardRef<
     studioMode === "production"
       ? dramaPhaseSplitEnabled && viewPhase === "workflow"
       : canvasFlowEnabled;
+
+  const showAgentPlanWorkspace =
+    studioMode === "production" &&
+    !useInfiniteCanvas &&
+    !showFinalVideo &&
+    !showProductionTimeline &&
+    (isDramaPlanning ||
+      (Boolean(dramaDraftProject) &&
+        !dramaRun &&
+        dramaPlanRun?.status !== "failed"));
+
+  const planWorkspaceProject =
+    dramaPlanPartialProject ?? dramaDraftProject?.project ?? null;
+
+  const planWorkspaceStatus: "planning" | "completed" | "failed" =
+    dramaPlanRun?.status === "failed"
+      ? "failed"
+      : isDramaPlanning
+        ? "planning"
+        : "completed";
+
+  const showShotTimeline =
+    studioMode === "production" &&
+    Boolean(dramaDraftProject?.project.shots.length) &&
+    !isDramaPlanning &&
+    !showProductionTimeline &&
+    !showFinalVideo &&
+    !showAgentPlanWorkspace;
+
+  useEffect(() => {
+    if (showShotTimeline) {
+      setStoryboardView("timeline");
+    }
+  }, [showShotTimeline, dramaDraftProject?.id]);
 
   // Compute Drama canvas nodes from the planning result
   const dramaCanvasData = useMemo(() => {
@@ -367,8 +393,15 @@ export const StudioCanvasWithOrchestration = forwardRef<
       ? "workflow"
       : "agent";
 
-  const dramaPanel =
-    !isDramaPlanning && (dramaRun || dramaDraftProject) ? (
+  const showDramaStudioPanel =
+    Boolean(dramaRun || dramaDraftProject) && !showAgentPlanWorkspace;
+
+  const scrollOrchestrationEvent =
+    showAgentPlanWorkspace && timelineEvent?.runType === "drama_plan"
+      ? null
+      : timelineEvent;
+
+  const dramaPanel = showDramaStudioPanel ? (
       <DramaStudioPanel
         sessionId={sessionId}
         draftProject={dramaDraftProject}
@@ -450,6 +483,30 @@ export const StudioCanvasWithOrchestration = forwardRef<
         onRetryShot={handleRetryShot}
         onPickKeyframe={handlePickKeyframe}
       />
+    ) : showAgentPlanWorkspace &&
+      (isDramaPlanning || planWorkspaceProject) ? (
+      <DramaAgentPlanWorkspace
+        sessionId={sessionId}
+        prompt={orchestrationPrompt}
+        events={dramaPlanEvents}
+        currentAgent={dramaPlanRun?.currentAgent}
+        partialProject={planWorkspaceProject}
+        status={planWorkspaceStatus}
+        error={dramaPlanRun?.error}
+        refreshKey={dramaPlanRun?.id ?? dramaDraftProject?.id}
+        onRerunFromAgent={
+          dramaPlanRun?.status === "completed" ||
+          dramaPlanRun?.status === "failed"
+            ? handleRerunFromAgent
+            : undefined
+        }
+        rerunBusy={dramaPlanBusy}
+        onConfirmProduce={
+          planWorkspaceStatus === "completed" ? handleConfirmProduce : undefined
+        }
+        produceBusy={dramaBusy || dramaPlanBusy}
+        produceHint={dramaProduceHint}
+      />
     ) : showShotTimeline && timelineProject && !useInfiniteCanvas ? (
       <DramaShotTimeline
         project={timelineProject}
@@ -473,7 +530,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
         dramaPhaseSplitEnabled ? setManualViewPhase : undefined
       }
       onInfiniteWorkflowActiveChange={props.onInfiniteWorkflowActiveChange}
-      orchestrationEvent={timelineEvent}
+      orchestrationEvent={scrollOrchestrationEvent}
       orchestrationActions={timelineActions ?? undefined}
       alternateCanvasContent={alternateCanvasContent}
       orchestrationExtra={dramaPanel}

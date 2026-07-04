@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Loader2, X } from "lucide-react";
-import { DramaPlanArtifactCards } from "@/components/drama-plan-artifact-cards";
+import { DramaPlanTimeline } from "@/components/drama-plan-timeline";
 import type {
   OrchestrationTimelineActions,
   OrchestrationTimelineEvent,
@@ -30,11 +30,10 @@ export function ScrollCanvasOrchestrationCard({
 }: ScrollCanvasOrchestrationCardProps) {
   if (event.runType === "drama_plan") {
     return (
-      <DramaPlanArtifactCards
+      <DramaPlanTimeline
         prompt={event.prompt}
         currentAgent={event.dramaPlanCurrentAgent}
         events={event.dramaPlanEvents ?? []}
-        partialProject={event.dramaPlanPartialProject ?? null}
         status={
           event.status === "failed"
             ? "failed"
