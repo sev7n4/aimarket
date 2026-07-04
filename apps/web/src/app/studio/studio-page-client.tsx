@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import type { CreationMode } from "@aimarket/ui";
 import { StudioWorkspace } from "@/components/studio-workspace";
 import { parseSessionKind } from "@/lib/session-kind";
+import { getActiveWorkspaceId } from "@/lib/active-workspace";
 import {
   getOrCreateDraftSessionId,
   writeDraftSessionId,
@@ -23,20 +24,21 @@ export function StudioPageClient() {
   const searchParams = useSearchParams();
   const sessionIdFromUrl = searchParams.get("sessionId");
 
-  const sessionId = useMemo(
-    () => sessionIdFromUrl ?? getOrCreateDraftSessionId(),
-    [sessionIdFromUrl],
-  );
+  const sessionId = useMemo(() => {
+    const wsId = getActiveWorkspaceId();
+    return sessionIdFromUrl ?? getOrCreateDraftSessionId(wsId);
+  }, [sessionIdFromUrl]);
 
   useEffect(() => {
+    const wsId = getActiveWorkspaceId();
     if (sessionIdFromUrl) {
-      writeDraftSessionId(sessionIdFromUrl);
+      writeDraftSessionId(sessionIdFromUrl, wsId);
       return;
     }
     const url = new URL(window.location.href);
     url.searchParams.set("sessionId", sessionId);
     window.history.replaceState(null, "", url.toString());
-    writeDraftSessionId(sessionId);
+    writeDraftSessionId(sessionId, wsId);
   }, [sessionId, sessionIdFromUrl]);
 
   const mode = parseMode(searchParams.get("mode"));
