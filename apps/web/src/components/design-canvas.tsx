@@ -77,6 +77,7 @@ function enrichNodesWithBatchIndex(nodes: CanvasNodeData[]): CanvasNodeData[] {
   });
 }
 import { DramaPropertyPanel } from "@/components/infinite-canvas/drama/DramaPropertyPanel";
+import { InfiniteNodeStudioDock } from "@/components/infinite-canvas/InfiniteNodeStudioDock";
 import { CanvasAssistantPanel } from "@/components/infinite-canvas/agent/CanvasAssistantPanel";
 import { TemplateManager } from "@/components/infinite-canvas/TemplateManager";
 import { MusicGenPanel } from "@/components/infinite-canvas/drama/MusicGenPanel";
@@ -215,6 +216,8 @@ interface DesignCanvasProps {
   dramaPhaseSplitEnabled?: boolean;
   dramaViewPhase?: DramaStudioViewPhase;
   onDramaViewPhaseChange?: (phase: DramaStudioViewPhase) => void;
+  /** 节点编排 Infinite 模式激活时通知外层（用于隐藏全局底部 Dock） */
+  onInfiniteWorkflowActiveChange?: (active: boolean) => void;
   /** Drama 专用画布节点（由 dramaPlanToCanvasNodes 生成，叠加到 InfiniteCanvas 上） */
   dramaNodes?: CanvasNodeData[];
   /** Drama 节点间连线 */
@@ -308,6 +311,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       dramaPhaseSplitEnabled = false,
       dramaViewPhase = "agent",
       onDramaViewPhaseChange,
+      onInfiniteWorkflowActiveChange,
       dramaNodes = [],
       dramaConnections = [],
       assistantSnapshot,
@@ -450,23 +454,32 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       dramaPhaseSplitEnabled &&
       dramaViewPhase === "workflow";
 
-    const showInfiniteOrchestrationExtra =
-      Boolean(orchestrationExtra) &&
-      isWorkflowInfinite;
-
     const showLegacyInfiniteOrchestration =
       useInfiniteCanvas &&
       !dramaPhaseSplitEnabled &&
       Boolean(orchestrationEvent);
 
     const infiniteOrchestrationDock =
-      isWorkflowInfinite &&
-      (Boolean(alternateCanvasContent) || showInfiniteOrchestrationExtra);
+      isWorkflowInfinite && Boolean(alternateCanvasContent);
     const legacyInfiniteOrchestrationDock =
       showLegacyInfiniteOrchestration &&
       (Boolean(alternateCanvasContent) ||
         Boolean(orchestrationEvent) ||
         Boolean(orchestrationExtra));
+
+    useEffect(() => {
+      onInfiniteWorkflowActiveChange?.(isWorkflowInfinite);
+    }, [isWorkflowInfinite, onInfiniteWorkflowActiveChange]);
+
+    const activeInfiniteStudioNodeId = useMemo(() => {
+      if (!isWorkflowInfinite || infiniteSelectedIds.length !== 1) return null;
+      return infiniteSelectedIds[0] ?? null;
+    }, [isWorkflowInfinite, infiniteSelectedIds]);
+
+    useEffect(() => {
+      if (!isWorkflowInfinite) return;
+      setDramaPanelNodeId(activeInfiniteStudioNodeId);
+    }, [activeInfiniteStudioNodeId, isWorkflowInfinite]);
 
     // Agent 面板使用实时画布快照（含 items + dramaNodes），而非 Studio 传入的空 nodes
     const effectiveAssistantSnapshot = useMemo<CanvasAgentSnapshot | null>(() => {
@@ -604,6 +617,43 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onInfiniteConnectionsChange,
       pushHistory,
     ]);
+
+    const renderInfiniteNodeStudioPanel = useCallback(
+      (node: CanvasNodeData) => {
+        if (!isWorkflowInfinite) return null;
+        const snapshot: CanvasAgentSnapshot = {
+          projectId: assistantSnapshot?.projectId ?? "",
+          title: assistantSnapshot?.title ?? "AIMarket Canvas",
+          nodes: [...canvasItemsToNodeData(items), ...dramaNodes],
+          connections: canvasConnections,
+          selectedNodeIds: [node.id],
+          viewport: infiniteViewport,
+        };
+        return (
+          <InfiniteNodeStudioDock
+            node={node}
+            snapshot={snapshot}
+            onApplyOps={handleApplyAssistantOps}
+            readOnly={readOnly}
+            onClose={() => {
+              setInfiniteSelectedIds([]);
+              onSelect(null);
+            }}
+          />
+        );
+      },
+      [
+        isWorkflowInfinite,
+        assistantSnapshot,
+        items,
+        dramaNodes,
+        canvasConnections,
+        infiniteViewport,
+        handleApplyAssistantOps,
+        readOnly,
+        onSelect,
+      ],
+    );
 
     const commitCanvasOps = useCallback(
       (ops: CanvasAgentOp[]) => {
@@ -1300,6 +1350,9 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                     connections={canvasConnections}
                     viewport={infiniteViewport}
                     selectedNodeIds={infiniteSelectedIds}
+                    renderPanel={
+                      isWorkflowInfinite ? renderInfiniteNodeStudioPanel : undefined
+                    }
                     onNodesChange={(nodes: CanvasNodeData[]) => {
                       if (applyingAssistantOpsRef.current) return;
                       const itemNodes = nodes.filter((n) => !isDramaNodeId(n.id));
@@ -1454,19 +1507,19 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                     <Music className="size-4" />
                   </button>
                 </div>
-                {dramaPanelNode && (
+                {dramaPanelNode && !isWorkflowInfinite ? (
                   <DramaPropertyPanel
                     node={dramaPanelNode}
                     onClose={() => setDramaPanelNodeId(null)}
                   />
-                )}
-                {effectiveAssistantSnapshot && (
+                ) : null}
+                {effectiveAssistantSnapshot && !isWorkflowInfinite ? (
                   <CanvasAssistantPanel
                     snapshot={effectiveAssistantSnapshot}
                     onApplyOps={handleApplyAssistantOps}
                     initialCollapsed
                   />
-                )}
+                ) : null}
                 {showTemplateManager && (
                   <TemplateManager
                     selectedNodes={templateSelectedNodes}
@@ -1490,14 +1543,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                   data-testid="drama-canvas-overlay"
                 >
                   {alternateCanvasContent}
-                  {showInfiniteOrchestrationExtra ? (
-                    <div
-                      data-testid="orchestration-extra-section"
-                      className={alternateCanvasContent ? "mt-3" : undefined}
-                    >
-                      {orchestrationExtra}
-                    </div>
-                  ) : null}
                 </div>
               ) : legacyInfiniteOrchestrationDock ? (
                 <div

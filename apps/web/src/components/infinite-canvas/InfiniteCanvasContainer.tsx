@@ -720,7 +720,12 @@ export function InfiniteCanvasContainer({
             isFocusRelated={false}
             isConnectionTarget={connectionTargetNodeId === node.id}
             isConnecting={Boolean(connectingParams)}
-            showPanel={false}
+            showPanel={
+              Boolean(renderPanel) &&
+              selectedNodeIds.length === 1 &&
+              selectedNodeIds[0] === node.id
+            }
+            renderPanel={renderPanel}
             showImageInfo={true}
             onMouseDown={handleNodeMouseDown}
             onHoverStart={setHoveredNodeId}

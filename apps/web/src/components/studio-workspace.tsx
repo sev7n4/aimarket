@@ -213,6 +213,7 @@ export function StudioWorkspace({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
   const [dockMode, setDockMode] = useState<StudioDockMode>("expanded");
+  const [infiniteWorkflowActive, setInfiniteWorkflowActive] = useState(false);
   const [workspaceWidth, setWorkspaceWidth] = useState(264);
   const [isDraggingWorkspace, setIsDraggingWorkspace] = useState(false);
   const [restoredAssets, setRestoredAssets] = useState<PendingAsset[]>([]);
@@ -1850,6 +1851,7 @@ export function StudioWorkspace({
             <StudioCanvasWithOrchestration
               key={sessionId}
               ref={canvasRef}
+              onInfiniteWorkflowActiveChange={setInfiniteWorkflowActive}
               items={canvasItems}
               infiniteConnections={infiniteConnections}
               onInfiniteConnectionsChange={setInfiniteConnections}
@@ -1871,7 +1873,9 @@ export function StudioWorkspace({
               onDeleteSelected={handleDeleteCanvasItem}
               onRerun={(item) => void handleRerun(item)}
               emptyHint=""
-              scrollBottomInset={studioDockScrollInset(dockMode)}
+              scrollBottomInset={
+                infiniteWorkflowActive ? "" : studioDockScrollInset(dockMode)
+              }
               readOnly={readOnly}
               jobStreamStatus={jobStreamStatus}
               jobFailed={jobFailed}
@@ -2023,7 +2027,7 @@ export function StudioWorkspace({
               statusChip={<ProviderStatusChip />}
             />
 
-            <StudioDock mode={dockMode} onModeChange={setDockMode}>
+            <StudioDock mode={dockMode} onModeChange={setDockMode} hidden={infiniteWorkflowActive}>
               <StudioCreationDock
                 user={user}
                 ready={ready}
