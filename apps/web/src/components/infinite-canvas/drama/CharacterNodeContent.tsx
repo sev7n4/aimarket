@@ -1,18 +1,9 @@
-import React, { type ReactNode } from "react";
 import { User } from "lucide-react";
 
-import type { CanvasNodeData } from "../types";
+import { DramaAssetCardShell } from "@/components/drama/drama-asset-card-shell";
+import { DramaBadge } from "@/components/drama/drama-badge";
 import { canvasTheme } from "../canvas-theme";
-function Badge({ children, color }: { children: ReactNode; color: string }) {
-  return (
-    <span
-      className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-      style={{ background: `${color}22`, color }}
-    >
-      {children}
-    </span>
-  );
-}
+import type { CanvasNodeData } from "../types";
 
 const roleLabels: Record<string, string> = {
   protagonist: "主角",
@@ -42,71 +33,73 @@ export function CharacterNodeContent({ node }: CharacterNodeContentProps) {
   const turnaroundStatus = m?.turnaroundStatus;
   const refUrl = m?.refUrl;
 
+  const hero = refUrl ? (
+    <img
+      src={refUrl}
+      alt={name}
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      className="pointer-events-none size-full select-none object-cover object-top"
+    />
+  ) : (
+    <div className="flex size-full flex-col items-center justify-center gap-1">
+      <User
+        className="size-10 opacity-20"
+        style={{ color: canvasTheme.node.faint }}
+      />
+      <span
+        className="text-[10px]"
+        style={{ color: canvasTheme.node.faint }}
+      >
+        角色参考图
+      </span>
+    </div>
+  );
+
   return (
-    <div className="flex h-full w-full flex-col gap-2 p-3">
-      {/* Name + icon */}
-      <div className="flex items-center gap-2">
-        <User
-          className="size-4 shrink-0"
-          style={{ color: canvasTheme.node.muted }}
-        />
-        <div
-          className="truncate text-sm font-bold leading-snug"
-          style={{ color: canvasTheme.node.text }}
-        >
-          {name}
-        </div>
+    <DramaAssetCardShell
+      category="character"
+      compact
+      hero={hero}
+      heroAspect="portrait"
+      testId="drama-canvas-character-card"
+      badges={
+        <>
+          {role ? (
+            <DramaBadge color="#d946ef">
+              {roleLabels[role] || role}
+            </DramaBadge>
+          ) : null}
+          {turnaroundStatus ? (
+            <DramaBadge color={turnaroundColors[turnaroundStatus] || "#78716c"}>
+              {turnaroundLabels[turnaroundStatus] || turnaroundStatus}
+            </DramaBadge>
+          ) : null}
+        </>
+      }
+    >
+      <div
+        className="truncate text-sm font-bold leading-snug"
+        style={{ color: canvasTheme.node.text }}
+      >
+        {name}
       </div>
-
-      {/* Role + turnaround badges */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {role && (
-          <Badge color="#8b5cf6">
-            {roleLabels[role] || role}
-          </Badge>
-        )}
-        {turnaroundStatus && (
-          <Badge color={turnaroundColors[turnaroundStatus] || "#78716c"}>
-            {turnaroundLabels[turnaroundStatus] || turnaroundStatus}
-          </Badge>
-        )}
-      </div>
-
-      {/* Personality tone */}
-      {personalityTone && (
+      {personalityTone ? (
         <div
           className="line-clamp-1 text-xs leading-snug"
           style={{ color: canvasTheme.node.faint }}
         >
           {personalityTone}
         </div>
-      )}
-
-      {/* Prompt anchor */}
-      {promptAnchor && (
+      ) : null}
+      {promptAnchor ? (
         <div
-          className="line-clamp-1 truncate font-mono text-[11px] leading-snug"
+          className="line-clamp-2 text-[11px] leading-snug"
           style={{ color: canvasTheme.node.faint }}
         >
           {promptAnchor}
         </div>
-      )}
-
-      {/* Ref image thumbnail */}
-      {refUrl && (
-        <div
-          className="mt-auto aspect-video w-full overflow-hidden rounded-md"
-          style={{ background: canvasTheme.node.panel }}
-        >
-          <img
-            src={refUrl}
-            alt={name}
-            draggable={false}
-            onDragStart={(e) => e.preventDefault()}
-            className="pointer-events-none size-full select-none object-cover"
-          />
-        </div>
-      )}
-    </div>
+      ) : null}
+    </DramaAssetCardShell>
   );
 }

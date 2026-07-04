@@ -1,18 +1,9 @@
-import React, { type ReactNode } from "react";
 import { MapPin } from "lucide-react";
 
-import type { CanvasNodeData } from "../types";
+import { DramaAssetCardShell } from "@/components/drama/drama-asset-card-shell";
+import { DramaBadge } from "@/components/drama/drama-badge";
 import { canvasTheme } from "../canvas-theme";
-function Badge({ children, color }: { children: ReactNode; color: string }) {
-  return (
-    <span
-      className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-      style={{ background: `${color}22`, color }}
-    >
-      {children}
-    </span>
-  );
-}
+import type { CanvasNodeData } from "../types";
 
 type SceneNodeContentProps = {
   node: CanvasNodeData;
@@ -25,20 +16,59 @@ export function SceneNodeContent({ node }: SceneNodeContentProps) {
   const atmosphere = m?.atmosphere;
   const era = m?.era;
   const sceneRefUrl = m?.sceneRefUrl;
+  const promptAnchor = m?.scenePromptAnchor;
+
+  const hero = sceneRefUrl ? (
+    <img
+      src={sceneRefUrl}
+      alt={sceneName}
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      className="pointer-events-none size-full select-none object-cover"
+    />
+  ) : (
+    <div className="flex size-full flex-col items-center justify-center gap-1">
+      <MapPin
+        className="size-8 opacity-20"
+        style={{ color: canvasTheme.node.faint }}
+      />
+      <span
+        className="text-[10px]"
+        style={{ color: canvasTheme.node.faint }}
+      >
+        场景参考图
+      </span>
+    </div>
+  );
 
   return (
-    <div className="flex h-full w-full flex-col gap-2 p-3">
-      {/* Scene name */}
+    <DramaAssetCardShell
+      category="scene"
+      compact
+      hero={hero}
+      heroAspect="landscape"
+      testId="drama-canvas-scene-card"
+      badges={
+        <>
+          {atmosphere ? (
+            <DramaBadge color="#06b6d4">{atmosphere}</DramaBadge>
+          ) : null}
+          {era ? (
+            <span className="text-[10px]" style={{ color: canvasTheme.node.faint }}>
+              {era}
+            </span>
+          ) : null}
+        </>
+      }
+    >
       <div
         className="truncate text-sm font-bold leading-snug"
         style={{ color: canvasTheme.node.text }}
       >
         {sceneName}
       </div>
-
-      {/* Location with icon */}
-      {location && (
-        <div className="flex items-center gap-1.5">
+      {location ? (
+        <div className="flex items-center gap-1">
           <MapPin
             className="size-3 shrink-0"
             style={{ color: canvasTheme.node.faint }}
@@ -50,38 +80,15 @@ export function SceneNodeContent({ node }: SceneNodeContentProps) {
             {location}
           </span>
         </div>
-      )}
-
-      {/* Atmosphere badge + Era */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {atmosphere && (
-          <Badge color="#0ea5e9">{atmosphere}</Badge>
-        )}
-        {era && (
-          <span
-            className="text-xs"
-            style={{ color: canvasTheme.node.faint }}
-          >
-            {era}
-          </span>
-        )}
-      </div>
-
-      {/* Ref image thumbnail */}
-      {sceneRefUrl && (
+      ) : null}
+      {promptAnchor ? (
         <div
-          className="mt-auto aspect-video w-full overflow-hidden rounded-md"
-          style={{ background: canvasTheme.node.panel }}
+          className="line-clamp-2 text-[11px] leading-snug"
+          style={{ color: canvasTheme.node.faint }}
         >
-          <img
-            src={sceneRefUrl}
-            alt={sceneName}
-            draggable={false}
-            onDragStart={(e) => e.preventDefault()}
-            className="pointer-events-none size-full select-none object-cover"
-          />
+          {promptAnchor}
         </div>
-      )}
-    </div>
+      ) : null}
+    </DramaAssetCardShell>
   );
 }

@@ -13,10 +13,10 @@ export const NODE_DEFAULT_SIZE = {
   [CanvasNodeType.Config]: { width: 340, height: 240, title: "生成配置" },
   [CanvasNodeType.Video]: { width: 420, height: 236, title: "Video" },
   [CanvasNodeType.Audio]: { width: 340, height: 120, title: "Audio" },
-  [CanvasNodeType.Script]: { width: 400, height: 300, title: "新剧本" },
-  [CanvasNodeType.Shot]: { width: 360, height: 260, title: "新分镜" },
-  [CanvasNodeType.Character]: { width: 340, height: 280, title: "新角色" },
-  [CanvasNodeType.Scene]: { width: 360, height: 240, title: "新场景" },
+  [CanvasNodeType.Script]: { width: 380, height: 320, title: "新剧本" },
+  [CanvasNodeType.Shot]: { width: 360, height: 300, title: "新分镜" },
+  [CanvasNodeType.Character]: { width: 300, height: 420, title: "新角色" },
+  [CanvasNodeType.Scene]: { width: 320, height: 320, title: "新场景" },
 } satisfies Record<CanvasNodeType, { width: number; height: number; title: string }>;
 
 export const NODE_SPECS = {

@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { User } from "lucide-react";
+
+import { DramaAssetCardShell } from "@/components/drama/drama-asset-card-shell";
 import {
   fetchDramaProject,
   generateDramaCharacterTurnaround,
@@ -103,22 +106,32 @@ export function DramaCharacterCardView({
   const locked = character.turnaroundStatus === "locked";
   const refsComplete = characterTurnaroundRefsComplete(character);
   const vs = character.visualSignature;
+  const frontUrl = characterRefImageUrl(character, "front");
+
+  const hero = frontUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={frontUrl}
+      alt={character.name}
+      className="size-full object-cover object-top"
+    />
+  ) : (
+    <div className="flex size-full flex-col items-center justify-center gap-1 text-zinc-600">
+      <User className="size-8 opacity-40" />
+      <span className="text-[10px]">待生成三视图</span>
+    </div>
+  );
 
   return (
-    <div
-      className="rounded-lg border border-white/10 bg-black/20 p-2 text-xs"
-      data-testid={`drama-character-card-${character.id}`}
-    >
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="font-medium text-zinc-200">{character.name}</div>
-          {character.role ? (
-            <div className="text-[10px] text-zinc-500">{character.role}</div>
-          ) : null}
-          <div className="mt-0.5 text-zinc-500">{character.personalityTone}</div>
-        </div>
+    <DramaAssetCardShell
+      category="character"
+      hero={hero}
+      heroAspect="portrait"
+      testId={`drama-character-card-${character.id}`}
+      className="rounded-lg border border-white/10 bg-black/20"
+      badges={
         <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${
+          className={`rounded-full px-2 py-0.5 text-[10px] ${
             locked
               ? "bg-emerald-500/15 text-emerald-300"
               : refsComplete
@@ -129,13 +142,69 @@ export function DramaCharacterCardView({
         >
           {locked ? "已定稿" : refsComplete ? "待确认" : "草稿"}
         </span>
+      }
+      footer={
+        !readOnly ? (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy || generating || locked}
+              onClick={() => void handleGenerate()}
+              className="text-[10px] text-fuchsia-300 hover:text-fuchsia-200 disabled:opacity-50"
+              data-testid="drama-character-turnaround-generate"
+            >
+              {generating ? "生成中…" : "生成三视图"}
+            </button>
+            {onUploadRef ? (
+              <button
+                type="button"
+                disabled={busy || generating || locked || uploadingRef}
+                onClick={onUploadRef}
+                className="text-[10px] text-fuchsia-300 hover:text-fuchsia-200 disabled:opacity-50"
+                data-testid="drama-character-upload-ref"
+              >
+                {uploadingRef ? "上传中…" : "上传参考图"}
+              </button>
+            ) : null}
+            {refsComplete && !locked ? (
+              <button
+                type="button"
+                disabled={busy || generating}
+                onClick={() => void handleLock("locked")}
+                className="text-[10px] text-emerald-300 hover:text-emerald-200 disabled:opacity-50"
+                data-testid="drama-character-turnaround-lock"
+              >
+                确认定稿
+              </button>
+            ) : null}
+            {locked ? (
+              <button
+                type="button"
+                disabled={busy || generating}
+                onClick={() => void handleLock("draft")}
+                className="text-[10px] text-zinc-400 hover:text-zinc-300 disabled:opacity-50"
+                data-testid="drama-character-turnaround-unlock"
+              >
+                解锁重做
+              </button>
+            ) : null}
+          </div>
+        ) : null
+      }
+    >
+      <div>
+        <div className="font-semibold text-zinc-100">{character.name}</div>
+        {character.role ? (
+          <div className="text-[10px] text-zinc-500">{character.role}</div>
+        ) : null}
+        <div className="mt-0.5 text-zinc-500">{character.personalityTone}</div>
       </div>
 
-      <p className="mb-2 line-clamp-2 text-[10px] leading-relaxed text-zinc-500">
+      <p className="line-clamp-2 text-[10px] leading-relaxed text-zinc-500">
         {character.promptAnchor}
       </p>
 
-      <div className="mb-2 flex flex-wrap gap-1 text-[10px] text-zinc-600">
+      <div className="flex flex-wrap gap-1 text-[10px] text-zinc-600">
         <span>{vs.ageRange}</span>
         <span>·</span>
         <span>{vs.hairStyle}</span>
@@ -171,53 +240,6 @@ export function DramaCharacterCardView({
           );
         })}
       </div>
-
-      {!readOnly ? (
-        <div className="mt-2 flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={busy || generating || locked}
-            onClick={() => void handleGenerate()}
-            className="text-[10px] text-violet-300 hover:text-violet-200 disabled:opacity-50"
-            data-testid="drama-character-turnaround-generate"
-          >
-            {generating ? "生成中…" : "生成三视图"}
-          </button>
-          {onUploadRef ? (
-            <button
-              type="button"
-              disabled={busy || generating || locked || uploadingRef}
-              onClick={onUploadRef}
-              className="text-[10px] text-violet-300 hover:text-violet-200 disabled:opacity-50"
-              data-testid="drama-character-upload-ref"
-            >
-              {uploadingRef ? "上传中…" : "上传参考图"}
-            </button>
-          ) : null}
-          {refsComplete && !locked ? (
-            <button
-              type="button"
-              disabled={busy || generating}
-              onClick={() => void handleLock("locked")}
-              className="text-[10px] text-emerald-300 hover:text-emerald-200 disabled:opacity-50"
-              data-testid="drama-character-turnaround-lock"
-            >
-              确认定稿
-            </button>
-          ) : null}
-          {locked ? (
-            <button
-              type="button"
-              disabled={busy || generating}
-              onClick={() => void handleLock("draft")}
-              className="text-[10px] text-zinc-400 hover:text-zinc-300 disabled:opacity-50"
-              data-testid="drama-character-turnaround-unlock"
-            >
-              解锁重做
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
+    </DramaAssetCardShell>
   );
 }
