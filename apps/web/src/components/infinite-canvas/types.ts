@@ -50,6 +50,7 @@ export type CanvasNodeMetadata = {
   logline?: string;
   actCount?: number;
   narratorLineCount?: number;
+  actSummaries?: string[];
   // Shot node
   shotOrder?: number;
   sceneId?: string;

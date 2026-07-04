@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageSquare, History, Copy } from "lucide-react";
 import { DramaCharacterCardView } from "@/components/drama-character-card";
+import { DramaSceneCardView } from "@/components/drama/drama-scene-card";
+import { DramaScriptCard } from "@/components/drama/drama-script-card";
 import { DramaNodeGraph, type DramaNodeRerunPatch } from "@/components/drama-node-graph";
 import { DramaStoryboardGrid } from "@/components/drama-storyboard-grid";
 import { DramaVersionHistory } from "@/components/drama-version-history";
@@ -423,72 +425,25 @@ export function DramaStudioPanel({
         <>
         {/* 左栏：剧本 / 角色 / 场景 */}
         <div className="space-y-3 overflow-y-auto max-h-[70vh] pr-1">
-          <section>
-            {isDraft && !readOnly ? (
-              <>
-                <input
-                  className="w-full rounded border border-white/10 bg-black/30 px-2 py-1 text-sm font-medium text-zinc-100"
-                  value={project.script.title}
-                  onChange={(e) =>
-                    patchProject({
-                      script: { ...project.script, title: e.target.value },
-                    })
-                  }
-                  placeholder="短剧标题"
-                />
-                <textarea
-                  className="mt-2 w-full resize-none rounded border border-white/10 bg-black/30 px-2 py-1 text-xs text-zinc-400"
-                  rows={2}
-                  value={project.script.logline}
-                  onChange={(e) =>
-                    patchProject({
-                      script: { ...project.script, logline: e.target.value },
-                    })
-                  }
-                  placeholder="一句话梗概"
-                />
-              </>
-            ) : (
-              <>
-                <div className="text-sm font-medium text-zinc-100">
-                  {project.script.title || "AI 短剧"}
-                </div>
-                <p className="mt-1 text-xs text-zinc-400">
-                  {project.script.logline}
-                </p>
-              </>
-            )}
-          </section>
-
-          {isDraft && !readOnly && project.script.acts.length > 0 ? (
-            <section>
-              <h4 className="mb-2 text-xs font-medium text-zinc-300">
-                场次大纲
-              </h4>
-              <div className="space-y-2">
-                {project.script.acts.map((act, i) => (
-                  <div
-                    key={`${act.act}-${act.sceneId}`}
-                    className="rounded border border-white/10 bg-black/20 p-2 text-xs"
-                  >
-                    <div className="mb-1 text-[10px] text-zinc-500">
-                      第 {act.act} 幕
-                    </div>
-                    <textarea
-                      className="w-full resize-none rounded border border-white/10 bg-black/30 p-1 text-zinc-300"
-                      rows={2}
-                      value={act.summary}
-                      onChange={(e) => {
-                        const acts = [...project.script.acts];
-                        acts[i] = { ...act, summary: e.target.value };
-                        patchProject({ script: { ...project.script, acts } });
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-            </section>
-          ) : null}
+          <DramaScriptCard
+            script={project.script}
+            editable={isDraft && !readOnly}
+            onTitleChange={(title) =>
+              patchProject({
+                script: { ...project.script, title },
+              })
+            }
+            onLoglineChange={(logline) =>
+              patchProject({
+                script: { ...project.script, logline },
+              })
+            }
+            onActSummaryChange={(index, summary) => {
+              const acts = [...project.script.acts];
+              acts[index] = { ...acts[index], summary };
+              patchProject({ script: { ...project.script, acts } });
+            }}
+          />
 
           <section data-testid="drama-characters-section">
             <h4 className="mb-2 text-xs font-medium text-zinc-300">
@@ -523,51 +478,26 @@ export function DramaStudioPanel({
           </section>
 
           <section>
-            <h4 className="mb-2 text-xs font-medium text-zinc-300">场景</h4>
+            <h4 className="mb-2 text-xs font-medium text-zinc-300">
+              场景资产（{project.scenes.length}）
+            </h4>
             <div className="space-y-2">
               {project.scenes.map((s) => (
-                <div
+                <DramaSceneCardView
                   key={s.id}
-                  className="rounded-lg border border-white/10 bg-black/20 p-2 text-xs"
-                >
-                  <div className="flex items-start gap-2">
-                    {s.refUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={s.refUrl}
-                        alt=""
-                        className="size-12 shrink-0 rounded object-cover"
-                      />
-                    ) : (
-                      <div className="flex size-12 shrink-0 items-center justify-center rounded bg-white/5 text-[10px] text-zinc-600">
-                        无图
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-zinc-200">{s.name}</div>
-                      <div className="mt-0.5 line-clamp-2 text-zinc-500">
-                        {s.promptAnchor}
-                      </div>
-                    </div>
-                  </div>
-                  {isDraft && !readOnly && sessionId ? (
-                    <button
-                      type="button"
-                      disabled={busy || uploadingRef === `scene:${s.id}`}
-                      className="mt-2 text-[10px] text-violet-300 hover:text-violet-200 disabled:opacity-50"
-                      onClick={() => {
-                        pendingSceneId.current = s.id;
-                        sceneFileRef.current?.click();
-                      }}
-                    >
-                      {uploadingRef === `scene:${s.id}`
-                        ? "上传中…"
-                        : s.refUrl
-                          ? "替换参考图"
-                          : "上传参考图"}
-                    </button>
-                  ) : null}
-                </div>
+                  scene={s}
+                  readOnly={!isDraft || readOnly || !sessionId}
+                  busy={busy || saving}
+                  uploadingRef={uploadingRef === `scene:${s.id}`}
+                  onUploadRef={
+                    isDraft && !readOnly && sessionId
+                      ? () => {
+                          pendingSceneId.current = s.id;
+                          sceneFileRef.current?.click();
+                        }
+                      : undefined
+                  }
+                />
               ))}
             </div>
           </section>

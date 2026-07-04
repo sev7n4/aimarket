@@ -1,4 +1,5 @@
 import type { DramaProjectPayload, DramaCharacterCard, DramaSceneCard, DramaStoryboardShot } from "@/lib/types";
+import { characterRefImageUrl } from "@/lib/drama-character-helpers";
 import {
   CanvasNodeType,
   type CanvasNodeData,
@@ -45,6 +46,7 @@ export function dramaPlanToCanvasNodes(
       logline: project.script?.logline,
       actCount: project.script?.acts?.length,
       narratorLineCount: project.script?.narratorLines?.length,
+      actSummaries: project.script?.acts?.slice(0, 3).map((act) => act.summary),
     },
   };
   nodes.push(scriptNode);
@@ -67,7 +69,7 @@ export function dramaPlanToCanvasNodes(
         personalityTone: char.personalityTone,
         promptAnchor: char.promptAnchor,
         turnaroundStatus: char.turnaroundStatus,
-        refUrl: char.refUrl,
+        refUrl: characterRefImageUrl(char, "front") ?? char.refUrl,
       },
     };
     nodes.push(node);

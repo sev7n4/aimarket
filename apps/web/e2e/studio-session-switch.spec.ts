@@ -97,6 +97,40 @@ async function mockStudioSessionSwitch(page: Page) {
     }),
   );
 
+  await page.route("**/api/v1/canvas/**/bundle", (route) => {
+    const url = route.request().url();
+    if (url.includes(SESSION_A.id) || url.includes(SESSION_B.id)) {
+      void route.fallback();
+      return;
+    }
+    void route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ message: "canvas not found" }),
+    });
+  });
+
+  await page.route("**/api/v1/imageSession/**", (route) => {
+    const url = route.request().url();
+    if (/\/imageSession\/list(?:\?|$)/.test(url)) {
+      void route.fallback();
+      return;
+    }
+    if (route.request().method() !== "GET") {
+      void route.fallback();
+      return;
+    }
+    if (url.includes(SESSION_A.id) || url.includes(SESSION_B.id)) {
+      void route.fallback();
+      return;
+    }
+    void route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ message: "session not found" }),
+    });
+  });
+
   for (const session of [SESSION_A, SESSION_B]) {
     await page.route(`**/api/v1/imageSession/${session.id}`, (route) =>
       route.fulfill({
@@ -152,6 +186,14 @@ async function waitForSidebarSessions(page: Page) {
     timeout: 15_000,
   });
   return station;
+}
+
+function sessionIdFromUrl(url: string): string | null {
+  try {
+    return new URL(url).searchParams.get("sessionId");
+  } catch {
+    return null;
+  }
 }
 
 async function navigateToSessionRow(page: Page, sessionId: string) {
@@ -243,5 +285,53 @@ test.describe("studio session switch", () => {
     await expect(
       dock.getByRole("button", { name: "选择创作方式" }),
     ).toContainText("Agent 模式", { timeout: 15_000 });
+  });
+
+  test("侧栏新建分配新 sessionId 并保留 mode", async ({ page }) => {
+    await mockStudioSessionSwitch(page);
+    await page.goto(
+      `/studio?sessionId=${encodeURIComponent(SESSION_A.id)}&mode=chat`,
+      { waitUntil: "domcontentloaded" },
+    );
+
+    await waitForSidebarSessions(page);
+    const beforeSessionId = sessionIdFromUrl(page.url());
+    expect(beforeSessionId).toBe(SESSION_A.id);
+
+    await page.getByTestId("studio-workspace-new").click();
+
+    await expect(page).toHaveURL(/mode=chat/, { timeout: 15_000 });
+    await expect(page).not.toHaveURL(
+      new RegExp(`sessionId=${SESSION_A.id.replace(/-/g, "\\-")}`),
+    );
+    await expect
+      .poll(() => sessionIdFromUrl(page.url()), { timeout: 15_000 })
+      .not.toBe(SESSION_A.id);
+    await expect
+      .poll(() => sessionIdFromUrl(page.url()), { timeout: 15_000 })
+      .toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
+  });
+
+  test("制片模式侧栏新建保留 production", async ({ page }) => {
+    await mockStudioSessionSwitch(page);
+    await page.goto(
+      `/studio?sessionId=${encodeURIComponent(SESSION_A.id)}&mode=production`,
+      { waitUntil: "domcontentloaded" },
+    );
+
+    await waitForSidebarSessions(page);
+    await page.getByTestId("studio-workspace-new").click();
+
+    await expect(page).toHaveURL(/mode=production/, { timeout: 15_000 });
+    await expect(page).not.toHaveURL(
+      new RegExp(`sessionId=${SESSION_A.id.replace(/-/g, "\\-")}`),
+    );
+    await expect(page.locator("textarea").first()).toHaveAttribute(
+      "placeholder",
+      /短剧创意|至少 10 字|都市|甜宠|仙侠|悬疑/,
+      { timeout: 15_000 },
+    );
   });
 });

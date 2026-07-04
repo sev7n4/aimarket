@@ -119,6 +119,7 @@ import { formatToolProviderLabel } from "@/lib/studio-tool-meta";
 import { hapticLight } from "@/lib/haptics";
 import { type SessionKind } from "@/lib/session-kind";
 import { buildStudioUrl, studioUrlForSession } from "@/lib/studio-navigation";
+import { clientNavigate } from "@/lib/client-navigate";
 import { writeDraftSessionId } from "@/lib/studio-draft-session";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 
@@ -419,6 +420,24 @@ export function StudioWorkspace({
       : fetchedSessionTitle && fetchedSessionTitle !== "未命名"
         ? fetchedSessionTitle
         : initialTitle ?? (mode === "production" ? "未命名制片" : mode === "ecommerce" ? "电商套图" : "未命名");
+
+  const openNewStudio = useCallback(() => {
+    const wsId = activeWorkspaceId ?? getActiveWorkspaceId();
+    clientNavigate(
+      router,
+      buildStudioUrl(sessionKind === "project" ? "project" : "canvas", {
+        mode,
+        workspaceId: wsId,
+        newDraft: true,
+        title:
+          mode === "production"
+            ? "未命名制片"
+            : mode === "ecommerce"
+              ? "电商套图"
+              : "未命名",
+      }),
+    );
+  }, [router, mode, sessionKind, activeWorkspaceId]);
 
   const applySourceInspiration = useCallback(
     (src: NonNullable<Awaited<ReturnType<typeof ensureSession>>["sourceInspiration"]>) => {
@@ -1481,10 +1500,17 @@ export function StudioWorkspace({
         activeWorkspaceId ?? undefined,
       ).then(setSessions);
       if (id === sessionId) {
-        router.push(buildStudioUrl("canvas", { mode }));
+        clientNavigate(
+          router,
+          buildStudioUrl(sessionKind === "project" ? "project" : "canvas", {
+            mode,
+            workspaceId: activeWorkspaceId ?? getActiveWorkspaceId(),
+            newDraft: true,
+          }),
+        );
       }
     },
-    [sessionId, mode, router, activeWorkspaceId],
+    [sessionId, mode, sessionKind, router, activeWorkspaceId],
   );
 
   const selectedCanvasItem =
@@ -1693,8 +1719,9 @@ export function StudioWorkspace({
               type="button"
               onClick={() => {
                 setSidebarOpen(false);
-                router.push(buildStudioUrl("canvas"));
+                openNewStudio();
               }}
+              data-testid="studio-workspace-new"
               className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-black transition hover:bg-zinc-200"
             >
               <Plus className="size-3.5" />
