@@ -57,6 +57,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     dramaTargetDurationSec,
     dramaProjectType,
     resumeDramaPlanRun,
+    duplicateDramaProject,
   } = useStudioOrchestration();
 
   const templatePlanRunIdRef = useRef<string | null>(null);
@@ -352,6 +353,11 @@ export const StudioCanvasWithOrchestration = forwardRef<
             : undefined
         }
         rerunBusy={dramaPlanBusy}
+        onDuplicate={
+          dramaDraftProject && !props.readOnly
+            ? duplicateDramaProject
+            : undefined
+        }
         onConfirmProduce={handleConfirmProduce}
         onRetryShot={dramaRun ? handleRetryShot : undefined}
         onPickKeyframe={dramaRun ? handlePickKeyframe : undefined}

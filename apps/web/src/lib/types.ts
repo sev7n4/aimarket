@@ -597,6 +597,21 @@ export interface DramaPlanRun {
   updatedAt: string;
 }
 
+export type DramaPlanTurnKind = "initial" | "refine";
+
+/** 多轮对话回合（策划线程） */
+export interface DramaPlanTurn {
+  id: string;
+  sessionId: string;
+  projectId?: string | null;
+  planRunId?: string | null;
+  versionId?: string | null;
+  kind: DramaPlanTurnKind;
+  instruction: string;
+  assistantAck?: string;
+  createdAt: string;
+}
+
 export interface ProductSetInit {
   platforms: string[];
   markets: string[];

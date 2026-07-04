@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MessageSquare, History } from "lucide-react";
+import { MessageSquare, History, Copy } from "lucide-react";
 import { DramaCharacterCardView } from "@/components/drama-character-card";
 import { DramaNodeGraph, type DramaNodeRerunPatch } from "@/components/drama-node-graph";
 import { DramaStoryboardGrid } from "@/components/drama-storyboard-grid";
 import { DramaVersionHistory } from "@/components/drama-version-history";
+import { DramaPlanThread } from "@/components/drama-plan-thread";
 import { StudioReviewSidebar } from "@/components/studio-review-sidebar";
 import { estimateDramaProjectPoints, fetchWorkspaceMembers, uploadAsset } from "@/lib/api-client";
 import { allCharactersLockedForProduce } from "@/lib/drama-character-helpers";
@@ -51,6 +52,8 @@ interface DramaStudioPanelProps {
   onStoryboardViewChange?: (view: "timeline" | "grid") => void;
   onConfirmProduce?: () => void;
   onRerunFromAgent?: (fromAgent: string) => void;
+  /** 深拷贝当前方案为新项目（副本） */
+  onDuplicate?: () => Promise<unknown>;
   rerunBusy?: boolean;
   onRetryShot?: (shotId: string, stage: "keyframe" | "video") => void;
   onPickKeyframe?: (shotId: string, heroIndex: number) => void;
@@ -84,6 +87,7 @@ export function DramaStudioPanel({
   onStoryboardViewChange,
   onConfirmProduce,
   onRerunFromAgent,
+  onDuplicate,
   rerunBusy,
   onRetryShot,
   onPickKeyframe,
@@ -108,6 +112,7 @@ export function DramaStudioPanel({
   const [publishingInspiration, setPublishingInspiration] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [reviewMembers, setReviewMembers] = useState<
     Array<{ id: string; email: string }>
   >([]);
@@ -287,6 +292,31 @@ export function DramaStudioPanel({
       <div className="mb-3 flex items-center justify-between gap-2 border-b border-white/5 pb-2">
         <h3 className="text-sm font-medium text-violet-200">AI 短剧 Studio</h3>
         <div className="flex items-center gap-2">
+          {onDuplicate && reviewProjectId && !readOnly ? (
+            <button
+              type="button"
+              disabled={duplicating}
+              onClick={async () => {
+                if (duplicating) return;
+                setDuplicating(true);
+                try {
+                  await onDuplicate();
+                } catch (err) {
+                  alert(
+                    err instanceof Error ? err.message : "创建副本失败，请重试",
+                  );
+                } finally {
+                  setDuplicating(false);
+                }
+              }}
+              className="flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-zinc-300 transition hover:bg-white/10 disabled:opacity-50"
+              title="创建副本"
+              data-testid="drama-duplicate-button"
+            >
+              <Copy className="size-3" />
+              {duplicating ? "复制中…" : "创建副本"}
+            </button>
+          ) : null}
           {reviewProjectId ? (
             <button
               type="button"
@@ -360,6 +390,11 @@ export function DramaStudioPanel({
           />
         </div>
       ) : null}
+
+      <DramaPlanThread
+        sessionId={sessionId}
+        refreshKey={`${reviewProjectId ?? ""}:${planning ? "p" : "d"}`}
+      />
 
       {produceHint ? (
         <div
