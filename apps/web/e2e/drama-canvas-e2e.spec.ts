@@ -229,14 +229,17 @@ async function openStudioWithDramaDraft(
   );
 
   await page.goto(
-    `/studio?mode=production&canvasFlow=1&sessionId=${sessionId}`,
+    `/studio?mode=production&canvasFlow=1&dramaView=workflow&sessionId=${sessionId}`,
     { waitUntil: "domcontentloaded" },
   );
   await userResponse;
   await stateResponse;
   await expect(page).toHaveURL(/sessionId=/, { timeout: 30_000 });
 
-  await expect(page.getByTestId("drama-view-phase-toggle")).toBeVisible({
+  await expect(page.getByTestId("infinite-canvas-pane")).toBeVisible({
+    timeout: 45_000,
+  });
+  await expect(page.locator('[data-node-id="drama-script"]')).toBeVisible({
     timeout: 45_000,
   });
 
@@ -252,9 +255,6 @@ async function openStudioWithDramaDraft(
 }
 
 async function switchToInfiniteNodeView(page: Page) {
-  const toggle = page.getByTestId("drama-view-phase-toggle");
-  await expect(toggle).toBeVisible({ timeout: 15_000 });
-  await toggle.click();
   await expect(page.getByTestId("infinite-canvas-pane")).toBeVisible({
     timeout: 15_000,
   });

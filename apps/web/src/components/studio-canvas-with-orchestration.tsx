@@ -158,6 +158,15 @@ export const StudioCanvasWithOrchestration = forwardRef<
     if (isDramaPlanning) setManualViewPhase(null);
   }, [isDramaPlanning, dramaPlanRun?.id]);
 
+  /** E2E / 深链：?dramaView=workflow|agent 强制画布阶段（不替代用户手动切换） */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const forced = new URLSearchParams(window.location.search).get("dramaView");
+    if (forced === "workflow" || forced === "agent") {
+      setManualViewPhase(forced);
+    }
+  }, [sessionId]);
+
   const viewPhase = manualViewPhase ?? derivedViewPhase;
 
   const useInfiniteCanvas = dramaPhaseSplitEnabled
