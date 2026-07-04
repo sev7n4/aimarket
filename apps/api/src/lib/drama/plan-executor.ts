@@ -15,6 +15,8 @@ import {
   parseProjectJson,
   updateDramaProject,
 } from "./projects.js";
+import { listDramaProjectVersions } from "./project-versions.js";
+import { completePlanTurnByRun } from "./plan-turns.js";
 import {
   planDramaProjectFromAgentWithEvents,
   planDramaProjectMultiAgentWithEvents,
@@ -196,6 +198,125 @@ export function dispatchDramaPlanRerun(
   });
 }
 
+/** 首轮规划完成后，若路由已创建对话回合则回填 project_id 与 version_id。 */
+function backfillInitialTurn(runId: string, userId: string, projectId: string) {
+  try {
+    const latest = listDramaProjectVersions(userId, projectId)[0];
+    completePlanTurnByRun(runId, { projectId, versionId: latest?.id ?? null });
+  } catch (err) {
+    console.warn("[drama-plan] initial turn backfill failed:", err);
+  }
+}
+
+export function dispatchDramaPlanRefine(runId: string, userId: string) {
+  void executeDramaPlanRefine(runId, userId).catch((err) => {
+    console.error("[drama-plan] refine failed:", err);
+  });
+}
+
+/**
+ * 多轮迭代执行器：以既有项目为 basePlan，按 refine 指令从 writer 起重跑整链，
+ * 原地更新同一 project 并写入一条新版本快照（note=用户指令），复用 /plan/runs/:id/stream。
+ */
+export async function executeDramaPlanRefine(runId: string, userId: string) {
+  const row = getDramaPlanRun(userId, runId);
+  if (!row?.project_id || row.status !== "planning") return;
+  const projectId = row.project_id;
+  const instruction = row.refine_instruction ?? "";
+
+  const projectRow = getDramaProject(userId, projectId);
+  if (!projectRow) return;
+  const basePlan = parseProjectJson(projectRow);
+
+  const ctx = projectToPlanningContext(basePlan);
+  ctx.refineInstruction = instruction;
+  ctx.input.refineInstruction = instruction;
+  ctx.basePlan = basePlan;
+
+  let agents = parseAgentsJson(row);
+  const reasoning = parseReasoningJson(row);
+
+  const emit: DramaPlanEmit = (event) => {
+    publishPlanEvent(runId, event);
+    syncAgentsFromEvent(agents, reasoning, event);
+    if (event.type === "agent_start") {
+      updateDramaPlanRun(runId, { currentAgent: event.agent, agents, reasoning });
+    } else if (
+      event.type === "agent_reasoning" ||
+      event.type === "agent_done"
+    ) {
+      updateDramaPlanRun(runId, { agents, reasoning });
+    }
+  };
+
+  const finalizeSuccess = (projectData: DramaProjectData) => {
+    updateDramaProject(
+      projectId,
+      { project: projectData },
+      {
+        userId,
+        snapshotTrigger: "manual_patch",
+        snapshotNote: instruction || "多轮迭代",
+      },
+    );
+    const estimatedPoints = estimateDramaPoints(projectData);
+    const autoProduce = safeMaybeAutoProduce(row, projectId, estimatedPoints);
+    updateDramaPlanRun(runId, {
+      status: "completed",
+      currentAgent: null,
+      agents,
+      reasoning,
+    });
+    try {
+      const latest = listDramaProjectVersions(userId, projectId)[0];
+      completePlanTurnByRun(runId, {
+        projectId,
+        versionId: latest?.id ?? null,
+      });
+    } catch (err) {
+      console.warn("[drama-plan] refine turn backfill failed:", err);
+    }
+    publishPlanEvent(runId, {
+      type: "plan_complete",
+      projectId,
+      estimatedPoints,
+      ...(autoProduce.dramaRunId ? { dramaRunId: autoProduce.dramaRunId } : {}),
+      ...(autoProduce.produceSkippedReason
+        ? { produceSkippedReason: autoProduce.produceSkippedReason }
+        : {}),
+    });
+  };
+
+  try {
+    const projectData =
+      isAgentLlmEnabled() && isDramaMultiAgentPlanEnabled()
+        ? await planDramaProjectFromAgentWithEvents(ctx, "writer", emit)
+        : await runRuleBasedFromAgent(ctx, "writer", emit);
+    finalizeSuccess(projectData);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "短剧迭代失败";
+    console.warn("[drama-plan] refine LLM failed, fallback rule-based:", message);
+    try {
+      resetPlanRunForRerun(runId, "writer", agents);
+      agents = parseAgentsJson(getDramaPlanRun(userId, runId)!);
+      const projectData = await runRuleBasedFromAgent(ctx, "writer", emit);
+      finalizeSuccess(projectData);
+    } catch (fallbackErr) {
+      const fallbackMessage =
+        fallbackErr instanceof Error ? fallbackErr.message : "短剧迭代回退失败";
+      const userError = formatDramaPlanError(fallbackMessage);
+      updateDramaPlanRun(runId, {
+        status: "failed",
+        currentAgent: null,
+        error: userError,
+        agents,
+        reasoning,
+      });
+      publishPlanEvent(runId, { type: "plan_failed", error: userError });
+    }
+  }
+}
+
 async function executeDramaPlanRun(runId: string, userId: string) {
   const row = getDramaPlanRun(userId, runId);
   if (!row || row.status !== "planning") return;
@@ -245,6 +366,7 @@ async function executeDramaPlanRun(runId: string, userId: string) {
       agents,
       reasoning,
     });
+    backfillInitialTurn(runId, row.user_id, projectRow.id);
 
     const completeEvent: DramaPlanEvent = {
       type: "plan_complete",
@@ -279,6 +401,7 @@ async function executeDramaPlanRun(runId: string, userId: string) {
         agents,
         reasoning,
       });
+      backfillInitialTurn(runId, row.user_id, projectRow.id);
       publishPlanEvent(runId, {
         type: "plan_complete",
         projectId: projectRow.id,

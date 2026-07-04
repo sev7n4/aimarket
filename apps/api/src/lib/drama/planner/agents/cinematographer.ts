@@ -1,4 +1,5 @@
 import { runAgentStep } from "../reasoning.js";
+import { refineGuidance } from "../refine.js";
 import { CINEMATOGRAPHER_JSON_SCHEMA } from "../schemas.js";
 import type {
   AgentStepResult,
@@ -25,7 +26,7 @@ export async function runCinematographerAgent(
 2. 不得增删 shot id，必须与编剧骨架一致。
 3. 同场景连续镜头运动宜连贯；风格遵循导演 styleBible。
 4. 只输出 JSON。`,
-    `光影风格：${director.styleBible.lightingStyle}\n色温倾向：${director.styleBible.palette.join("、")}\n分镜骨架：\n${shotSummary}`,
+    `光影风格：${director.styleBible.lightingStyle}\n色温倾向：${director.styleBible.palette.join("、")}\n分镜骨架：\n${shotSummary}${refineGuidance(ctx)}`,
     CINEMATOGRAPHER_JSON_SCHEMA,
   );
   return { output, reasoning };

@@ -623,6 +623,41 @@ try {
   /* column exists */
 }
 
+// 多轮对话策划：refine 运行携带的修改指令与基线项目
+try {
+  database.exec(
+    `ALTER TABLE drama_plan_runs ADD COLUMN refine_instruction TEXT`,
+  );
+} catch {
+  /* column exists */
+}
+
+try {
+  database.exec(
+    `ALTER TABLE drama_plan_runs ADD COLUMN base_project_id TEXT`,
+  );
+} catch {
+  /* column exists */
+}
+
+// 多轮对话策划：对话回合记录（首轮 initial + 每次 refine 各一行）
+database.exec(`
+  CREATE TABLE IF NOT EXISTS drama_plan_turns (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES image_sessions(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    project_id TEXT REFERENCES drama_projects(id) ON DELETE SET NULL,
+    plan_run_id TEXT REFERENCES drama_plan_runs(id) ON DELETE SET NULL,
+    version_id TEXT,
+    kind TEXT NOT NULL DEFAULT 'initial',
+    instruction TEXT NOT NULL,
+    assistant_ack TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_drama_plan_turns_session
+    ON drama_plan_turns(session_id, created_at ASC);
+`);
+
 database.exec(`
   UPDATE invite_redemptions SET rewards_granted_at = created_at WHERE rewards_granted_at IS NULL;
 `);

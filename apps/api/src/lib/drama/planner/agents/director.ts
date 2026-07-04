@@ -1,4 +1,5 @@
 import { runAgentStep } from "../reasoning.js";
+import { refineGuidance } from "../refine.js";
 import { DIRECTOR_JSON_SCHEMA } from "../schemas.js";
 import type { AgentStepResult, DirectorOutput, PlanningContext } from "../types.js";
 
@@ -35,7 +36,7 @@ export async function runDirectorAgent(
   const { output, reasoning } = await runAgentStep<DirectorOutput>(
     "director",
     directorBrief(ctx),
-    `剧本标题：${writer.title}\n梗概：${writer.logline}\n场次：${JSON.stringify(writer.acts)}\n场景：${writer.scenes.map((s) => s.name).join("、")}`,
+    `剧本标题：${writer.title}\n梗概：${writer.logline}\n场次：${JSON.stringify(writer.acts)}\n场景：${writer.scenes.map((s) => s.name).join("、")}${refineGuidance(ctx)}`,
     DIRECTOR_JSON_SCHEMA,
   );
   output.styleBible.aspectRatio = aspectRatio;

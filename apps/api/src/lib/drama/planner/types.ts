@@ -1,5 +1,6 @@
 import type {
   CharacterCard,
+  DramaProjectData,
   DramaScript,
   SceneCard,
   StoryboardShot,
@@ -22,6 +23,8 @@ export interface PlanDramaInput {
   aspectRatio?: "9:16" | "16:9";
   replicateProfile?: ReplicateProfile;
   projectType?: DramaProjectType;
+  /** 多轮对话迭代：用户对既有方案的自然语言修改指令 */
+  refineInstruction?: string;
 }
 
 export type DramaProjectType = import("../schema.js").DramaProjectType;
@@ -104,6 +107,10 @@ export interface PlanningContext {
   character?: CharacterOutput;
   cinematographer?: CinematographerOutput;
   storyboard?: StoryboardOutput;
+  /** 多轮迭代：用户对既有方案的修改指令（与 input.refineInstruction 同源，便于各 Agent 读取） */
+  refineInstruction?: string;
+  /** 多轮迭代：既有方案快照，供 Agent 在其基础上改写并保留稳定 id */
+  basePlan?: DramaProjectData;
 }
 
 export interface AgentStepResult<T> {
