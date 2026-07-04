@@ -152,18 +152,19 @@ export const StudioCanvasWithOrchestration = forwardRef<
       setViewPhase("agent");
       return;
     }
-    if (
-      dramaPlanRun?.status === "completed" &&
-      dramaDraftProject?.project.shots.length
-    ) {
+    const hasPlanResult = Boolean(
+      dramaDraftProject?.project ?? dramaRun?.project,
+    );
+    if (hasPlanResult) {
       setViewPhase("workflow");
     }
   }, [
     dramaPhaseSplitEnabled,
     isDramaPlanning,
-    dramaPlanRun?.status,
     dramaDraftProject?.id,
-    dramaDraftProject?.project.shots.length,
+    dramaDraftProject?.project,
+    dramaRun?.id,
+    dramaRun?.project,
   ]);
 
   const useInfiniteCanvas = dramaPhaseSplitEnabled

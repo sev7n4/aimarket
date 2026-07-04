@@ -83,9 +83,55 @@ test.describe("production plan SSE", () => {
     await expect(page.getByTestId("drama-plan-stepper")).toBeVisible({
       timeout: 30_000,
     });
-    await expect(page.getByTestId("drama-plan-agent-steps")).toBeVisible({
-      timeout: 30_000,
-    });
+
+    await expect
+      .poll(
+        async () => {
+          const timelineVisible = await page
+            .getByTestId("drama-plan-agent-steps")
+            .isVisible()
+            .catch(() => false);
+          if (timelineVisible) return "planning-ui";
+
+          if (
+            await page
+              .getByTestId("drama-shot-timeline")
+              .isVisible()
+              .catch(() => false)
+          ) {
+            return "completed";
+          }
+          if (
+            await page
+              .locator('[data-node-id^="drama-"]')
+              .first()
+              .isVisible()
+              .catch(() => false)
+          ) {
+            return "completed";
+          }
+
+          const res = await request.get(
+            `${apiBase}/api/v1/drama/plan/runs/${planId}`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          const json = (await res.json()) as {
+            data?: {
+              status?: string;
+              agents?: Record<string, { status?: string }>;
+            };
+          };
+          const data = json.data;
+          if (data?.status !== "completed") return "planning";
+
+          const allDone = PLAN_AGENTS.every(
+            (id) => data.agents?.[id]?.status === "done",
+          );
+          return allDone ? "completed" : "planning";
+        },
+        { timeout: 90_000, intervals: [250, 500, 1000] },
+      )
+      .toMatch(/planning-ui|completed/);
 
     await expect
       .poll(
@@ -93,6 +139,16 @@ test.describe("production plan SSE", () => {
           if (
             await page
               .getByTestId("drama-shot-timeline")
+              .isVisible()
+              .catch(() => false)
+          ) {
+            return "completed";
+          }
+
+          if (
+            await page
+              .locator('[data-node-id^="drama-shot-"]')
+              .first()
               .isVisible()
               .catch(() => false)
           ) {

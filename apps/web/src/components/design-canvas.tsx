@@ -454,9 +454,19 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       Boolean(orchestrationExtra) &&
       isWorkflowInfinite;
 
+    const showLegacyInfiniteOrchestration =
+      useInfiniteCanvas &&
+      !dramaPhaseSplitEnabled &&
+      Boolean(orchestrationEvent);
+
     const infiniteOrchestrationDock =
       isWorkflowInfinite &&
       (Boolean(alternateCanvasContent) || showInfiniteOrchestrationExtra);
+    const legacyInfiniteOrchestrationDock =
+      showLegacyInfiniteOrchestration &&
+      (Boolean(alternateCanvasContent) ||
+        Boolean(orchestrationEvent) ||
+        Boolean(orchestrationExtra));
 
     // Agent 面板使用实时画布快照（含 items + dramaNodes），而非 Studio 传入的空 nodes
     const effectiveAssistantSnapshot = useMemo<CanvasAgentSnapshot | null>(() => {
@@ -1484,6 +1494,37 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                     <div
                       data-testid="orchestration-extra-section"
                       className={alternateCanvasContent ? "mt-3" : undefined}
+                    >
+                      {orchestrationExtra}
+                    </div>
+                  ) : null}
+                </div>
+              ) : legacyInfiniteOrchestrationDock ? (
+                <div
+                  className="shrink-0 overflow-y-auto border-t border-white/10 p-2 sm:p-3"
+                  style={{ maxHeight: "42vh" }}
+                  data-testid="drama-canvas-overlay"
+                >
+                  {alternateCanvasContent}
+                  {orchestrationEvent ? (
+                    <section
+                      data-testid="orchestration-timeline-section"
+                      className={alternateCanvasContent ? "mt-3" : undefined}
+                    >
+                      <ScrollCanvasOrchestrationCard
+                        event={orchestrationEvent}
+                        actions={orchestrationActions}
+                      />
+                    </section>
+                  ) : null}
+                  {orchestrationExtra ? (
+                    <div
+                      data-testid="orchestration-extra-section"
+                      className={
+                        alternateCanvasContent || orchestrationEvent
+                          ? "mt-3"
+                          : undefined
+                      }
                     >
                       {orchestrationExtra}
                     </div>
