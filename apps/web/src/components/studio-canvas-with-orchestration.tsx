@@ -131,7 +131,6 @@ export const StudioCanvasWithOrchestration = forwardRef<
   // Phase 5.1 + 阶段分离：规划/迭代走 ScrollCanvas（Agent 车道），方案完成后切 InfiniteCanvas（节点编排）。
   // E2E 可通过 localStorage["aimarket_canvas_flow"]="0" 或 ?canvasFlow=0 全程 ScrollCanvas。
   const [canvasFlowEnabled, setCanvasFlowEnabled] = useState(true);
-  const [viewPhase, setViewPhase] = useState<DramaStudioViewPhase>("agent");
   useEffect(() => {
     setCanvasFlowEnabled(isCanvasFlowMode());
   }, []);
@@ -146,26 +145,22 @@ export const StudioCanvasWithOrchestration = forwardRef<
         dramaRun,
     );
 
+  const derivedViewPhase: DramaStudioViewPhase = !dramaPhaseSplitEnabled
+    ? "workflow"
+    : isDramaPlanning
+      ? "agent"
+      : dramaDraftProject?.project || dramaRun?.project
+        ? "workflow"
+        : "agent";
+
+  /** 用户手动切换时覆盖自动推导；新一轮规划开始后清除 */
+  const [manualViewPhase, setManualViewPhase] =
+    useState<DramaStudioViewPhase | null>(null);
   useEffect(() => {
-    if (!dramaPhaseSplitEnabled) return;
-    if (isDramaPlanning) {
-      setViewPhase("agent");
-      return;
-    }
-    const hasPlanResult = Boolean(
-      dramaDraftProject?.project ?? dramaRun?.project,
-    );
-    if (hasPlanResult) {
-      setViewPhase("workflow");
-    }
-  }, [
-    dramaPhaseSplitEnabled,
-    isDramaPlanning,
-    dramaDraftProject?.id,
-    dramaDraftProject?.project,
-    dramaRun?.id,
-    dramaRun?.project,
-  ]);
+    if (isDramaPlanning) setManualViewPhase(null);
+  }, [isDramaPlanning, dramaPlanRun?.id]);
+
+  const viewPhase = manualViewPhase ?? derivedViewPhase;
 
   const useInfiniteCanvas = dramaPhaseSplitEnabled
     ? viewPhase === "workflow"
@@ -475,7 +470,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
       dramaPhaseSplitEnabled={dramaPhaseSplitEnabled}
       dramaViewPhase={dramaPhaseSplitEnabled ? viewPhase : undefined}
       onDramaViewPhaseChange={
-        dramaPhaseSplitEnabled ? setViewPhase : undefined
+        dramaPhaseSplitEnabled ? setManualViewPhase : undefined
       }
       orchestrationEvent={timelineEvent}
       orchestrationActions={timelineActions ?? undefined}
