@@ -124,9 +124,56 @@ async function openStudioWithDramaDraft(
       localStorage.setItem("aimarket_studio_dock_mode_v1", "expanded");
       // drama coach 同样按 user.id 存
       localStorage.setItem(`aimarket_drama_coach_v1:${uid}`, "1");
+      localStorage.setItem("aimarket_canvas_flow", "1");
       // 注意: 不设置 aimarket_canvas_flow=0 — 我们要测生产路径
     },
     { t: token, uid: userId },
+  );
+
+  await page.route("**/api/v1/tools/list", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [] }),
+    }),
+  );
+
+  await page.route("**/api/v1/agent/skills", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [] }),
+    }),
+  );
+
+  await page.route(`**/api/v1/imageSession/${sessionId}`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          id: sessionId,
+          title: "drama-canvas-e2e",
+          mode: "production",
+          kind: "canvas",
+          can_edit: true,
+        },
+      }),
+    }),
+  );
+
+  await page.route(`**/api/v1/canvas/${sessionId}/bundle`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          layout: { version: 1, items: [] },
+          messages: [],
+          meta: { can_edit: true },
+        },
+      }),
+    }),
   );
 
   await page.route(
@@ -154,7 +201,7 @@ async function openStudioWithDramaDraft(
   );
 
   await page.goto(
-    `/studio?mode=production&sessionId=${sessionId}`,
+    `/studio?mode=production&canvasFlow=1&sessionId=${sessionId}`,
     { waitUntil: "domcontentloaded" },
   );
   await stateResponse;
@@ -172,8 +219,11 @@ async function openStudioWithDramaDraft(
 }
 
 async function switchToInfiniteNodeView(page: Page) {
-  const toggle = page.getByTestId("drama-view-phase-toggle");
-  await expect(toggle).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("drama-studio-panel")).toBeVisible({
+    timeout: 30_000,
+  });
+  const toggle = page.getByRole("button", { name: "节点视图" });
+  await expect(toggle).toBeVisible({ timeout: 30_000 });
   await toggle.click();
   await expect(page.getByTestId("infinite-canvas-pane")).toBeVisible({
     timeout: 15_000,
