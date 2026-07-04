@@ -68,6 +68,49 @@ function syncAgentsFromEvent(
   }
 }
 
+/** 每步 Agent 完成后持久化 partial project，供 Scroll 画布渐进渲染 */
+function persistPlanSnapshot(
+  row: NonNullable<ReturnType<typeof getDramaPlanRun>>,
+  userId: string,
+  runId: string,
+  project: DramaProjectData,
+): string {
+  if (row.project_id) {
+    updateDramaProject(row.project_id, { project }, { userId, skipSnapshot: true });
+    return row.project_id;
+  }
+  const projectRow = createDramaProject({
+    sessionId: row.session_id,
+    userId,
+    project,
+  });
+  updateDramaPlanRun(runId, { projectId: projectRow.id });
+  row.project_id = projectRow.id;
+  return projectRow.id;
+}
+
+function handlePlanStreamEvent(
+  runId: string,
+  userId: string,
+  row: NonNullable<ReturnType<typeof getDramaPlanRun>>,
+  agents: DramaPlanAgentsJson,
+  reasoning: Partial<Record<DramaPlanAgentId, string>>,
+  event: DramaPlanEvent,
+): void {
+  publishPlanEvent(runId, event);
+  syncAgentsFromEvent(agents, reasoning, event);
+  if (event.type === "agent_start") {
+    updateDramaPlanRun(runId, { currentAgent: event.agent, agents, reasoning });
+  } else if (
+    event.type === "agent_reasoning" ||
+    event.type === "agent_done"
+  ) {
+    updateDramaPlanRun(runId, { agents, reasoning });
+  } else if (event.type === "agent_snapshot") {
+    persistPlanSnapshot(row, userId, runId, event.project);
+  }
+}
+
 async function runRuleBasedWithEvents(
   input: Parameters<typeof buildRuleBasedProject>[0],
   emit: DramaPlanEmit,
@@ -237,16 +280,7 @@ export async function executeDramaPlanRefine(runId: string, userId: string) {
   const reasoning = parseReasoningJson(row);
 
   const emit: DramaPlanEmit = (event) => {
-    publishPlanEvent(runId, event);
-    syncAgentsFromEvent(agents, reasoning, event);
-    if (event.type === "agent_start") {
-      updateDramaPlanRun(runId, { currentAgent: event.agent, agents, reasoning });
-    } else if (
-      event.type === "agent_reasoning" ||
-      event.type === "agent_done"
-    ) {
-      updateDramaPlanRun(runId, { agents, reasoning });
-    }
+    handlePlanStreamEvent(runId, userId, row, agents, reasoning, event);
   };
 
   const finalizeSuccess = (projectData: DramaProjectData) => {
@@ -332,30 +366,25 @@ async function executeDramaPlanRun(runId: string, userId: string) {
   let reasoning = parseReasoningJson(row);
 
   const emit: DramaPlanEmit = (event) => {
-    publishPlanEvent(runId, event);
-    syncAgentsFromEvent(agents, reasoning, event);
-    if (event.type === "agent_start") {
-      updateDramaPlanRun(runId, {
-        currentAgent: event.agent,
-        agents,
-        reasoning,
-      });
-    } else if (
-      event.type === "agent_reasoning" ||
-      event.type === "agent_done"
-    ) {
-      updateDramaPlanRun(runId, { agents, reasoning });
-    }
+    handlePlanStreamEvent(runId, userId, row, agents, reasoning, event);
   };
 
   try {
     const projectData = await planProjectWithEvents(input, emit);
 
-    const projectRow = createDramaProject({
-      sessionId: row.session_id,
-      userId: row.user_id,
-      project: projectData,
-    });
+    const existingProjectId = row.project_id;
+    const projectRow = existingProjectId
+      ? (updateDramaProject(
+          existingProjectId,
+          { project: projectData },
+          { userId, snapshotTrigger: "manual_patch", snapshotNote: "规划完成" },
+        ),
+        getDramaProject(userId, existingProjectId)!)
+      : createDramaProject({
+          sessionId: row.session_id,
+          userId: row.user_id,
+          project: projectData,
+        });
     const estimatedPoints = estimateDramaPoints(projectData);
     const autoProduce = safeMaybeAutoProduce(row, projectRow.id, estimatedPoints);
 
@@ -387,11 +416,19 @@ async function executeDramaPlanRun(runId: string, userId: string) {
       agents = defaultAgentsJson();
       reasoning = {};
       const projectData = await runRuleBasedWithEvents(input, emit);
-      const projectRow = createDramaProject({
-        sessionId: row.session_id,
-        userId: row.user_id,
-        project: projectData,
-      });
+      const existingProjectId = row.project_id;
+      const projectRow = existingProjectId
+        ? (updateDramaProject(
+            existingProjectId,
+            { project: projectData },
+            { userId: row.user_id, snapshotTrigger: "manual_patch", snapshotNote: "规划完成" },
+          ),
+          getDramaProject(row.user_id, existingProjectId)!)
+        : createDramaProject({
+            sessionId: row.session_id,
+            userId: row.user_id,
+            project: projectData,
+          });
       const estimatedPoints = estimateDramaPoints(projectData);
       const autoProduce = safeMaybeAutoProduce(row, projectRow.id, estimatedPoints);
       updateDramaPlanRun(runId, {
@@ -450,20 +487,7 @@ async function executeDramaPlanRerun(
   const ctx = projectToPlanningContext(parseProjectJson(freshProjectRow));
 
   const emit: DramaPlanEmit = (event) => {
-    publishPlanEvent(runId, event);
-    syncAgentsFromEvent(agents, reasoning, event);
-    if (event.type === "agent_start") {
-      updateDramaPlanRun(runId, {
-        currentAgent: event.agent,
-        agents,
-        reasoning,
-      });
-    } else if (
-      event.type === "agent_reasoning" ||
-      event.type === "agent_done"
-    ) {
-      updateDramaPlanRun(runId, { agents, reasoning });
-    }
+    handlePlanStreamEvent(runId, userId, row, agents, reasoning, event);
   };
 
   try {

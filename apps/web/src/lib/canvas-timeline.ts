@@ -35,6 +35,8 @@ export interface OrchestrationTimelineEvent {
   /** 短剧多 Agent 规划 SSE 事件 */
   dramaPlanEvents?: DramaPlanStreamEvent[];
   dramaPlanCurrentAgent?: string | null;
+  /** 规划中途渐进产物（agent_snapshot） */
+  dramaPlanPartialProject?: import("@/lib/types").DramaProjectPayload | null;
 }
 
 export interface OrchestrationTimelineActions {
@@ -174,6 +176,7 @@ export function buildDramaPlanTimelineEvent(input: {
   currentAgent?: string | null;
   events: DramaPlanStreamEvent[];
   error?: string | null;
+  partialProject?: import("@/lib/types").DramaProjectPayload | null;
 }): OrchestrationTimelineEvent | null {
   if (
     input.status !== "planning" &&
@@ -221,6 +224,7 @@ export function buildDramaPlanTimelineEvent(input: {
     updatedAt: new Date().toISOString(),
     dramaPlanEvents: input.events,
     dramaPlanCurrentAgent: input.currentAgent,
+    dramaPlanPartialProject: input.partialProject ?? null,
   };
 }
 

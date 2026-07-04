@@ -69,6 +69,8 @@ export function useDramaPlan({
 }: UseDramaPlanOptions) {
   const [planRun, setPlanRun] = useState<DramaPlanRunState | null>(null);
   const [events, setEvents] = useState<DramaPlanStreamEvent[]>([]);
+  const [partialProject, setPartialProject] =
+    useState<import("@/lib/types").DramaProjectPayload | null>(null);
   const [busy, setBusy] = useState(false);
   const stopRef = useRef<(() => void) | null>(null);
   const onCompleteRef = useRef(onComplete);
@@ -109,7 +111,10 @@ export function useDramaPlan({
   const watchRun = useCallback(
     (runId: string, resetEvents: boolean) => {
       stopRef.current?.();
-      if (resetEvents) setEvents([]);
+      if (resetEvents) {
+        setEvents([]);
+        setPartialProject(null);
+      }
       dramaRunIdRef.current = undefined;
       produceSkippedReasonRef.current = undefined;
 
@@ -132,6 +137,9 @@ export function useDramaPlan({
                 : prev,
             );
           }
+        }
+        if (event.type === "agent_snapshot") {
+          setPartialProject(event.project);
         }
       };
 
@@ -251,6 +259,7 @@ export function useDramaPlan({
     cancelWatch();
     setPlanRun(null);
     setEvents([]);
+    setPartialProject(null);
   }, [cancelWatch]);
 
   const restorePlan = useCallback(
@@ -263,6 +272,9 @@ export function useDramaPlan({
         estimatedPoints: run.estimatedPoints,
         error: run.error,
       });
+      if (run.project?.project) {
+        setPartialProject(run.project.project);
+      }
       if (run.status === "planning") {
         watchRun(run.id, true);
       }
@@ -282,6 +294,7 @@ export function useDramaPlan({
   return {
     planRun,
     events,
+    partialProject,
     busy,
     startPlan,
     rerunPlan,

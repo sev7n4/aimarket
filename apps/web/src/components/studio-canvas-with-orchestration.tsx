@@ -137,19 +137,11 @@ export const StudioCanvasWithOrchestration = forwardRef<
     setCanvasFlowEnabled(isCanvasFlowMode());
   }, []);
 
+  /** 制片 + canvasFlow：始终 Agent(Scroll) ↔ 节点(Infinite) 分离；未进入规划前也不默认 Infinite */
   const dramaPhaseSplitEnabled =
-    studioMode === "production" &&
-    canvasFlowEnabled &&
-    Boolean(
-      isDramaPlanning ||
-        dramaPlanRun ||
-        dramaDraftProject ||
-        dramaRun,
-    );
+    studioMode === "production" && canvasFlowEnabled;
 
-  const derivedViewPhase: DramaStudioViewPhase = dramaPhaseSplitEnabled
-    ? "agent"
-    : "workflow";
+  const derivedViewPhase: DramaStudioViewPhase = "agent";
 
   /** 用户手动切换节点/对话视图；新一轮规划开始后清除，回到对话视图 */
   const [manualViewPhase, setManualViewPhase] =
@@ -169,9 +161,10 @@ export const StudioCanvasWithOrchestration = forwardRef<
 
   const viewPhase = manualViewPhase ?? derivedViewPhase;
 
-  const useInfiniteCanvas = dramaPhaseSplitEnabled
-    ? viewPhase === "workflow"
-    : canvasFlowEnabled;
+  const useInfiniteCanvas =
+    studioMode === "production"
+      ? dramaPhaseSplitEnabled && viewPhase === "workflow"
+      : canvasFlowEnabled;
 
   // Compute Drama canvas nodes from the planning result
   const dramaCanvasData = useMemo(() => {
@@ -375,13 +368,13 @@ export const StudioCanvasWithOrchestration = forwardRef<
       : "agent";
 
   const dramaPanel =
-    isDramaPlanning || dramaRun || dramaDraftProject ? (
+    !isDramaPlanning && (dramaRun || dramaDraftProject) ? (
       <DramaStudioPanel
         sessionId={sessionId}
         draftProject={dramaDraftProject}
         run={dramaRun}
         runGraph={dramaRunGraph}
-        planning={isDramaPlanning}
+        planning={false}
         presentation={panelPresentation}
         busy={dramaBusy || dramaPlanBusy}
         shotTimelineOnCanvas={useInfiniteCanvas && showShotTimeline}

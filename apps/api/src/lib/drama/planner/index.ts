@@ -5,7 +5,7 @@ import { runCinematographerAgent } from "./agents/cinematographer.js";
 import { runDirectorAgent } from "./agents/director.js";
 import { runStoryboardAgent } from "./agents/storyboard.js";
 import { runWriterAgent } from "./agents/writer.js";
-import { mergePlanningContext } from "./merge.js";
+import { mergePartialPlanningContext, mergePlanningContext } from "./merge.js";
 import type {
   AgentStepResult,
   CharacterOutput,
@@ -63,6 +63,10 @@ async function runAgentStep<T>(
     agent,
     summary: summarizeAgent(agent, result.output),
   });
+  const partial = mergePartialPlanningContext(ctx);
+  if (partial) {
+    emit?.({ type: "agent_snapshot", agent, project: partial });
+  }
   return result;
 }
 

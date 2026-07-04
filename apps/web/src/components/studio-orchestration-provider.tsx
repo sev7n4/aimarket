@@ -289,6 +289,7 @@ export function StudioOrchestrationProvider({
   const {
     planRun: dramaPlanRun,
     events: dramaPlanEvents,
+    partialProject: dramaPlanPartialProject,
     busy: dramaPlanBusy,
     startPlan: startDramaPlan,
     rerunPlan: rerunDramaPlan,
@@ -533,6 +534,8 @@ export function StudioOrchestrationProvider({
         currentAgent: dramaPlanRun.currentAgent,
         events: dramaPlanEvents,
         error: dramaPlanRun.error,
+        partialProject:
+          dramaPlanPartialProject ?? dramaDraftProject?.project ?? null,
       });
     }
     if (dramaPlanRun.status === "failed" || dramaPlanRun.status === "planning") {
@@ -543,10 +546,18 @@ export function StudioOrchestrationProvider({
         currentAgent: dramaPlanRun.currentAgent,
         events: dramaPlanEvents,
         error: dramaPlanRun.error,
+        partialProject:
+          dramaPlanPartialProject ?? dramaDraftProject?.project ?? null,
       });
     }
     return null;
-  }, [dramaPlanRun, dramaPlanEvents, input.prompt]);
+  }, [
+    dramaPlanRun,
+    dramaPlanEvents,
+    dramaPlanPartialProject,
+    dramaDraftProject?.project,
+    input.prompt,
+  ]);
 
   const timelineEvent = dramaRunTimeline ?? dramaPlanTimeline ?? agentSkillTimeline;
 

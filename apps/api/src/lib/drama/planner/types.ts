@@ -142,6 +142,7 @@ export type DramaPlanEvent =
   | { type: "agent_start"; agent: DramaPlanAgentId }
   | { type: "agent_reasoning"; agent: DramaPlanAgentId; chunk: string }
   | { type: "agent_done"; agent: DramaPlanAgentId; summary: string }
+  | { type: "agent_snapshot"; agent: DramaPlanAgentId; project: DramaProjectData }
   | {
       type: "plan_complete";
       projectId: string;
