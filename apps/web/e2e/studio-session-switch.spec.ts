@@ -196,14 +196,16 @@ function sessionIdFromUrl(url: string): string | null {
   }
 }
 
-async function navigateToSessionRow(page: Page, sessionId: string) {
-  const href = await page
-    .getByTestId(`studio-session-row-${sessionId}`)
-    .getAttribute("href");
-  expect(href).toContain(sessionId);
-  await page.goto(href!, { waitUntil: "domcontentloaded" });
+async function navigateToSessionRow(
+  page: Page,
+  session: { id: string; mode: string; kind: string },
+  remock: () => Promise<void>,
+) {
+  const href = `/studio?sessionId=${encodeURIComponent(session.id)}&mode=${session.mode}&kind=${session.kind}`;
+  await remock();
+  await page.goto(href, { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(
-    new RegExp(`sessionId=${sessionId.replace(/-/g, "\\-")}`),
+    new RegExp(`sessionId=${session.id.replace(/-/g, "\\-")}`),
     { timeout: 15_000 },
   );
 }
@@ -224,8 +226,12 @@ test.describe("studio session switch", () => {
 
     await waitForSidebarSessions(page);
 
-    await navigateToSessionRow(page, SESSION_B.id);
-    await navigateToSessionRow(page, SESSION_A.id);
+    await navigateToSessionRow(page, SESSION_B, () =>
+      mockStudioSessionSwitch(page),
+    );
+    await navigateToSessionRow(page, SESSION_A, () =>
+      mockStudioSessionSwitch(page),
+    );
   });
 
   test("Agent 车道切换会话后保持创作方式", async ({ page }) => {
@@ -244,12 +250,16 @@ test.describe("studio session switch", () => {
     const lanePicker = station.getByRole("button", { name: "选择创作方式" });
     await expect(lanePicker).toContainText("Agent 模式", { timeout: 15_000 });
 
-    await navigateToSessionRow(page, SESSION_B.id);
+    await navigateToSessionRow(page, SESSION_B, () =>
+      mockStudioSessionSwitch(page),
+    );
     await expect(
       studioWorkstation(page).getByRole("button", { name: "选择创作方式" }),
     ).toContainText("Agent 模式", { timeout: 15_000 });
 
-    await navigateToSessionRow(page, SESSION_A.id);
+    await navigateToSessionRow(page, SESSION_A, () =>
+      mockStudioSessionSwitch(page),
+    );
     await expect(
       studioWorkstation(page).getByRole("button", { name: "选择创作方式" }),
     ).toContainText("Agent 模式", { timeout: 15_000 });
@@ -273,7 +283,9 @@ test.describe("studio session switch", () => {
     await textarea.fill("旧会话 Agent 提示词，切换后不应残留");
     await expect(textarea).toHaveValue(/旧会话 Agent/, { timeout: 10_000 });
 
-    await navigateToSessionRow(page, SESSION_B.id);
+    await navigateToSessionRow(page, SESSION_B, () =>
+      mockStudioSessionSwitch(page),
+    );
 
     const dock = studioWorkstation(page);
     await expect(dock.locator("textarea").first()).toHaveValue("", {

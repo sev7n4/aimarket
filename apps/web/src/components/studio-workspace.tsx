@@ -1766,7 +1766,16 @@ export function StudioWorkspace({
                       e.preventDefault();
                       return;
                     }
+                    e.preventDefault();
                     setSidebarOpen(false);
+                    clientNavigate(
+                      router,
+                      studioUrlForSession({
+                        id: s.id,
+                        mode: s.mode,
+                        kind: s.kind,
+                      }),
+                    );
                   }}
                   className={`block w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm transition ${
                     s.id === sessionId
@@ -1839,6 +1848,7 @@ export function StudioWorkspace({
               </p>
             ) : null}
             <StudioCanvasWithOrchestration
+              key={sessionId}
               ref={canvasRef}
               items={canvasItems}
               infiniteConnections={infiniteConnections}
