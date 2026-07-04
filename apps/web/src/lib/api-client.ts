@@ -1503,6 +1503,38 @@ export async function rerunDramaPlanRun(
   return res.data;
 }
 
+/** 多轮迭代：基于既有项目按自然语言指令改写，生成新版本（复用规划 SSE） */
+export async function refineDramaPlan(body: {
+  sessionId: string;
+  projectId: string;
+  instruction: string;
+}) {
+  const res = await request<{
+    data: import("./types").DramaPlanRun;
+  }>("/api/v1/drama/plan/refine", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return res.data;
+}
+
+/** 深拷贝短剧项目为新项目（标题追加副本） */
+export async function duplicateDramaProject(projectId: string) {
+  const res = await request<{ data: import("./types").DramaProject }>(
+    `/api/v1/drama/projects/${encodeURIComponent(projectId)}/duplicate`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
+/** 会话内多轮对话回合（策划线程） */
+export async function listDramaPlanTurns(sessionId: string) {
+  const res = await request<{ data: import("./types").DramaPlanTurn[] }>(
+    `/api/v1/drama/sessions/${encodeURIComponent(sessionId)}/turns`,
+  );
+  return res.data;
+}
+
 export async function startDramaProduction(body: {
   sessionId: string;
   projectId: string;

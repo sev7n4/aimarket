@@ -11,8 +11,8 @@ import {
   type ReactNode,
 } from "react";
 import type { CreationMode } from "@aimarket/ui";
-import { analyzeDramaReplicate, ensureSession, fetchAgentPlan, fetchDramaRun, fetchDramaSessionState, trackEvent } from "@/lib/api-client";
-import type { DramaReplicateProfile } from "@/lib/types";
+import { analyzeDramaReplicate, duplicateDramaProject as duplicateDramaProjectApi, ensureSession, fetchAgentPlan, fetchDramaRun, fetchDramaSessionState, trackEvent } from "@/lib/api-client";
+import type { DramaProject, DramaReplicateProfile } from "@/lib/types";
 import type { DramaProjectType } from "@/components/drama-production-dock-params";
 import type { DramaProductionMode } from "@/components/drama-replicate-dock-params";
 import type { DramaTemplateMetadata } from "@/lib/types";
@@ -100,6 +100,10 @@ interface StudioOrchestrationContextValue {
     },
   ) => Promise<unknown>;
   rerunDramaPlan: (fromAgent: string, projectPatch?: Record<string, unknown>) => Promise<unknown>;
+  /** 多轮迭代：基于当前草稿方案按自然语言指令改写，生成新版本 */
+  refineDramaPlan: (instruction: string) => Promise<unknown>;
+  /** 深拷贝当前方案为新项目（副本），并切换为草稿 */
+  duplicateDramaProject: () => Promise<DramaProject | null>;
   resumeDramaPlanRun: (planRunId: string) => void;
   dramaAutoProduce: boolean;
   setDramaAutoProduce: (value: boolean) => void;
@@ -288,6 +292,7 @@ export function StudioOrchestrationProvider({
     busy: dramaPlanBusy,
     startPlan: startDramaPlan,
     rerunPlan: rerunDramaPlan,
+    refinePlan: refineDramaPlanAction,
     cancelWatch: cancelDramaPlanWatch,
     resetPlan: resetDramaPlan,
     restorePlan: restoreDramaPlan,
@@ -597,6 +602,15 @@ export function StudioOrchestrationProvider({
     return startDramaProduction(dramaDraftProject.id, true);
   }, [dramaDraftProject?.id, startDramaProduction]);
 
+  const refineDramaPlan = useCallback(
+    async (instruction: string) => {
+      const projectId = dramaDraftProject?.id;
+      if (!projectId) return null;
+      return refineDramaPlanAction(projectId, instruction);
+    },
+    [dramaDraftProject?.id, refineDramaPlanAction],
+  );
+
   const dispatchSubmit = useCallback(
     async (ctx: StudioOrchestrationSubmitContext): Promise<boolean> => {
       const {
@@ -632,6 +646,25 @@ export function StudioOrchestrationProvider({
         creationLane === "agent" && !activeSkillId;
 
       if (useDramaSubmit) {
+        // 多轮迭代：已有完成的草稿方案 + 用户输入新指令 → 改写既有方案（生成新版本），
+        // 而非新建规划或直接制作旧草稿。
+        const refineInstruction = prompt.trim();
+        if (
+          dramaDraftProject?.id &&
+          dramaPlanRun?.status === "completed" &&
+          !dramaRun &&
+          refineInstruction.length >= 4
+        ) {
+          if (dramaProductionMode === "replicate" && !dramaReplicateProfile) {
+            alert("请先粘贴参考视频链接并点击「分析结构」");
+            return true;
+          }
+          await ensureSession(sessionId, effectiveMode);
+          await refineDramaPlan(refineInstruction);
+          void trackEvent("drama_plan_refine", { sessionId });
+          return true;
+        }
+
         await submitDramaOrchestration({
           prompt,
           dramaRun,
@@ -731,6 +764,7 @@ export function StudioOrchestrationProvider({
       dramaProductionMode,
       dramaReplicateProfile,
       dramaProjectType,
+      refineDramaPlan,
     ],
   );
 
@@ -756,6 +790,30 @@ export function StudioOrchestrationProvider({
     },
     [rerunDramaPlan],
   );
+
+  const duplicateDramaProject = useCallback(async () => {
+    const projectId = dramaDraftProject?.id ?? dramaRun?.projectId ?? null;
+    if (!projectId) return null;
+    const copy = await duplicateDramaProjectApi(projectId);
+    setDramaDraftProject(copy);
+    setDramaRun(null);
+    resetDramaPlan();
+    setInput((prev) => ({
+      ...prev,
+      prompt: "",
+      activeSkillId: DRAMA_SKILL_ID,
+      creationLane: "agent",
+    }));
+    void trackEvent("drama_project_duplicate", { sessionId, projectId });
+    return copy;
+  }, [
+    dramaDraftProject?.id,
+    dramaRun?.projectId,
+    sessionId,
+    setDramaDraftProject,
+    setDramaRun,
+    resetDramaPlan,
+  ]);
 
   const timelineActions = useMemo((): OrchestrationTimelineActions | null => {
     if (!persistedTimeline && !timelineEvent) return null;
@@ -810,6 +868,8 @@ export function StudioOrchestrationProvider({
       produceDramaDraft,
       startDramaPlan,
       rerunDramaPlan,
+      refineDramaPlan,
+      duplicateDramaProject,
       resumeDramaPlanRun,
       dramaAutoProduce,
       setDramaAutoProduce,
@@ -858,6 +918,8 @@ export function StudioOrchestrationProvider({
       produceDramaDraft,
       startDramaPlan,
       rerunDramaPlan,
+      refineDramaPlan,
+      duplicateDramaProject,
       resumeDramaPlanRun,
       dramaAutoProduce,
       setDramaAutoProduce,

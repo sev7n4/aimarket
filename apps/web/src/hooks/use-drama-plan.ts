@@ -4,6 +4,7 @@ import { useCallback, useRef, useState, type MutableRefObject } from "react";
 import {
   createDramaPlanRun,
   fetchDramaPlanRun,
+  refineDramaPlan,
   rerunDramaPlanRun,
 } from "@/lib/api-client";
 import {
@@ -211,6 +212,36 @@ export function useDramaPlan({
     [planRun?.id, enabled, watchRun],
   );
 
+  /** 多轮迭代：基于既有项目按指令改写，生成新版本（复用同一 SSE / onComplete 流程） */
+  const refinePlan = useCallback(
+    async (projectId: string, instruction: string) => {
+      if (!sessionId || !enabled) return null;
+      const idea = instruction.trim();
+      if (!idea) return null;
+      stopRef.current?.();
+      setBusy(true);
+      setEvents([]);
+      try {
+        const created = await refineDramaPlan({
+          sessionId,
+          projectId,
+          instruction: idea,
+        });
+        setPlanRun({
+          id: created.id,
+          status: created.status,
+          currentAgent: created.currentAgent,
+          projectId: created.projectId ?? undefined,
+        });
+        watchRun(created.id, false);
+        return created;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [sessionId, enabled, watchRun],
+  );
+
   const cancelWatch = useCallback(() => {
     stopRef.current?.();
     stopRef.current = null;
@@ -254,6 +285,7 @@ export function useDramaPlan({
     busy,
     startPlan,
     rerunPlan,
+    refinePlan,
     cancelWatch,
     resetPlan,
     restorePlan,
