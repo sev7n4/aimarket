@@ -7,13 +7,21 @@ import type { StudioDockMode } from "@/lib/studio-dock-state";
 interface StudioDockProps {
   mode: StudioDockMode;
   onModeChange: (mode: StudioDockMode) => void;
+  /** Infinite 节点编排模式下隐藏全局底部创作台 */
+  hidden?: boolean;
   children: ReactNode;
 }
 
 /**
  * Studio 底部 Dock 定位层：只负责贴底居中，视觉与控件全部由 CreationPanel 承担。
  */
-export function StudioDock({ mode, onModeChange, children }: StudioDockProps) {
+export function StudioDock({
+  mode,
+  onModeChange,
+  hidden = false,
+  children,
+}: StudioDockProps) {
+  if (hidden) return null;
   if (mode === "focus") {
     return (
       <div

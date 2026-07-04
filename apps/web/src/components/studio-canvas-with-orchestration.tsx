@@ -27,7 +27,9 @@ import { isCanvasFlowMode } from "@/lib/modes";
 type StudioCanvasProps = Omit<
   ComponentProps<typeof DesignCanvas>,
   "orchestrationEvent" | "orchestrationActions" | "orchestrationExtra" | "alternateCanvasContent"
->;
+> & {
+  onInfiniteWorkflowActiveChange?: (active: boolean) => void;
+};
 
 /** Studio 画布：编排状态来自 Provider，与 Dock 输入解耦 */
 export const StudioCanvasWithOrchestration = forwardRef<
@@ -128,7 +130,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     }
   }, [showShotTimeline, dramaDraftProject?.id]);
 
-  // Phase 5.1 + 阶段分离：规划/迭代走 ScrollCanvas（Agent 车道），方案完成后切 InfiniteCanvas（节点编排）。
+  // Phase 5.1 + 阶段分离：默认 ScrollCanvas（Agent 车道）；仅用户手动点「节点视图」才进 InfiniteCanvas。
   // E2E 可通过 localStorage["aimarket_canvas_flow"]="0" 或 ?canvasFlow=0 全程 ScrollCanvas。
   const [canvasFlowEnabled, setCanvasFlowEnabled] = useState(true);
   useEffect(() => {
@@ -145,15 +147,11 @@ export const StudioCanvasWithOrchestration = forwardRef<
         dramaRun,
     );
 
-  const derivedViewPhase: DramaStudioViewPhase = !dramaPhaseSplitEnabled
-    ? "workflow"
-    : isDramaPlanning
-      ? "agent"
-      : dramaDraftProject?.project || dramaRun?.project
-        ? "workflow"
-        : "agent";
+  const derivedViewPhase: DramaStudioViewPhase = dramaPhaseSplitEnabled
+    ? "agent"
+    : "workflow";
 
-  /** 用户手动切换时覆盖自动推导；新一轮规划开始后清除 */
+  /** 用户手动切换节点/对话视图；新一轮规划开始后清除，回到对话视图 */
   const [manualViewPhase, setManualViewPhase] =
     useState<DramaStudioViewPhase | null>(null);
   useEffect(() => {
@@ -472,6 +470,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
       onDramaViewPhaseChange={
         dramaPhaseSplitEnabled ? setManualViewPhase : undefined
       }
+      onInfiniteWorkflowActiveChange={props.onInfiniteWorkflowActiveChange}
       orchestrationEvent={timelineEvent}
       orchestrationActions={timelineActions ?? undefined}
       alternateCanvasContent={alternateCanvasContent}
