@@ -26,6 +26,8 @@ import {
 import { useAgentRun } from "@/hooks/use-agent-run";
 import { useDramaRun } from "@/hooks/use-drama-run";
 import { useDramaPlan, type DramaPlanRunState } from "@/hooks/use-drama-plan";
+import type { DramaPlanStreamEvent } from "@/lib/drama-plan-stream";
+import type { DramaProjectPayload } from "@/lib/types";
 import { useSkillRun } from "@/hooks/use-skill-run";
 import type { AgentPlan, AgentRun, DramaRun, SkillRun } from "@/lib/types";
 import {
@@ -72,6 +74,9 @@ interface StudioOrchestrationContextValue {
   dramaRunGraph: ReturnType<typeof useDramaRun>["runGraph"];
   dramaDraftProject: ReturnType<typeof useDramaRun>["draftProject"];
   dramaPlanRun: DramaPlanRunState | null;
+  dramaPlanEvents: DramaPlanStreamEvent[];
+  dramaPlanPartialProject: DramaProjectPayload | null;
+  orchestrationPrompt: string;
   saveDramaDraft: ReturnType<typeof useDramaRun>["saveDraftProject"];
   agentBusy: boolean;
   skillBusy: boolean;
@@ -289,6 +294,7 @@ export function StudioOrchestrationProvider({
   const {
     planRun: dramaPlanRun,
     events: dramaPlanEvents,
+    partialProject: dramaPlanPartialProject,
     busy: dramaPlanBusy,
     startPlan: startDramaPlan,
     rerunPlan: rerunDramaPlan,
@@ -533,6 +539,8 @@ export function StudioOrchestrationProvider({
         currentAgent: dramaPlanRun.currentAgent,
         events: dramaPlanEvents,
         error: dramaPlanRun.error,
+        partialProject:
+          dramaPlanPartialProject ?? dramaDraftProject?.project ?? null,
       });
     }
     if (dramaPlanRun.status === "failed" || dramaPlanRun.status === "planning") {
@@ -543,10 +551,18 @@ export function StudioOrchestrationProvider({
         currentAgent: dramaPlanRun.currentAgent,
         events: dramaPlanEvents,
         error: dramaPlanRun.error,
+        partialProject:
+          dramaPlanPartialProject ?? dramaDraftProject?.project ?? null,
       });
     }
     return null;
-  }, [dramaPlanRun, dramaPlanEvents, input.prompt]);
+  }, [
+    dramaPlanRun,
+    dramaPlanEvents,
+    dramaPlanPartialProject,
+    dramaDraftProject?.project,
+    input.prompt,
+  ]);
 
   const timelineEvent = dramaRunTimeline ?? dramaPlanTimeline ?? agentSkillTimeline;
 
@@ -852,6 +868,9 @@ export function StudioOrchestrationProvider({
       dramaRunGraph,
       dramaDraftProject,
       dramaPlanRun,
+      dramaPlanEvents,
+      dramaPlanPartialProject,
+      orchestrationPrompt: input.prompt,
       saveDramaDraft,
       agentBusy,
       skillBusy,
@@ -902,6 +921,9 @@ export function StudioOrchestrationProvider({
       dramaRunGraph,
       dramaDraftProject,
       dramaPlanRun,
+      dramaPlanEvents,
+      dramaPlanPartialProject,
+      input.prompt,
       saveDramaDraft,
       agentBusy,
       skillBusy,

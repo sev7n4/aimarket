@@ -8,6 +8,11 @@ export type DramaPlanStreamEvent =
   | { type: "agent_reasoning"; agent: string; chunk: string }
   | { type: "agent_done"; agent: string; summary: string }
   | {
+      type: "agent_snapshot";
+      agent: string;
+      project: import("./types").DramaProjectPayload;
+    }
+  | {
       type: "plan_complete";
       projectId: string;
       estimatedPoints: number;

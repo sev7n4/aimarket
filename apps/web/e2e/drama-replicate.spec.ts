@@ -131,9 +131,12 @@ test.describe("drama replicate", () => {
       )
       .toBe("completed");
 
-    const panel = page.getByTestId("drama-studio-panel");
-    await expect(panel).toBeVisible({ timeout: 30_000 });
-    await expect(panel.getByText(/分镜板（\d+ 镜）/)).toBeVisible({
+    await expect(page.getByTestId("drama-agent-plan-workspace")).toBeVisible({
+      timeout: 30_000,
+    });
+    const storyboard = page.getByTestId("drama-artifact-storyboard");
+    await expect(storyboard).toBeVisible({ timeout: 30_000 });
+    await expect(storyboard.getByText(/\d+ 镜/)).toBeVisible({
       timeout: 30_000,
     });
   });

@@ -80,6 +80,12 @@ test.describe("production plan SSE", () => {
     await expect(page.getByTestId("drama-plan-timeline")).toBeVisible({
       timeout: 30_000,
     });
+    await expect(page.getByTestId("drama-agent-plan-workspace")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("drama-plan-document-panel")).toBeVisible({
+      timeout: 30_000,
+    });
     await expect(page.getByTestId("drama-plan-stepper")).toBeVisible({
       timeout: 30_000,
     });
@@ -187,15 +193,13 @@ test.describe("production plan SSE", () => {
     const projectId = planDoneJson.data?.projectId;
     expect(projectId).toBeTruthy();
 
-    const panel = page.getByTestId("drama-studio-panel");
-    await expect(panel).toBeVisible({ timeout: 30_000 });
-    await expect(
-      panel.getByText(/分镜板（\d+ 镜）/).or(page.locator('[data-node-id^="drama-shot-"]').first()),
-    ).toBeVisible({
+    await expect(page.getByTestId("drama-agent-plan-workspace")).toBeVisible({
       timeout: 30_000,
     });
-    await expect(panel.getByText(/角色资产（\d+）/)).toBeVisible();
-    await expect(panel.getByTestId("drama-characters-lock-hint")).toBeVisible();
-    await expect(panel.getByTestId("drama-confirm-produce")).toBeDisabled();
+    await expect(page.getByTestId("drama-artifact-characters")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("drama-characters-lock-hint")).toBeVisible();
+    await expect(page.getByTestId("drama-confirm-produce")).toBeDisabled();
   });
 });

@@ -44,7 +44,7 @@ export const PRODUCTION_DOCK_PLACEHOLDER =
 /** 节点式画布（InfiniteCanvas）模式：默认开启，可通过 localStorage 或 URL 参数关闭。
  *
  * 制片模式在开启时会做「Agent 车道 (ScrollCanvas) ↔ 节点编排 (InfiniteCanvas)」阶段分离；
- * 规划/迭代走 Scroll，方案完成后自动切 Infinite。关闭本开关则全程 ScrollCanvas（E2E 兼容）。
+ * 默认停留 Agent/Scroll，仅手动点「节点视图」进入 Infinite。关闭本开关则全程 ScrollCanvas（E2E 兼容）。
  */
 export function isCanvasFlowMode(): boolean {
   if (typeof window === "undefined") return true;
