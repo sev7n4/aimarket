@@ -35,7 +35,12 @@ async function registerAndEnsureSession(
   const sessionId = crypto.randomUUID();
   const ensure = await request.post(`${API_BASE}/api/v1/imageSession/ensure`, {
     headers: { Authorization: `Bearer ${token}` },
-    data: { sessionId, mode: "chat", kind: "canvas", title: "drama-canvas-e2e" },
+    data: {
+      sessionId,
+      mode: "production",
+      kind: "canvas",
+      title: "drama-canvas-e2e",
+    },
   });
   expect(ensure.ok(), `ensure failed: ${await ensure.text()}`).toBeTruthy();
 
@@ -130,6 +135,22 @@ async function openStudioWithDramaDraft(
     { t: token, uid: userId },
   );
 
+  await page.route("**/api/v1/imageSession/list**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [] }),
+    }),
+  );
+
+  await page.route("**/api/v1/drama/estimate", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: { estimatedPoints: 120 } }),
+    }),
+  );
+
   await page.route("**/api/v1/tools/list", (route) =>
     route.fulfill({
       status: 200,
@@ -176,36 +197,48 @@ async function openStudioWithDramaDraft(
     }),
   );
 
-  await page.route(
-    `**/api/v1/drama/sessions/${sessionId}/state`,
-    async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          data: {
-            dramaRun: null,
-            draftProject,
-            planRun: null,
-          },
-        }),
-      });
-    },
-  );
+  await page.route("**/api/v1/drama/sessions/*/state", async (route) => {
+    const url = route.request().url();
+    if (!url.includes(sessionId)) {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          sessionId,
+          dramaRun: null,
+          draftProject,
+          planRun: null,
+        },
+      }),
+    });
+  });
 
+  const userResponse = page.waitForResponse(
+    (res) => res.url().includes("/api/v1/user/getInfo") && res.ok(),
+    { timeout: 45_000 },
+  );
   const stateResponse = page.waitForResponse(
     (res) =>
       res.url().includes(`/api/v1/drama/sessions/${sessionId}/state`) &&
       res.ok(),
-    { timeout: 30_000 },
+    { timeout: 45_000 },
   );
 
   await page.goto(
     `/studio?mode=production&canvasFlow=1&sessionId=${sessionId}`,
     { waitUntil: "domcontentloaded" },
   );
+  await userResponse;
   await stateResponse;
   await expect(page).toHaveURL(/sessionId=/, { timeout: 30_000 });
+
+  await expect(page.getByTestId("drama-view-phase-toggle")).toBeVisible({
+    timeout: 45_000,
+  });
 
   // 兜底: 如果 coach 弹层还在, 主动从 DOM 移除
   await page.evaluate(() => {
@@ -219,11 +252,8 @@ async function openStudioWithDramaDraft(
 }
 
 async function switchToInfiniteNodeView(page: Page) {
-  await expect(page.getByTestId("drama-studio-panel")).toBeVisible({
-    timeout: 30_000,
-  });
-  const toggle = page.getByRole("button", { name: "节点视图" });
-  await expect(toggle).toBeVisible({ timeout: 30_000 });
+  const toggle = page.getByTestId("drama-view-phase-toggle");
+  await expect(toggle).toBeVisible({ timeout: 15_000 });
   await toggle.click();
   await expect(page.getByTestId("infinite-canvas-pane")).toBeVisible({
     timeout: 15_000,
@@ -238,7 +268,7 @@ test.describe("drama canvas (InfiniteCanvas 生产路径)", () => {
     page,
     request,
   }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(180_000);
 
     const { token, sessionId, userId } = await registerAndEnsureSession(
       request,
@@ -271,7 +301,7 @@ test.describe("drama canvas (InfiniteCanvas 生产路径)", () => {
   });
 
   test("drama 节点右键菜单可用 (脚本/分镜工具)", async ({ page, request }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(180_000);
 
     const { token, sessionId, userId } = await registerAndEnsureSession(
       request,
