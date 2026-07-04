@@ -131,6 +131,7 @@ export const CHARACTER_JSON_SCHEMA = {
           role: { type: "string" },
           personalityTone: { type: "string" },
           voiceStyle: { type: "string" },
+          voiceId: { type: "string" },
           promptAnchor: { type: "string" },
           visualSignature: characterVisualSignature,
         },

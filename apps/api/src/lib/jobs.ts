@@ -443,6 +443,7 @@ export async function processGenerationJob({
         const result = await runTts({
           text: job.prompt,
           voiceStyle: ctx.voiceStyle as string | undefined,
+          voiceId: ctx.voiceId as string | undefined,
           characterId: ctx.characterId as string | undefined,
           jobId,
         });

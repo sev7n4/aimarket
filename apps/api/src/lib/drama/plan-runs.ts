@@ -110,6 +110,20 @@ export function getDramaPlanRun(
     .get(runId, userId) as DramaPlanRunRow | undefined;
 }
 
+/** 规划进行中：按 project_id 反查 Run（用于三视图 job 完成后推送 SSE） */
+export function findPlanningPlanRunByProjectId(
+  userId: string,
+  projectId: string,
+): DramaPlanRunRow | undefined {
+  return db
+    .prepare(
+      `SELECT * FROM drama_plan_runs
+       WHERE user_id = ? AND project_id = ? AND status = 'planning'
+       ORDER BY updated_at DESC LIMIT 1`,
+    )
+    .get(userId, projectId) as DramaPlanRunRow | undefined;
+}
+
 export function updateDramaPlanRun(
   runId: string,
   patch: Partial<{

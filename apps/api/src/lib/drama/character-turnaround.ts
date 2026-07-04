@@ -111,7 +111,11 @@ export function dispatchCharacterTurnaround(
   };
 }
 
-export async function resumeCharacterTurnaroundOnJobCompleted(jobId: string) {
+export async function resumeCharacterTurnaroundOnJobCompleted(
+  jobId: string,
+): Promise<
+  { userId: string; projectId: string; characterId: string } | undefined
+> {
   const meta = getDramaTurnaroundJobByJobId(jobId);
   if (!meta) return;
 
@@ -146,6 +150,11 @@ export async function resumeCharacterTurnaroundOnJobCompleted(jobId: string) {
   char.refOutputIds[meta.angle as CharacterAngle] = outputId;
   deleteDramaTurnaroundJob(jobId);
   updateDramaProject(row.id, { project });
+  return {
+    userId: meta.user_id,
+    projectId: row.id,
+    characterId: meta.character_id,
+  };
 }
 
 export function isCharacterTurnaroundBusy(

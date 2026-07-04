@@ -12,6 +12,7 @@ import { DramaTimelineEditor } from "@/components/drama-timeline-editor";
 import { DramaAgentPlanWorkspace } from "@/components/drama-agent-plan-workspace";
 import { DramaStudioPanel } from "@/components/drama-studio-panel";
 import { useStudioOrchestration } from "@/components/studio-orchestration-provider";
+import { updateDramaProjectApi } from "@/lib/api-client";
 import type { DramaNodeRerunPatch } from "@/components/drama-node-graph";
 import { retryDramaShot, pickDramaKeyframe, publishCanvasToInspiration, unpublishInspiration } from "@/lib/api-client";
 import { buildDramaPublishPayload } from "@/lib/drama-publish";
@@ -48,6 +49,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     dramaPlanRun,
     dramaPlanEvents,
     dramaPlanPartialProject,
+    updateDramaPlanPartialProject,
     orchestrationPrompt,
     dramaBusy,
     saveDramaDraft,
@@ -277,6 +279,33 @@ export const StudioCanvasWithOrchestration = forwardRef<
     [saveDramaDraft],
   );
 
+  const planWorkspaceProjectId =
+    dramaPlanRun?.projectId ?? dramaDraftProject?.id;
+
+  const handlePlanProjectUpdate = useCallback(
+    (project: DramaProjectPayload) => {
+      updateDramaPlanPartialProject(project);
+    },
+    [updateDramaPlanPartialProject],
+  );
+
+  const handlePlanProjectSave = useCallback(
+    async (project: DramaProjectPayload) => {
+      if (!planWorkspaceProjectId) return;
+      const saved = await updateDramaProjectApi(planWorkspaceProjectId, project);
+      updateDramaPlanPartialProject(saved.project);
+      if (dramaDraftProject?.id === planWorkspaceProjectId) {
+        await saveDramaDraft(saved.project);
+      }
+    },
+    [
+      planWorkspaceProjectId,
+      updateDramaPlanPartialProject,
+      dramaDraftProject?.id,
+      saveDramaDraft,
+    ],
+  );
+
   const handlePatchDramaShotNode = useCallback(
     (
       nodeId: string,
@@ -491,9 +520,14 @@ export const StudioCanvasWithOrchestration = forwardRef<
         events={dramaPlanEvents}
         currentAgent={dramaPlanRun?.currentAgent}
         partialProject={planWorkspaceProject}
+        projectId={planWorkspaceProjectId}
+        readOnly={props.readOnly}
+        busy={dramaBusy || dramaPlanBusy}
         status={planWorkspaceStatus}
         error={dramaPlanRun?.error}
         refreshKey={dramaPlanRun?.id ?? dramaDraftProject?.id}
+        onProjectUpdate={handlePlanProjectUpdate}
+        onSaveProject={handlePlanProjectSave}
         onRerunFromAgent={
           dramaPlanRun?.status === "completed" ||
           dramaPlanRun?.status === "failed"

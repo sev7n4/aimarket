@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { resolveCosyVoiceId } from "../../lib/drama/voice-catalog.js";
 import { saveUpload } from "../../lib/storage.js";
 import type { TtsParams, TtsResult } from "./types.js";
 
@@ -13,12 +14,10 @@ export async function synthesizeCosyVoice(params: TtsParams): Promise<TtsResult>
     throw new Error("DASHSCOPE_API_KEY missing for CosyVoice");
   }
 
-  const voice =
-    params.voiceStyle === "爽朗"
-      ? "longxiaochun"
-      : params.voiceStyle === "温柔坚定"
-        ? "longxiaoxia"
-        : process.env.DRAMA_TTS_VOICE ?? "longxiaochun";
+  const voice = resolveCosyVoiceId({
+    voiceId: params.voiceId,
+    voiceStyle: params.voiceStyle,
+  });
 
   const base =
     process.env.DASHSCOPE_TTS_BASE_URL ??

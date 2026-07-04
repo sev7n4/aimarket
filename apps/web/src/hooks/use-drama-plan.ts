@@ -141,6 +141,12 @@ export function useDramaPlan({
         if (event.type === "agent_snapshot") {
           setPartialProject(event.project);
         }
+        if (event.type === "project_snapshot") {
+          setPartialProject(event.project);
+          setPlanRun((prev) =>
+            prev ? { ...prev, projectId: event.projectId } : prev,
+          );
+        }
       };
 
       stopRef.current = connectPlanStream(
@@ -291,6 +297,13 @@ export function useDramaPlan({
     [watchRun],
   );
 
+  const updatePartialProject = useCallback(
+    (project: import("@/lib/types").DramaProjectPayload) => {
+      setPartialProject(project);
+    },
+    [],
+  );
+
   return {
     planRun,
     events,
@@ -303,5 +316,6 @@ export function useDramaPlan({
     resetPlan,
     restorePlan,
     resumePlanRun,
+    updatePartialProject,
   };
 }

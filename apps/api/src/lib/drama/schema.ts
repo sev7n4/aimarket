@@ -22,6 +22,8 @@ export const characterCardSchema = z.object({
   visualSignature: characterVisualSignatureSchema,
   promptAnchor: z.string(),
   voiceStyle: z.string().optional(),
+  /** CosyVoice 音色 id（见 voice-catalog） */
+  voiceId: z.string().optional(),
   /** 运行时：三视图 outputId */
   refOutputIds: z
     .object({

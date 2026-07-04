@@ -72,14 +72,20 @@ import {
 } from "../lib/drama/replicate.js";
 import {
   assertAllCharactersLockedForProduce,
+  characterTurnaroundRefsComplete,
   dispatchCharacterTurnaround,
 } from "../lib/drama/character-turnaround.js";
 import { serializeDramaSessionState } from "../lib/drama/session-state.js";
 import { listSessionCommerceHeroes } from "../lib/agent/skill-runs.js";
 import { buildDramaRunGraph } from "../lib/drama/run-graph.js";
+import { serializeVoiceCatalog } from "../lib/drama/voice-catalog.js";
 import type { DramaPlanAgentId, DramaPlanEvent } from "../lib/drama/planner/types.js";
 
 const drama = new Hono<{ Variables: AuthVariables }>();
+
+drama.get("/voices", (c) => {
+  return c.json({ data: serializeVoiceCatalog() });
+});
 
 const createBody = z.object({
   sessionId: z.string().uuid(),
