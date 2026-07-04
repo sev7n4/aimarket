@@ -130,7 +130,11 @@ export async function resumeCharacterTurnaroundOnJobCompleted(
 
   if (observation.status === "failed") {
     deleteDramaTurnaroundJob(jobId);
-    return;
+    return {
+      userId: meta.user_id,
+      projectId: row.id,
+      characterId: meta.character_id,
+    };
   }
 
   const outputId = observation.outputIds[0];

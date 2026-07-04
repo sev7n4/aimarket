@@ -4,7 +4,12 @@ import {
   isCharacterTurnaroundBusy,
 } from "./character-turnaround.js";
 import { publishPlanEvent } from "./plan-events.js";
-import { findPlanningPlanRunByProjectId } from "./plan-runs.js";
+import { findRecentPlanRunByProjectId } from "./plan-runs.js";
+import {
+  dispatchSceneRef,
+  isSceneRefBusy,
+  sceneRefComplete,
+} from "./scene-ref.js";
 import {
   getEnrichedProjectData,
   getDramaProject,
@@ -33,7 +38,7 @@ export function publishProjectSnapshotForPlanning(
   userId: string,
   projectId: string,
 ) {
-  const planRun = findPlanningPlanRunByProjectId(userId, projectId);
+  const planRun = findRecentPlanRunByProjectId(userId, projectId);
   if (!planRun) return;
   const project = getEnrichedProjectData(userId, projectId);
   if (!project) return;
@@ -93,6 +98,22 @@ export function dispatchPlanningCharacterTurnarounds(input: {
       console.warn("[drama-plan] character turnaround dispatch failed:", err);
     }
   }
+
+  for (const scene of project.scenes) {
+    if (sceneRefComplete(scene)) continue;
+    if (isSceneRefBusy(input.projectId, scene.id)) continue;
+
+    publishPlanEvent(input.runId, {
+      type: "scene_tool_start",
+      sceneId: scene.id,
+      sceneName: scene.name,
+    });
+    try {
+      dispatchSceneRef(input.userId, input.projectId, scene.id);
+    } catch (err) {
+      console.warn("[drama-plan] scene ref dispatch failed:", err);
+    }
+  }
 }
 
 export function notifyPlanningTurnaroundProgress(
@@ -109,12 +130,32 @@ export function notifyPlanningTurnaroundProgress(
     characterTurnaroundRefsComplete(char) &&
     !isCharacterTurnaroundBusy(projectId, characterId)
   ) {
-    const planRun = findPlanningPlanRunByProjectId(userId, projectId);
+    const planRun = findRecentPlanRunByProjectId(userId, projectId);
     if (!planRun) return;
     publishPlanEvent(planRun.id, {
       type: "character_tool_done",
       characterId,
       tool: "turnaround",
+    });
+  }
+}
+
+export function notifyPlanningSceneRefProgress(
+  userId: string,
+  projectId: string,
+  sceneId: string,
+) {
+  publishProjectSnapshotForPlanning(userId, projectId);
+
+  const project = getEnrichedProjectData(userId, projectId);
+  const scene = project?.scenes.find((s) => s.id === sceneId);
+  if (!scene) return;
+  if (sceneRefComplete(scene) && !isSceneRefBusy(projectId, sceneId)) {
+    const planRun = findRecentPlanRunByProjectId(userId, projectId);
+    if (!planRun) return;
+    publishPlanEvent(planRun.id, {
+      type: "scene_tool_done",
+      sceneId,
     });
   }
 }

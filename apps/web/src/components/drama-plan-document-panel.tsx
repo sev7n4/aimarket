@@ -319,7 +319,16 @@ export function DramaPlanDocumentPanel({
             {showScenes && partialProject ? (
               <div className="grid gap-2 sm:grid-cols-2">
                 {partialProject.scenes.map((scene) => (
-                  <DramaSceneCardView key={scene.id} scene={scene} readOnly />
+                  <DramaSceneCardView
+                    key={scene.id}
+                    scene={scene}
+                    projectId={projectId}
+                    readOnly={!interactive}
+                    busy={busy}
+                    onProjectUpdate={
+                      interactive ? handleProjectUpdate : undefined
+                    }
+                  />
                 ))}
               </div>
             ) : null}

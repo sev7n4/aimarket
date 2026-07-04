@@ -124,6 +124,24 @@ export function findPlanningPlanRunByProjectId(
     .get(userId, projectId) as DramaPlanRunRow | undefined;
 }
 
+/** 规划中或刚完成：资产 job 完成后仍可推送 SSE / project_snapshot */
+export function findRecentPlanRunByProjectId(
+  userId: string,
+  projectId: string,
+): DramaPlanRunRow | undefined {
+  return db
+    .prepare(
+      `SELECT * FROM drama_plan_runs
+       WHERE user_id = ? AND project_id = ?
+         AND (
+           status = 'planning'
+           OR (status = 'completed' AND updated_at >= datetime('now', '-6 hours'))
+         )
+       ORDER BY updated_at DESC LIMIT 1`,
+    )
+    .get(userId, projectId) as DramaPlanRunRow | undefined;
+}
+
 export function updateDramaPlanRun(
   runId: string,
   patch: Partial<{

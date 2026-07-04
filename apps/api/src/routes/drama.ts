@@ -75,6 +75,7 @@ import {
   characterTurnaroundRefsComplete,
   dispatchCharacterTurnaround,
 } from "../lib/drama/character-turnaround.js";
+import { dispatchSceneRef } from "../lib/drama/scene-ref.js";
 import { serializeDramaSessionState } from "../lib/drama/session-state.js";
 import { listSessionCommerceHeroes } from "../lib/agent/skill-runs.js";
 import { buildDramaRunGraph } from "../lib/drama/run-graph.js";
@@ -202,6 +203,30 @@ drama.post(
     assertSessionWrite(userId, row.session_id);
 
     const result = dispatchCharacterTurnaround(userId, projectId, characterId);
+    const next = getDramaProject(userId, projectId)!;
+    return c.json(
+      {
+        data: {
+          ...result,
+          project: serializeDramaProject(next),
+        },
+      },
+      202,
+    );
+  },
+);
+
+drama.post(
+  "/projects/:projectId/scenes/:sceneId/ref",
+  async (c) => {
+    const userId = c.get("userId");
+    const projectId = c.req.param("projectId");
+    const sceneId = c.req.param("sceneId");
+    const row = getDramaProject(userId, projectId);
+    if (!row) throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
+    assertSessionWrite(userId, row.session_id);
+
+    const result = dispatchSceneRef(userId, projectId, sceneId);
     const next = getDramaProject(userId, projectId)!;
     return c.json(
       {
