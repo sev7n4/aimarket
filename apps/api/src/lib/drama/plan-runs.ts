@@ -29,6 +29,8 @@ export interface DramaPlanRunRow {
   project_id: string | null;
   auto_produce: number;
   project_type: string;
+  refine_instruction: string | null;
+  base_project_id: string | null;
   error: string | null;
   created_at: string;
   updated_at: string;
@@ -67,13 +69,18 @@ export function createDramaPlanRun(input: {
   aspectRatio?: "9:16" | "16:9";
   autoProduce?: boolean;
   projectType?: DramaProjectType;
+  /** 多轮迭代：refine 指令（存在时表示本 Run 为对既有方案的改写） */
+  refineInstruction?: string;
+  /** 多轮迭代：被改写的既有项目 id（refine 时同时作为 project_id 复用） */
+  baseProjectId?: string;
 }): DramaPlanRunRow {
   const id = randomUUID();
   db.prepare(
     `INSERT INTO drama_plan_runs
      (id, session_id, user_id, user_idea, target_duration_sec, aspect_ratio,
-      status, agents_json, auto_produce, project_type, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'planning', ?, ?, ?, datetime('now'), datetime('now'))`,
+      status, agents_json, auto_produce, project_type,
+      refine_instruction, base_project_id, project_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'planning', ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
   ).run(
     id,
     input.sessionId,
@@ -84,6 +91,10 @@ export function createDramaPlanRun(input: {
     JSON.stringify(defaultAgentsJson()),
     input.autoProduce ? 1 : 0,
     input.projectType ?? "short_drama",
+    input.refineInstruction ?? null,
+    input.baseProjectId ?? null,
+    // refine 直接复用既有 project_id，规划完成后原地更新并写新版本
+    input.baseProjectId ?? null,
   );
   const row = getDramaPlanRun(input.userId, id);
   if (!row) throw new AppError(500, "INTERNAL_ERROR", "创建规划 Run 失败");
@@ -187,6 +198,8 @@ export function serializeDramaPlanRun(row: DramaPlanRunRow) {
     estimatedPoints,
     autoProduce: Boolean(row.auto_produce),
     projectType: (row.project_type as DramaProjectType) ?? "short_drama",
+    refineInstruction: row.refine_instruction ?? undefined,
+    baseProjectId: row.base_project_id ?? undefined,
     error: row.error,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

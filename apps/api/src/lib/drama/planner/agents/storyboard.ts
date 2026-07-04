@@ -1,4 +1,5 @@
 import { runAgentStep } from "../reasoning.js";
+import { refineGuidance } from "../refine.js";
 import { STORYBOARD_JSON_SCHEMA } from "../schemas.js";
 import type { AgentStepResult, PlanningContext, StoryboardOutput } from "../types.js";
 
@@ -33,7 +34,7 @@ export async function runStoryboardAgent(
 3. 同场景连续镜头 useLastFrameContinuity=true（尾帧衔接）。
 4. 总时长约 ${ctx.duration} 秒，8-15 镜。
 5. 只输出 JSON。`,
-    `标题：${writer.title}\n角色：${character.characters.map((c) => c.name).join("、")}\n风格：${JSON.stringify(director.styleBible)}\n镜头草稿：${JSON.stringify(enrichedShots)}`,
+    `标题：${writer.title}\n角色：${character.characters.map((c) => c.name).join("、")}\n风格：${JSON.stringify(director.styleBible)}\n镜头草稿：${JSON.stringify(enrichedShots)}${refineGuidance(ctx)}`,
     STORYBOARD_JSON_SCHEMA,
   );
   return { output, reasoning };

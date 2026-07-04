@@ -7,6 +7,7 @@ import { assertSessionWrite } from "../lib/session-access.js";
 import { planDramaProject } from "../lib/drama/planner.js";
 import {
   createDramaProject,
+  duplicateDramaProject,
   getDramaProject,
   parseProjectJson,
   serializeDramaProject,
@@ -37,7 +38,12 @@ import {
 import { DRAMA_PIPELINE_STEPS } from "../lib/drama/schema.js";
 import { estimateDramaPoints } from "../lib/drama/estimate.js";
 import { assertDramaCreditsAffordable } from "../lib/drama/credits-gate.js";
-import { dispatchDramaPlanRun, dispatchDramaPlanRerun, prepareDramaPlanRerun } from "../lib/drama/plan-executor.js";
+import { dispatchDramaPlanRun, dispatchDramaPlanRerun, dispatchDramaPlanRefine, prepareDramaPlanRerun } from "../lib/drama/plan-executor.js";
+import {
+  createPlanTurn,
+  listPlanTurns,
+  serializePlanTurn,
+} from "../lib/drama/plan-turns.js";
 import {
   getPlanEventBuffer,
   isTerminalPlanEvent,
@@ -664,9 +670,80 @@ drama.post("/plan/runs", async (c) => {
     autoProduce: body.autoProduce,
     projectType: body.projectType,
   });
+  createPlanTurn({
+    sessionId: body.sessionId,
+    userId,
+    kind: "initial",
+    instruction: body.userIdea,
+    planRunId: row.id,
+    assistantAck: "收到！正在为你生成完整策划方案……",
+  });
   dispatchDramaPlanRun(row.id, userId);
 
   return c.json({ data: serializeDramaPlanRun(row) }, 201);
+});
+
+/** 多轮迭代：基于既有项目按自然语言指令改写，生成新版本 */
+drama.post("/plan/refine", async (c) => {
+  const userId = c.get("userId");
+  const body = z
+    .object({
+      sessionId: z.string().uuid(),
+      projectId: z.string().uuid(),
+      instruction: z.string().min(1).max(2000),
+    })
+    .parse(await c.req.json());
+  assertSessionWrite(userId, body.sessionId);
+
+  const projectRow = getDramaProject(userId, body.projectId);
+  if (!projectRow) throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
+
+  const baseProject = parseProjectJson(projectRow);
+  const row = createDramaPlanRun({
+    sessionId: body.sessionId,
+    userId,
+    userIdea: baseProject.userIdea,
+    targetDurationSec: baseProject.targetDurationSec,
+    aspectRatio:
+      baseProject.productionParams?.aspectRatio ??
+      baseProject.styleBible.aspectRatio,
+    projectType: baseProject.projectType,
+    refineInstruction: body.instruction,
+    baseProjectId: body.projectId,
+  });
+  createPlanTurn({
+    sessionId: body.sessionId,
+    userId,
+    kind: "refine",
+    instruction: body.instruction,
+    planRunId: row.id,
+    projectId: body.projectId,
+    assistantAck: "收到！正在按你的指令迭代方案……",
+  });
+  dispatchDramaPlanRefine(row.id, userId);
+
+  return c.json({ data: serializeDramaPlanRun(row) }, 201);
+});
+
+/** 深拷贝短剧项目为新项目（标题追加副本） */
+drama.post("/projects/:id/duplicate", async (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("id");
+  const source = getDramaProject(userId, projectId);
+  if (!source) throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
+  assertSessionWrite(userId, source.session_id);
+
+  const copy = duplicateDramaProject(userId, projectId);
+  return c.json({ data: serializeDramaProject(copy) }, 201);
+});
+
+/** 会话内多轮对话回合记录（策划线程） */
+drama.get("/sessions/:sessionId/turns", (c) => {
+  const userId = c.get("userId");
+  const sessionId = c.req.param("sessionId");
+  assertSessionWrite(userId, sessionId);
+  const turns = listPlanTurns(userId, sessionId).map(serializePlanTurn);
+  return c.json({ data: turns });
 });
 
 drama.post("/plan/runs/:id/rerun", async (c) => {

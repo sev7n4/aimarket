@@ -152,6 +152,60 @@ export function updateDramaProject(
   }
 }
 
+function listSessionProjectTitles(userId: string, sessionId: string): string[] {
+  const rows = db
+    .prepare(
+      `SELECT project_json FROM drama_projects
+       WHERE session_id = ? AND user_id = ?`,
+    )
+    .all(sessionId, userId) as { project_json: string }[];
+  const titles: string[] = [];
+  for (const r of rows) {
+    try {
+      const t = (JSON.parse(r.project_json) as DramaProjectData).script?.title;
+      if (t) titles.push(t);
+    } catch {
+      /* skip malformed */
+    }
+  }
+  return titles;
+}
+
+/** 生成不重复的副本标题：「X（副本）」「X（副本2）」…… */
+function dedupeCopyTitle(base: string, existing: Set<string>): string {
+  const first = `${base}（副本）`;
+  if (!existing.has(first)) return first;
+  let n = 2;
+  while (existing.has(`${base}（副本${n}）`)) n += 1;
+  return `${base}（副本${n}）`;
+}
+
+/**
+ * 深拷贝一个短剧项目为同 session 下的新项目（标题追加「（副本）」去重）。
+ * 新项目会自动写入 initial 版本快照，与其源项目版本历史相互独立。
+ */
+export function duplicateDramaProject(
+  userId: string,
+  projectId: string,
+): DramaProjectRow {
+  const source = getDramaProject(userId, projectId);
+  if (!source) {
+    throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
+  }
+  const sourceProject = parseProjectJson(source);
+  const cloned = JSON.parse(JSON.stringify(sourceProject)) as DramaProjectData;
+  const existing = new Set(listSessionProjectTitles(userId, source.session_id));
+  cloned.script = {
+    ...cloned.script,
+    title: dedupeCopyTitle(sourceProject.script.title, existing),
+  };
+  return createDramaProject({
+    sessionId: source.session_id,
+    userId,
+    project: cloned,
+  });
+}
+
 export function serializeDramaProject(row: DramaProjectRow) {
   const project = enrichProjectCharacters(parseProjectJson(row));
   return {

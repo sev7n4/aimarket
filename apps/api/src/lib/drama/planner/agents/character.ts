@@ -1,4 +1,5 @@
 import { runAgentStep } from "../reasoning.js";
+import { refineGuidance } from "../refine.js";
 import { CHARACTER_JSON_SCHEMA } from "../schemas.js";
 import type { AgentStepResult, CharacterOutput, PlanningContext } from "../types.js";
 
@@ -18,7 +19,7 @@ export async function runCharacterAgent(
 2. 每个角色 visualSignature 全字段 + 可生成三视图的 promptAnchor。
 3. 1-4 个角色，不要删除已有 id。
 4. 只输出 JSON。`,
-    `标题：${writer.title}\n梗概：${writer.logline}\n风格：${director.styleBible.lightingStyle}，色板 ${director.styleBible.palette.join("、")}\n分镜角色引用：${charIds.join(", ")}`,
+    `标题：${writer.title}\n梗概：${writer.logline}\n风格：${director.styleBible.lightingStyle}，色板 ${director.styleBible.palette.join("、")}\n分镜角色引用：${charIds.join(", ")}${refineGuidance(ctx)}`,
     CHARACTER_JSON_SCHEMA,
   );
   return { output, reasoning };

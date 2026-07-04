@@ -1,4 +1,5 @@
 import { runAgentStep } from "../reasoning.js";
+import { refineGuidance } from "../refine.js";
 import { WRITER_JSON_SCHEMA } from "../schemas.js";
 import type { AgentStepResult, PlanningContext, WriterOutput } from "../types.js";
 
@@ -16,7 +17,7 @@ export async function runWriterAgent(
 4. characterIds 使用 char_1、char_2 等占位，后续角色 Agent 会对齐。
 5. 总时长约 ${duration} 秒。画幅 ${aspectRatio}。
 6. 只输出 JSON。`,
-    `用户想法：${input.userIdea}\n目标时长：${duration}秒\n画幅：${aspectRatio}`,
+    `用户想法：${input.userIdea}\n目标时长：${duration}秒\n画幅：${aspectRatio}${refineGuidance(ctx)}`,
     WRITER_JSON_SCHEMA,
   );
   return { output, reasoning };
