@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MapPin } from "lucide-react";
+import { MapPin, Sparkles } from "lucide-react";
 
 import { DramaAssetCardShell } from "@/components/drama/drama-asset-card-shell";
 import { DramaBadge } from "@/components/drama/drama-badge";
+import { DramaAssetRegenPopover } from "@/components/drama/drama-asset-regen-popover";
 import { fetchDramaProject, generateDramaSceneRef } from "@/lib/api-client";
 import type { DramaProjectPayload, DramaSceneCard } from "@/lib/types";
 
@@ -16,6 +17,7 @@ type DramaSceneCardViewProps = {
   uploadingRef?: boolean;
   onProjectUpdate?: (project: DramaProjectPayload) => void;
   onUploadRef?: () => void;
+  genError?: string | null;
 };
 
 /** Agent 面板：场景资产卡片 */
@@ -27,9 +29,13 @@ export function DramaSceneCardView({
   uploadingRef,
   onProjectUpdate,
   onUploadRef,
+  genError,
 }: DramaSceneCardViewProps) {
   const [userGenerating, setUserGenerating] = useState(false);
+  const [regenOpen, setRegenOpen] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoGenTriggered = useRef(false);
 
   const stopPoll = useCallback(() => {
     if (pollRef.current) {
@@ -49,6 +55,7 @@ export function DramaSceneCardView({
   const pending = scene.refPending === true;
   const generating = pending || userGenerating;
   const interactive = Boolean(projectId && onProjectUpdate && !readOnly);
+  const displayError = genError ?? localError;
 
   useEffect(() => () => stopPoll(), [stopPoll]);
 
@@ -66,36 +73,67 @@ export function DramaSceneCardView({
     return () => clearInterval(timer);
   }, [interactive, projectId, refReady, pending, refreshProject, scene.id]);
 
-  const handleGenerate = useCallback(async () => {
-    if (!interactive || !projectId || busy || generating) return;
-    setUserGenerating(true);
-    try {
-      const data = await generateDramaSceneRef(projectId, scene.id);
-      onProjectUpdate!(data.project.project);
-
-      stopPoll();
-      pollRef.current = setInterval(() => {
-        void refreshProject().then((project) => {
-          const nextScene = project?.scenes.find((s) => s.id === scene.id);
-          if (nextScene?.refUrl) {
-            stopPoll();
-            setUserGenerating(false);
-          }
+  const handleGenerate = useCallback(
+    async (options?: { force?: boolean; promptOverride?: string }) => {
+      if (!interactive || !projectId || busy || generating) return;
+      setUserGenerating(true);
+      setLocalError(null);
+      try {
+        const data = await generateDramaSceneRef(projectId, scene.id, {
+          force: options?.force ?? !refReady,
+          promptOverride: options?.promptOverride,
         });
-      }, 1500);
-    } catch {
-      setUserGenerating(false);
-      stopPoll();
+        onProjectUpdate!(data.project.project);
+
+        stopPoll();
+        pollRef.current = setInterval(() => {
+          void refreshProject().then((project) => {
+            const nextScene = project?.scenes.find((s) => s.id === scene.id);
+            if (nextScene?.refUrl) {
+              stopPoll();
+              setUserGenerating(false);
+            }
+          });
+        }, 1500);
+      } catch (err) {
+        setUserGenerating(false);
+        setLocalError(err instanceof Error ? err.message : "生成失败");
+        stopPoll();
+      }
+    },
+    [
+      interactive,
+      projectId,
+      busy,
+      generating,
+      refReady,
+      scene.id,
+      onProjectUpdate,
+      refreshProject,
+      stopPoll,
+    ],
+  );
+
+  useEffect(() => {
+    if (
+      autoGenTriggered.current ||
+      !interactive ||
+      refReady ||
+      pending ||
+      generating ||
+      displayError
+    ) {
+      return;
     }
+    autoGenTriggered.current = true;
+    void handleGenerate();
   }, [
     interactive,
-    projectId,
-    busy,
+    refReady,
+    pending,
     generating,
-    scene.id,
-    onProjectUpdate,
-    refreshProject,
-    stopPoll,
+    displayError,
+    handleGenerate,
   ]);
 
   const hero = scene.refUrl ? (
@@ -109,12 +147,17 @@ export function DramaSceneCardView({
     <div className="flex size-full flex-col items-center justify-center gap-1 text-zinc-600">
       <MapPin className="size-6 opacity-40" />
       <span className="text-[10px]">
-        {generating ? "生成中…" : "待生成场景参考图"}
+        {generating
+          ? "生成中…"
+          : displayError
+            ? "生成失败"
+            : "待生成场景参考图"}
       </span>
     </div>
   );
 
   return (
+    <>
     <DramaAssetCardShell
       category="scene"
       hero={hero}
@@ -135,15 +178,27 @@ export function DramaSceneCardView({
         !readOnly ? (
           <div className="flex flex-wrap gap-2">
             {interactive ? (
-              <button
-                type="button"
-                disabled={busy || generating || refReady}
-                onClick={() => void handleGenerate()}
-                className="text-[10px] text-cyan-300 hover:text-cyan-200 disabled:opacity-50"
-                data-testid="drama-scene-ref-generate"
-              >
-                {generating ? "生成中…" : "生成场景图"}
-              </button>
+              <>
+                <button
+                  type="button"
+                  disabled={busy || generating}
+                  onClick={() => void handleGenerate({ force: refReady })}
+                  className="text-[10px] text-cyan-300 hover:text-cyan-200 disabled:opacity-50"
+                  data-testid="drama-scene-ref-generate"
+                >
+                  {generating ? "生成中…" : refReady ? "重新生成" : "生成场景图"}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || generating}
+                  onClick={() => setRegenOpen(true)}
+                  className="inline-flex items-center gap-0.5 text-[10px] text-violet-300 hover:text-violet-200 disabled:opacity-50"
+                  data-testid="drama-scene-ref-refine"
+                >
+                  <Sparkles className="size-3" />
+                  提示词改图
+                </button>
+              </>
             ) : null}
             {onUploadRef ? (
               <button
@@ -177,6 +232,23 @@ export function DramaSceneCardView({
           {scene.promptAnchor}
         </p>
       ) : null}
+      {displayError ? (
+        <p className="text-[10px] text-red-400/90">{displayError}</p>
+      ) : null}
     </DramaAssetCardShell>
+
+    {interactive ? (
+      <DramaAssetRegenPopover
+        open={regenOpen}
+        title={`迭代场景「${scene.name}」`}
+        placeholder="例如：雨夜霓虹、玻璃反光、暖色吊灯…"
+        busy={busy || generating}
+        onClose={() => setRegenOpen(false)}
+        onSubmit={async (instruction) => {
+          await handleGenerate({ force: true, promptOverride: instruction });
+        }}
+      />
+    ) : null}
+    </>
   );
 }

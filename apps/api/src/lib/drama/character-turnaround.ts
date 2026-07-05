@@ -48,11 +48,15 @@ function startTurnaroundAngleJob(
   project: DramaProjectData,
   characterId: string,
   angle: CharacterAngle,
+  promptOverride?: string,
 ): string {
   const char = project.characters.find((c) => c.id === characterId);
   if (!char) throw new AppError(404, "NOT_FOUND", "角色不存在");
 
-  const prompt = buildCharacterRefPrompt(char, angle, project.styleBible);
+  let prompt = buildCharacterRefPrompt(char, angle, project.styleBible);
+  if (promptOverride?.trim()) {
+    prompt = `${prompt}\n【用户修改指令】${promptOverride.trim()}`;
+  }
   const params = project.productionParams;
   const imageRouting = dramaImageGenerationJobParams(project);
   const { jobId } = createGenerationJob({
@@ -83,6 +87,7 @@ export function dispatchCharacterTurnaround(
   userId: string,
   projectId: string,
   characterId: string,
+  options?: { force?: boolean; promptOverride?: string },
 ) {
   const row = getDramaProject(userId, projectId);
   if (!row) throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
@@ -94,12 +99,33 @@ export function dispatchCharacterTurnaround(
     throw new AppError(400, "INVALID_STATE", "已定稿角色请先解锁后再重新生成");
   }
 
+  const force = options?.force === true;
+  if (!force && characterTurnaroundRefsComplete(char)) {
+    return { status: "ready" as const, jobIds: [] as string[], characterId };
+  }
+  if (isCharacterTurnaroundBusy(projectId, characterId)) {
+    return { status: "generating" as const, jobIds: [] as string[], characterId };
+  }
+
+  if (options?.promptOverride?.trim()) {
+    char.promptAnchor = `${char.promptAnchor}\n${options.promptOverride.trim()}`.slice(
+      0,
+      2000,
+    );
+  }
+
   char.turnaroundStatus = "draft";
   char.refOutputIds = {};
   char.refUrl = undefined;
 
   const jobIds = CHARACTER_REF_ANGLES.map((angle) =>
-    startTurnaroundAngleJob(row, project, characterId, angle),
+    startTurnaroundAngleJob(
+      row,
+      project,
+      characterId,
+      angle,
+      options?.promptOverride,
+    ),
   );
 
   updateDramaProject(projectId, { project });
@@ -114,7 +140,7 @@ export function dispatchCharacterTurnaround(
 export async function resumeCharacterTurnaroundOnJobCompleted(
   jobId: string,
 ): Promise<
-  { userId: string; projectId: string; characterId: string } | undefined
+  { userId: string; projectId: string; characterId: string; failed?: boolean } | undefined
 > {
   const meta = getDramaTurnaroundJobByJobId(jobId);
   if (!meta) return;
@@ -134,6 +160,7 @@ export async function resumeCharacterTurnaroundOnJobCompleted(
       userId: meta.user_id,
       projectId: row.id,
       characterId: meta.character_id,
+      failed: true,
     };
   }
 

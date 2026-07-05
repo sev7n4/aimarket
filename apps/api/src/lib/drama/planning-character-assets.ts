@@ -95,7 +95,14 @@ export function dispatchPlanningCharacterTurnarounds(input: {
     try {
       dispatchCharacterTurnaround(input.userId, input.projectId, char.id);
     } catch (err) {
+      const message = err instanceof Error ? err.message : "角色三视图任务创建失败";
       console.warn("[drama-plan] character turnaround dispatch failed:", err);
+      publishPlanEvent(input.runId, {
+        type: "character_tool_failed",
+        characterId: char.id,
+        tool: "turnaround",
+        error: message,
+      });
     }
   }
 
@@ -111,7 +118,13 @@ export function dispatchPlanningCharacterTurnarounds(input: {
     try {
       dispatchSceneRef(input.userId, input.projectId, scene.id);
     } catch (err) {
+      const message = err instanceof Error ? err.message : "场景参考图任务创建失败";
       console.warn("[drama-plan] scene ref dispatch failed:", err);
+      publishPlanEvent(input.runId, {
+        type: "scene_tool_failed",
+        sceneId: scene.id,
+        error: message,
+      });
     }
   }
 }
@@ -120,8 +133,22 @@ export function notifyPlanningTurnaroundProgress(
   userId: string,
   projectId: string,
   characterId: string,
+  failed?: boolean,
 ) {
   publishProjectSnapshotForPlanning(userId, projectId);
+
+  const planRun = findRecentPlanRunByProjectId(userId, projectId);
+  if (!planRun) return;
+
+  if (failed) {
+    publishPlanEvent(planRun.id, {
+      type: "character_tool_failed",
+      characterId,
+      tool: "turnaround",
+      error: "图像生成失败，请检查积分或图像服务配置后重试",
+    });
+    return;
+  }
 
   const project = getEnrichedProjectData(userId, projectId);
   const char = project?.characters.find((c) => c.id === characterId);
@@ -130,8 +157,6 @@ export function notifyPlanningTurnaroundProgress(
     characterTurnaroundRefsComplete(char) &&
     !isCharacterTurnaroundBusy(projectId, characterId)
   ) {
-    const planRun = findRecentPlanRunByProjectId(userId, projectId);
-    if (!planRun) return;
     publishPlanEvent(planRun.id, {
       type: "character_tool_done",
       characterId,
@@ -144,15 +169,26 @@ export function notifyPlanningSceneRefProgress(
   userId: string,
   projectId: string,
   sceneId: string,
+  failed?: boolean,
 ) {
   publishProjectSnapshotForPlanning(userId, projectId);
+
+  const planRun = findRecentPlanRunByProjectId(userId, projectId);
+  if (!planRun) return;
+
+  if (failed) {
+    publishPlanEvent(planRun.id, {
+      type: "scene_tool_failed",
+      sceneId,
+      error: "场景图生成失败，请检查积分或图像服务配置后重试",
+    });
+    return;
+  }
 
   const project = getEnrichedProjectData(userId, projectId);
   const scene = project?.scenes.find((s) => s.id === sceneId);
   if (!scene) return;
   if (sceneRefComplete(scene) && !isSceneRefBusy(projectId, sceneId)) {
-    const planRun = findRecentPlanRunByProjectId(userId, projectId);
-    if (!planRun) return;
     publishPlanEvent(planRun.id, {
       type: "scene_tool_done",
       sceneId,

@@ -19,6 +19,7 @@ interface DramaAgentPlanWorkspaceProps {
   refreshKey?: string | number;
   onProjectUpdate?: (project: DramaProjectPayload) => void;
   onSaveProject?: (project: DramaProjectPayload) => Promise<void>;
+  onRefinePlan?: (instruction: string) => Promise<unknown>;
   onRerunFromAgent?: (agent: string) => void;
   rerunBusy?: boolean;
   onConfirmProduce?: () => void;
@@ -41,6 +42,7 @@ export function DramaAgentPlanWorkspace({
   refreshKey,
   onProjectUpdate,
   onSaveProject,
+  onRefinePlan,
   onRerunFromAgent,
   rerunBusy,
   onConfirmProduce,
@@ -77,6 +79,7 @@ export function DramaAgentPlanWorkspace({
           planTitle={partialProject?.script?.title}
           onProjectUpdate={onProjectUpdate}
           onSaveProject={onSaveProject}
+          onRefinePlan={onRefinePlan}
           onConfirmProduce={onConfirmProduce}
           produceBusy={produceBusy}
           produceHint={produceHint}

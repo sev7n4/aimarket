@@ -29,6 +29,12 @@ export type DramaPlanStreamEvent =
       tool: "turnaround" | "voice";
     }
   | {
+      type: "character_tool_failed";
+      characterId: string;
+      tool: "turnaround" | "voice";
+      error?: string;
+    }
+  | {
       type: "scene_tool_start";
       sceneId: string;
       sceneName: string;
@@ -36,6 +42,11 @@ export type DramaPlanStreamEvent =
   | {
       type: "scene_tool_done";
       sceneId: string;
+    }
+  | {
+      type: "scene_tool_failed";
+      sceneId: string;
+      error?: string;
     }
   | {
       type: "plan_complete";

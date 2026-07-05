@@ -34,6 +34,7 @@ export function notifyAgentJobCompleted(jobId: string) {
         result.userId,
         result.projectId,
         result.characterId,
+        result.failed,
       );
     })
     .catch((err) => {
@@ -47,6 +48,7 @@ export function notifyAgentJobCompleted(jobId: string) {
         result.userId,
         result.projectId,
         result.sceneId,
+        result.failed,
       );
     })
     .catch((err) => {

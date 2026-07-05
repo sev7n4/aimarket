@@ -622,11 +622,11 @@ export function StudioOrchestrationProvider({
 
   const refineDramaPlan = useCallback(
     async (instruction: string) => {
-      const projectId = dramaDraftProject?.id;
+      const projectId = dramaDraftProject?.id ?? dramaPlanRun?.projectId;
       if (!projectId) return null;
       return refineDramaPlanAction(projectId, instruction);
     },
-    [dramaDraftProject?.id, refineDramaPlanAction],
+    [dramaDraftProject?.id, dramaPlanRun?.projectId, refineDramaPlanAction],
   );
 
   const dispatchSubmit = useCallback(

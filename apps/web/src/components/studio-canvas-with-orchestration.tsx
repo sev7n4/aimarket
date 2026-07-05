@@ -67,6 +67,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     dramaProjectType,
     resumeDramaPlanRun,
     duplicateDramaProject,
+    refineDramaPlan,
   } = useStudioOrchestration();
 
   const templatePlanRunIdRef = useRef<string | null>(null);
@@ -535,6 +536,11 @@ export const StudioCanvasWithOrchestration = forwardRef<
         refreshKey={dramaPlanRun?.id ?? dramaDraftProject?.id}
         onProjectUpdate={handlePlanProjectUpdate}
         onSaveProject={handlePlanProjectSave}
+        onRefinePlan={
+          planWorkspaceProjectId && refineDramaPlan
+            ? (instruction) => refineDramaPlan(instruction)
+            : undefined
+        }
         onRerunFromAgent={
           dramaPlanRun?.status === "completed" ||
           dramaPlanRun?.status === "failed"

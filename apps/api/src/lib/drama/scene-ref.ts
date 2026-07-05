@@ -25,6 +25,7 @@ export function dispatchSceneRef(
   userId: string,
   projectId: string,
   sceneId: string,
+  options?: { force?: boolean; promptOverride?: string },
 ) {
   const row = getDramaProject(userId, projectId);
   if (!row) throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
@@ -32,14 +33,28 @@ export function dispatchSceneRef(
   const project = parseProjectJson(row);
   const scene = project.scenes.find((s) => s.id === sceneId);
   if (!scene) throw new AppError(404, "NOT_FOUND", "场景不存在");
-  if (sceneRefComplete(scene)) {
+
+  const force = options?.force === true;
+  if (!force && sceneRefComplete(scene)) {
     return { status: "ready" as const, sceneId, jobId: null };
   }
-  if (countPendingSceneRefJobs(projectId, sceneId) > 0) {
+  if (isSceneRefBusy(projectId, sceneId)) {
     return { status: "generating" as const, sceneId, jobId: null };
   }
 
-  const jobId = startSceneRefJob(row, project, sceneId);
+  if (options?.promptOverride?.trim()) {
+    scene.promptAnchor = `${scene.promptAnchor}\n${options.promptOverride.trim()}`.slice(
+      0,
+      2000,
+    );
+  }
+
+  if (force) {
+    scene.refOutputId = undefined;
+    scene.refUrl = undefined;
+  }
+
+  const jobId = startSceneRefJob(row, project, sceneId, options?.promptOverride);
   updateDramaProject(projectId, { project });
   return { status: "generating" as const, sceneId, jobId };
 }
@@ -48,11 +63,15 @@ function startSceneRefJob(
   row: DramaProjectRow,
   project: DramaProjectData,
   sceneId: string,
+  promptOverride?: string,
 ): string {
   const scene = project.scenes.find((s) => s.id === sceneId);
   if (!scene) throw new AppError(404, "NOT_FOUND", "场景不存在");
 
-  const prompt = buildSceneRefPrompt(scene, project.styleBible);
+  let prompt = buildSceneRefPrompt(scene, project.styleBible);
+  if (promptOverride?.trim()) {
+    prompt = `${prompt}\n【用户修改指令】${promptOverride.trim()}`;
+  }
   const params = project.productionParams;
   const imageRouting = dramaImageGenerationJobParams(project);
   const { jobId } = createGenerationJob({
@@ -80,7 +99,7 @@ function startSceneRefJob(
 
 export async function resumeSceneRefOnJobCompleted(
   jobId: string,
-): Promise<{ userId: string; projectId: string; sceneId: string } | undefined> {
+): Promise<{ userId: string; projectId: string; sceneId: string; failed?: boolean } | undefined> {
   const meta = getDramaSceneRefJobByJobId(jobId);
   if (!meta) return;
 
@@ -93,12 +112,22 @@ export async function resumeSceneRefOnJobCompleted(
   const observation = buildJobObservation(jobId);
   deleteDramaSceneRefJob(jobId);
   if (!observation || observation.status === "failed") {
-    return { userId: meta.user_id, projectId: row.id, sceneId: meta.scene_id };
+    return {
+      userId: meta.user_id,
+      projectId: row.id,
+      sceneId: meta.scene_id,
+      failed: true,
+    };
   }
 
   const outputId = observation.outputIds[0];
   if (!outputId) {
-    return { userId: meta.user_id, projectId: row.id, sceneId: meta.scene_id };
+    return {
+      userId: meta.user_id,
+      projectId: row.id,
+      sceneId: meta.scene_id,
+      failed: true,
+    };
   }
 
   const project = parseProjectJson(row);

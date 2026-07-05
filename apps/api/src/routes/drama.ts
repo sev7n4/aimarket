@@ -202,7 +202,20 @@ drama.post(
     if (!row) throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
     assertSessionWrite(userId, row.session_id);
 
-    const result = dispatchCharacterTurnaround(userId, projectId, characterId);
+    const body = z
+      .object({
+        force: z.boolean().optional(),
+        promptOverride: z.string().max(2000).optional(),
+      })
+      .optional()
+      .parse(await c.req.json().catch(() => undefined));
+
+    const result = dispatchCharacterTurnaround(
+      userId,
+      projectId,
+      characterId,
+      body,
+    );
     const next = getDramaProject(userId, projectId)!;
     return c.json(
       {
@@ -226,7 +239,15 @@ drama.post(
     if (!row) throw new AppError(404, "NOT_FOUND", "短剧项目不存在");
     assertSessionWrite(userId, row.session_id);
 
-    const result = dispatchSceneRef(userId, projectId, sceneId);
+    const body = z
+      .object({
+        force: z.boolean().optional(),
+        promptOverride: z.string().max(2000).optional(),
+      })
+      .optional()
+      .parse(await c.req.json().catch(() => undefined));
+
+    const result = dispatchSceneRef(userId, projectId, sceneId, body);
     const next = getDramaProject(userId, projectId)!;
     return c.json(
       {
