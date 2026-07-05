@@ -1,7 +1,7 @@
 # 魔术棒提示词优化引擎设计（可持续迭代）
 
-> 状态：Draft v0.4 · 负责人：TBD · 最近更新：2026-07-06
-> 进度：PR-1 后端引擎（#284）、PR-2 前端接线（#285）已合并部署；PR-3 结构化 variants 开发中。
+> 状态：Draft v0.5 · 负责人：TBD · 最近更新：2026-07-06
+> 进度：PR-1（#284）、PR-2（#285）、PR-3（#286）已合并部署；PR-4 个性化开发中。
 > 本文档持续迭代，每次迭代在文末「变更记录」追加条目。
 
 ## 1. 背景与痛点
@@ -325,6 +325,7 @@ const INTENT_PERSONA: Record<string, IntentPersona> = {
 ---
 
 ## 变更记录
+- v0.5（2026-07-06）：PR-3（#286）已合并部署；PR-4 个性化（前端 `prompt-style-profile` 记录采纳、魔术棒注入 `recentAccepted`，后端 few-shot 风格参考）开发中。采纳判定：提交内容命中润色候选即记入本地画像（去重、限量 5）。
 - v0.4（2026-07-06）：PR-2（#285）已合并部署；PR-3 结构化 variants（provider 用 chat `n` 取多候选 + 前端"换一个"循环回填）开发中。可用 `PROMPT_OPTIMIZE_VARIANTS`（1-5，默认 3）配置候选数。
 - v0.3（2026-07-06）：PR-1（#284）已合并部署；PR-2 前端接线（魔术棒 `resolveIntent` 注入意图 + `directionLabel` 展示）开发中。
 - v0.2（2026-07-05）：追加附录 A 各 Phase 实现细则与 `INTENT_PERSONA` 草稿。

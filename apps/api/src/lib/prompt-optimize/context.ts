@@ -187,6 +187,23 @@ export function buildOptimizeSystemPrompt(
   const ah = aspectHint(ctx.aspectRatio);
   if (ah) parts.push(ah);
 
+  const styleBlock = buildStyleReferenceBlock(ctx.recentAccepted);
+  if (styleBlock) parts.push(styleBlock);
+
   parts.push("输出长度不超过 600 字；只输出润色后的提示词正文。");
   return parts.join("\n");
+}
+
+/** 个性化：将用户近期采纳的润色结果作为风格 few-shot 参考 */
+function buildStyleReferenceBlock(recentAccepted?: string[]): string | null {
+  if (!recentAccepted || recentAccepted.length === 0) return null;
+  const examples = dedupeCandidates(recentAccepted).slice(0, 3);
+  if (examples.length === 0) return null;
+  const lines = [
+    "参考用户近期偏好的表达风格（仅学习用词/结构/调性，不要照抄其具体内容与主体）：",
+  ];
+  examples.forEach((ex, i) => {
+    lines.push(`${i + 1}. ${ex}`);
+  });
+  return lines.join("\n");
 }

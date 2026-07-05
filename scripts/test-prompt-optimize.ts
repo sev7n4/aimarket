@@ -109,5 +109,20 @@ ok(
   resolveEffectiveCandidateCount(3) === 3,
 );
 
+// ── 个性化 few-shot 注入 ─────────────────────────────────────────────────
+const withStyle = buildOptimizeSystemPrompt("image", {
+  recentAccepted: ["电影感夜景，霓虹光影", "日系清新，柔和自然光"],
+});
+ok(
+  "recentAccepted injects style reference examples",
+  /近期偏好的表达风格/.test(withStyle) &&
+    /电影感夜景/.test(withStyle) &&
+    /日系清新/.test(withStyle),
+);
+ok(
+  "empty recentAccepted -> no style block, baseline unchanged",
+  !/近期偏好的表达风格/.test(buildOptimizeSystemPrompt("image", {})),
+);
+
 console.log(`\n${results.filter((r) => r.pass).length}/${results.length} 通过`);
 if (results.some((r) => !r.pass)) process.exit(1);
