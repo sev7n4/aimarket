@@ -68,7 +68,11 @@ export const StudioCanvasWithOrchestration = forwardRef<
     resumeDramaPlanRun,
     duplicateDramaProject,
     refineDramaPlan,
+    creationLane,
   } = useStudioOrchestration();
+
+  /** 短剧 UI / 编排仅在 Agent 车道展示；图片 / 视频车道走各自画布逻辑 */
+  const dramaLaneActive = creationLane === "agent";
 
   const templatePlanRunIdRef = useRef<string | null>(null);
   const [pendingTemplateLayout, setPendingTemplateLayout] = useState<
@@ -101,10 +105,12 @@ export const StudioCanvasWithOrchestration = forwardRef<
   >(null);
 
   const showFinalVideo =
+    dramaLaneActive &&
     studioMode === "production" &&
     dramaRun?.status === "completed" &&
     Boolean(dramaRun.finalVideoUrl);
   const showProductionTimeline =
+    dramaLaneActive &&
     studioMode === "production" &&
     dramaRun != null &&
     dramaRun.status !== "waiting_confirm" &&
@@ -134,7 +140,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
 
   /** 制片 + canvasFlow：始终 Agent(Scroll) ↔ 节点(Infinite) 分离；未进入规划前也不默认 Infinite */
   const dramaPhaseSplitEnabled =
-    studioMode === "production" && canvasFlowEnabled;
+    dramaLaneActive && studioMode === "production" && canvasFlowEnabled;
 
   const derivedViewPhase: DramaStudioViewPhase = "agent";
 
@@ -157,10 +163,11 @@ export const StudioCanvasWithOrchestration = forwardRef<
   const viewPhase = manualViewPhase ?? derivedViewPhase;
 
   const isDramaPlanActive =
-    dramaPlanRun?.status === "planning" ||
-    (dramaPlanRun?.status === "completed" &&
-      !dramaRun &&
-      Boolean(dramaDraftProject ?? dramaPlanPartialProject));
+    dramaLaneActive &&
+    (dramaPlanRun?.status === "planning" ||
+      (dramaPlanRun?.status === "completed" &&
+        !dramaRun &&
+        Boolean(dramaDraftProject ?? dramaPlanPartialProject)));
 
   const useInfiniteCanvas = isDramaPlanActive
     ? false
@@ -169,6 +176,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
       : canvasFlowEnabled;
 
   const showAgentPlanWorkspace =
+    dramaLaneActive &&
     isDramaPlanActive &&
     !showFinalVideo &&
     !showProductionTimeline &&
@@ -185,6 +193,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
         : "completed";
 
   const showShotTimeline =
+    dramaLaneActive &&
     studioMode === "production" &&
     Boolean(dramaDraftProject?.project.shots.length) &&
     !isDramaPlanning &&
@@ -200,7 +209,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
 
   // Compute Drama canvas nodes from the planning result
   const dramaCanvasData = useMemo(() => {
-    if (showAgentPlanWorkspace) return { nodes: [], connections: [] };
+    if (!dramaLaneActive || showAgentPlanWorkspace) return { nodes: [], connections: [] };
     const payload = dramaDraftProject?.project ?? dramaRun?.project;
     if (!payload) return { nodes: [], connections: [] };
     const base = dramaPlanToCanvasNodes(payload);
@@ -211,6 +220,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     dramaRun?.project,
     pendingTemplateLayout,
     props.dramaNodePositions,
+    dramaLaneActive,
     showAgentPlanWorkspace,
   ]);
 
@@ -431,12 +441,18 @@ export const StudioCanvasWithOrchestration = forwardRef<
       : "agent";
 
   const showDramaStudioPanel =
-    Boolean(dramaRun || dramaDraftProject) && !showAgentPlanWorkspace;
+    dramaLaneActive && Boolean(dramaRun || dramaDraftProject) && !showAgentPlanWorkspace;
 
-  const scrollOrchestrationEvent =
-    showAgentPlanWorkspace && timelineEvent?.runType === "drama_plan"
-      ? null
-      : timelineEvent;
+  const scrollOrchestrationEvent = useMemo(() => {
+    const event = timelineEvent;
+    if (!dramaLaneActive && event && (event.runType === "drama_plan" || event.runType === "drama_run")) {
+      return null;
+    }
+    if (showAgentPlanWorkspace && event?.runType === "drama_plan") {
+      return null;
+    }
+    return event;
+  }, [dramaLaneActive, timelineEvent, showAgentPlanWorkspace]);
 
   const dramaPanel = showDramaStudioPanel ? (
       <DramaStudioPanel

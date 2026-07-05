@@ -17,6 +17,13 @@ export async function skipStudioCoach(page: Page) {
   });
 }
 
+/** 短剧 / Agent 编排 E2E：Studio 默认车道为 image，需显式切 Agent */
+export async function initStudioAgentLane(page: Page) {
+  await page.addInitScript(() => {
+    localStorage.setItem("aimarket.studio.lane", "agent");
+  });
+}
+
 /** 进入 Studio 并等待客户端草稿 sessionId 与创作台就绪（空白打开不再自动 ensure） */
 export async function gotoStudioAndWait(page: Page, url = "/studio") {
   await page.goto(url, { waitUntil: "domcontentloaded" });

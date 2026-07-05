@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  initStudioAgentLane,
   skipStudioCoach,
   studioWorkstation,
 } from "./helpers/studio";
@@ -16,6 +17,7 @@ test.describe("production plan SSE", () => {
   test("制片模式提交 → 五步规划时间线 → 分镜板", async ({ page, request }) => {
     test.setTimeout(120_000);
     await skipStudioCoach(page);
+    await initStudioAgentLane(page);
 
     const apiBase = process.env.E2E_API_URL ?? "http://127.0.0.1:4000";
     const email = `e2e_prod_plan_${Date.now()}_${Math.random()

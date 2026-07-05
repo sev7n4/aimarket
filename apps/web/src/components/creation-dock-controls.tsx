@@ -30,6 +30,7 @@ import {
   type VideoReferenceMode,
   type VideoResolution,
 } from "@/lib/creation-dock-prefs";
+import { DRAMA_SKILL_ID } from "@/lib/drama-submit-routing";
 import {
   VideoOutputSettings,
   applyModeVideoSettings,
@@ -42,7 +43,7 @@ const DOCK_PILL =
 export const ECOMMERCE_DOCK_SKILL_ID = "__ecommerce__";
 export const ECOMMERCE_SET_SKILL_ID = "ecommerce-set-v1";
 /** AI 短剧（独立 /drama API，借鉴 RHTV Anchor First） */
-export const DRAMA_SKILL_ID = "drama-short-v1";
+export { DRAMA_SKILL_ID };
 
 export function normalizeDockSkillId(id: string | null): string | null {
   if (!id) return null;

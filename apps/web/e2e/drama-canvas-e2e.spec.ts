@@ -130,6 +130,7 @@ async function openStudioWithDramaDraft(
       // drama coach 同样按 user.id 存
       localStorage.setItem(`aimarket_drama_coach_v1:${uid}`, "1");
       localStorage.setItem("aimarket_canvas_flow", "1");
+      localStorage.setItem("aimarket.studio.lane", "agent");
       // 注意: 不设置 aimarket_canvas_flow=0 — 我们要测生产路径
     },
     { t: token, uid: userId },
