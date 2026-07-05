@@ -1,5 +1,5 @@
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
-import { skipStudioCoach, studioWorkstation } from "./studio";
+import { initStudioAgentLane, skipStudioCoach, studioWorkstation } from "./studio";
 import type { DramaRun, DramaRunGraph } from "../../src/lib/types";
 
 const PLAN_AGENTS = [
@@ -194,6 +194,7 @@ export async function openStudioWithCompletedDramaRun(
   token: string,
 ) {
   await skipStudioCoach(page);
+  await initStudioAgentLane(page);
   const sessionId = crypto.randomUUID();
   await request.post(`${apiBase}/api/v1/imageSession/ensure`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -280,6 +281,7 @@ export async function planAndLockCharacters(
   apiBase: string,
 ) {
   await skipStudioCoach(page);
+  await initStudioAgentLane(page);
   page.on("dialog", (dialog) => dialog.accept());
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
