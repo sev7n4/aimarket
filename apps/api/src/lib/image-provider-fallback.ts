@@ -33,6 +33,11 @@ export function isRetriableGenerateProviderError(err: unknown): boolean {
     lower.includes("etimedout") ||
     lower.includes("network") ||
     lower.includes("model not exist") ||
-    lower.includes("invalidparameter")
+    lower.includes("invalidparameter") ||
+    lower.includes("arrearage") ||
+    lower.includes("access denied") ||
+    lower.includes("欠费") ||
+    lower.includes("余额不足") ||
+    lower.includes("in good standing")
   );
 }

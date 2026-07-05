@@ -105,10 +105,16 @@ export function formatJobErrorMessage(
   }
 
   if (
-    /万相视频账号欠费|Arrearage|DashScope.*欠费/i.test(text) ||
-    (text.includes("万相视频") && /欠费|arrearage/i.test(text))
+    /Arrearage|DashScope.*欠费|in good standing/i.test(text) ||
+    (text.includes("万相") && /欠费|arrearage/i.test(text))
   ) {
-    return "视频生成失败：万相（DashScope）账号欠费，请充值后重试。";
+    if (toolType === "video" || text.includes("万相视频")) {
+      return "视频生成失败：万相（DashScope）账号欠费，请充值后重试。";
+    }
+    if (withFallback) {
+      return "生成失败：万相（DashScope）账号欠费，系统已尝试 Agnes / Seedream 兜底；若仍失败请充值阿里云或联系管理员。";
+    }
+    return "生成失败：万相（DashScope）账号欠费，请前往阿里云充值后重试。";
   }
 
   if (/Agnes Video 排队超时|Agnes Video 任务超时/i.test(text)) {
