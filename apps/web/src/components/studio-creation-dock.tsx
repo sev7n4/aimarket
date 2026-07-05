@@ -61,6 +61,7 @@ interface StudioCreationDockProps {
     points: FocusPointChip[];
     item: CanvasItem;
   }) => Promise<string>;
+  autoSubmitOnce?: boolean;
 }
 
 /** Studio 底部 Dock：prompt、上传、@、车道、Skill、发送（编排由 Provider 负责） */
@@ -91,6 +92,7 @@ export function StudioCreationDock({
   dockExpanded = true,
   focusEdit,
   onFocusEditSubmit,
+  autoSubmitOnce = false,
 }: StudioCreationDockProps) {
   return (
     <>
@@ -139,6 +141,7 @@ export function StudioCreationDock({
         agentOrchestration
         agentSkills={false}
         onFocusEditSubmit={onFocusEditSubmit}
+        autoSubmitOnce={autoSubmitOnce}
       />
     </>
   );

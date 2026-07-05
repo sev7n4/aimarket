@@ -41,6 +41,13 @@ export function StudioPageClient() {
     writeDraftSessionId(sessionId, wsId);
   }, [sessionId, sessionIdFromUrl]);
 
+  useEffect(() => {
+    if (searchParams.get("submit") !== "1") return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("submit");
+    window.history.replaceState(null, "", url.toString());
+  }, [searchParams]);
+
   const mode = parseMode(searchParams.get("mode"));
   const kindParam = searchParams.get("kind");
   const remountKey = `${sessionId}-${mode}-${kindParam ?? "canvas"}`;
@@ -63,6 +70,7 @@ export function StudioPageClient() {
         initialKind={parseSessionKind(kindParam ?? undefined)}
         initialJobId={searchParams.get("jobId") ?? undefined}
         initialToolId={searchParams.get("tool") ?? undefined}
+        autoSubmitOnce={searchParams.get("submit") === "1"}
       />
     </div>
   );
