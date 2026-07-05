@@ -1911,6 +1911,10 @@ export interface PromptOptimizeContextInput {
   aspectRatio?: string;
   hasReferenceImages?: boolean;
   creationLane?: string;
+  /** 前端 resolveIntent 推断的主意图信号，如 "image-edit" */
+  intentSignal?: string;
+  /** 意图推断置信度 0-1 */
+  intentConfidence?: number;
 }
 
 export async function optimizePromptApi(
@@ -1919,7 +1923,12 @@ export async function optimizePromptApi(
   options?: { context?: PromptOptimizeContextInput },
 ) {
   const res = await request<{
-    data: { prompt: string; source: "template-mock" | "openai" | "dashscope" };
+    data: {
+      prompt: string;
+      source: "template-mock" | "openai" | "dashscope";
+      direction?: string;
+      directionLabel?: string;
+    };
   }>("/api/v1/prompt/optimize", {
     method: "POST",
     body: JSON.stringify({ prompt, mode, context: options?.context }),

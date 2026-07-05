@@ -42,6 +42,7 @@ import {
   renderInspiration,
 } from "@/lib/api-client";
 import { polishPrompt } from "@/lib/prompt-polish";
+import { resolveIntent } from "@/lib/intent-router";
 import { jobStatusLabel } from "@/lib/job-stream";
 import {
   resolveVideoSubmitModelId,
@@ -2236,6 +2237,23 @@ export function CreationPanel({
                       assetIds.length > 0 ||
                       selectedRefs.length > 0 ||
                       mentionedAssetIds.length > 0;
+                    // 意图识别：推断创作方向，驱动后端场景化润色
+                    const intent = resolveIntent({
+                      prompt: raw,
+                      creationLane,
+                      activeSkillId,
+                      focusEditActive: Boolean(focusEdit?.points.length),
+                      mentionedMasksCount: mentionedMasks.length,
+                      submitVideo,
+                      hasReferenceImages: hasRefs,
+                      hasSelectedCanvasItem: Boolean(selectedCanvasItem),
+                      dramaSkillActive: dramaOrchestrationActive,
+                      studioOrchestrationActive,
+                      skillsEnabled,
+                      agentEnabled,
+                      isDock,
+                      submitEcommerce,
+                    });
                     const sourceLabel = (
                       source: "template-mock" | "openai" | "dashscope",
                     ) => {
@@ -2243,9 +2261,16 @@ export function CreationPanel({
                       if (source === "openai") return "OpenAI";
                       return "模板";
                     };
+                    const composeHint = (
+                      source: "template-mock" | "openai" | "dashscope",
+                      directionLabel?: string,
+                    ) =>
+                      directionLabel
+                        ? `${sourceLabel(source)} · ${directionLabel}`
+                        : sourceLabel(source);
                     if (!user || !getToken()) {
                       setPrompt(polishPrompt(polishApiMode, raw));
-                      setPolishHint("模板");
+                      setPolishHint(composeHint("template-mock"));
                       return;
                     }
                     setPolishBusy(true);
@@ -2256,15 +2281,19 @@ export function CreationPanel({
                         aspectRatio,
                         hasReferenceImages: hasRefs,
                         creationLane,
+                        intentSignal: intent.primarySignal,
+                        intentConfidence: intent.confidence,
                       },
                     })
                       .then((res) => {
                         setPrompt(res.prompt);
-                        setPolishHint(sourceLabel(res.source));
+                        setPolishHint(
+                          composeHint(res.source, res.directionLabel),
+                        );
                       })
                       .catch(() => {
                         setPrompt(polishPrompt(polishApiMode, raw));
-                        setPolishHint("模板");
+                        setPolishHint(composeHint("template-mock"));
                       })
                       .finally(() => setPolishBusy(false));
                   }}
