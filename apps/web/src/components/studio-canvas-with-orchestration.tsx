@@ -600,6 +600,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
       ref={ref}
       {...props}
       useInfiniteCanvas={useInfiniteCanvas}
+      conversationPaneEnabled={dramaLaneActive}
       canvasViewEnabled={canvasViewToggleEnabled}
       dramaPhaseSplitEnabled={dramaPhaseSplitEnabled}
       dramaViewPhase={canvasViewToggleEnabled ? viewPhase : undefined}
