@@ -29,6 +29,15 @@ export type DramaPlanStreamEvent =
       tool: "turnaround" | "voice";
     }
   | {
+      type: "scene_tool_start";
+      sceneId: string;
+      sceneName: string;
+    }
+  | {
+      type: "scene_tool_done";
+      sceneId: string;
+    }
+  | {
       type: "plan_complete";
       projectId: string;
       estimatedPoints: number;

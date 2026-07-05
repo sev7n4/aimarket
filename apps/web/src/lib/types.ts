@@ -314,6 +314,8 @@ export interface DramaCharacterCard {
     three_quarter: string;
     side: string;
   }>;
+  /** 后端 job 队列中是否有待完成的三视图任务 */
+  turnaroundPending?: boolean;
 }
 
 export interface DramaVoiceOption {
@@ -368,6 +370,8 @@ export interface DramaSceneCard {
   props: string[];
   refOutputId?: string;
   refUrl?: string;
+  /** 后端 job 队列中是否有待完成的场景参考图任务 */
+  refPending?: boolean;
 }
 
 export interface DramaProjectPayload {

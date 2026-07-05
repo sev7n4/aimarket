@@ -5,11 +5,14 @@ import type {
   DramaProjectData,
   DramaProjectStatus,
   CharacterCard,
+  SceneCard,
 } from "./schema.js";
 import { resolveReferenceUrls } from "../references.js";
 import { snapshotInitialVersion, snapshotAfterUpdate } from "./project-versions.js";
+import { countPendingTurnaroundJobs } from "./turnaround-jobs.js";
+import { countPendingSceneRefJobs } from "./scene-ref-jobs.js";
 
-function enrichCharacterCard(char: CharacterCard) {
+function enrichCharacterCard(char: CharacterCard, projectId: string) {
   const ids = char.refOutputIds;
   const refUrls = ids
     ? {
@@ -26,13 +29,31 @@ function enrichCharacterCard(char: CharacterCard) {
     ...char,
     turnaroundStatus: char.turnaroundStatus ?? "draft",
     refUrls,
+    turnaroundPending: countPendingTurnaroundJobs(projectId, char.id) > 0,
   };
 }
 
-function enrichProjectCharacters(project: DramaProjectData): DramaProjectData {
+function enrichSceneCard(scene: SceneCard, projectId: string) {
+  const refUrl =
+    scene.refUrl ??
+    (scene.refOutputId
+      ? resolveReferenceUrls([scene.refOutputId])[0]
+      : undefined);
+  return {
+    ...scene,
+    refUrl,
+    refPending: countPendingSceneRefJobs(projectId, scene.id) > 0,
+  };
+}
+
+function enrichProjectAssets(
+  project: DramaProjectData,
+  projectId: string,
+): DramaProjectData {
   return {
     ...project,
-    characters: project.characters.map(enrichCharacterCard),
+    characters: project.characters.map((c) => enrichCharacterCard(c, projectId)),
+    scenes: project.scenes.map((s) => enrichSceneCard(s, projectId)),
   };
 }
 
@@ -42,7 +63,7 @@ export function getEnrichedProjectData(
 ): DramaProjectData | null {
   const row = getDramaProject(userId, projectId);
   if (!row) return null;
-  return enrichProjectCharacters(parseProjectJson(row));
+  return enrichProjectAssets(parseProjectJson(row), row.id);
 }
 
 export interface DramaProjectRow {
@@ -216,7 +237,7 @@ export function duplicateDramaProject(
 }
 
 export function serializeDramaProject(row: DramaProjectRow) {
-  const project = enrichProjectCharacters(parseProjectJson(row));
+  const project = enrichProjectAssets(parseProjectJson(row), row.id);
   return {
     id: row.id,
     sessionId: row.session_id,

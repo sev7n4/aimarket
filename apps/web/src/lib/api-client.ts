@@ -1683,6 +1683,21 @@ export async function generateDramaCharacterTurnaround(
   return res.data;
 }
 
+export async function generateDramaSceneRef(projectId: string, sceneId: string) {
+  const res = await request<{
+    data: {
+      status: "generating" | "ready";
+      sceneId: string;
+      jobId: string | null;
+      project: import("./types").DramaProject;
+    };
+  }>(
+    `/api/v1/drama/projects/${encodeURIComponent(projectId)}/scenes/${encodeURIComponent(sceneId)}/ref`,
+    { method: "POST" },
+  );
+  return res.data;
+}
+
 export async function updateDramaProjectApi(
   projectId: string,
   project: import("./types").DramaProjectPayload,

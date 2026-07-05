@@ -599,7 +599,7 @@ function startJobForStep(
       let p = progress;
       while (p.sceneRefIndex < project.scenes.length) {
         const scene = project.scenes[p.sceneRefIndex]!;
-        if (scene.refUrl) {
+        if (scene.refUrl || scene.refOutputId) {
           p = { ...p, sceneRefIndex: p.sceneRefIndex + 1 };
           continue;
         }

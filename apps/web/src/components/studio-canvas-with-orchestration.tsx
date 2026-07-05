@@ -155,20 +155,23 @@ export const StudioCanvasWithOrchestration = forwardRef<
 
   const viewPhase = manualViewPhase ?? derivedViewPhase;
 
-  const useInfiniteCanvas =
-    studioMode === "production"
+  const isDramaPlanActive =
+    dramaPlanRun?.status === "planning" ||
+    (dramaPlanRun?.status === "completed" &&
+      !dramaRun &&
+      Boolean(dramaDraftProject ?? dramaPlanPartialProject));
+
+  const useInfiniteCanvas = isDramaPlanActive
+    ? false
+    : studioMode === "production"
       ? dramaPhaseSplitEnabled && viewPhase === "workflow"
       : canvasFlowEnabled;
 
   const showAgentPlanWorkspace =
-    studioMode === "production" &&
-    !useInfiniteCanvas &&
+    isDramaPlanActive &&
     !showFinalVideo &&
     !showProductionTimeline &&
-    (isDramaPlanning ||
-      (Boolean(dramaDraftProject) &&
-        !dramaRun &&
-        dramaPlanRun?.status !== "failed"));
+    !(studioMode === "production" && dramaPhaseSplitEnabled && viewPhase === "workflow");
 
   const planWorkspaceProject =
     dramaPlanPartialProject ?? dramaDraftProject?.project ?? null;
@@ -196,6 +199,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
 
   // Compute Drama canvas nodes from the planning result
   const dramaCanvasData = useMemo(() => {
+    if (showAgentPlanWorkspace) return { nodes: [], connections: [] };
     const payload = dramaDraftProject?.project ?? dramaRun?.project;
     if (!payload) return { nodes: [], connections: [] };
     const base = dramaPlanToCanvasNodes(payload);
@@ -206,10 +210,12 @@ export const StudioCanvasWithOrchestration = forwardRef<
     dramaRun?.project,
     pendingTemplateLayout,
     props.dramaNodePositions,
+    showAgentPlanWorkspace,
   ]);
 
   // Assistant snapshot metadata（节点/连线由 design-canvas effectiveAssistantSnapshot 实时合并）
   const assistantSnapshot = useMemo<CanvasAgentSnapshot | null>(() => {
+    if (showAgentPlanWorkspace) return null;
     const payload = dramaDraftProject?.project ?? dramaRun?.project;
     if (!payload && dramaCanvasData.nodes.length === 0) return null;
     return {
@@ -227,6 +233,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     dramaRun?.project,
     dramaCanvasData.nodes,
     dramaCanvasData.connections,
+    showAgentPlanWorkspace,
   ]);
 
   const handleRerunFromAgent = useCallback(

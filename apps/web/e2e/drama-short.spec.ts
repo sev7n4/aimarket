@@ -127,12 +127,12 @@ test.describe("AI 短剧全链路", () => {
       }
     }
 
-    const panel = page.getByTestId("drama-studio-panel");
-    await expect(panel).toBeVisible({ timeout: 30_000 });
-    await expect(panel.getByText(/分镜板（\d+ 镜）/)).toBeVisible({
+    const workspace = page.getByTestId("drama-agent-plan-workspace");
+    await expect(workspace).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("drama-artifact-storyboard")).toBeVisible({
       timeout: 30_000,
     });
-    await expect(panel.getByText(/角色资产（\d+）/)).toBeVisible();
-    await expect(panel.getByTestId("drama-confirm-produce")).toBeVisible();
+    await expect(page.getByTestId("drama-artifact-characters")).toBeVisible();
+    await expect(page.getByTestId("drama-confirm-produce")).toBeVisible();
   });
 });

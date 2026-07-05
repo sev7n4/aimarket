@@ -45,7 +45,7 @@ export function DramaCharacterCardView({
   onUploadRef,
   uploadingRef,
 }: DramaCharacterCardViewProps) {
-  const [generating, setGenerating] = useState(false);
+  const [userGenerating, setUserGenerating] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPoll = useCallback(() => {
@@ -64,27 +64,28 @@ export function DramaCharacterCardView({
 
   const locked = character.turnaroundStatus === "locked";
   const refsComplete = characterTurnaroundRefsComplete(character);
+  const pending = character.turnaroundPending === true;
+  const generating = pending || userGenerating;
 
   useEffect(() => () => stopPoll(), [stopPoll]);
 
   useEffect(() => {
-    if (readOnly || !projectId || refsComplete) return;
-    setGenerating(true);
+    if (readOnly || !projectId || refsComplete || !pending) return;
     const timer = setInterval(() => {
       void refreshProject().then((project) => {
         if (!project) return;
         const char = project.characters.find((c) => c.id === character.id);
         if (char && characterTurnaroundRefsComplete(char)) {
-          setGenerating(false);
+          setUserGenerating(false);
         }
       });
     }, 2000);
     return () => clearInterval(timer);
-  }, [readOnly, projectId, refsComplete, refreshProject, character.id]);
+  }, [readOnly, projectId, refsComplete, pending, refreshProject, character.id]);
 
   const handleGenerate = useCallback(async () => {
     if (readOnly || busy || generating) return;
-    setGenerating(true);
+    setUserGenerating(true);
     try {
       const data = await generateDramaCharacterTurnaround(
         projectId,
@@ -98,12 +99,12 @@ export function DramaCharacterCardView({
           const char = project.characters.find((c) => c.id === character.id);
           if (char && characterTurnaroundRefsComplete(char)) {
             stopPoll();
-            setGenerating(false);
+            setUserGenerating(false);
           }
         });
       }, 1500);
     } catch {
-      setGenerating(false);
+      setUserGenerating(false);
       stopPoll();
     }
   }, [
@@ -138,7 +139,9 @@ export function DramaCharacterCardView({
   ) : (
     <div className="flex size-full flex-col items-center justify-center gap-1 text-zinc-600">
       <User className="size-8 opacity-40" />
-      <span className="text-[10px]">待生成三视图</span>
+      <span className="text-[10px]">
+        {generating ? "生成中…" : "待生成三视图"}
+      </span>
     </div>
   );
 
@@ -265,7 +268,7 @@ export function DramaCharacterCardView({
                 />
               ) : (
                 <div className="flex aspect-[3/4] items-center justify-center text-[9px] text-zinc-600">
-                  {CHARACTER_ANGLE_LABELS[angle]}
+                  {generating ? "…" : CHARACTER_ANGLE_LABELS[angle]}
                 </div>
               )}
             </div>
