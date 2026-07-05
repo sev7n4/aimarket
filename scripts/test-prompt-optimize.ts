@@ -7,7 +7,10 @@ import {
   dedupeCandidates,
   resolveDirection,
 } from "../apps/api/src/lib/prompt-optimize/context.ts";
-import { optimizePrompt } from "../apps/api/src/lib/prompt-optimize/index.ts";
+import {
+  optimizePrompt,
+  resolveEffectiveCandidateCount,
+} from "../apps/api/src/lib/prompt-optimize/index.ts";
 
 const results: { name: string; pass: boolean }[] = [];
 
@@ -91,6 +94,19 @@ ok(
   "dedupeCandidates trims + drops empty + dedupes, keeps order",
   JSON.stringify(dedupeCandidates([" A ", "A", "", "B", "  "])) ===
     JSON.stringify(["A", "B"]),
+);
+
+// ── DeepSeek 候选数限制 ───────────────────────────────────────────────────
+const prevBase = process.env.OPENAI_BASE_URL;
+process.env.OPENAI_BASE_URL = "https://api.deepseek.com/v1";
+ok(
+  "deepseek endpoint caps candidate count to 1",
+  resolveEffectiveCandidateCount(3) === 1,
+);
+process.env.OPENAI_BASE_URL = prevBase;
+ok(
+  "non-deepseek keeps requested candidate count",
+  resolveEffectiveCandidateCount(3) === 3,
 );
 
 console.log(`\n${results.filter((r) => r.pass).length}/${results.length} 通过`);
