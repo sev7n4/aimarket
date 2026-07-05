@@ -90,11 +90,18 @@ export function optimizePrompt(mode: OptimizeMode, raw: string): string {
   return optimizePromptWithTemplate(mode, raw);
 }
 
-/** 默认候选数（含推荐 1 + 备选 N）；可用 PROMPT_OPTIMIZE_VARIANTS 覆盖 */
-function resolveCandidateCount(): number {
+/** 默认候选数；可用 PROMPT_OPTIMIZE_VARIANTS(1-5) 覆盖 */
+function resolveRequestedCandidateCount(): number {
   const raw = Number(process.env.PROMPT_OPTIMIZE_VARIANTS);
   if (Number.isFinite(raw) && raw >= 1 && raw <= 5) return Math.floor(raw);
   return 3;
+}
+
+/** DeepSeek 等兼容端点目前仅支持 n=1，避免 400 导致整请求 500 */
+export function resolveEffectiveCandidateCount(requested: number): number {
+  const base = (process.env.OPENAI_BASE_URL ?? "").toLowerCase();
+  if (base.includes("deepseek.com")) return 1;
+  return Math.max(1, Math.min(5, requested));
 }
 
 async function tryProvider(
@@ -143,7 +150,9 @@ export async function optimizePromptAsync(
               ...(openaiConfigured() ? (["openai"] as const) : []),
             ];
 
-  const candidateCount = resolveCandidateCount();
+  const candidateCount = resolveEffectiveCandidateCount(
+    resolveRequestedCandidateCount(),
+  );
 
   for (const source of chain) {
     try {
@@ -155,6 +164,9 @@ export async function optimizePromptAsync(
         candidateCount,
       );
       const [prompt, ...variants] = candidates;
+      if (!prompt?.trim()) {
+        throw new Error(`${source} 返回空内容`);
+      }
       return {
         prompt,
         source,
@@ -164,9 +176,6 @@ export async function optimizePromptAsync(
       };
     } catch (err) {
       console.warn(`[prompt-optimize] ${source} 失败`, err);
-      if (providerMode === source) {
-        throw err;
-      }
     }
   }
 
