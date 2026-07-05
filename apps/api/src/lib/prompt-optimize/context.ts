@@ -135,6 +135,19 @@ function aspectHint(aspectRatio?: string): string {
   return `画面比例为 ${aspectRatio}，请在构图中体现该比例下的主体布局。`;
 }
 
+/** 去重并过滤空白候选，保持顺序 */
+export function dedupeCandidates(candidates: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const c of candidates) {
+    const trimmed = c.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    result.push(trimmed);
+  }
+  return result;
+}
+
 /** 基于意图画像构建场景化的专家指令块 */
 function buildPersonaBlock(signal: string): string | null {
   const persona = INTENT_PERSONA[signal];

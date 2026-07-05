@@ -8,6 +8,7 @@ import {
   ImagePlus,
   Loader2,
   Pencil,
+  RefreshCw,
   Sparkles,
   Wand2,
 } from "lucide-react";
@@ -399,6 +400,8 @@ export function CreationPanel({
   const [pending, setPending] = useState(false);
   const [polishBusy, setPolishBusy] = useState(false);
   const [polishHint, setPolishHint] = useState<string | null>(null);
+  const [polishCandidates, setPolishCandidates] = useState<string[]>([]);
+  const [polishCandidateIndex, setPolishCandidateIndex] = useState(0);
   const [assetIds, setAssetIds] = useState<string[]>([]);
   const [productAssetId, setProductAssetId] = useState<string | null>(null);
   const [referenceAssetId, setReferenceAssetId] = useState<string | null>(null);
@@ -2136,6 +2139,11 @@ export function CreationPanel({
                 onChange={(e) => {
                   const v = e.target.value;
                   setPrompt(v);
+                  if (polishCandidates.length > 0) {
+                    setPolishCandidates([]);
+                    setPolishCandidateIndex(0);
+                    setPolishHint(null);
+                  }
                   syncMentionStateFromPrompt(v);
                   // 检测光标前的 @<query>，弹出/更新引用 popover
                   const caret = e.target.selectionStart ?? v.length;
@@ -2268,6 +2276,8 @@ export function CreationPanel({
                       directionLabel
                         ? `${sourceLabel(source)} · ${directionLabel}`
                         : sourceLabel(source);
+                    setPolishCandidates([]);
+                    setPolishCandidateIndex(0);
                     if (!user || !getToken()) {
                       setPrompt(polishPrompt(polishApiMode, raw));
                       setPolishHint(composeHint("template-mock"));
@@ -2286,7 +2296,13 @@ export function CreationPanel({
                       },
                     })
                       .then((res) => {
+                        const candidates = [
+                          res.prompt,
+                          ...(res.variants ?? []),
+                        ];
                         setPrompt(res.prompt);
+                        setPolishCandidates(candidates);
+                        setPolishCandidateIndex(0);
                         setPolishHint(
                           composeHint(res.source, res.directionLabel),
                         );
@@ -2309,6 +2325,22 @@ export function CreationPanel({
                   ) : (
                     <Wand2 className="size-4" />
                   )}
+                </button>
+              ) : null}
+              {enablePolish && polishCandidates.length > 1 && !polishBusy ? (
+                <button
+                  type="button"
+                  title={`换一个（${polishCandidateIndex + 1}/${polishCandidates.length}）`}
+                  onClick={() => {
+                    const next =
+                      (polishCandidateIndex + 1) % polishCandidates.length;
+                    setPolishCandidateIndex(next);
+                    setPrompt(polishCandidates[next]);
+                  }}
+                  className="absolute bottom-1 right-9 rounded-lg p-1.5 text-orange-400 transition hover:bg-white/10 hover:text-orange-300"
+                  aria-label="换一个润色结果"
+                >
+                  <RefreshCw className="size-4" />
                 </button>
               ) : null}
               </div>

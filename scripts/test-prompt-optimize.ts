@@ -4,6 +4,7 @@
  */
 import {
   buildOptimizeSystemPrompt,
+  dedupeCandidates,
   resolveDirection,
 } from "../apps/api/src/lib/prompt-optimize/context.ts";
 import { optimizePrompt } from "../apps/api/src/lib/prompt-optimize/index.ts";
@@ -83,6 +84,13 @@ ok(
 ok(
   "resolveDirection ecommerce label",
   resolveDirection("ecommerce").label === "电商视觉",
+);
+
+// ── 候选去重 ────────────────────────────────────────────────────────────
+ok(
+  "dedupeCandidates trims + drops empty + dedupes, keeps order",
+  JSON.stringify(dedupeCandidates([" A ", "A", "", "B", "  "])) ===
+    JSON.stringify(["A", "B"]),
 );
 
 console.log(`\n${results.filter((r) => r.pass).length}/${results.length} 通过`);

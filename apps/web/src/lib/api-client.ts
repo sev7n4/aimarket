@@ -1928,6 +1928,7 @@ export async function optimizePromptApi(
       source: "template-mock" | "openai" | "dashscope";
       direction?: string;
       directionLabel?: string;
+      variants?: string[];
     };
   }>("/api/v1/prompt/optimize", {
     method: "POST",
