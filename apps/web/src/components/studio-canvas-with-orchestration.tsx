@@ -156,10 +156,10 @@ export const StudioCanvasWithOrchestration = forwardRef<
   const viewPhase = manualViewPhase ?? derivedViewPhase;
 
   const isDramaPlanActive =
-    isDramaPlanning ||
-    (Boolean(dramaDraftProject) &&
+    dramaPlanRun?.status === "planning" ||
+    (dramaPlanRun?.status === "completed" &&
       !dramaRun &&
-      dramaPlanRun?.status !== "failed");
+      Boolean(dramaDraftProject ?? dramaPlanPartialProject));
 
   const useInfiniteCanvas = isDramaPlanActive
     ? false
