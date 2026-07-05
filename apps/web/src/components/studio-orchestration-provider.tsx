@@ -41,6 +41,7 @@ import {
   submitSkillOrchestration,
 } from "@/lib/creation-orchestration-submit";
 import { DRAMA_SKILL_ID } from "@/components/creation-dock-controls";
+import { shouldUseDramaOrchestration } from "@/lib/drama-submit-routing";
 import { useAuth } from "@/lib/auth-context";
 import { toApiCreationMode } from "@/lib/modes";
 
@@ -393,7 +394,7 @@ export function StudioOrchestrationProvider({
     setInput((prev) => ({
       ...prev,
       prompt: "",
-      activeSkillId: mode === "production" ? DRAMA_SKILL_ID : null,
+      activeSkillId: null,
       effectiveMode: mode,
       focusEditActive: false,
       ...(mode === "production" ? { creationLane: "agent" as const } : {}),
@@ -423,7 +424,6 @@ export function StudioOrchestrationProvider({
         setDramaRun(state.dramaRun);
         setInput((prev) => ({
           ...prev,
-          activeSkillId: DRAMA_SKILL_ID,
           creationLane: "agent",
         }));
         if (state.dramaRun.status === "failed" && state.dramaRun.error) {
@@ -437,7 +437,6 @@ export function StudioOrchestrationProvider({
         setDramaDraftProject(state.draftProject);
         setInput((prev) => ({
           ...prev,
-          activeSkillId: DRAMA_SKILL_ID,
           creationLane: "agent",
         }));
       }
@@ -448,13 +447,11 @@ export function StudioOrchestrationProvider({
           setInput((prev) => ({
             ...prev,
             prompt: state.planRun!.userIdea,
-            activeSkillId: DRAMA_SKILL_ID,
             creationLane: "agent",
           }));
         } else {
           setInput((prev) => ({
             ...prev,
-            activeSkillId: DRAMA_SKILL_ID,
             creationLane: "agent",
           }));
         }
@@ -491,7 +488,16 @@ export function StudioOrchestrationProvider({
       activeSkillId ||
       agentRun ||
       focusEditActive ||
-      !prompt.trim()
+      !prompt.trim() ||
+      shouldUseDramaOrchestration({
+        creationLane,
+        activeSkillId,
+        prompt,
+        effectiveMode,
+        hasDramaSessionState: Boolean(
+          dramaRun || dramaDraftProject || dramaPlanRun,
+        ),
+      })
     ) {
       setAgentPreviewPlan(null);
       setAgentPreviewLoading(false);
@@ -508,7 +514,7 @@ export function StudioOrchestrationProvider({
         .finally(() => setAgentPreviewLoading(false));
     }, 500);
     return () => window.clearTimeout(t);
-  }, [input, agentRun]);
+  }, [input, agentRun, dramaRun, dramaDraftProject, dramaPlanRun]);
 
   const agentSkillTimeline = useMemo(
     () =>
@@ -644,6 +650,17 @@ export function StudioOrchestrationProvider({
         referenceAssetId,
       } = ctx;
 
+      const hasDramaSessionState = Boolean(
+        dramaRun || dramaDraftProject || dramaPlanRun,
+      );
+      const useDramaSubmit = shouldUseDramaOrchestration({
+        creationLane,
+        activeSkillId,
+        prompt,
+        effectiveMode,
+        hasDramaSessionState,
+      });
+
       if (
         !shouldOrchestrationHandleSubmit({
           creationLane,
@@ -652,16 +669,15 @@ export function StudioOrchestrationProvider({
           mentionedMasksCount,
           submitVideo,
           hasReferenceImages,
-          dramaSkillActive: activeSkillId === DRAMA_SKILL_ID,
+          dramaSkillActive: useDramaSubmit,
         })
       ) {
         return false;
       }
 
-      const useDramaSubmit = activeSkillId === DRAMA_SKILL_ID;
       const useSkillSubmit = Boolean(activeSkillId) && !useDramaSubmit;
       const useAgentSubmit =
-        creationLane === "agent" && !activeSkillId;
+        creationLane === "agent" && !activeSkillId && !useDramaSubmit;
 
       if (useDramaSubmit) {
         // 多轮迭代：已有完成的草稿方案 + 用户输入新指令 → 改写既有方案（生成新版本），
@@ -819,7 +835,6 @@ export function StudioOrchestrationProvider({
     setInput((prev) => ({
       ...prev,
       prompt: "",
-      activeSkillId: DRAMA_SKILL_ID,
       creationLane: "agent",
     }));
     void trackEvent("drama_project_duplicate", { sessionId, projectId });

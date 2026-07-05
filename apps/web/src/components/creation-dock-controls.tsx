@@ -688,29 +688,7 @@ export function CreationDockToolbar({
         agentAvailable={agentAvailable}
         disabled={disabled}
       />
-      {creationLane === "agent" ? (
-        <>
-          <AgentOutputPreferencePicker
-            mode={outputPrefMode}
-            onModeChange={onOutputPrefModeChange}
-            disabled={disabled}
-          />
-          {onInspirationClick ? (
-            <DockInspirationButton
-              onClick={onInspirationClick}
-              active={inspirationActive}
-              disabled={disabled}
-            />
-          ) : null}
-          <SkillDockPicker
-            options={dockSkillOptions}
-            value={dockSkillId}
-            onChange={onDockSkillChange}
-            disabled={disabled}
-            triggerLabel={skillTriggerLabel}
-          />
-        </>
-      ) : null}
+      {/* Agent 模式：仅保留创作方式切换，与图片/视频车道一样简洁 */}
       {creationLane === "image" ? (
         <ImageDockSettings
           models={models}

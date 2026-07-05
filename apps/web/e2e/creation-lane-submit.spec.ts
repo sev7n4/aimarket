@@ -86,7 +86,7 @@ test.describe("creation lane submit guard", () => {
         res.request().method() === "POST",
       { timeout: 30_000 },
     );
-    await station.getByRole("button", { name: "开始生成" }).click();
+    await station.getByRole("button", { name: /开始生成|提交 Agent/ }).click();
 
     expect((await generateResponse).ok()).toBeTruthy();
     expect(postTargets).not.toContain("agent");

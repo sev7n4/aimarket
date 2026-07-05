@@ -14,7 +14,7 @@ const PLAN_AGENTS = [
 ] as const;
 
 test.describe("AI 短剧全链路", () => {
-  test("Agent 模式选短剧技能 → 规划时间线 → 分镜板", async ({ page, request }) => {
+  test("Agent 模式输入短剧创意 → 规划时间线 → 分镜板", async ({ page, request }) => {
     test.setTimeout(120_000);
     await skipStudioCoach(page);
 
@@ -53,13 +53,6 @@ test.describe("AI 短剧全链路", () => {
     await expect(lanePicker).toContainText("Agent 模式");
 
     await station.locator("textarea").first().click();
-    await expect(station.getByLabel("创意设计")).toBeVisible({
-      timeout: 10_000,
-    });
-
-    await station.getByLabel("创意设计").click();
-    await page.getByRole("button", { name: /AI 短剧/ }).click();
-    await expect(station.getByLabel("创意设计")).toContainText("AI 短剧");
 
     const idea =
       "都市爱情短剧：咖啡店老板与常客在雨夜重逢，三分钟讲完误会与和解";
@@ -73,7 +66,7 @@ test.describe("AI 短剧全链路", () => {
         res.ok(),
       { timeout: 60_000 },
     );
-    await station.getByRole("button", { name: "开始短剧规划" }).click();
+    await station.getByRole("button", { name: "开始规划" }).click();
     const planRes = await planResponse;
     const planJson = (await planRes.json()) as { data?: { id?: string } };
     const planId = planJson.data?.id;

@@ -137,7 +137,7 @@ export function StudioCreationDock({
         onUploadToCanvas={onUploadToCanvas}
         focusEdit={focusEdit}
         agentOrchestration
-        agentSkills
+        agentSkills={false}
         onFocusEditSubmit={onFocusEditSubmit}
       />
     </>

@@ -103,24 +103,14 @@ import { useSkillRun } from "@/hooks/use-skill-run";
 import type { AgentRunStatus, SkillRunStatus } from "@/lib/types";
 import { useStudioOrchestrationOptional } from "@/components/studio-orchestration-provider";
 import { StudioDockFocusButton } from "@/components/studio-dock-controls";
-import { DramaCoach } from "@/components/drama-coach";
-import {
-  DramaProductionDockParams,
-  DramaProjectTypeTabs,
-} from "@/components/drama-production-dock-params";
-import {
-  DramaProductionModeTabs,
-  DramaReplicateDockParams,
-} from "@/components/drama-replicate-dock-params";
 import {
   CreationDockToolbar,
   CreationLanePicker,
-  SkillDockPicker,
-  buildDockSkillOptions,
   DRAMA_SKILL_ID,
   ECOMMERCE_SET_SKILL_ID,
   normalizeDockSkillId,
 } from "@/components/creation-dock-controls";
+import { shouldUseDramaOrchestration } from "@/lib/drama-submit-routing";
 import {
   persistCreationLane,
   CREATION_LANE_PLACEHOLDERS,
@@ -453,7 +443,7 @@ export function CreationPanel({
   const agentLaneAvailable = agentOrchestration && isDock;
   const creationDockScope: CreationDockScope = isStudioDock ? "studio" : "home";
 
-  const skillsEnabled = agentSkills && agentEnabled;
+  const skillsEnabled = false;
 
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const {
@@ -499,6 +489,18 @@ export function CreationPanel({
   const sessionEnsuredRef = useRef(false);
   const normalizedDockSkillId = normalizeDockSkillId(dockSkillId);
   const activeSkillId = isDock ? normalizedDockSkillId : selectedSkillId;
+
+  const dramaOrchestrationActive = shouldUseDramaOrchestration({
+    creationLane,
+    activeSkillId,
+    prompt,
+    effectiveMode,
+    hasDramaSessionState: Boolean(
+      studioOrch?.dramaPlanRun ||
+        studioOrch?.dramaDraftProject ||
+        studioOrch?.dramaRun,
+    ),
+  });
   const submitEcommerce = !isDock && effectiveMode === "ecommerce";
   const submitVideo = isDock ? creationLane === "video" : isVideoModel;
 
@@ -544,15 +546,6 @@ export function CreationPanel({
   const selectedSkill =
     (studioOrchestrationActive ? studioOrch!.skillPackages : skillPackages)
       .find((s) => s.id === (activeSkillId ?? selectedSkillId)) ?? null;
-
-  const dockSkillOptions = useMemo(
-    () =>
-      buildDockSkillOptions(
-        studioOrchestrationActive ? studioOrch!.skillPackages : skillPackages,
-        true,
-      ),
-    [studioOrchestrationActive, studioOrch, skillPackages],
-  );
 
   function handleVideoReferenceModeChange(mode: VideoReferenceMode) {
     const coerced = applyModeVideoSettings(
@@ -847,7 +840,7 @@ export function CreationPanel({
     setMentionedAssetPreviews([]);
     setMentionedMasks([]);
     setSelectedSkillId(null);
-    setDockSkillId(isProductionStudio ? DRAMA_SKILL_ID : null);
+    setDockSkillId(null);
     if (isProductionStudio) {
       setCreationLane("agent");
     }
@@ -872,12 +865,6 @@ export function CreationPanel({
     focusEdit,
   ]);
 
-  useEffect(() => {
-    if (!isProductionStudio) return;
-    setDockSkillId(DRAMA_SKILL_ID);
-    setCreationLane("agent");
-  }, [isProductionStudio, setCreationLane]);
-
   const orchestrationResetTick = studioOrch?.orchestrationResetTick ?? 0;
   const lastOrchestrationResetRef = useRef(0);
   useEffect(() => {
@@ -894,7 +881,7 @@ export function CreationPanel({
     setMentionedAssetPreviews([]);
     setMentionedMasks([]);
     setSelectedSkillId(null);
-    setDockSkillId(mode === "production" ? DRAMA_SKILL_ID : null);
+    setDockSkillId(null);
     if (mode === "production") {
       setCreationLane("agent");
     }
@@ -917,15 +904,15 @@ export function CreationPanel({
     ? "确认执行套餐"
     : agentAwaitingConfirm
       ? "确认执行"
-      : activeSkillId === DRAMA_SKILL_ID
-        ? isProductionStudio
+      : creationLane === "agent"
+        ? dramaOrchestrationActive
           ? "开始规划"
-          : "开始短剧规划"
+          : "提交 Agent"
         : activeSkillId === ECOMMERCE_SET_SKILL_ID
-        ? "开始电商套图"
-        : activeSkillId
-          ? "开始套餐"
-          : "开始生成";
+          ? "开始电商套图"
+          : activeSkillId
+            ? "开始套餐"
+            : "开始生成";
 
   const effectiveCollapsed = isStudioDock ? false : collapsed;
   const promptNeedsExpandedDock = prompt.includes("\n") || prompt.length > 72;
@@ -1562,7 +1549,7 @@ export function CreationPanel({
           mentionedMasksCount: mentionedMasks.length,
           submitVideo,
           referenceImageSources: referenceImageSources,
-          dramaSkillActive: activeSkillId === DRAMA_SKILL_ID,
+          dramaSkillActive: dramaOrchestrationActive,
         }),
       );
     const submitPath = resolveCreationSubmitPath({
@@ -1920,57 +1907,6 @@ export function CreationPanel({
         ? `已用时 ${Math.max(1, Math.floor(jobElapsedMs / 1000))} 秒`
         : null;
 
-  const showDramaProductionDock =
-    isProductionStudio &&
-    studioOrchestrationActive &&
-    activeSkillId === DRAMA_SKILL_ID &&
-    studioOrch;
-
-  const dramaProductionDockControls = showDramaProductionDock ? (
-    <>
-      <DramaProjectTypeTabs
-        projectType={studioOrch!.dramaProjectType}
-        disabled={readOnly || pending || streamBusy}
-        onChange={studioOrch!.setDramaProjectType}
-      />
-      <DramaProductionModeTabs
-        mode={studioOrch!.dramaProductionMode}
-        disabled={readOnly || pending || streamBusy}
-        onChange={studioOrch!.setDramaProductionMode}
-      />
-      {studioOrch!.dramaProductionMode === "replicate" ? (
-        <DramaReplicateDockParams
-          videoUrl={studioOrch!.dramaReplicateVideoUrl}
-          profile={studioOrch!.dramaReplicateProfile}
-          busy={studioOrch!.dramaReplicateAnalyzing}
-          disabled={readOnly || pending || streamBusy}
-          onVideoUrlChange={studioOrch!.setDramaReplicateVideoUrl}
-          onAnalyze={studioOrch!.analyzeDramaReplicateVideo}
-        />
-      ) : (
-        <DramaProductionDockParams
-          targetDurationSec={studioOrch!.dramaTargetDurationSec}
-          aspectRatio={studioOrch!.dramaAspectRatio}
-          onTargetDurationSecChange={studioOrch!.setDramaTargetDurationSec}
-          onAspectRatioChange={studioOrch!.setDramaAspectRatio}
-          disabled={readOnly || pending || streamBusy}
-        />
-      )}
-      <label
-        className="mr-1 flex items-center gap-1.5 text-[10px] text-zinc-400"
-        data-testid="drama-auto-produce-checkbox"
-      >
-        <input
-          type="checkbox"
-          checked={studioOrch!.dramaAutoProduce}
-          onChange={(e) => studioOrch!.setDramaAutoProduce(e.target.checked)}
-          disabled={readOnly || pending || streamBusy}
-        />
-        规划后直接制作
-      </label>
-    </>
-  ) : null;
-
   const body = (
     <>
       {showDockJobStatusBar ? (
@@ -2003,10 +1939,6 @@ export function CreationPanel({
             </button>
           ) : null}
         </div>
-      ) : null}
-
-      {activeSkillId === DRAMA_SKILL_ID && agentLaneAvailable ? (
-        <DramaCoach active />
       ) : null}
 
       {!effectiveCollapsed && inspirationApply && (inspirationApply.variables?.length ?? 0) > 0 ? (
@@ -2126,17 +2058,6 @@ export function CreationPanel({
                   onChange={handleCreationLaneChange}
                   agentAvailable={agentLaneAvailable}
                   disabled={readOnly || pending || streamBusy}
-                />
-              </div>
-            ) : null}
-            {dockCompactLine && creationLane === "agent" && agentLaneAvailable ? (
-              <div className="min-w-0 shrink-0 scale-90">
-                <SkillDockPicker
-                  options={dockSkillOptions}
-                  value={dockSkillId}
-                  onChange={handleDockSkillChange}
-                  disabled={readOnly || pending || streamBusy}
-                  triggerLabel={isStudioDock ? "创意设计" : "使用技能"}
                 />
               </div>
             ) : null}
@@ -2327,9 +2248,7 @@ export function CreationPanel({
               </div>
             </div>
             {dockCompactLine ? (
-              <>
-                {dramaProductionDockControls}
-                <Button
+              <Button
                   variant="primary"
                   className="size-8 shrink-0 rounded-full p-0"
                   onClick={handleSubmitAttempt}
@@ -2342,7 +2261,6 @@ export function CreationPanel({
                     <ArrowUp className="size-4" />
                   )}
                 </Button>
-              </>
             ) : null}
           </div>
         {!dockCompactLine && referenceChips.length > 0 ? (
@@ -2543,12 +2461,9 @@ export function CreationPanel({
               disabled={readOnly || pending || streamBusy}
               outputPrefMode={outputPrefMode}
               onOutputPrefModeChange={handleOutputPrefModeChange}
-              dockSkillOptions={dockSkillOptions}
-              dockSkillId={dockSkillId}
-              onDockSkillChange={handleDockSkillChange}
-              skillTriggerLabel="创意设计"
-              onInspirationClick={onInspirationClick}
-              inspirationActive={inspirationActive}
+              dockSkillOptions={[]}
+              dockSkillId={null}
+              onDockSkillChange={() => {}}
               models={models}
               modelId={modelId}
               onModelChange={setModelId}
@@ -2600,7 +2515,6 @@ export function CreationPanel({
           )}
         </div>
         <div className={`flex shrink-0 items-center ${isDock ? "gap-1.5" : "gap-2"}`}>
-          {dramaProductionDockControls}
           {estimated !== null && user && getToken() ? (
             <span
               className="inline-flex items-center gap-1 text-xs text-pink-400"

@@ -57,7 +57,7 @@ export const OUTPUT_PREF_AUTO_LABEL = "自动";
 /** 各创作车道 Dock 输入框占位（Studio / 首页单行态） */
 export const CREATION_LANE_PLACEHOLDERS: Record<CreationLane, string> = {
   image: "描述画面；上传、@ 引用或点选画布图片作参考",
-  agent: "告诉 Agent 目标，会自动选模型与步骤（不支持参考图）",
+  agent: "描述你想完成的目标，Agent 会自动规划并执行（不支持参考图）",
   video: "描述镜头与氛围；全能参考支持 @图/音/视，首尾帧与智能多帧见下方槽位",
 };
 

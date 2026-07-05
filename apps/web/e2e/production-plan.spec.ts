@@ -48,14 +48,6 @@ test.describe("production plan SSE", () => {
       timeout: 15_000,
     });
 
-    await expect(station.getByTestId("drama-production-mode-tabs")).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(station.getByTestId("drama-production-dock-params")).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(station.getByTestId("drama-auto-produce-checkbox")).toBeVisible();
-
     const idea =
       "都市爱情短剧：咖啡店老板与常客在雨夜重逢，三分钟讲完误会与和解";
     const textarea = station.locator("textarea").first();

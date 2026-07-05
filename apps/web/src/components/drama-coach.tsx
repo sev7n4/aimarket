@@ -9,7 +9,7 @@ export const DRAMA_COACH_STORAGE_KEY = "aimarket_drama_coach_v1";
 const STEPS = [
   {
     title: "写梗概",
-    body: "在底部创作栏输入短剧创意梗概（人物、冲突、结局），选择「创意设计 → AI 短剧」后提交。",
+    body: "在底部创作栏选择 Agent 模式，输入创意梗概（人物、冲突、结局）后提交。",
   },
   {
     title: "看规划",

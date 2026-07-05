@@ -67,7 +67,7 @@ export function HomeCreationSection({
       inspirationCoverUrl={inspirationCoverUrl}
       inspirationActive={inspirationOpen}
       agentOrchestration
-      agentSkills
+      agentSkills={false}
       prompt={prompt}
       onPromptChange={setPrompt}
       initialDockExpanded
