@@ -3,11 +3,12 @@
  * Studio 画布模式决策纯函数单测（纯逻辑，无需 API）
  * pnpm exec tsx scripts/test-studio-canvas-view.ts
  *
- * 本测试锁定「迁移前」的现状行为（零行为变更基线）。
- * 注意：其中 image/video/chat 模式默认走 Infinite 的用例，
- * 属于当前已知设计冲突（详见审视结论），后续 PR 将变更并同步更新本测试。
+ * 统一模型：三车道默认 ScrollCanvas，仅用户切到「节点视图」(viewPhase=workflow)
+ * 才进入 InfiniteCanvas；canvasFlow 关闭或短剧规划中一律锁定 Scroll。
+ * resolveDramaPhaseSplitEnabled 仅决定 Infinite 下是否叠加短剧节点面板。
  */
 import {
+  resolveCanvasViewToggleEnabled,
   resolveDramaPhaseSplitEnabled,
   resolveUseInfiniteCanvas,
   type CanvasViewInput,
@@ -25,100 +26,60 @@ function assertEq<T>(name: string, actual: T, expected: T) {
 }
 
 const base: CanvasViewInput = {
-  creationLane: "image",
-  studioMode: "image",
   canvasFlowEnabled: true,
   viewPhase: "agent",
   isDramaPlanActive: false,
 };
 
-// --- isDramaPlanActive 优先级最高：始终 Scroll ---
+// --- 默认（agent 视图）：三车道一律 Scroll ---
 assertEq(
-  "plan active forces scroll even in production workflow",
+  "default agent view -> scroll",
+  resolveUseInfiniteCanvas({ ...base, viewPhase: "agent" }),
+  false,
+);
+
+// --- 用户切到节点视图：进入 Infinite（与车道 / 模式无关） ---
+assertEq(
+  "workflow view + flow -> infinite",
+  resolveUseInfiniteCanvas({ ...base, viewPhase: "workflow" }),
+  true,
+);
+
+// --- canvasFlow 逃生开关：关闭则锁定 Scroll ---
+assertEq(
+  "workflow view + flow disabled -> scroll",
   resolveUseInfiniteCanvas({
     ...base,
-    studioMode: "production",
-    creationLane: "agent",
+    viewPhase: "workflow",
+    canvasFlowEnabled: false,
+  }),
+  false,
+);
+
+// --- 短剧规划中：优先级最高，强制 Scroll ---
+assertEq(
+  "plan active forces scroll even in workflow view",
+  resolveUseInfiniteCanvas({
+    ...base,
     viewPhase: "workflow",
     isDramaPlanActive: true,
   }),
   false,
 );
 
-// --- 制片模式：仅 agent 车道 + flow + workflow 才 Infinite ---
+// --- resolveCanvasViewToggleEnabled：随 canvasFlow 开放 ---
 assertEq(
-  "production agent flow workflow -> infinite",
-  resolveUseInfiniteCanvas({
-    ...base,
-    studioMode: "production",
-    creationLane: "agent",
-    canvasFlowEnabled: true,
-    viewPhase: "workflow",
-  }),
+  "toggle enabled when flow on",
+  resolveCanvasViewToggleEnabled({ canvasFlowEnabled: true }),
   true,
 );
 assertEq(
-  "production agent flow agent-phase -> scroll",
-  resolveUseInfiniteCanvas({
-    ...base,
-    studioMode: "production",
-    creationLane: "agent",
-    canvasFlowEnabled: true,
-    viewPhase: "agent",
-  }),
-  false,
-);
-assertEq(
-  "production image lane workflow -> scroll (phase split needs agent lane)",
-  resolveUseInfiniteCanvas({
-    ...base,
-    studioMode: "production",
-    creationLane: "image",
-    canvasFlowEnabled: true,
-    viewPhase: "workflow",
-  }),
-  false,
-);
-assertEq(
-  "production agent no-flow -> scroll",
-  resolveUseInfiniteCanvas({
-    ...base,
-    studioMode: "production",
-    creationLane: "agent",
-    canvasFlowEnabled: false,
-    viewPhase: "workflow",
-  }),
+  "toggle disabled when flow off",
+  resolveCanvasViewToggleEnabled({ canvasFlowEnabled: false }),
   false,
 );
 
-// --- 非制片模式：直接跟随 canvasFlowEnabled（当前设计：默认 Infinite） ---
-assertEq(
-  "image mode flow=true -> infinite (current known conflict)",
-  resolveUseInfiniteCanvas({ ...base, studioMode: "image", canvasFlowEnabled: true }),
-  true,
-);
-assertEq(
-  "image mode flow=false -> scroll",
-  resolveUseInfiniteCanvas({ ...base, studioMode: "image", canvasFlowEnabled: false }),
-  false,
-);
-assertEq(
-  "chat mode flow=true -> infinite",
-  resolveUseInfiniteCanvas({ ...base, studioMode: "chat", canvasFlowEnabled: true }),
-  true,
-);
-assertEq(
-  "image mode + agent lane flow=true -> infinite (no phase split off production)",
-  resolveUseInfiniteCanvas({
-    ...base,
-    studioMode: "image",
-    creationLane: "agent",
-    canvasFlowEnabled: true,
-  }),
-  true,
-);
-
-// --- resolveDramaPhaseSplitEnabled ---
+// --- resolveDramaPhaseSplitEnabled：短剧节点面板仅 agent + 制片 + flow ---
 assertEq(
   "phase split: agent + production + flow",
   resolveDramaPhaseSplitEnabled({

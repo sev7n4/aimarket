@@ -37,6 +37,13 @@ async function prepareInfiniteCanvasStudio(
     waitUntil: "domcontentloaded",
   });
   await expect(page).toHaveURL(/sessionId=/, { timeout: 30_000 });
+  // 统一默认 ScrollCanvas：先切到「节点视图」进入 InfiniteCanvas
+  const viewToggle = page.getByTestId("drama-view-phase-toggle");
+  await expect(viewToggle).toBeVisible({ timeout: 15_000 });
+  await viewToggle.click();
+  await expect(page.getByTestId("infinite-canvas-pane")).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page.getByTestId("node-create-toggle")).toBeVisible({
     timeout: 15_000,
   });
