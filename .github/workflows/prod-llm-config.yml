@@ -26,20 +26,35 @@ jobs:
       - name: Audit current LLM env (redacted)
         run: |
           set -euo pipefail
+          redact_keys() {
+            sed -E \
+              's/^(DEEPSEEK_API_KEY|DASHSCOPE_API_KEY|ZHIPU_API_KEY|ANTHROPIC_API_KEY|ARK_API_KEY|AGNES_API_KEY|OPENAI_API_KEY)=.+/\1=***SET***/' \
+              | sed -E \
+              's/^(DEEPSEEK_API_KEY|DASHSCOPE_API_KEY|ZHIPU_API_KEY|ANTHROPIC_API_KEY|ARK_API_KEY|AGNES_API_KEY|OPENAI_API_KEY)=$/\1=***MISSING***/'
+          }
           echo "=== aimarket-api container (redacted) ==="
           sudo docker exec aimarket-api printenv | grep -E \
-            '^(AGENT_LLM_|AGENT_DRAMA_|DRAMA_PLAN_|AGENT_LLM_ENABLED|DEEPSEEK_API_KEY|DASHSCOPE_API_KEY|ZHIPU_API_KEY|ANTHROPIC_API_KEY)=' \
-            | sed -E \
-              's/^(DEEPSEEK_API_KEY|DASHSCOPE_API_KEY|ZHIPU_API_KEY|ANTHROPIC_API_KEY)=.+/\1=***SET***/' \
-              | sed -E \
-              's/^(DEEPSEEK_API_KEY|DASHSCOPE_API_KEY|ZHIPU_API_KEY|ANTHROPIC_API_KEY)=$/\1=***MISSING***/' \
+            '^(AGENT_LLM_|AGENT_DRAMA_|DRAMA_PLAN_|AGENT_LLM_ENABLED|DEEPSEEK_API_KEY|DASHSCOPE_API_KEY|ZHIPU_API_KEY|ANTHROPIC_API_KEY|IMAGE_PROVIDER|TOOL_IMAGE_PROVIDER|ARK_API_KEY|AGNES_API_KEY|OPENAI_API_KEY|ALIYUN_WAN|SEEDREAM|JOB_QUEUE|API_PUBLIC_URL)=' \
+            | redact_keys \
             | sort || true
           echo ""
-          echo "=== /opt/aimarket/.env LLM block (redacted) ==="
+          echo "=== /opt/aimarket/.env LLM + image block (redacted) ==="
           if [[ -f /opt/aimarket/.env ]]; then
-            grep -E '^(AGENT_LLM_|AGENT_DRAMA_|DRAMA_PLAN_|AGENT_LLM_ENABLED)=' /opt/aimarket/.env | sort || true
+            grep -E '^(AGENT_LLM_|AGENT_DRAMA_|DRAMA_PLAN_|AGENT_LLM_ENABLED|IMAGE_PROVIDER|TOOL_IMAGE_PROVIDER|ARK_|AGNES_|OPENAI_|ALIYUN_WAN|SEEDREAM|JOB_QUEUE|API_PUBLIC_URL)=' /opt/aimarket/.env \
+              | redact_keys \
+              | sort || true
           else
             echo "::warning::/opt/aimarket/.env not found"
+          fi
+          echo ""
+          echo "=== Failed generation_jobs (last 12h, max 10) ==="
+          sudo docker cp aimarket-api:/app/data/aimarket.db /tmp/aimarket-audit.db 2>/dev/null || true
+          if [[ -f /tmp/aimarket-audit.db ]]; then
+            sqlite3 /tmp/aimarket-audit.db "PRAGMA wal_checkpoint(FULL);
+              SELECT created_at, status, image_provider, substr(error,1,160), substr(prompt,1,50)
+              FROM generation_jobs
+              WHERE status='failed' AND created_at > datetime('now','-12 hours')
+              ORDER BY created_at DESC LIMIT 10;" || true
           fi
 
       - name: Apply recommended drama LLM config
