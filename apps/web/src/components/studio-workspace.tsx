@@ -216,6 +216,7 @@ export function StudioWorkspace({
   const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
   const [dockMode, setDockMode] = useState<StudioDockMode>("expanded");
   const [infiniteWorkflowActive, setInfiniteWorkflowActive] = useState(false);
+  const [conversationPaneActive, setConversationPaneActive] = useState(false);
   const [workspaceWidth, setWorkspaceWidth] = useState(264);
   const [isDraggingWorkspace, setIsDraggingWorkspace] = useState(false);
   const [restoredAssets, setRestoredAssets] = useState<PendingAsset[]>([]);
@@ -1854,6 +1855,7 @@ export function StudioWorkspace({
               key={sessionId}
               ref={canvasRef}
               onInfiniteWorkflowActiveChange={setInfiniteWorkflowActive}
+              onConversationPaneActiveChange={setConversationPaneActive}
               items={canvasItems}
               infiniteConnections={infiniteConnections}
               onInfiniteConnectionsChange={setInfiniteConnections}
@@ -2029,7 +2031,12 @@ export function StudioWorkspace({
               statusChip={<ProviderStatusChip />}
             />
 
-            <StudioDock mode={dockMode} onModeChange={setDockMode} hidden={infiniteWorkflowActive}>
+            <StudioDock
+              mode={dockMode}
+              onModeChange={setDockMode}
+              hidden={infiniteWorkflowActive}
+              alignLeft={conversationPaneActive}
+            >
               <StudioCreationDock
                 user={user}
                 ready={ready}

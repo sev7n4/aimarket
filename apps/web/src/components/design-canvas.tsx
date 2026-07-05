@@ -218,6 +218,8 @@ interface DesignCanvasProps {
   useInfiniteCanvas?: boolean;
   /** 双栏外壳：左对话 + 右产物（仅 agent 车道，scroll 模式桌面端） */
   conversationPaneEnabled?: boolean;
+  /** 双栏激活状态变化通知外层（用于把底部 Dock 对齐到左对话栏） */
+  onConversationPaneActiveChange?: (active: boolean) => void;
   /** 「节点视图 ↔ 滚动视图」切换开关是否可用（三车道一致） */
   canvasViewEnabled?: boolean;
   /** 制片模式：Infinite 下叠加短剧节点编排面板 */
@@ -317,6 +319,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onPublishItem,
       useInfiniteCanvas = false,
       conversationPaneEnabled = false,
+      onConversationPaneActiveChange,
       canvasViewEnabled = false,
       dramaPhaseSplitEnabled = false,
       dramaViewPhase = "agent",
@@ -1188,6 +1191,18 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
 
     const showFreeCanvas = isRefineMode;
 
+    /** 双栏（左对话 + 右产物）是否实际渲染：仅 agent 车道 + 桌面 + scroll 视图 */
+    const conversationPaneActive =
+      conversationPaneEnabled &&
+      !mobile &&
+      !useInfiniteCanvas &&
+      !alternateCanvasContent &&
+      !showFreeCanvas;
+
+    useEffect(() => {
+      onConversationPaneActiveChange?.(conversationPaneActive);
+    }, [conversationPaneActive, onConversationPaneActiveChange]);
+
     const refineChain = useMemo(() => {
       if (!refineRootItemId) return [];
       return collectRefineChainItems(items, refineRootItemId);
@@ -1693,7 +1708,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               queueAhead={queueAhead}
               mobile={mobile}
             />
-          ) : conversationPaneEnabled && !mobile ? (
+          ) : conversationPaneActive ? (
             <div className="flex min-h-0 flex-1 flex-row" data-testid="studio-two-pane">
               <ConversationTimeline
                 orchestrationEvent={orchestrationEvent}
@@ -1701,7 +1716,11 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 orchestrationExtra={orchestrationExtra}
                 scrollBottomInset={scrollBottomInset}
               />
-              <ProductGallery ref={scrollCanvasRef} {...productGalleryProps} />
+              <ProductGallery
+                ref={scrollCanvasRef}
+                {...productGalleryProps}
+                scrollBottomInset="pb-6"
+              />
             </div>
           ) : (
             <ProductGallery
