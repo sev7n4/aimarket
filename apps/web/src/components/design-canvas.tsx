@@ -30,8 +30,12 @@ import { toggleDramaStudioViewPhase } from "@/lib/drama-studio-view";
 import { CanvasContextMenu } from "@/components/canvas-context-menu";
 import { CanvasLightbox } from "@/components/canvas-lightbox";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
-import { ScrollCanvas } from "@/components/scroll-canvas";
-import type { ScrollCanvasHandle } from "@/components/scroll-canvas";
+import { ProductGallery } from "@/components/product-gallery";
+import type { ProductGalleryHandle } from "@/components/product-gallery";
+import {
+  ConversationSections,
+  ConversationTimeline,
+} from "@/components/conversation-timeline";
 import { ScrollCanvasOrchestrationCard } from "@/components/scroll-canvas-orchestration-card";
 import { FreeCanvas } from "@/components/free-canvas";
 import type { FreeCanvasHandle } from "@/components/free-canvas";
@@ -212,6 +216,8 @@ interface DesignCanvasProps {
   onPublishItem?: (item: CanvasItem) => void;
   /** 切换到无限画布模式（Phase 1 默认 false，Phase 2 默认 true） */
   useInfiniteCanvas?: boolean;
+  /** 双栏外壳：左对话 + 右产物（仅 agent 车道，scroll 模式桌面端） */
+  conversationPaneEnabled?: boolean;
   /** 「节点视图 ↔ 滚动视图」切换开关是否可用（三车道一致） */
   canvasViewEnabled?: boolean;
   /** 制片模式：Infinite 下叠加短剧节点编排面板 */
@@ -310,6 +316,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onShareItem,
       onPublishItem,
       useInfiniteCanvas = false,
+      conversationPaneEnabled = false,
       canvasViewEnabled = false,
       dramaPhaseSplitEnabled = false,
       dramaViewPhase = "agent",
@@ -328,7 +335,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     },
     ref,
   ) {
-    const scrollCanvasRef = useRef<ScrollCanvasHandle>(null);
+    const scrollCanvasRef = useRef<ProductGalleryHandle>(null);
     const freeCanvasRef = useRef<FreeCanvasHandle>(null);
     const [tool, setTool] = useState<CanvasToolId>("select");
     const [gridOn, setGridOn] = useState(false);
@@ -1204,6 +1211,44 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
 
     const compareAvailable = Boolean(comparePair);
 
+    /** 产物区（ProductGallery）公共 props，供单列 / 双栏两处复用 */
+    const productGalleryProps = {
+      items,
+      batchSections,
+      selectedId,
+      onSelect,
+      readOnly,
+      emptyHint,
+      pulseId,
+      onEnterRefineMode: enterRefineMode,
+      onSetLightbox: setLightbox,
+      onDeleteSelected,
+      onRerun: (item: CanvasItem) => onRerun?.(item),
+      onJumpToParentBatch,
+      jobStreamStatus,
+      jobFailed,
+      jobErrorMessage,
+      jobProgressCompleted,
+      jobProgressTotal,
+      onOpenChatPanel,
+      onCancelJob,
+      onDismissJobFailure,
+      jobElapsedMs,
+      queueAhead,
+      pendingJobPrompt,
+      jobStartedAt,
+      focusClickActive,
+      focusItem: focusItem ?? null,
+      onFocusImageClick,
+      scrollBottomInset,
+      batchTools,
+      onDownloadItem:
+        onDownloadItem ??
+        ((item: CanvasItem) => window.open(assetUrl(item.url), "_blank")),
+      onShareItem,
+      onPublishItem,
+    };
+
     return (
       <div
         className={`flex min-h-0 min-w-0 flex-1 overflow-hidden bg-[#0d0d0d] ${
@@ -1648,47 +1693,29 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
               queueAhead={queueAhead}
               mobile={mobile}
             />
+          ) : conversationPaneEnabled && !mobile ? (
+            <div className="flex min-h-0 flex-1 flex-row" data-testid="studio-two-pane">
+              <ConversationTimeline
+                orchestrationEvent={orchestrationEvent}
+                orchestrationActions={orchestrationActions}
+                orchestrationExtra={orchestrationExtra}
+                scrollBottomInset={scrollBottomInset}
+              />
+              <ProductGallery ref={scrollCanvasRef} {...productGalleryProps} />
+            </div>
           ) : (
-            <ScrollCanvas
+            <ProductGallery
               ref={scrollCanvasRef}
-              items={items}
-              batchSections={batchSections}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              readOnly={readOnly}
-              emptyHint={emptyHint}
-              pulseId={pulseId}
-              onEnterRefineMode={enterRefineMode}
-              onSetLightbox={setLightbox}
-              onDeleteSelected={onDeleteSelected}
-              onRerun={(item) => onRerun?.(item)}
-              onJumpToParentBatch={onJumpToParentBatch}
-              jobStreamStatus={jobStreamStatus}
-              jobFailed={jobFailed}
-              jobErrorMessage={jobErrorMessage}
-              jobProgressCompleted={jobProgressCompleted}
-              jobProgressTotal={jobProgressTotal}
-              onOpenChatPanel={onOpenChatPanel}
-              onCancelJob={onCancelJob}
-              onDismissJobFailure={onDismissJobFailure}
-              jobElapsedMs={jobElapsedMs}
-              queueAhead={queueAhead}
-              pendingJobPrompt={pendingJobPrompt}
-              jobStartedAt={jobStartedAt}
-              focusClickActive={focusClickActive}
-              focusItem={focusItem ?? null}
-              onFocusImageClick={onFocusImageClick}
-              scrollBottomInset={scrollBottomInset}
-              orchestrationEvent={orchestrationEvent}
-              orchestrationActions={orchestrationActions}
-              orchestrationExtra={orchestrationExtra}
-              batchTools={batchTools}
-              onDownloadItem={
-                onDownloadItem ??
-                ((item) => window.open(assetUrl(item.url), "_blank"))
+              {...productGalleryProps}
+              footerSlot={
+                orchestrationEvent || orchestrationExtra ? (
+                  <ConversationSections
+                    orchestrationEvent={orchestrationEvent}
+                    orchestrationActions={orchestrationActions}
+                    orchestrationExtra={orchestrationExtra}
+                  />
+                ) : null
               }
-              onShareItem={onShareItem}
-              onPublishItem={onPublishItem}
             />
           )}
 
