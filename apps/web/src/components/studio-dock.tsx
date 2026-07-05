@@ -9,6 +9,8 @@ interface StudioDockProps {
   onModeChange: (mode: StudioDockMode) => void;
   /** Infinite 节点编排模式下隐藏全局底部创作台 */
   hidden?: boolean;
+  /** 双栏外壳：对齐到左对话栏底部（否则整宽居中） */
+  alignLeft?: boolean;
   children: ReactNode;
 }
 
@@ -19,13 +21,16 @@ export function StudioDock({
   mode,
   onModeChange,
   hidden = false,
+  alignLeft = false,
   children,
 }: StudioDockProps) {
   if (hidden) return null;
   if (mode === "focus") {
     return (
       <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-40 flex justify-center pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        className={`pointer-events-none absolute inset-x-0 bottom-0 z-40 flex pb-[max(0.75rem,env(safe-area-inset-bottom))] ${
+          alignLeft ? "justify-start px-3 sm:px-4" : "justify-center"
+        }`}
         aria-label="创作 Dock"
       >
         <button
@@ -53,11 +58,17 @@ export function StudioDock({
 
   return (
     <div
-      className="absolute inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[max(0.65rem,env(safe-area-inset-bottom))] sm:px-4"
+      className={`absolute inset-x-0 bottom-0 z-40 flex px-3 pb-[max(0.65rem,env(safe-area-inset-bottom))] sm:px-4 ${
+        alignLeft ? "justify-start" : "justify-center"
+      }`}
       aria-label="创作 Dock"
       data-dock-mode={mode}
     >
-      <div className="w-full max-w-3xl drop-shadow-[0_12px_40px_rgba(0,0,0,0.45)]">
+      <div
+        className={`w-full drop-shadow-[0_12px_40px_rgba(0,0,0,0.45)] ${
+          alignLeft ? "lg:w-[340px] xl:w-[380px]" : "max-w-3xl"
+        }`}
+      >
         {children}
       </div>
     </div>
