@@ -434,7 +434,6 @@ export function CreationPanel({
    * 不再渲染电商 Agent 表单 / 走电商套图提交分支。
    */
   const effectiveMode: CreationMode = isDock && mode === "ecommerce" ? "chat" : mode;
-  const isProductionStudio = isStudioDock && mode === "production";
   const agentEnabled =
     agentOrchestration &&
     Boolean(sessionId) &&
@@ -841,10 +840,7 @@ export function CreationPanel({
     setMentionedMasks([]);
     setSelectedSkillId(null);
     setDockSkillId(null);
-    if (isProductionStudio) {
-      setCreationLane("agent");
-    }
-  }, [sessionId, resetAgentRun, resetSkillRun, studioOrchestrationActive, setPrompt, isProductionStudio, setCreationLane]);
+  }, [sessionId, resetAgentRun, resetSkillRun, studioOrchestrationActive, setPrompt]);
 
   useEffect(() => {
     if (!studioOrchestrationActive || !studioOrch) return;
@@ -882,10 +878,7 @@ export function CreationPanel({
     setMentionedMasks([]);
     setSelectedSkillId(null);
     setDockSkillId(null);
-    if (mode === "production") {
-      setCreationLane("agent");
-    }
-  }, [studioOrchestrationActive, orchestrationResetTick, setPrompt, mode, setCreationLane]);
+  }, [studioOrchestrationActive, orchestrationResetTick, setPrompt]);
 
   const skillAwaitingConfirm = isSkillAwaitingConfirm(orchSkillRun);
   const skillInFlight = isSkillRunInFlight(orchSkillRun);

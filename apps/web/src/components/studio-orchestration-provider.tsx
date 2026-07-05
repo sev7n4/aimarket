@@ -40,7 +40,7 @@ import {
   submitDramaOrchestration,
   submitSkillOrchestration,
 } from "@/lib/creation-orchestration-submit";
-import { DRAMA_SKILL_ID } from "@/components/creation-dock-controls";
+import { DRAMA_SKILL_ID } from "@/lib/drama-submit-routing";
 import { shouldUseDramaOrchestration } from "@/lib/drama-submit-routing";
 import { useAuth } from "@/lib/auth-context";
 import { toApiCreationMode } from "@/lib/modes";
@@ -138,6 +138,7 @@ interface StudioOrchestrationContextValue {
   timelineEvent: OrchestrationTimelineEvent | null;
   timelineActions: OrchestrationTimelineActions | null;
   orchestrationResetTick: number;
+  creationLane: CreationLane;
   setInput: (input: StudioOrchestrationInput) => void;
 }
 
@@ -397,7 +398,6 @@ export function StudioOrchestrationProvider({
       activeSkillId: null,
       effectiveMode: mode,
       focusEditActive: false,
-      ...(mode === "production" ? { creationLane: "agent" as const } : {}),
     }));
     setOrchestrationResetTick((t) => t + 1);
     cancelDramaPlanWatch();
@@ -422,10 +422,6 @@ export function StudioOrchestrationProvider({
 
       if (state.dramaRun) {
         setDramaRun(state.dramaRun);
-        setInput((prev) => ({
-          ...prev,
-          creationLane: "agent",
-        }));
         if (state.dramaRun.status === "failed" && state.dramaRun.error) {
           setDramaProduceHint(state.dramaRun.error);
         } else if (state.dramaRun.status === "waiting_confirm") {
@@ -435,10 +431,6 @@ export function StudioOrchestrationProvider({
 
       if (state.draftProject) {
         setDramaDraftProject(state.draftProject);
-        setInput((prev) => ({
-          ...prev,
-          creationLane: "agent",
-        }));
       }
 
       if (state.planRun) {
@@ -447,12 +439,6 @@ export function StudioOrchestrationProvider({
           setInput((prev) => ({
             ...prev,
             prompt: state.planRun!.userIdea,
-            creationLane: "agent",
-          }));
-        } else {
-          setInput((prev) => ({
-            ...prev,
-            creationLane: "agent",
           }));
         }
       }
@@ -929,6 +915,7 @@ export function StudioOrchestrationProvider({
       cancelOrchestration,
       dispatchSubmit,
       orchestrationResetTick,
+      creationLane: input.creationLane,
     }),
     [
       sessionId,
@@ -943,6 +930,7 @@ export function StudioOrchestrationProvider({
       dramaPlanPartialProject,
       updateDramaPlanPartialProject,
       input.prompt,
+      input.creationLane,
       saveDramaDraft,
       agentBusy,
       skillBusy,
