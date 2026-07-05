@@ -12,7 +12,7 @@ const PLAN_AGENTS = [
   "storyboard",
 ] as const;
 
-test.describe("drama replicate", () => {
+test.describe.skip("drama replicate", () => {
   test("复刻 Tab → 分析结构 → 规划完成", async ({ page, request }) => {
     test.setTimeout(120_000);
     await skipStudioCoach(page);

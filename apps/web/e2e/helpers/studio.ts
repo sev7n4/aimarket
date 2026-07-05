@@ -25,7 +25,9 @@ export async function gotoStudioAndWait(page: Page, url = "/studio") {
   await expect(station.locator("textarea").first()).toBeVisible({
     timeout: 15_000,
   });
-  await expect(station.getByRole("button", { name: "开始生成" })).toBeEnabled({
+  await expect(
+    station.getByRole("button", { name: /开始生成|提交 Agent|开始规划/ }),
+  ).toBeEnabled({
     timeout: 15_000,
   });
 }

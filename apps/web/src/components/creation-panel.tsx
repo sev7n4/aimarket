@@ -2061,6 +2061,19 @@ export function CreationPanel({
                 />
               </div>
             ) : null}
+            {showInlineUploadStack ? (
+              <UploadPreviewStack
+                items={uploadPreviews}
+                uploading={uploading}
+                onAdd={() => openUpload("general")}
+                compact={isDock}
+                onPreview={(index) => setUploadPreviewIndex(index)}
+                onRemove={(id) => {
+                  setUploadPreviews((prev) => prev.filter((p) => p.id !== id));
+                  setAssetIds((prev) => prev.filter((a) => a !== id));
+                }}
+              />
+            ) : null}
             <div
               className={`relative flex min-w-0 flex-1 gap-2 ${isDock && isStudioDock ? "pr-9 sm:pr-10" : ""}`}
             >
