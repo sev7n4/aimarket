@@ -25,6 +25,10 @@ import { applyDramaCanvasOps } from "@/components/infinite-canvas/drama/drama-ca
 import { dramaShotIdFromNodeId } from "@/lib/infinite-node-tool-run";
 import type { DramaStudioViewPhase } from "@/lib/drama-studio-view";
 import { isCanvasFlowMode } from "@/lib/modes";
+import {
+  resolveDramaPhaseSplitEnabled,
+  resolveUseInfiniteCanvas,
+} from "@/lib/studio-canvas-view";
 
 type StudioCanvasProps = Omit<
   ComponentProps<typeof DesignCanvas>,
@@ -139,8 +143,11 @@ export const StudioCanvasWithOrchestration = forwardRef<
   }, []);
 
   /** 制片 + canvasFlow：始终 Agent(Scroll) ↔ 节点(Infinite) 分离；未进入规划前也不默认 Infinite */
-  const dramaPhaseSplitEnabled =
-    dramaLaneActive && studioMode === "production" && canvasFlowEnabled;
+  const dramaPhaseSplitEnabled = resolveDramaPhaseSplitEnabled({
+    creationLane,
+    studioMode,
+    canvasFlowEnabled,
+  });
 
   const derivedViewPhase: DramaStudioViewPhase = "agent";
 
@@ -169,11 +176,13 @@ export const StudioCanvasWithOrchestration = forwardRef<
         !dramaRun &&
         Boolean(dramaDraftProject ?? dramaPlanPartialProject)));
 
-  const useInfiniteCanvas = isDramaPlanActive
-    ? false
-    : studioMode === "production"
-      ? dramaPhaseSplitEnabled && viewPhase === "workflow"
-      : canvasFlowEnabled;
+  const useInfiniteCanvas = resolveUseInfiniteCanvas({
+    creationLane,
+    studioMode,
+    canvasFlowEnabled,
+    viewPhase,
+    isDramaPlanActive,
+  });
 
   const showAgentPlanWorkspace =
     dramaLaneActive &&
