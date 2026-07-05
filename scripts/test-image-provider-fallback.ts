@@ -61,6 +61,14 @@ ok(
     ),
   ),
 );
+ok(
+  "DashScope Arrearage retriable for auto fallback",
+  isRetriableGenerateProviderError(
+    new Error(
+      '阿里百炼 wan API 失败 (400): {"code":"Arrearage","message":"Access denied, please make sure your account is in good standing."}',
+    ),
+  ),
+);
 
 ok(
   "default fallback order Agnes → wan → Seedream",
