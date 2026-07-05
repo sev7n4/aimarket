@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { listSessions } from "@/lib/api-client";
 import type { ImageSession } from "@/lib/types";
 
-export function useRecentSessions(limit = 3) {
+export function useRecentSessions(limit = 15) {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<ImageSession[]>([]);
   const [loading, setLoading] = useState(false);

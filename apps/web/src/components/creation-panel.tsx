@@ -223,6 +223,8 @@ interface CreationPanelProps {
   enablePolish?: boolean;
   /** 登录后首页直接提交并跳转 Studio */
   homeDirectSubmit?: boolean;
+  /** Studio：从首页带入 prompt 后自动提交一次（URL submit=1） */
+  autoSubmitOnce?: boolean;
   /** 轮播「试试输入：…」占位（对标椒图） */
   rotatingPlaceholder?: boolean;
   /** 团队空间只读：禁止在本会话生成 */
@@ -322,6 +324,7 @@ export function CreationPanel({
   jobElapsedMs,
   queueAhead,
   homeDirectSubmit = false,
+  autoSubmitOnce = false,
   navigateOnSubmit,
   leadingUpload = false,
   enablePolish = false,
@@ -1491,6 +1494,31 @@ export function CreationPanel({
       return;
     }
 
+    if (homeDirectSubmit && creationLane === "agent") {
+      const trimmed = prompt.trim();
+      if (!trimmed) {
+        onInteractionHint?.("请输入你想完成的目标");
+        return;
+      }
+      setNavigating(true);
+      persistCreationLane("studio", creationLane);
+      try {
+        await ensureSession(sessionId!, mode, {
+          title: trimmed.slice(0, 40),
+        });
+      } catch {
+        /* 仍跳转 Studio，由编排侧再次 ensure */
+      }
+      const params = new URLSearchParams({
+        sessionId: sessionId!,
+        mode,
+        q: trimmed,
+        submit: "1",
+      });
+      clientNavigate(router, `/studio?${params.toString()}`);
+      return;
+    }
+
     const shouldNavigate = shouldNavigateOnSubmit;
 
     if (shouldNavigate) {
@@ -1664,7 +1692,9 @@ export function CreationPanel({
 
     setPending(true);
     try {
-      await ensureSession(sessionId, mode);
+      await ensureSession(sessionId, mode, {
+        title: prompt.trim() ? prompt.trim().slice(0, 40) : undefined,
+      });
       const submitLineage = resolveSubmitBatchLineage(canvasItems, {
         maskSelection:
           mentionedMasks.length > 0
@@ -1811,6 +1841,7 @@ export function CreationPanel({
         else if (res.byokActive) setRouteHint("BYOK 已启用 · 将使用您的 OpenAI Key");
       }
       if (homeDirectSubmit) {
+        persistCreationLane("studio", creationLane);
         setNavigating(true);
         clientNavigate(
           router,
@@ -1839,6 +1870,19 @@ export function CreationPanel({
       setPending(false);
     }
   }
+
+  const handleSubmitRef = useRef(handleSubmit);
+  handleSubmitRef.current = handleSubmit;
+  const autoSubmitFiredRef = useRef(false);
+  useEffect(() => {
+    if (!autoSubmitOnce || autoSubmitFiredRef.current || readOnly) return;
+    if (!isStudioDock || !prompt.trim() || !user || !sessionId) return;
+    autoSubmitFiredRef.current = true;
+    const t = window.setTimeout(() => {
+      void handleSubmitRef.current();
+    }, 350);
+    return () => window.clearTimeout(t);
+  }, [autoSubmitOnce, isStudioDock, prompt, user, sessionId, readOnly]);
 
   const focusEditReady =
     Boolean(focusEdit?.points.length) &&
@@ -2323,7 +2367,8 @@ export function CreationPanel({
         (!isDock || creationLane === "agent") &&
         !effectiveCollapsed &&
         !dockCompactLine &&
-        !isStudioDock ? (
+        !isStudioDock &&
+        !homeDirectSubmit ? (
           <AgentRunPanel
             prompt={prompt}
             mode={effectiveMode}
@@ -2614,7 +2659,7 @@ export function CreationPanel({
     );
     return (
       <>
-        <HomeGenerationPreview open={navigating || (pending && homeDirectSubmit)} />
+        <HomeGenerationPreview open={navigating} />
         {uploadPreviewIndex != null && uploadPreviews.length > 0 ? (
           <CanvasLightbox
             items={uploadPreviews.map((item, i) => ({
@@ -2633,7 +2678,7 @@ export function CreationPanel({
 
   return (
     <>
-      <HomeGenerationPreview open={navigating || (pending && homeDirectSubmit)} />
+      <HomeGenerationPreview open={navigating} />
       {uploadPreviewIndex != null && uploadPreviews.length > 0 ? (
         <CanvasLightbox
           items={uploadPreviews.map((item, i) => ({

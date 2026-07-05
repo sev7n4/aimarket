@@ -93,7 +93,7 @@ export function AppLeftRail({
 }: AppLeftRailProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { sessions, loading } = useRecentSessions(3);
+  const { sessions, loading } = useRecentSessions(15);
   const [recentOpen, setRecentOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const recentWrapRef = useRef<HTMLDivElement>(null);

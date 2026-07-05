@@ -180,6 +180,7 @@ interface StudioWorkspaceProps {
   initialKind?: SessionKind;
   initialJobId?: string;
   initialToolId?: string;
+  autoSubmitOnce?: boolean;
 }
 
 export function StudioWorkspace({
@@ -190,6 +191,7 @@ export function StudioWorkspace({
   initialKind,
   initialJobId,
   initialToolId,
+  autoSubmitOnce = false,
 }: StudioWorkspaceProps) {
   const router = useRouter();
   const mobile = useIsMobile(MOBILE_BREAKPOINT);
@@ -2181,6 +2183,7 @@ export function StudioWorkspace({
                   setPollingJobId(jobId);
                   return jobId;
                 }}
+                autoSubmitOnce={autoSubmitOnce}
               />
             </StudioDock>
           </div>

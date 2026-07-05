@@ -15,6 +15,11 @@ export const HIDE_EMPTY_AUTO_TITLED_SESSIONS_SQL = `
     AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.session_id = s.id)
     AND NOT EXISTS (SELECT 1 FROM assets a WHERE a.session_id = s.id)
     AND NOT EXISTS (SELECT 1 FROM generation_jobs j WHERE j.session_id = s.id)
+    AND NOT EXISTS (SELECT 1 FROM agent_runs ar WHERE ar.session_id = s.id)
+    AND NOT EXISTS (SELECT 1 FROM skill_runs sr WHERE sr.session_id = s.id)
+    AND NOT EXISTS (SELECT 1 FROM drama_plan_runs dpr WHERE dpr.session_id = s.id)
+    AND NOT EXISTS (SELECT 1 FROM drama_runs dr WHERE dr.session_id = s.id)
+    AND NOT EXISTS (SELECT 1 FROM drama_projects dp WHERE dp.session_id = s.id)
     AND (
       s.canvas_layout IS NULL
       OR trim(s.canvas_layout) = ''
