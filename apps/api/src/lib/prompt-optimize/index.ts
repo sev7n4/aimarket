@@ -1,3 +1,4 @@
+import { resolveDirection } from "./context.js";
 import { optimizePromptWithDashScope } from "./dashscope.js";
 import { optimizePromptWithOpenAI } from "./openai.js";
 import { optimizePromptWithTemplate } from "./template.js";
@@ -110,9 +111,11 @@ export async function optimizePromptAsync(
   raw: string,
   context?: PromptOptimizeContext,
 ): Promise<PromptOptimizeResult> {
+  const { direction, label: directionLabel } = resolveDirection(mode, context);
+
   const trimmed = raw.trim();
   if (!trimmed) {
-    return { prompt: raw, source: "template-mock" };
+    return { prompt: raw, source: "template-mock", direction, directionLabel };
   }
 
   const providerMode = resolveProviderMode();
@@ -135,7 +138,7 @@ export async function optimizePromptAsync(
   for (const source of chain) {
     try {
       const prompt = await tryProvider(source, mode, trimmed, context);
-      return { prompt, source };
+      return { prompt, source, direction, directionLabel };
     } catch (err) {
       console.warn(`[prompt-optimize] ${source} 失败`, err);
       if (providerMode === source) {
@@ -147,5 +150,7 @@ export async function optimizePromptAsync(
   return {
     prompt: optimizePromptWithTemplate(mode, trimmed),
     source: "template-mock",
+    direction,
+    directionLabel,
   };
 }
