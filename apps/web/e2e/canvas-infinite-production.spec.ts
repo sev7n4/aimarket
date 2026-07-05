@@ -1,15 +1,20 @@
 import { test, expect } from "@playwright/test";
 import { registerViaEmail } from "./helpers/auth";
-import { gotoStudioAndWait, studioWorkstation } from "./helpers/studio";
+import {
+  enterInfiniteNodeView,
+  gotoStudioAndWait,
+  studioWorkstation,
+} from "./helpers/studio";
 
 /**
  * Phase 5 生产路径 smoke 验证。
  *
- * 与 canvas-infinite-mode.spec.ts 不同，本测试不调用 enableCanvasFlow()，
- * 模拟真实生产用户 (默认 isCanvasFlowMode()=true, 走 InfiniteCanvas 路径)。
+ * 统一模型：三车道默认 ScrollCanvas，用户切「节点视图」才进入 InfiniteCanvas。
+ * 本测试模拟真实生产用户 (isCanvasFlowMode()=true)，显式切到节点视图后
+ * 验证 InfiniteCanvas 的生产能力。
  *
  * 验证：
- * - 主页注册 → 进入 studio
+ * - 主页注册 → 进入 studio → 切「节点视图」
  * - 画布出现 InfiniteCanvas 节点 (data-node-id)
  * - 节点右键弹出工具菜单
  * - 模板/音乐浮动入口存在
@@ -17,15 +22,27 @@ import { gotoStudioAndWait, studioWorkstation } from "./helpers/studio";
 
 const PROMPT = "白底极简产品图，节点画布生产路径 smoke 测试";
 
+/** 保留 coach 跳过但不关闭 canvasFlow（enterInfiniteNodeView 需要节点画布开启） */
+async function skipCoachKeepCanvasFlow(page: import("@playwright/test").Page) {
+  await page.addInitScript(() => {
+    localStorage.setItem("aimarket_studio_coach_v2", "1");
+    localStorage.setItem("aimarket_studio_mobile_coach_v1", "1");
+    localStorage.setItem("aimarket_studio_dock_mode_v1", "expanded");
+  });
+}
+
 test.describe("InfiniteCanvas 生产路径", () => {
   test.setTimeout(240_000);
 
-  test("生产默认走 InfiniteCanvas 路径", async ({ page }) => {
+  test("切到节点视图后走 InfiniteCanvas 路径", async ({ page }) => {
+    await skipCoachKeepCanvasFlow(page);
     // 真实新用户：localStorage 全空，isCanvasFlowMode() 默认 true
     await registerViaEmail(page, { emailPrefix: "prodcv" });
 
     // 显式跳转到 /studio；registerViaEmail 停在首页
     await gotoStudioAndWait(page, "/studio");
+    // 统一默认 ScrollCanvas：切到「节点视图」进入 InfiniteCanvas
+    await enterInfiniteNodeView(page);
 
     const station = studioWorkstation(page);
     const textarea = station.locator("textarea").first();
@@ -64,8 +81,10 @@ test.describe("InfiniteCanvas 生产路径", () => {
   });
 
   test("关闭右键菜单后再次打开可用", async ({ page }) => {
+    await skipCoachKeepCanvasFlow(page);
     await registerViaEmail(page, { emailPrefix: "prodcv2" });
     await gotoStudioAndWait(page, "/studio");
+    await enterInfiniteNodeView(page);
 
     const station = studioWorkstation(page);
     const textarea = station.locator("textarea").first();

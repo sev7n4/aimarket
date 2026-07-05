@@ -26,6 +26,7 @@ import { dramaShotIdFromNodeId } from "@/lib/infinite-node-tool-run";
 import type { DramaStudioViewPhase } from "@/lib/drama-studio-view";
 import { isCanvasFlowMode } from "@/lib/modes";
 import {
+  resolveCanvasViewToggleEnabled,
   resolveDramaPhaseSplitEnabled,
   resolveUseInfiniteCanvas,
 } from "@/lib/studio-canvas-view";
@@ -142,7 +143,12 @@ export const StudioCanvasWithOrchestration = forwardRef<
     setCanvasFlowEnabled(isCanvasFlowMode());
   }, []);
 
-  /** 制片 + canvasFlow：始终 Agent(Scroll) ↔ 节点(Infinite) 分离；未进入规划前也不默认 Infinite */
+  /** 「节点视图 ↔ 滚动视图」切换开关：三车道一致，随 canvasFlow 开放 */
+  const canvasViewToggleEnabled = resolveCanvasViewToggleEnabled({
+    canvasFlowEnabled,
+  });
+
+  /** Infinite 下是否叠加短剧节点面板：仅 Agent 车道 + 制片模式 */
   const dramaPhaseSplitEnabled = resolveDramaPhaseSplitEnabled({
     creationLane,
     studioMode,
@@ -177,8 +183,6 @@ export const StudioCanvasWithOrchestration = forwardRef<
         Boolean(dramaDraftProject ?? dramaPlanPartialProject)));
 
   const useInfiniteCanvas = resolveUseInfiniteCanvas({
-    creationLane,
-    studioMode,
     canvasFlowEnabled,
     viewPhase,
     isDramaPlanActive,
@@ -596,10 +600,11 @@ export const StudioCanvasWithOrchestration = forwardRef<
       ref={ref}
       {...props}
       useInfiniteCanvas={useInfiniteCanvas}
+      canvasViewEnabled={canvasViewToggleEnabled}
       dramaPhaseSplitEnabled={dramaPhaseSplitEnabled}
-      dramaViewPhase={dramaPhaseSplitEnabled ? viewPhase : undefined}
+      dramaViewPhase={canvasViewToggleEnabled ? viewPhase : undefined}
       onDramaViewPhaseChange={
-        dramaPhaseSplitEnabled ? setManualViewPhase : undefined
+        canvasViewToggleEnabled ? setManualViewPhase : undefined
       }
       onInfiniteWorkflowActiveChange={props.onInfiniteWorkflowActiveChange}
       orchestrationEvent={scrollOrchestrationEvent}

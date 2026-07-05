@@ -5,28 +5,30 @@ import type { DramaStudioViewPhase } from "@/lib/drama-studio-view";
 /**
  * Studio 画布模式（scroll ↔ infinite）的单一决策点。
  *
- * 目的：把原先散落在 `studio-canvas-with-orchestration.tsx` 里、由
- * `creationLane` / `studioMode` / `canvasFlowEnabled` / `viewPhase` /
- * `isDramaPlanActive` 多个信号交织推导的 `useInfiniteCanvas` 收敛到一处纯函数，
- * 便于单测与后续统一 lane 轴的精简。
+ * 统一后的模型（三车道一致）：
+ * - 默认进入 ScrollCanvas（左对话/时间线 + 右产物滚动浏览）。
+ * - 用户手动切到「节点视图」(viewPhase = "workflow") 才进入 InfiniteCanvas。
+ * - `canvasFlowEnabled`（isCanvasFlowMode()）作为 E2E / 深链的逃生开关：
+ *   关闭时任何车道都锁定 ScrollCanvas。
+ * - 短剧规划进行中强制回退 Scroll，展示规划工作台。
  *
- * 本文件为「零行为变更」版本：完全复刻迁移前的判断，仅集中表达。
+ * 说明：`creationLane` / `studioMode` 不再参与「是否 Infinite」的判断，
+ * 仅 `resolveDramaPhaseSplitEnabled` 用于决定 Infinite 下是否叠加短剧节点面板。
  */
 export interface CanvasViewInput {
-  /** 当前创作车道（agent / image / video） */
-  creationLane: CreationLane;
-  /** 会话级模式（chat / image / ecommerce / production） */
-  studioMode: CreationMode;
-  /** 节点式画布全局开关（isCanvasFlowMode()，默认 true） */
+  /** 节点式画布全局开关（isCanvasFlowMode()，默认 true；关闭则锁定 Scroll） */
   canvasFlowEnabled: boolean;
-  /** 用户显式选择的画布阶段（agent 对话 / workflow 节点） */
+  /** 用户显式选择的画布视图（scroll 对话 / workflow 节点） */
   viewPhase: DramaStudioViewPhase;
   /** 短剧规划进行中：强制回退到 Scroll 展示规划工作台 */
   isDramaPlanActive: boolean;
 }
 
 /**
- * Agent 车道 + 制片 + canvasFlow：Scroll(Agent) ↔ Infinite(节点) 阶段分离是否启用。
+ * Infinite 画布下是否叠加「短剧节点编排面板」。
+ *
+ * 仅 Agent 车道 + 制片模式 + canvasFlow 时启用；其余车道进入 Infinite 走通用
+ * 自由节点画布（不含短剧 Studio 面板）。
  */
 export function resolveDramaPhaseSplitEnabled(input: {
   creationLane: CreationLane;
@@ -41,19 +43,23 @@ export function resolveDramaPhaseSplitEnabled(input: {
 }
 
 /**
+ * 「节点视图 ↔ 滚动视图」切换开关是否对当前会话可用（三车道一致）。
+ */
+export function resolveCanvasViewToggleEnabled(input: {
+  canvasFlowEnabled: boolean;
+}): boolean {
+  return input.canvasFlowEnabled;
+}
+
+/**
  * 画布是否使用 InfiniteCanvas（true）还是 ScrollCanvas（false）。
  *
- * 现状（迁移前逻辑，逐条复刻）：
+ * 统一规则（不区分车道 / 模式）：
  * - 短剧规划中 → 始终 Scroll。
- * - 制片模式 → 仅当阶段分离启用且用户切到 workflow 才 Infinite。
- * - 其余模式（chat/image/ecommerce）→ 直接跟随 canvasFlowEnabled（默认 Infinite）。
+ * - canvasFlow 关闭 → 始终 Scroll。
+ * - 其余情况跟随用户显式选择：仅当切到 workflow(节点视图) 才 Infinite，默认 Scroll。
  */
 export function resolveUseInfiniteCanvas(input: CanvasViewInput): boolean {
   if (input.isDramaPlanActive) return false;
-  if (input.studioMode === "production") {
-    return (
-      resolveDramaPhaseSplitEnabled(input) && input.viewPhase === "workflow"
-    );
-  }
-  return input.canvasFlowEnabled;
+  return input.canvasFlowEnabled && input.viewPhase === "workflow";
 }

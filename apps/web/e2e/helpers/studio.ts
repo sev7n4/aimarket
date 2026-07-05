@@ -39,6 +39,19 @@ export async function gotoStudioAndWait(page: Page, url = "/studio") {
   });
 }
 
+/**
+ * 统一默认 ScrollCanvas；点击「节点视图」切换进入 InfiniteCanvas。
+ * 需 canvasFlow 开启（勿配合 skipStudioCoach，其会强制关闭节点画布）。
+ */
+export async function enterInfiniteNodeView(page: Page) {
+  const toggle = page.getByTestId("drama-view-phase-toggle");
+  await expect(toggle).toBeVisible({ timeout: 15_000 });
+  await toggle.click();
+  await expect(page.getByTestId("infinite-canvas-pane")).toBeVisible({
+    timeout: 15_000,
+  });
+}
+
 /** 上传/生成前 ensure 由业务操作触发，E2E 可显式等待 */
 export function waitForSessionEnsure(page: Page) {
   return page.waitForResponse(

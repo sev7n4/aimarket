@@ -212,7 +212,9 @@ interface DesignCanvasProps {
   onPublishItem?: (item: CanvasItem) => void;
   /** 切换到无限画布模式（Phase 1 默认 false，Phase 2 默认 true） */
   useInfiniteCanvas?: boolean;
-  /** 制片模式：Agent 对话车道 vs 节点编排阶段分离 */
+  /** 「节点视图 ↔ 滚动视图」切换开关是否可用（三车道一致） */
+  canvasViewEnabled?: boolean;
+  /** 制片模式：Infinite 下叠加短剧节点编排面板 */
   dramaPhaseSplitEnabled?: boolean;
   dramaViewPhase?: DramaStudioViewPhase;
   onDramaViewPhaseChange?: (phase: DramaStudioViewPhase) => void;
@@ -308,6 +310,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onShareItem,
       onPublishItem,
       useInfiniteCanvas = false,
+      canvasViewEnabled = false,
       dramaPhaseSplitEnabled = false,
       dramaViewPhase = "agent",
       onDramaViewPhaseChange,
@@ -1275,7 +1278,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 <span>{compareMode ? "退出对比" : "Before/After"}</span>
               </button>
             ) : null}
-            {dramaPhaseSplitEnabled && onDramaViewPhaseChange ? (
+            {canvasViewEnabled && onDramaViewPhaseChange ? (
               <button
                 type="button"
                 data-testid="drama-view-phase-toggle"
@@ -1292,7 +1295,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 ) : (
                   <>
                     <MessageCircle className="size-3.5" />
-                    <span>对话视图</span>
+                    <span>滚动视图</span>
                   </>
                 )}
               </button>
