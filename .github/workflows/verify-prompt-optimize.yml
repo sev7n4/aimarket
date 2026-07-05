@@ -1,0 +1,30 @@
+# 生产验证（手动触发）：魔术棒润色引擎多场景复测
+# gh workflow run verify-prompt-optimize.yml
+name: Verify prompt-optimize (AIMarket)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify magic-wand prompt optimize in production
+    runs-on: [self-hosted, aimarket-build]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: API health
+        run: |
+          set -e
+          curl -fsS --connect-timeout 5 --max-time 10 http://127.0.0.1:4100/health | head -c 200; echo
+
+      - name: Run 10+ scenario prompt-optimize verification
+        run: |
+          set -e
+          echo "=== copy script into aimarket-api container ==="
+          docker cp scripts/verify-prompt-optimize-prod.mjs aimarket-api:/tmp/verify-prompt-optimize-prod.mjs
+          echo "=== run verification (inside container, API at 127.0.0.1:4000) ==="
+          docker exec -e API_BASE=http://127.0.0.1:4000 aimarket-api node /tmp/verify-prompt-optimize-prod.mjs
