@@ -38,4 +38,6 @@ export interface PromptOptimizeResult {
   direction?: string;
   /** 意图方向的中文标签，如 "局部编辑" */
   directionLabel?: string;
+  /** 备选提示词（不含 prompt 本身），供前端"换一个"切换 */
+  variants?: string[];
 }

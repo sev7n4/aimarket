@@ -90,19 +90,27 @@ export function optimizePrompt(mode: OptimizeMode, raw: string): string {
   return optimizePromptWithTemplate(mode, raw);
 }
 
+/** 默认候选数（含推荐 1 + 备选 N）；可用 PROMPT_OPTIMIZE_VARIANTS 覆盖 */
+function resolveCandidateCount(): number {
+  const raw = Number(process.env.PROMPT_OPTIMIZE_VARIANTS);
+  if (Number.isFinite(raw) && raw >= 1 && raw <= 5) return Math.floor(raw);
+  return 3;
+}
+
 async function tryProvider(
   source: PromptOptimizeSource,
   mode: OptimizeMode,
   raw: string,
-  context?: PromptOptimizeContext,
-): Promise<string> {
+  context: PromptOptimizeContext | undefined,
+  candidateCount: number,
+): Promise<string[]> {
   switch (source) {
     case "dashscope":
-      return optimizePromptWithDashScope(mode, raw, context);
+      return optimizePromptWithDashScope(mode, raw, context, candidateCount);
     case "openai":
-      return optimizePromptWithOpenAI(mode, raw, context);
+      return optimizePromptWithOpenAI(mode, raw, context, candidateCount);
     default:
-      return optimizePromptWithTemplate(mode, raw);
+      return [optimizePromptWithTemplate(mode, raw)];
   }
 }
 
@@ -135,10 +143,25 @@ export async function optimizePromptAsync(
               ...(openaiConfigured() ? (["openai"] as const) : []),
             ];
 
+  const candidateCount = resolveCandidateCount();
+
   for (const source of chain) {
     try {
-      const prompt = await tryProvider(source, mode, trimmed, context);
-      return { prompt, source, direction, directionLabel };
+      const candidates = await tryProvider(
+        source,
+        mode,
+        trimmed,
+        context,
+        candidateCount,
+      );
+      const [prompt, ...variants] = candidates;
+      return {
+        prompt,
+        source,
+        direction,
+        directionLabel,
+        ...(variants.length > 0 ? { variants } : {}),
+      };
     } catch (err) {
       console.warn(`[prompt-optimize] ${source} 失败`, err);
       if (providerMode === source) {
