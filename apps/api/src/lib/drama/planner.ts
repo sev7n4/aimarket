@@ -178,6 +178,20 @@ export function buildRuleBasedProject(input: PlanDramaInput): DramaProjectData {
     projectType === "mv" ? 60 : input.targetDurationSec ?? 90;
   const targetDurationSec = input.targetDurationSec ?? defaultDuration;
   const shotCount = projectType === "mv" ? 8 : 10;
+  const actCount =
+    targetDurationSec <= 45 ? 2 : targetDurationSec <= 90 ? 3 : targetDurationSec <= 150 ? 4 : 5;
+  const actSummaries = [
+    "开端：建立人物与冲突",
+    "发展：矛盾升级",
+    "转折：意外与选择",
+    "高潮：冲突爆发",
+    "结局：收束与余韵",
+  ];
+  const acts = Array.from({ length: actCount }, (_, i) => ({
+    act: i + 1,
+    sceneId: i < 2 ? "scene_1" : "scene_2",
+    summary: actSummaries[i] ?? `第 ${i + 1} 幕`,
+  }));
 
   const shots: StoryboardShot[] = Array.from({ length: shotCount }, (_, i) => ({
     id: `shot_${i + 1}`,
@@ -232,11 +246,7 @@ export function buildRuleBasedProject(input: PlanDramaInput): DramaProjectData {
             ? "创意短片"
             : "AI 短剧",
       logline: input.userIdea.slice(0, 120),
-      acts: [
-        { act: 1, sceneId: "scene_1", summary: "开端：建立人物与冲突" },
-        { act: 2, sceneId: "scene_1", summary: "发展：矛盾升级" },
-        { act: 3, sceneId: "scene_2", summary: "高潮与结局" },
-      ],
+      acts,
       narratorLines:
         projectType === "mv"
           ? ["音乐铺底，单线情绪推进至高潮。"]

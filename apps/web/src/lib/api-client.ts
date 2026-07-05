@@ -1668,22 +1668,30 @@ export async function fetchDramaProject(projectId: string) {
 export async function generateDramaCharacterTurnaround(
   projectId: string,
   characterId: string,
+  options?: { force?: boolean; promptOverride?: string },
 ) {
   const res = await request<{
     data: {
-      status: "generating";
+      status: "generating" | "ready";
       jobIds: string[];
       characterId: string;
       project: import("./types").DramaProject;
     };
   }>(
     `/api/v1/drama/projects/${encodeURIComponent(projectId)}/characters/${encodeURIComponent(characterId)}/turnaround`,
-    { method: "POST" },
+    {
+      method: "POST",
+      body: JSON.stringify(options ?? {}),
+    },
   );
   return res.data;
 }
 
-export async function generateDramaSceneRef(projectId: string, sceneId: string) {
+export async function generateDramaSceneRef(
+  projectId: string,
+  sceneId: string,
+  options?: { force?: boolean; promptOverride?: string },
+) {
   const res = await request<{
     data: {
       status: "generating" | "ready";
@@ -1693,7 +1701,10 @@ export async function generateDramaSceneRef(projectId: string, sceneId: string) 
     };
   }>(
     `/api/v1/drama/projects/${encodeURIComponent(projectId)}/scenes/${encodeURIComponent(sceneId)}/ref`,
-    { method: "POST" },
+    {
+      method: "POST",
+      body: JSON.stringify(options ?? {}),
+    },
   );
   return res.data;
 }

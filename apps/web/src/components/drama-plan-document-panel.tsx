@@ -1,8 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback } from "react";
-import { Loader2, Palette, Users } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { Loader2, Palette, Sparkles, Users } from "lucide-react";
 import type { DramaPlanStreamEvent } from "@/lib/drama-plan-stream";
 import type { DramaProjectPayload } from "@/lib/types";
 import { fetchDramaVoices } from "@/lib/api-client";
@@ -12,6 +12,7 @@ import { DramaSceneCardView } from "@/components/drama/drama-scene-card";
 import { DramaCharacterCardView } from "@/components/drama-character-card";
 import { DramaStoryboardGrid } from "@/components/drama-storyboard-grid";
 import { DramaBadge } from "@/components/drama/drama-badge";
+import { DramaAssetRegenPopover } from "@/components/drama/drama-asset-regen-popover";
 
 interface DramaPlanDocumentPanelProps {
   partialProject?: DramaProjectPayload | null;
@@ -24,6 +25,7 @@ interface DramaPlanDocumentPanelProps {
   planTitle?: string;
   onProjectUpdate?: (project: DramaProjectPayload) => void;
   onSaveProject?: (project: DramaProjectPayload) => Promise<void>;
+  onRefinePlan?: (instruction: string) => Promise<unknown>;
   onConfirmProduce?: () => void;
   produceBusy?: boolean;
   produceHint?: string | null;
@@ -80,43 +82,76 @@ function DocSection({
 
 function DramaStyleBlock({
   styleBible,
+  editable,
+  busy,
+  onRefine,
 }: {
   styleBible: DramaProjectPayload["styleBible"];
+  editable?: boolean;
+  busy?: boolean;
+  onRefine?: (instruction: string) => Promise<void>;
 }) {
+  const [regenOpen, setRegenOpen] = useState(false);
+
   return (
-    <div
-      data-testid="drama-style-card"
-      className="rounded-lg border border-amber-500/20 bg-amber-500/[0.06] p-3"
-    >
-      <div className="flex items-start gap-2">
-        <Palette className="mt-0.5 size-4 shrink-0 text-amber-300/80" />
-        <div className="min-w-0 space-y-1.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-medium text-zinc-100">
-              {styleBible.lightingStyle || "美术风格"}
-            </p>
-            {styleBible.aspectRatio ? (
-              <DramaBadge color="#f59e0b">{styleBible.aspectRatio}</DramaBadge>
+    <>
+      <div
+        data-testid="drama-style-card"
+        className="rounded-lg border border-amber-500/20 bg-amber-500/[0.06] p-3"
+      >
+        <div className="flex items-start gap-2">
+          <Palette className="mt-0.5 size-4 shrink-0 text-amber-300/80" />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-medium text-zinc-100">
+                {styleBible.lightingStyle || "美术风格"}
+              </p>
+              {styleBible.aspectRatio ? (
+                <DramaBadge color="#f59e0b">{styleBible.aspectRatio}</DramaBadge>
+              ) : null}
+            </div>
+            {styleBible.palette.length > 0 ? (
+              <p className="text-xs text-zinc-400">
+                色调：{styleBible.palette.join("、")}
+              </p>
+            ) : null}
+            {styleBible.globalContextBlock ? (
+              <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-zinc-500">
+                {styleBible.globalContextBlock}
+              </p>
+            ) : null}
+            {styleBible.negativePrompt ? (
+              <p className="text-[10px] text-zinc-600">
+                负向：{styleBible.negativePrompt}
+              </p>
+            ) : null}
+            {editable && onRefine ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setRegenOpen(true)}
+                className="mt-1 inline-flex items-center gap-1 text-[10px] text-violet-300 hover:text-violet-200 disabled:opacity-50"
+                data-testid="drama-style-refine"
+              >
+                <Sparkles className="size-3" />
+                AI 迭代风格
+              </button>
             ) : null}
           </div>
-          {styleBible.palette.length > 0 ? (
-            <p className="text-xs text-zinc-400">
-              色调：{styleBible.palette.join("、")}
-            </p>
-          ) : null}
-          {styleBible.globalContextBlock ? (
-            <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-zinc-500">
-              {styleBible.globalContextBlock}
-            </p>
-          ) : null}
-          {styleBible.negativePrompt ? (
-            <p className="text-[10px] text-zinc-600">
-              负向：{styleBible.negativePrompt}
-            </p>
-          ) : null}
         </div>
       </div>
-    </div>
+
+      {onRefine ? (
+        <DramaAssetRegenPopover
+          open={regenOpen}
+          title="迭代美术风格"
+          placeholder="例如：赛博朋克霓虹、低饱和胶片、暖色逆光…"
+          busy={busy}
+          onClose={() => setRegenOpen(false)}
+          onSubmit={onRefine}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -140,6 +175,26 @@ function hasStyle(project: DramaProjectPayload): boolean {
   );
 }
 
+function assetGenErrors(events: DramaPlanStreamEvent[]) {
+  const charErrors = new Map<string, string>();
+  const sceneErrors = new Map<string, string>();
+  for (const e of events) {
+    if (e.type === "character_tool_failed" && e.tool === "turnaround") {
+      charErrors.set(e.characterId, e.error ?? "生成失败");
+    }
+    if (e.type === "scene_tool_failed") {
+      sceneErrors.set(e.sceneId, e.error ?? "生成失败");
+    }
+    if (e.type === "character_tool_done" && e.tool === "turnaround") {
+      charErrors.delete(e.characterId);
+    }
+    if (e.type === "scene_tool_done") {
+      sceneErrors.delete(e.sceneId);
+    }
+  }
+  return { charErrors, sceneErrors };
+}
+
 export function DramaPlanDocumentPanel({
   partialProject,
   projectId,
@@ -151,6 +206,7 @@ export function DramaPlanDocumentPanel({
   planTitle,
   onProjectUpdate,
   onSaveProject,
+  onRefinePlan,
   onConfirmProduce,
   produceBusy,
   produceHint,
@@ -167,6 +223,14 @@ export function DramaPlanDocumentPanel({
     [onProjectUpdate],
   );
 
+  const persistProject = useCallback(
+    async (next: DramaProjectPayload) => {
+      handleProjectUpdate(next);
+      if (onSaveProject) await onSaveProject(next);
+    },
+    [handleProjectUpdate, onSaveProject],
+  );
+
   const handleVoiceChange = useCallback(
     async (characterId: string, voiceId: string) => {
       if (!partialProject || readOnly) return;
@@ -180,10 +244,68 @@ export function DramaPlanDocumentPanel({
             : c,
         ),
       };
-      handleProjectUpdate(next);
-      if (onSaveProject) await onSaveProject(next);
+      await persistProject(next);
     },
-    [partialProject, readOnly, handleProjectUpdate, onSaveProject],
+    [partialProject, readOnly, persistProject],
+  );
+
+  const patchScript = useCallback(
+    async (patch: Partial<DramaProjectPayload["script"]>) => {
+      if (!partialProject || readOnly) return;
+      await persistProject({
+        ...partialProject,
+        script: { ...partialProject.script, ...patch },
+      });
+    },
+    [partialProject, readOnly, persistProject],
+  );
+
+  const handleRefineScript = useCallback(
+    async (instruction: string) => {
+      if (!onRefinePlan) {
+        throw new Error("当前无法发起 AI 迭代");
+      }
+      await onRefinePlan(`【剧本】${instruction}`);
+    },
+    [onRefinePlan],
+  );
+
+  const handleRefineStyle = useCallback(
+    async (instruction: string) => {
+      if (!onRefinePlan) {
+        throw new Error("当前无法发起 AI 迭代");
+      }
+      await onRefinePlan(`【美术风格】${instruction}`);
+    },
+    [onRefinePlan],
+  );
+
+  const handleRefineStoryboard = useCallback(
+    async (instruction: string) => {
+      if (!onRefinePlan) {
+        throw new Error("当前无法发起 AI 迭代");
+      }
+      await onRefinePlan(`【分镜】${instruction}`);
+    },
+    [onRefinePlan],
+  );
+
+  const handleRefineVoice = useCallback(
+    async (characterId: string, instruction: string) => {
+      if (!onRefinePlan || !partialProject) {
+        throw new Error("当前无法发起 AI 迭代");
+      }
+      const name =
+        partialProject.characters.find((c) => c.id === characterId)?.name ??
+        characterId;
+      await onRefinePlan(`【音色】角色「${name}」：${instruction}`);
+    },
+    [onRefinePlan, partialProject],
+  );
+
+  const { charErrors, sceneErrors } = useMemo(
+    () => assetGenErrors(events),
+    [events],
   );
 
   const handleLockCharacter = useCallback(
@@ -202,6 +324,8 @@ export function DramaPlanDocumentPanel({
   );
 
   const interactive = Boolean(projectId) && !readOnly;
+  const canRefine = interactive && Boolean(onRefinePlan);
+  const [storyboardRegenOpen, setStoryboardRegenOpen] = useState(false);
   const title =
     planTitle ??
     partialProject?.script?.title ??
@@ -254,7 +378,26 @@ export function DramaPlanDocumentPanel({
           >
             {showScript && partialProject ? (
               <>
-                <DramaScriptCard script={partialProject.script} />
+                <DramaScriptCard
+                  script={partialProject.script}
+                  editable={interactive}
+                  busy={busy}
+                  onTitleChange={(title) => void patchScript({ title })}
+                  onLoglineChange={(logline) => void patchScript({ logline })}
+                  onActSummaryChange={(index, summary) => {
+                    const acts = [...partialProject.script.acts];
+                    acts[index] = { ...acts[index]!, summary };
+                    void patchScript({ acts });
+                  }}
+                  onNarratorLineChange={(index, line) => {
+                    const narratorLines = [...partialProject.script.narratorLines];
+                    narratorLines[index] = line;
+                    void patchScript({ narratorLines });
+                  }}
+                  onRefine={
+                    interactive && onRefinePlan ? handleRefineScript : undefined
+                  }
+                />
                 {agentReasoning(events, "writer") ? (
                   <pre className="mt-2 max-h-32 overflow-y-auto whitespace-pre-wrap rounded-lg border border-white/5 bg-black/30 p-2 text-[10px] leading-relaxed text-zinc-500">
                     {agentReasoning(events, "writer")}
@@ -271,7 +414,12 @@ export function DramaPlanDocumentPanel({
             testId="drama-artifact-style"
           >
             {showStyle && partialProject ? (
-              <DramaStyleBlock styleBible={partialProject.styleBible} />
+              <DramaStyleBlock
+                styleBible={partialProject.styleBible}
+                editable={canRefine}
+                busy={busy}
+                onRefine={canRefine ? handleRefineStyle : undefined}
+              />
             ) : null}
           </DocSection>
 
@@ -304,6 +452,10 @@ export function DramaPlanDocumentPanel({
                       onVoiceChange={
                         interactive && onSaveProject ? handleVoiceChange : undefined
                       }
+                      onVoiceRefine={
+                        canRefine ? handleRefineVoice : undefined
+                      }
+                      genError={charErrors.get(character.id) ?? null}
                     />
                   ))}
                 </div>
@@ -328,6 +480,7 @@ export function DramaPlanDocumentPanel({
                     onProjectUpdate={
                       interactive ? handleProjectUpdate : undefined
                     }
+                    genError={sceneErrors.get(scene.id) ?? null}
                   />
                 ))}
               </div>
@@ -342,11 +495,45 @@ export function DramaPlanDocumentPanel({
           >
             {showStoryboard && partialProject ? (
               <>
-                <p className="mb-2 text-[11px] text-zinc-500">
-                  {partialProject.shots.length} 镜 ·{" "}
-                  {partialProject.script.acts.length} 幕
-                </p>
-                <DramaStoryboardGrid shots={partialProject.shots} readOnly />
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] text-zinc-500">
+                    {partialProject.shots.length} 镜 ·{" "}
+                    {partialProject.script.acts.length} 幕
+                  </p>
+                  {canRefine ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setStoryboardRegenOpen(true)}
+                      className="inline-flex items-center gap-1 text-[10px] text-violet-300 hover:text-violet-200 disabled:opacity-50"
+                      data-testid="drama-storyboard-refine"
+                    >
+                      <Sparkles className="size-3" />
+                      AI 迭代分镜
+                    </button>
+                  ) : null}
+                </div>
+                <DramaStoryboardGrid
+                  shots={partialProject.shots}
+                  readOnly={!interactive}
+                  editable={interactive}
+                  onShotsChange={
+                    interactive
+                      ? (shots) =>
+                          void persistProject({ ...partialProject, shots })
+                      : undefined
+                  }
+                />
+                {canRefine ? (
+                  <DramaAssetRegenPopover
+                    open={storyboardRegenOpen}
+                    title="迭代分镜剧本"
+                    placeholder="例如：增加一个反转镜头，第二镜改为特写…"
+                    busy={busy}
+                    onClose={() => setStoryboardRegenOpen(false)}
+                    onSubmit={handleRefineStoryboard}
+                  />
+                ) : null}
               </>
             ) : null}
           </DocSection>
