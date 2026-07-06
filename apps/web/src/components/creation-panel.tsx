@@ -44,6 +44,10 @@ import {
 } from "@/lib/api-client";
 import { polishPrompt } from "@/lib/prompt-polish";
 import { resolveIntent } from "@/lib/intent-router";
+import {
+  readRecentAcceptedPrompts,
+  recordAcceptedPrompt,
+} from "@/lib/prompt-style-profile";
 import { jobStatusLabel } from "@/lib/job-stream";
 import {
   resolveVideoSubmitModelId,
@@ -1447,6 +1451,10 @@ export function CreationPanel({
       textareaRef.current?.focus();
       return;
     }
+    // 采纳判定：提交内容命中某条润色候选 → 记入个性化风格画像
+    if (polishCandidates.includes(prompt.trim())) {
+      recordAcceptedPrompt(prompt.trim());
+    }
     void handleSubmit();
   }
 
@@ -2293,6 +2301,7 @@ export function CreationPanel({
                         creationLane,
                         intentSignal: intent.primarySignal,
                         intentConfidence: intent.confidence,
+                        recentAccepted: readRecentAcceptedPrompts(3),
                       },
                     })
                       .then((res) => {

@@ -13,6 +13,8 @@ export interface PromptOptimizeContext {
   intentSignal?: string;
   /** 意图推断置信度 0-1 */
   intentConfidence?: number;
+  /** 用户最近被采纳的润色结果，作为个性化风格 few-shot 参考 */
+  recentAccepted?: string[];
 }
 
 export const promptOptimizeContextSchema = z
@@ -23,6 +25,7 @@ export const promptOptimizeContextSchema = z
     creationLane: z.string().max(32).optional(),
     intentSignal: z.string().max(32).optional(),
     intentConfidence: z.number().min(0).max(1).optional(),
+    recentAccepted: z.array(z.string().max(400)).max(5).optional(),
   })
   .optional();
 

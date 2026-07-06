@@ -1915,6 +1915,8 @@ export interface PromptOptimizeContextInput {
   intentSignal?: string;
   /** 意图推断置信度 0-1 */
   intentConfidence?: number;
+  /** 用户近期采纳的润色结果，作为个性化风格 few-shot 参考 */
+  recentAccepted?: string[];
 }
 
 export async function optimizePromptApi(
