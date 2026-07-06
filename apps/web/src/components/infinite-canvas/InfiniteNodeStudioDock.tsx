@@ -3,6 +3,7 @@
 import React, { useCallback, useRef, useState } from "react";
 import { Loader2, Send, Sparkles, X } from "lucide-react";
 
+import { OverflowIconRow, type OverflowIconAction } from "@/components/overflow-icon-row";
 import { canvasTheme } from "./canvas-theme";
 import { CanvasNodeType, type CanvasNodeData } from "./types";
 import type { CanvasAgentOp, CanvasAgentSnapshot } from "./utils";
@@ -27,6 +28,8 @@ type InfiniteNodeStudioDockProps = {
   onApplyOps: (ops: CanvasAgentOp[]) => CanvasAgentSnapshot;
   readOnly?: boolean;
   onClose?: () => void;
+  /** 节点工具链（Studio 工具 + 节点菜单，已去重） */
+  toolActions?: OverflowIconAction[];
 };
 
 export function InfiniteNodeStudioDock({
@@ -35,6 +38,7 @@ export function InfiniteNodeStudioDock({
   onApplyOps,
   readOnly = false,
   onClose,
+  toolActions = [],
 }: InfiniteNodeStudioDockProps) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -141,6 +145,16 @@ export function InfiniteNodeStudioDock({
           </button>
         ) : null}
       </div>
+
+      {toolActions.length > 0 ? (
+        <div
+          className="border-b px-2 py-1.5"
+          style={{ borderColor: canvasTheme.node.stroke }}
+          data-testid="infinite-node-toolchain"
+        >
+          <OverflowIconRow actions={toolActions} maxVisible={8} size="sm" align="start" />
+        </div>
+      ) : null}
 
       <div className="px-3 py-2.5">
         <div className="flex items-end gap-2">

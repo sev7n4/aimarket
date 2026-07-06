@@ -216,7 +216,8 @@ export function StudioWorkspace({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
   const [dockMode, setDockMode] = useState<StudioDockMode>("expanded");
-  const [infiniteWorkflowActive, setInfiniteWorkflowActive] = useState(false);
+  const [infiniteCanvasActive, setInfiniteCanvasActive] = useState(false);
+  const [infiniteEmptySubmitNonce, setInfiniteEmptySubmitNonce] = useState(0);
   const [conversationPaneActive, setConversationPaneActive] = useState(false);
   const {
     width: conversationPaneWidth,
@@ -449,7 +450,12 @@ export function StudioWorkspace({
   }, [sessions, sessionId, sessionTitle, mode, sessionKind]);
 
   const infiniteOverlayBottomInsetPx =
-    infiniteWorkflowActive ? 0 : studioDockOverlayInsetPx(dockMode);
+    infiniteCanvasActive ? 0 : studioDockOverlayInsetPx(dockMode);
+
+  const infiniteEmptySubmitting =
+    Boolean(jobStreamStatus) &&
+    jobStreamStatus !== "succeeded" &&
+    jobStreamStatus !== "failed";
 
   const openNewStudio = useCallback(() => {
     const wsId = activeWorkspaceId ?? getActiveWorkspaceId();
@@ -1881,12 +1887,23 @@ export function StudioWorkspace({
             <StudioCanvasWithOrchestration
               key={sessionId}
               ref={canvasRef}
-              onInfiniteWorkflowActiveChange={setInfiniteWorkflowActive}
+              onInfiniteCanvasActiveChange={setInfiniteCanvasActive}
               onConversationPaneActiveChange={setConversationPaneActive}
               conversationPaneWidth={conversationPaneWidth}
               onConversationPaneResizeStart={handleConversationPaneResizeStart}
               conversationPaneResizing={conversationPaneResizing}
               overlayBottomInsetPx={infiniteOverlayBottomInsetPx}
+              infiniteEmptyCreation={
+                infiniteCanvasActive
+                  ? {
+                      prompt: studioPrompt,
+                      onPromptChange: setStudioPrompt,
+                      onSubmit: () =>
+                        setInfiniteEmptySubmitNonce((nonce) => nonce + 1),
+                      submitting: infiniteEmptySubmitting,
+                    }
+                  : undefined
+              }
               items={canvasItems}
               infiniteConnections={infiniteConnections}
               onInfiniteConnectionsChange={setInfiniteConnections}
@@ -1909,7 +1926,7 @@ export function StudioWorkspace({
               onRerun={(item) => void handleRerun(item)}
               emptyHint=""
               scrollBottomInset={
-                infiniteWorkflowActive ? "" : studioDockScrollInset(dockMode)
+                infiniteCanvasActive ? "" : studioDockScrollInset(dockMode)
               }
               readOnly={readOnly}
               jobStreamStatus={jobStreamStatus}
@@ -2065,7 +2082,7 @@ export function StudioWorkspace({
             <StudioDock
               mode={dockMode}
               onModeChange={setDockMode}
-              hidden={infiniteWorkflowActive}
+              hidden={infiniteCanvasActive}
               alignLeft={conversationPaneActive}
               alignLeftWidth={conversationPaneWidth}
             >
@@ -2223,6 +2240,7 @@ export function StudioWorkspace({
                   return jobId;
                 }}
                 autoSubmitOnce={autoSubmitOnce}
+                externalSubmitNonce={infiniteEmptySubmitNonce}
               />
             </StudioDock>
           </div>

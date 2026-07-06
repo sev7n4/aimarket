@@ -28,7 +28,13 @@ export function StudioDock({
   children,
 }: StudioDockProps) {
   const leftWidth = alignLeftWidth ?? 340;
-  if (hidden) return null;
+  if (hidden) {
+    return (
+      <div className="hidden" aria-hidden="true">
+        {children}
+      </div>
+    );
+  }
   if (mode === "focus") {
     return (
       <div
@@ -91,7 +97,7 @@ export function studioDockScrollInset(mode: StudioDockMode): string {
   return "pb-28 sm:pb-32";
 }
 
-/** Infinite 画布左下角控件需抬高的像素（与 Dock 高度对应） */
+/** Infinite 画布右下角控件需抬高的像素（Scroll 模式下避开全局 StudioDock） */
 export function studioDockOverlayInsetPx(mode: StudioDockMode): number {
   if (mode === "focus") return 80;
   return 128;

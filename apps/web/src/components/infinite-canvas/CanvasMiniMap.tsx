@@ -3,13 +3,14 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { canvasTheme } from "./canvas-theme";
+import { infiniteMiniMapBottom, infiniteZoomControlsBottom } from "./infinite-canvas-layout";
 import { CanvasNodeType, type CanvasNodeData, type ViewportTransform } from "./types";
 
 export function CanvasMiniMap({ nodes, viewport, viewportSize, onViewportChange, bottomInsetPx = 0 }: { nodes: CanvasNodeData[]; viewport: ViewportTransform; viewportSize: { width: number; height: number }; onViewportChange: (viewport: ViewportTransform) => void; bottomInsetPx?: number }) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
-    const width = 240;
-    const height = 160;
+    const width = 176;
+    const height = 112;
 
     const { worldBounds, scale, offset } = useMemo(() => {
         if (!nodes.length) {
@@ -96,11 +97,11 @@ export function CanvasMiniMap({ nodes, viewport, viewportSize, onViewportChange,
 
     return (
         <div
-            className="absolute left-6 z-50 overflow-hidden rounded-lg border shadow-2xl backdrop-blur-sm"
+            className="absolute right-4 z-50 overflow-hidden rounded-lg border shadow-xl backdrop-blur-sm"
             style={{
                 width,
                 height,
-                bottom: 96 + bottomInsetPx,
+                bottom: infiniteMiniMapBottom(bottomInsetPx),
                 background: canvasTheme.toolbar.panel,
                 borderColor: canvasTheme.toolbar.border,
             }}
