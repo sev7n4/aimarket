@@ -65,6 +65,8 @@ interface ConversationTimelineProps extends ConversationSectionsProps {
   scrollBottomInset?: string;
   /** 左栏空态提示 */
   emptyHint?: string;
+  /** 左栏宽度（px），双栏拖拽时由外层传入 */
+  width?: number;
 }
 
 /**
@@ -76,12 +78,14 @@ export function ConversationTimeline({
   orchestrationExtra,
   scrollBottomInset = "",
   emptyHint = "对话与编排记录会显示在这里",
+  width,
 }: ConversationTimelineProps) {
   const hasContent = Boolean(orchestrationEvent) || Boolean(orchestrationExtra);
 
   return (
     <div
-      className="relative flex min-h-0 w-full flex-col overflow-y-auto overflow-x-hidden border-r border-white/5 lg:w-[340px] lg:shrink-0 xl:w-[380px]"
+      className="relative flex min-h-0 shrink-0 flex-col overflow-y-auto overflow-x-hidden border-r border-white/5 max-lg:w-full"
+      style={width != null ? { width, maxWidth: width } : undefined}
       data-testid="conversation-pane"
     >
       {hasContent ? (

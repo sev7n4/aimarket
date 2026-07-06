@@ -5,7 +5,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { canvasTheme } from "./canvas-theme";
 import { CanvasNodeType, type CanvasNodeData, type ViewportTransform } from "./types";
 
-export function CanvasMiniMap({ nodes, viewport, viewportSize, onViewportChange }: { nodes: CanvasNodeData[]; viewport: ViewportTransform; viewportSize: { width: number; height: number }; onViewportChange: (viewport: ViewportTransform) => void }) {
+export function CanvasMiniMap({ nodes, viewport, viewportSize, onViewportChange, bottomInsetPx = 0 }: { nodes: CanvasNodeData[]; viewport: ViewportTransform; viewportSize: { width: number; height: number }; onViewportChange: (viewport: ViewportTransform) => void; bottomInsetPx?: number }) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     const width = 240;
@@ -95,7 +95,16 @@ export function CanvasMiniMap({ nodes, viewport, viewportSize, onViewportChange 
     };
 
     return (
-        <div className="absolute bottom-24 left-6 z-50 overflow-hidden rounded-lg border shadow-2xl backdrop-blur-sm" style={{ width, height, background: canvasTheme.toolbar.panel, borderColor: canvasTheme.toolbar.border }}>
+        <div
+            className="absolute left-6 z-50 overflow-hidden rounded-lg border shadow-2xl backdrop-blur-sm"
+            style={{
+                width,
+                height,
+                bottom: 96 + bottomInsetPx,
+                background: canvasTheme.toolbar.panel,
+                borderColor: canvasTheme.toolbar.border,
+            }}
+        >
             <div
                 ref={containerRef}
                 className="relative h-full w-full cursor-crosshair"

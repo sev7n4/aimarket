@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SessionTitleActions } from "@/components/session-title-actions";
 import {
   ChevronLeft,
@@ -15,7 +15,7 @@ import { LoginDialog } from "@/components/login-dialog";
 import type { DesignCanvasHandle } from "@/components/design-canvas";
 import { StudioCreationDock } from "@/components/studio-creation-dock";
 import { CanvasSelectionToolbar } from "@/components/canvas-selection-toolbar";
-import { StudioDock, studioDockScrollInset } from "@/components/studio-dock";
+import { StudioDock, studioDockOverlayInsetPx, studioDockScrollInset } from "@/components/studio-dock";
 import { StudioCoach } from "@/components/studio-coach";
 import { StudioHeader } from "@/components/studio-header";
 import {
@@ -122,6 +122,7 @@ import { buildStudioUrl, studioUrlForSession } from "@/lib/studio-navigation";
 import { clientNavigate } from "@/lib/client-navigate";
 import { writeDraftSessionId } from "@/lib/studio-draft-session";
 import { useIsMobile } from "@/hooks/use-is-mobile";
+import { useConversationPaneWidth } from "@/hooks/use-conversation-pane-width";
 
 type SelectionToolInteraction =
   | "direct"
@@ -217,6 +218,11 @@ export function StudioWorkspace({
   const [dockMode, setDockMode] = useState<StudioDockMode>("expanded");
   const [infiniteWorkflowActive, setInfiniteWorkflowActive] = useState(false);
   const [conversationPaneActive, setConversationPaneActive] = useState(false);
+  const {
+    width: conversationPaneWidth,
+    isDragging: conversationPaneResizing,
+    handleDragStart: handleConversationPaneResizeStart,
+  } = useConversationPaneWidth();
   const [workspaceWidth, setWorkspaceWidth] = useState(264);
   const [isDraggingWorkspace, setIsDraggingWorkspace] = useState(false);
   const [restoredAssets, setRestoredAssets] = useState<PendingAsset[]>([]);
@@ -424,6 +430,26 @@ export function StudioWorkspace({
       : fetchedSessionTitle && fetchedSessionTitle !== "未命名"
         ? fetchedSessionTitle
         : initialTitle ?? (mode === "production" ? "未命名制片" : mode === "ecommerce" ? "电商套图" : "未命名");
+
+  /** 当前草稿尚未入库时，乐观插入侧栏列表顶部 */
+  const displaySessions = useMemo(() => {
+    if (!sessionId || sessions.some((s) => s.id === sessionId)) {
+      return sessions;
+    }
+    const draftSession: ImageSession = {
+      id: sessionId,
+      title: sessionTitle,
+      mode,
+      kind: sessionKind,
+      status: "draft",
+      updated_at: new Date().toISOString(),
+      can_edit: true,
+    };
+    return [draftSession, ...sessions];
+  }, [sessions, sessionId, sessionTitle, mode, sessionKind]);
+
+  const infiniteOverlayBottomInsetPx =
+    infiniteWorkflowActive ? 0 : studioDockOverlayInsetPx(dockMode);
 
   const openNewStudio = useCallback(() => {
     const wsId = activeWorkspaceId ?? getActiveWorkspaceId();
@@ -1754,7 +1780,7 @@ export function StudioWorkspace({
             </Link>
           </div>
           <ul className="mt-2 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain">
-            {sessions.map((s) => (
+            {displaySessions.map((s) => (
               <li key={s.id} className="group">
                 <Link
                   href={studioUrlForSession({
@@ -1802,7 +1828,8 @@ export function StudioWorkspace({
                     onDeleted={() => handleSessionDeleted(s.id)}
                   />
                   <div className="text-[10px] text-zinc-600">
-                    画布 · {s.mode}
+                    {s.status === "draft" ? "草稿 · " : "画布 · "}
+                    {s.mode}
                   </div>
                 </Link>
               </li>
@@ -1856,6 +1883,10 @@ export function StudioWorkspace({
               ref={canvasRef}
               onInfiniteWorkflowActiveChange={setInfiniteWorkflowActive}
               onConversationPaneActiveChange={setConversationPaneActive}
+              conversationPaneWidth={conversationPaneWidth}
+              onConversationPaneResizeStart={handleConversationPaneResizeStart}
+              conversationPaneResizing={conversationPaneResizing}
+              overlayBottomInsetPx={infiniteOverlayBottomInsetPx}
               items={canvasItems}
               infiniteConnections={infiniteConnections}
               onInfiniteConnectionsChange={setInfiniteConnections}
@@ -2036,6 +2067,7 @@ export function StudioWorkspace({
               onModeChange={setDockMode}
               hidden={infiniteWorkflowActive}
               alignLeft={conversationPaneActive}
+              alignLeftWidth={conversationPaneWidth}
             >
               <StudioCreationDock
                 user={user}
