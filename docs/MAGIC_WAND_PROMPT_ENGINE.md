@@ -1,26 +1,33 @@
 # 魔术棒提示词优化引擎设计（可持续迭代）
 
-> 状态：Draft v0.5 · 负责人：TBD · 最近更新：2026-07-06
-> 进度：PR-1（#284）、PR-2（#285）、PR-3（#286）已合并部署；PR-4 个性化开发中。
-> 本文档持续迭代，每次迭代在文末「变更记录」追加条目。
+> 状态：**v1.0 本期闭环** · 最近更新：2026-07-06
+> **本期 PR-1~4 + hotfix 已全部合并部署**（#284 ~ #288）。PR-5 及更大改动暂搁置，见 §11。
+> 本文档持续迭代，每次变更在文末「变更记录」追加条目。
 
-## 1. 背景与痛点
+## 1. 背景与痛点（已解决项标注 ✅）
 
-魔术棒（`Wand2`）是创作台输入框内的一键提示词润色入口。当前实现：
+魔术棒（`Wand2`）是创作台输入框内的一键提示词润色入口。
 
-- 前端 `creation-panel.tsx` 点击魔术棒 → `optimizePromptApi(raw, mode, { context })`
-  → 后端 `POST /api/v1/prompt/optimize` → `optimizePromptAsync`
-  → provider 链 `dashscope → openai`，失败/未配置回落本地模板。
-- **实际已接 LLM**，模板（`prompt-polish.ts` / `template.ts`）只是兜底。
+**链路（当前）**：
 
-尽管接了 LLM，用户仍感到"润色固化、千篇一律、做不到千人千面/场景精准"。**根因不是"没用 LLM"，而是：**
+```
+creation-panel 点击魔术棒
+  → resolveIntent（L1）+ readRecentAcceptedPrompts（L3）
+  → POST /api/v1/prompt/optimize { context, mode }
+  → optimizePromptAsync
+      → buildOptimizeSystemPrompt（L2 意图矩阵 + few-shot）
+      → provider 链（dashscope → openai/DeepSeek → 模板兜底）
+  → 回填 prompt + polishHint（source · directionLabel）+ 可选「换一个」
+```
 
-| # | 根因 | 证据 |
-|---|------|------|
-| R1 | LLM 的系统人设固化 | `context.ts` 的 `BASE_SYSTEM` 只有 `chat/image/ecommerce` 三条通用句子，一句话打天下 |
-| R2 | 已有的强意图识别没接进润色 | `intent-router.ts` 能识别 15 种细粒度意图 + confidence，但只用于**提交路由**，润色链路零使用 |
-| R3 | 零个性化 | 传给后端的 `context` 仅 `modelId/aspectRatio/hasReferenceImages/creationLane`，无用户历史/偏好/参考图内容 |
-| R4 | provider 未配置时体感更死 | 线上若无 `DASHSCOPE_API_KEY/OPENAI_API_KEY`，一路回落模板 |
+初版痛点与本期对应关系：
+
+| # | 原根因 | 本期状态 |
+|---|--------|----------|
+| R1 | LLM 系统人设固化（`BASE_SYSTEM` 三条通用句） | ✅ PR-1：`INTENT_PERSONA` 11 种意图专家矩阵 |
+| R2 | 意图识别未接润色 | ✅ PR-2：`resolveIntent` → `context.intentSignal` |
+| R3 | 零个性化 | ✅ PR-4：`recentAccepted` 本地画像 + few-shot |
+| R4 | provider 未配置 → 模板兜底 | ✅ 生产已配 DeepSeek V4 Pro；失败仍模板兜底（#287） |
 
 ## 2. 目标与非目标
 
@@ -123,7 +130,7 @@
 - 若有 `variants`，提供"换一个"切换。
 - **不自动提交**。
 
-### 4.5 低置信澄清（可选，最后做）
+### 4.5 低置信澄清 — ⏸ 本期不做（PR-5 搁置）
 - 仅当 L1 `confidence` 低于阈值（如 < 0.4）且输入稀疏时，弹**一个**澄清 chip 问题（如"是要整体重画，还是只改局部？"）。
 - 回答后再走 L2–L4。默认高置信路径永远一键直出。
 
@@ -159,25 +166,27 @@ export interface PromptOptimizeResult {
 - 所有新字段可选；旧前端不传 = 退化为当前行为。
 - 模板兜底路径也返回 `direction`（用 mode 映射），保证 UI 一致。
 
-## 6. 分期落地（PR 拆分）
+## 6. 分期落地（PR 拆分）— 本期交付状态
 
-| PR | 范围 | 价值 | 依赖 |
-|----|------|------|------|
-| **PR-1** | 后端引擎：`context` 加 `intentSignal`，`BASE_SYSTEM` → `INTENT_PERSONA` 意图矩阵，`buildOptimizeSystemPrompt` 条件化 + 集成测试 | 直击"固化"，最高优先，零 UI 改动 | 无 |
-| **PR-2** | 前端接线：魔术棒调 `resolveIntent` 注入意图 + 展示 `directionLabel` | 场景可见、可解释 | PR-1 |
-| **PR-3** | 结构化输出 + `variants` 切换 UI | 多方案、可控 | PR-1/2 |
-| **PR-4** | 个性化：注入 `recentAccepted` 范例 | 千人千面 | PR-1 |
-| **PR-5**（可选） | 低置信澄清一问 | 兜底体验 | PR-2 |
+| PR | 范围 | GitHub | 状态 |
+|----|------|--------|------|
+| **PR-1** | 后端意图矩阵 + `direction/directionLabel` | [#284](https://github.com/sev7n4/aimarket/pull/284) | ✅ 已部署 |
+| **PR-2** | 前端 `resolveIntent` 注入 + 方向标签 | [#285](https://github.com/sev7n4/aimarket/pull/285) | ✅ 已部署 |
+| **PR-3** | 多候选 `variants` +「换一个」UI | [#286](https://github.com/sev7n4/aimarket/pull/286) | ✅ 已部署 |
+| **hotfix** | DeepSeek `n=1` + LLM 失败回落模板 | [#287](https://github.com/sev7n4/aimarket/pull/287) | ✅ 已部署 |
+| **PR-4** | 个性化 `recentAccepted` few-shot | [#288](https://github.com/sev7n4/aimarket/pull/288) | ✅ 已部署 |
+| **PR-5** | 低置信澄清一问 | — | ⏸ 暂不做 |
 
-> 每个 PR 遵循仓库规则：功能分支 → `pnpm typecheck` + `pnpm test:integration` → PR → CI 全绿 → Squash & Merge。
+> 合并 commit 线：`#284` → `#285` → `#286` → `#287` → `#288`（main 当前含全部能力）。
 
-## 7. 测试策略
-- **单测/集成**：`buildOptimizeSystemPrompt` 针对每个意图信号断言关键约束词出现（如 `image-edit` 含"仅""指定区域"）。
-- **回归**：不传新字段时输出与当前一致。
-- **兜底**：LLM 失败时模板路径仍返回 `direction`。
-- **E2E（PR-2 后）**：点击魔术棒后输入框被回填 + 出现 `directionLabel` 气泡。
+## 7. 测试策略（本期已覆盖项 ✅）
+- **单测/集成** ✅：`scripts/test-prompt-optimize.ts`（15 项：意图矩阵、DeepSeek `n=1` cap、few-shot、模板兜底）。
+- **回归** ✅：不传新字段时输出与旧版一致。
+- **兜底** ✅：LLM 失败时模板路径仍返回 `direction`（#287）。
+- **生产冒烟** ✅：2026-07-06 手动 11 场景复测通过（§11.2）；自动化脚本/workflow 见 backlog §11.4 #6。
+- **E2E**：创作台魔术棒回填 + `directionLabel` 气泡（PR-2 后可用；未单独列为 gate）。
 
-## 8. 埋点（验证价值）
+## 8. 埋点（后续迭代，本期未接入）
 - 魔术棒点击率、`direction` 分布。
 - 回填采纳率（润色后是否修改/清空）。
 - `variants` 切换率。
@@ -191,142 +200,148 @@ export interface PromptOptimizeResult {
 - **过度结构化**：`variants` 默认关闭或按需，避免拖慢主路径。
 
 ## 10. 涉及文件清单
-- 后端：`apps/api/src/lib/prompt-optimize/{types.ts,context.ts,index.ts,openai.ts,dashscope.ts,template.ts}`、`apps/api/src/routes/prompt.ts`
-- 前端：`apps/web/src/components/creation-panel.tsx`、`apps/web/src/lib/{intent-router.ts,api-client.ts,prompt-polish.ts}`
-- 文档：本文件
+
+| 层级 | 路径 | 职责 |
+|------|------|------|
+| 后端引擎 | `apps/api/src/lib/prompt-optimize/{types,context,index,openai,dashscope,template}.ts` | 意图矩阵、provider、兜底 |
+| 后端路由 | `apps/api/src/routes/prompt.ts` | `POST /optimize` |
+| 前端入口 | `apps/web/src/components/creation-panel.tsx` | 魔术棒、variants 切换、采纳记录 |
+| 意图 | `apps/web/src/lib/intent-router.ts` | `resolveIntent` |
+| 个性化 | `apps/web/src/lib/prompt-style-profile.ts` | 本地 `recentAccepted` 读写 |
+| API 客户端 | `apps/web/src/lib/api-client.ts` | `optimizePromptApi` |
+| 单测 | `scripts/test-prompt-optimize.ts` | 意图矩阵 / DeepSeek n=1 / few-shot |
+| 生产复测 | `scripts/verify-prompt-optimize-prod.mjs` | 11 场景冒烟（**仅在** `enhancement/verify-prompt-optimize-prod` 分支，见 §11.2） |
+| 文档 | 本文件 | 设计与迭代记录 |
+
+---
+
+## 11. 本期闭环总结
+
+### 11.1 生产环境配置（`/opt/aimarket/.env`）
+
+当前生产通过 **OpenAI 兼容接口** 接 DeepSeek V4 Pro：
+
+```bash
+PROMPT_OPTIMIZE_PROVIDER=openai
+OPENAI_API_KEY=<DeepSeek API Key>
+OPENAI_BASE_URL=https://api.deepseek.com/v1
+OPENAI_CHAT_MODEL=deepseek-v4-pro
+PROMPT_OPTIMIZE_VARIANTS=1          # DeepSeek 仅支持 n=1；代码亦会 cap（#287）
+DEEPSEEK_API_KEY=<同上>              # Agent 链路复用
+DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+AGENT_LLM_DEEPSEEK_MODEL=deepseek-v4-pro
+```
+
+修改 `.env` 后需重建 API 容器：
+
+```bash
+cd /opt/aimarket
+export TCR_REGISTRY=ccr.ccs.tencentyun.com TCR_NAMESPACE=aimarket IMAGE_TAG=latest
+docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.prod.images.yml up -d --force-recreate api
+```
+
+### 11.2 生产复测（2026-07-06，#287 后）
+
+复测脚本位于分支 `enhancement/verify-prompt-optimize-prod`（尚未合入 main）。当时于生产 API 执行：
+
+```bash
+API_BASE=http://119.29.173.89:4100 node scripts/verify-prompt-optimize-prod.mjs
+```
+
+| 指标 | 结果 |
+|------|------|
+| 场景数 | 11 |
+| 硬失败（500/网络） | **0** |
+| 方向匹配 | **11/11** |
+| LLM 润色成功 | **9~10/11**（偶发超时/空内容 → 模板兜底，不再 500） |
+| 结论 | **复测通过 ✓** |
+
+典型效果：局部编辑强调「仅改指定区域」；图生视频强调「首帧一致」；电商主图结构化卖点——与意图矩阵设计一致。
+
+### 11.3 已知限制（接受或后续迭代）
+
+| 项 | 说明 |
+|----|------|
+| DeepSeek 无多候选 | `n>1` 会 400；生产 `VARIANTS=1`，「换一个」仅在支持 `n>1` 的 provider 下有多条备选 |
+| 部分场景模板兜底 | 扩图/消除等偶发 LLM 空内容或超时，#287 已回落模板而非 500 |
+| 个性化仅本地 | `prompt-style-profile` 存 `localStorage`，换设备/清缓存丢失；未做服务端画像 |
+| 采纳判定较粗 | 仅「提交内容与润色候选完全一致」记采纳；大幅手改不计入 |
+| 输出语言 | DeepSeek 偶发中英混排；可后续在 persona 加强「输出中文」 |
+| PR-5 未做 | 低置信澄清 chip 仍搁置 |
+
+### 11.4 后续迭代 backlog（按需启动）
+
+优先级建议：
+
+1. **埋点闭环**：魔术棒点击率、`direction` 分布、采纳率、生成成功率对比（§8 清单）。
+2. **provider 能力探测**：自动检测 endpoint 是否支持 `n>1`，避免配置踩坑。
+3. **PR-5 低置信澄清**：`confidence < 0.4` 且输入过短 → 单次 chip 问答。
+4. **服务端 style profile**：跨设备同步 `recentAccepted`。
+5. **意图矩阵运营化**：`INTENT_PERSONA` 抽离为可热更新配置（类似 agent.md 矩阵）。
+6. **生产复测 workflow 合入 main**：`.github/workflows/verify-prompt-optimize.yml`（目前在 `enhancement/verify-prompt-optimize-prod` 分支）。
+
+### 11.5 用户侧使用说明（产品闭环）
+
+1. 输入描述 → 点魔术棒（`Wand2`）。
+2. 等待润色（气泡显示 `DeepSeek · 局部编辑` 等方向标签）。
+3. 若有「换一个」图标，可在备选间切换（需 provider 返回 `variants`）。
+4. 满意后**直接提交**；若未改润色结果即提交，系统记入个性化范例，下次润色更贴你的风格。
+5. 可随时手改回填内容再提交（human-in-loop，不自动出图）。
 
 ---
 
 ## 附录 A：各 Phase 实现细则
 
-### Phase 1（PR-1）后端意图条件化引擎 ★最高优先
+### Phase 1（PR-1）后端意图条件化引擎 — ✅ 已交付 (#284)
 
-**目标**：不动 UI，仅凭意图矩阵让每种场景产出结构不同的专业提示词。
+### Phase 2（PR-2）前端接线 + 方向可视化 — ✅ 已交付 (#285)
 
-**改动点**
-1. `types.ts`：`PromptOptimizeContext` 增加 `intentSignal?`、`intentConfidence?`；`PromptOptimizeResult` 增加 `direction?`、`directionLabel?`。zod schema 同步加长度/范围校验。
-2. `context.ts`：新增 `INTENT_PERSONA` 矩阵与 `resolveIntentPersona(mode, context)`；`buildOptimizeSystemPrompt` 优先按 `intentSignal` 选 persona，回退到 `mode`。
-3. `index.ts`：`optimizePromptAsync` 结果附带 `direction/directionLabel`（由 `intentSignal` 或 `mode` 推导），模板兜底路径同样返回。
-4. 集成测试：覆盖每个意图信号的关键约束词。
+### Phase 3（PR-3）结构化输出 + 备选切换 — ✅ 已交付 (#286)
 
-**`INTENT_PERSONA` 草稿**（`context.ts`，可迭代）
-```ts
-interface IntentPersona {
-  label: string;        // 中文方向标签
-  persona: string;      // 专家身份
-  dimensions: string[]; // 需覆盖维度
-  constraints: string[];// 硬约束
-  negatives?: string;   // 负面提示
-}
+### Phase 4（PR-4）个性化（千人千面）— ✅ 已交付 (#288)
 
-const INTENT_PERSONA: Record<string, IntentPersona> = {
-  "image-generate": {
-    label: "文生图",
-    persona: "你是资深文生图提示词专家。",
-    dimensions: ["主体", "场景/背景", "光影", "材质/质感", "构图/视角", "风格"],
-    constraints: ["保留用户原意", "补全缺失维度但不臆造关键主体"],
-  },
-  "image-edit": {
-    label: "局部编辑",
-    persona: "你是图像局部编辑提示词专家。",
-    dimensions: ["编辑目标区域", "改动前后差异", "需保持不变的部分"],
-    constraints: ["仅修改用户指定区域", "保持主体、光影、风格一致", "不要整体重画"],
-    negatives: "避免改变未提及的区域、避免主体走形",
-  },
-  "image-expand": {
-    label: "扩图",
-    persona: "你是扩图（outpaint）提示词专家。",
-    dimensions: ["向外延展的环境内容", "透视延续", "光源方向延续"],
-    constraints: ["保持与原图透视/光影连续", "主体不变形", "接缝自然"],
-  },
-  "image-enhance": {
-    label: "超清增强",
-    persona: "你是画质增强提示词专家。",
-    dimensions: ["清晰度", "细节", "质感"],
-    constraints: ["保持原构图与语义", "只提升画质不改内容"],
-  },
-  "image-cutout": {
-    label: "抠图",
-    persona: "你是抠图提示词专家。",
-    dimensions: ["主体边界", "alpha 干净度", "发丝/边缘细节"],
-    constraints: ["精确主体边界", "背景干净透明"],
-  },
-  "image-erase": {
-    label: "消除",
-    persona: "你是物体消除提示词专家。",
-    dimensions: ["待消除对象", "背景补全策略"],
-    constraints: ["彻底移除目标", "背景无痕补全"],
-  },
-  "image-text": {
-    label: "文字编辑",
-    persona: "你是图像文字编辑提示词专家。",
-    dimensions: ["目标文字内容", "字体/风格", "位置"],
-    constraints: ["精确文字内容", "其余画面不变"],
-  },
-  "image-variation": {
-    label: "变体",
-    persona: "你是图像变体提示词专家。",
-    dimensions: ["保留的风格骨架", "变化维度(姿态/角度/配色)"],
-    constraints: ["保留原风格调性", "仅做可控变化"],
-  },
-  "video-generate": {
-    label: "文生视频",
-    persona: "你是文生视频提示词专家。",
-    dimensions: ["主体动作", "镜头运动", "时长/节奏", "氛围"],
-    constraints: ["描述可执行的镜头语言", "动作连贯"],
-  },
-  "video-from-image": {
-    label: "图生视频",
-    persona: "你是图生视频提示词专家。",
-    dimensions: ["镜头运动幅度", "首尾帧一致性", "运动主体"],
-    constraints: ["保持首帧主体一致", "避免主体漂移", "运动自然"],
-  },
-  "video-edit": {
-    label: "视频编辑",
-    persona: "你是视频编辑提示词专家。",
-    dimensions: ["编辑段落", "目标效果"],
-    constraints: ["明确编辑范围", "风格连续"],
-  },
-};
-```
-> `mode → 默认信号` 回退映射：`image→image-generate`、`chat→image-generate`、`ecommerce→ecommerce`（ecommerce 沿用现有电商 persona，不进 `INTENT_PERSONA` 也可）。
+- 采纳存储：`apps/web/src/lib/prompt-style-profile.ts`（`localStorage` key: `aimarket.prompt.recentAccepted`，最多 5 条）
+- 采纳判定：`creation-panel` 提交时 `polishCandidates.includes(prompt.trim())` → `recordAcceptedPrompt`
+- 注入：魔术棒调用 `readRecentAcceptedPrompts(3)` → `context.recentAccepted`
 
-**验收**：不传 `intentSignal` 时输出与当前一致；传 `image-edit` 时系统提示词含"仅""指定区域""保持一致"等约束词。
+### Phase 1 实现要点（源码为准）
 
-### Phase 2（PR-2）前端接线 + 方向可视化
-1. `creation-panel.tsx` 魔术棒 handler：构造 `IntentRouterInput` 调 `resolveIntent`，把 `primarySignal/confidence` 塞进 `context`。
-2. `api-client.ts` `optimizePromptApi`：透传新 context 字段，返回体解析 `direction/directionLabel`。
-3. UI：润色后把 `directionLabel` 展示进现有 `polishHint`（如"OpenAI · 局部编辑"）。
-4. 未登录/无 token 分支保持模板回退（可用 mode 映射本地 label）。
+- 意图矩阵：`apps/api/src/lib/prompt-optimize/context.ts` 内 `INTENT_PERSONA`（11 种信号 + `ecommerce` mode 分支）。
+- 回退映射：`image/chat → image-generate`；`ecommerce` 沿用电商 persona。
+- 响应：`direction` / `directionLabel` 由 `intentSignal` 或 mode 推导；模板兜底亦返回方向标签。
+- 验收：不传 `intentSignal` 行为与旧版一致；传 `image-edit` 时系统提示词含「仅」「指定区域」「保持一致」等约束词。
 
-**验收**：点击魔术棒后气泡显示方向标签；E2E 断言回填 + 标签出现。
+### Phase 2 实现要点
 
-### Phase 3（PR-3）结构化输出 + 备选切换
-1. 后端 provider 支持返回 `variants`（prompt 要求模型给 1 推荐 + ≤2 备选，或二次轻量生成）。
-2. `PromptOptimizeResult.variants` 落地；模板兜底可为空。
-3. 前端：润色气泡旁"换一个"按钮循环 `variants`，点击即回填。
+- `creation-panel.tsx`：魔术棒 handler 调 `resolveIntent`，注入 `intentSignal` / `intentConfidence`。
+- `api-client.ts`：`optimizePromptApi` 透传 context，解析 `direction` / `directionLabel`。
+- UI：`polishHint` 展示 `{source} · {directionLabel}`（如 `DeepSeek · 局部编辑`）。
 
-**验收**：有 variants 时可切换回填；无 variants 时按钮隐藏。
+### Phase 3 实现要点
 
-### Phase 4（PR-4）个性化（千人千面）
-1. 数据源：用户最近被采纳的润色结果（起步可前端本地缓存最近 N 条，或后端按用户查询）。
-2. `context.recentAccepted?: string[]`（≤3 条，各 ≤200 字）注入系统提示词作为 few-shot。
-3. "采纳"判定：润色回填后用户未大幅修改即提交 → 记为采纳（前端埋点/本地存）。
+- Provider：`openai.ts` / `dashscope.ts` 通过 chat `n` 取多候选；`resolveEffectiveCandidateCount` 对 DeepSeek cap 为 1（#287）。
+- 前端：润色气泡旁「换一个」循环 `variants`；无备选时按钮隐藏。
+- 配置：`PROMPT_OPTIMIZE_VARIANTS`（1–5，默认 3；生产 DeepSeek 建议 1）。
 
-**验收**：注入范例后风格向用户历史靠拢；不传时行为不变。
+### Phase 4 实现要点
 
-### Phase 5（PR-5，可选）低置信澄清一问
-1. L1 `confidence < 0.4` 且输入过短 → 弹一个 chip 问题（方向二选一）。
-2. 用户选择后修正 `intentSignal` 再走 L2–L4。
-3. 高置信永远跳过，保持一键直出。
+- 存储：`apps/web/src/lib/prompt-style-profile.ts`（`localStorage` key: `aimarket.prompt.recentAccepted`，最多 5 条）。
+- 采纳：提交时 `polishCandidates.includes(prompt.trim())` → `recordAcceptedPrompt`。
+- 注入：魔术棒调用 `readRecentAcceptedPrompts(3)` → `context.recentAccepted` → 后端 few-shot。
 
-**验收**：低置信触发澄清；高置信不打断。
+### Phase 5（PR-5）低置信澄清一问 — ⏸ 暂不做
+
+- 触发条件（设计稿）：L1 `confidence < 0.4` 且输入过短 → 单次 chip 二选一。
+- 高置信路径保持一键直出，不打断。
+- 详见 §4.5、§11.4 backlog #3。
 
 ---
 
 ## 变更记录
-- v0.5（2026-07-06）：PR-3（#286）已合并部署；PR-4 个性化（前端 `prompt-style-profile` 记录采纳、魔术棒注入 `recentAccepted`，后端 few-shot 风格参考）开发中。采纳判定：提交内容命中润色候选即记入本地画像（去重、限量 5）。
-- v0.4（2026-07-06）：PR-2（#285）已合并部署；PR-3 结构化 variants（provider 用 chat `n` 取多候选 + 前端"换一个"循环回填）开发中。可用 `PROMPT_OPTIMIZE_VARIANTS`（1-5，默认 3）配置候选数。
-- v0.3（2026-07-06）：PR-1（#284）已合并部署；PR-2 前端接线（魔术棒 `resolveIntent` 注入意图 + `directionLabel` 展示）开发中。
+
+- **v1.0（2026-07-06）**：**本期闭环**。PR-1~4 + hotfix（#284~#288）全部合并部署；新增 §11 闭环总结（生产配置、复测、已知限制、backlog、用户说明）；PR-5 明确搁置。附录 A 改为已交付实现要点，源码以 `context.ts` / `prompt-style-profile.ts` 为准。
+- v0.5（2026-07-06）：PR-3（#286）已合并部署；PR-4 个性化开发中。
+- v0.4（2026-07-06）：PR-2（#285）已合并部署；PR-3 结构化 variants 开发中。
+- v0.3（2026-07-06）：PR-1（#284）已合并部署；PR-2 前端接线开发中。
 - v0.2（2026-07-05）：追加附录 A 各 Phase 实现细则与 `INTENT_PERSONA` 草稿。
 - v0.1（2026-07-05）：初稿。确立四层架构、意图矩阵、context/响应契约、PR 分期。

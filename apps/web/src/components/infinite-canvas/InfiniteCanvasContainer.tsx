@@ -45,6 +45,8 @@ export type InfiniteCanvasContainerProps = {
   backgroundMode?: CanvasBackgroundMode;
   showMiniMap?: boolean;
   showZoomControls?: boolean;
+  /** 左下角控件需额外抬高的像素（避开 StudioDock） */
+  overlayBottomInsetPx?: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -91,6 +93,7 @@ export function InfiniteCanvasContainer({
   backgroundMode = "lines",
   showMiniMap: showMiniMapProp,
   showZoomControls: showZoomControlsProp,
+  overlayBottomInsetPx = 0,
 }: InfiniteCanvasContainerProps) {
   // ---- local state ----
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -753,6 +756,7 @@ export function InfiniteCanvasContainer({
             height: containerRef.current?.clientHeight ?? 600,
           }}
           onViewportChange={onViewportChange}
+          bottomInsetPx={overlayBottomInsetPx}
         />
       )}
 
@@ -764,6 +768,7 @@ export function InfiniteCanvasContainer({
           onReset={resetViewport}
           isMiniMapOpen={isMiniMapOpen}
           onToggleMiniMap={() => setIsMiniMapOpen((v) => !v)}
+          bottomInsetPx={overlayBottomInsetPx}
         />
       )}
 

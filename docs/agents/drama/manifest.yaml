@@ -1,0 +1,180 @@
+# AI 短剧 Agent 机器可读注册表
+# 设计真源（aspiration）；运行时仍以 apps/api/src/lib/drama/planner/ 为准。
+# 校验：后续 D1 可加 scripts/validate-drama-manifest.mjs
+
+apiVersion: aimarket.ai/v1
+kind: DramaAgentManifest
+metadata:
+  id: drama-plan
+  version: 1
+  name: AI 短剧多 Agent 规划
+  description: 五专职 Agent 链式产出 DramaProjectData，Think→Commit 可选
+  owner: drama-team
+  docs: docs/agents/drama/README.md
+
+domain:
+  projectTypes:
+    - id: short_drama
+      label: 短剧
+      defaultDurationSec: 90
+      defaultAspectRatio: "9:16"
+    - id: mv
+      label: MV / 音乐短片
+      defaultDurationSec: 60
+      defaultAspectRatio: "9:16"
+    - id: creative
+      label: 创意实验短片
+      defaultDurationSec: 90
+      defaultAspectRatio: "9:16"
+  invariants:
+    - stable_ids: "char_* / scene_* / shot_* 下游不可删除"
+    - shot_count: "8-15 镜"
+    - character_count: "1-4 人"
+    - structured_output: "每 Agent Commit 过 JSON Schema"
+
+orchestrator:
+  id: drama-plan-orchestrator
+  implementation: apps/api/src/lib/drama/planner/index.ts
+  mode: sequential
+  pipeline:
+    - writer
+    - director
+    - character
+    - cinematographer
+    - storyboard
+  merge:
+    full: apps/api/src/lib/drama/planner/merge.ts#mergePlanningContext
+    partial: apps/api/src/lib/drama/planner/merge.ts#mergePartialPlanningContext
+  rerunFromAgent: planDramaProjectFromAgentWithEvents
+  refine:
+    guidance: apps/api/src/lib/drama/planner/refine.ts#refineGuidance
+    fields: [refineInstruction, basePlan]
+
+runtime:
+  implementation: apps/api/src/lib/drama/planner/reasoning.ts
+  protocol: think_commit
+  env:
+    enabled: AGENT_DRAMA_PLAN_ENABLED
+    planModel: AGENT_DRAMA_PLAN_MODEL
+    fallbackModel: AGENT_DRAMA_PLAN_FALLBACK_MODEL
+    thinkEnabled: DRAMA_PLAN_THINK_ENABLED
+  llm:
+    router: "@aimarket/agent-core completeWithFallback"
+    temperature:
+      think: 0.5
+      commit: 0.35
+    maxTokens:
+      think: 1024
+      commit: 8192
+  fallback:
+    - multi_agent_llm_fail → single_llm
+    - single_llm_fail → rule_based
+    - no_llm_key → rule_based
+  events:
+    types:
+      - agent_start
+      - agent_reasoning
+      - agent_done
+      - agent_snapshot
+      - plan_complete
+      - plan_failed
+    spec: apps/api/src/lib/drama/planner/types.ts#DramaPlanEvent
+
+agents:
+  - id: writer
+    layer: plan
+    order: 1
+    label: 编剧
+    role: 剧本结构与分镜骨架
+    implementation: apps/api/src/lib/drama/planner/agents/writer.ts
+    manifest: docs/agents/drama/agents/writer.md
+    inputs:
+      context: [input.userIdea, duration, aspectRatio, refineGuidance]
+    outputs:
+      schema: WRITER_JSON_SCHEMA
+      schemaFile: apps/api/src/lib/drama/planner/schemas.ts
+      fields: [title, logline, acts, narratorLines, scenes, shots]
+    downstream: [director, character, cinematographer, storyboard]
+
+  - id: director
+    layer: plan
+    order: 2
+    label: 导演
+    role: 视觉风格圣经 styleBible
+    implementation: apps/api/src/lib/drama/planner/agents/director.ts
+    manifest: docs/agents/drama/agents/director.md
+    variants: [short_drama, mv, creative]
+    inputs:
+      context: [writer.*, aspectRatio, refineGuidance]
+    outputs:
+      schema: DIRECTOR_JSON_SCHEMA
+      fields: [styleBible, productionNotes]
+    downstream: [character, cinematographer, storyboard]
+
+  - id: character
+    layer: plan
+    order: 3
+    label: 角色
+    role: Anchor First 角色定稿
+    implementation: apps/api/src/lib/drama/planner/agents/character.ts
+    manifest: docs/agents/drama/agents/character.md
+    inputs:
+      context: [writer.*, director.styleBible, voiceCatalog, refineGuidance]
+    outputs:
+      schema: CHARACTER_JSON_SCHEMA
+      fields: [characters]
+    constraints:
+      maxCharacters: 4
+      idMustMatch: writer.shots.characterIds
+    downstream: [storyboard]
+
+  - id: cinematographer
+    layer: plan
+    order: 4
+    label: 摄影
+    role: 镜头语言与运动
+    implementation: apps/api/src/lib/drama/planner/agents/cinematographer.ts
+    manifest: docs/agents/drama/agents/cinematographer.md
+    inputs:
+      context: [writer.shots, director.styleBible, refineGuidance]
+    outputs:
+      schema: CINEMATOGRAPHER_JSON_SCHEMA
+      fields: [shots.id, shots.cameraSpec, shots.motionPrompt]
+    constraints:
+      noAddRemoveShotIds: true
+    downstream: [storyboard]
+
+  - id: storyboard
+    layer: plan
+    order: 5
+    label: 分镜
+    role: 可生成画面描述与时长
+    implementation: apps/api/src/lib/drama/planner/agents/storyboard.ts
+    manifest: docs/agents/drama/agents/storyboard.md
+    inputs:
+      context: [writer, director, character, cinematographer, duration, refineGuidance]
+    outputs:
+      schema: STORYBOARD_JSON_SCHEMA
+      fields: [shots]
+    downstream: [mergePlanningContext]
+
+  - id: qc-director
+    layer: production
+    order: null
+    label: 质检导演
+    role: 成片叙事/构图评分
+    implementation: apps/api/src/lib/drama/planner/qc-director.ts
+    manifest: docs/agents/drama/agents/qc-director.md
+    trigger: drama_run.status === completed
+    inputs:
+      context: [DramaProjectData.script, DramaProjectData.shots]
+    outputs:
+      schema: QC_JSON_SCHEMA
+      type: DramaQcReport
+    fallback: rule_based + audit scores
+
+production:
+  skill:
+    id: drama-short-v1
+    file: packages/agent-skills/skills/drama-short-v1.yaml
+    steps: [char_refs, scene_refs, keyframes, shot_videos, tts, lipsync, narrator_tts, final_edit]

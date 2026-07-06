@@ -2325,7 +2325,7 @@ export function CreationPanel({
                   className={`absolute bottom-1 right-1 rounded-lg p-1.5 transition ${
                     prompt.trim() && !polishBusy
                       ? "text-orange-400 hover:bg-white/10 hover:text-orange-300"
-                      : "text-zinc-600 opacity-70"
+                      : "pointer-events-none text-zinc-600 opacity-70"
                   }`}
                   aria-label="润色描述"
                 >

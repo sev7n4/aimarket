@@ -11,6 +11,8 @@ interface StudioDockProps {
   hidden?: boolean;
   /** 双栏外壳：对齐到左对话栏底部（否则整宽居中） */
   alignLeft?: boolean;
+  /** 双栏左对话栏宽度（px），与 ConversationTimeline 拖拽宽度同步 */
+  alignLeftWidth?: number;
   children: ReactNode;
 }
 
@@ -22,8 +24,10 @@ export function StudioDock({
   onModeChange,
   hidden = false,
   alignLeft = false,
+  alignLeftWidth,
   children,
 }: StudioDockProps) {
+  const leftWidth = alignLeftWidth ?? 340;
   if (hidden) return null;
   if (mode === "focus") {
     return (
@@ -66,8 +70,9 @@ export function StudioDock({
     >
       <div
         className={`w-full drop-shadow-[0_12px_40px_rgba(0,0,0,0.45)] ${
-          alignLeft ? "lg:w-[340px] xl:w-[380px]" : "max-w-3xl"
+          alignLeft ? "lg:max-w-none" : "max-w-3xl"
         }`}
+        style={alignLeft ? { width: leftWidth, maxWidth: leftWidth } : undefined}
       >
         {children}
       </div>
@@ -84,4 +89,10 @@ export function studioDockCanvasPadding(_mode: StudioDockMode): string {
 export function studioDockScrollInset(mode: StudioDockMode): string {
   if (mode === "focus") return "pb-[4.75rem] sm:pb-20";
   return "pb-28 sm:pb-32";
+}
+
+/** Infinite 画布左下角控件需抬高的像素（与 Dock 高度对应） */
+export function studioDockOverlayInsetPx(mode: StudioDockMode): number {
+  if (mode === "focus") return 80;
+  return 128;
 }

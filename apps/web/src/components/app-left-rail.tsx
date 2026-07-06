@@ -102,7 +102,7 @@ export function AppLeftRail({
   const openStudio = useCallback(() => {
     clientNavigate(
       router,
-      buildStudioUrl("canvas", { title: "未命名", newDraft: false }),
+      buildStudioUrl("canvas", { title: "未命名", newDraft: true }),
     );
   }, [router]);
 

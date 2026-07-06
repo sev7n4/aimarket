@@ -115,7 +115,7 @@ function ProjectsContent() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-bold text-white">项目库</h1>
           <Link
-            href="/studio?kind=canvas&title=新建画布"
+            href={buildStudioUrl("canvas", { title: "新建画布", newDraft: true, workspaceId })}
             className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-orange-500 to-orange-400 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-orange-500/25 transition hover:from-orange-600 hover:to-orange-500"
           >
             <Plus className="size-4" />

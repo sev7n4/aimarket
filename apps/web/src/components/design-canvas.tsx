@@ -220,6 +220,14 @@ interface DesignCanvasProps {
   conversationPaneEnabled?: boolean;
   /** 双栏激活状态变化通知外层（用于把底部 Dock 对齐到左对话栏） */
   onConversationPaneActiveChange?: (active: boolean) => void;
+  /** 双栏左对话栏宽度（px） */
+  conversationPaneWidth?: number;
+  /** 双栏分隔条拖拽开始 */
+  onConversationPaneResizeStart?: (event: React.MouseEvent) => void;
+  /** 双栏分隔条拖拽中 */
+  conversationPaneResizing?: boolean;
+  /** Infinite 画布左下角控件需抬高的像素（避开 StudioDock） */
+  overlayBottomInsetPx?: number;
   /** 「节点视图 ↔ 滚动视图」切换开关是否可用（三车道一致） */
   canvasViewEnabled?: boolean;
   /** 制片模式：Infinite 下叠加短剧节点编排面板 */
@@ -320,6 +328,10 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       useInfiniteCanvas = false,
       conversationPaneEnabled = false,
       onConversationPaneActiveChange,
+      conversationPaneWidth,
+      onConversationPaneResizeStart,
+      conversationPaneResizing = false,
+      overlayBottomInsetPx = 0,
       canvasViewEnabled = false,
       dramaPhaseSplitEnabled = false,
       dramaViewPhase = "agent",
@@ -1413,6 +1425,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                     connections={canvasConnections}
                     viewport={infiniteViewport}
                     selectedNodeIds={infiniteSelectedIds}
+                    overlayBottomInsetPx={overlayBottomInsetPx}
                     renderPanel={
                       isWorkflowInfinite ? renderInfiniteNodeStudioPanel : undefined
                     }
@@ -1715,6 +1728,16 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                 orchestrationActions={orchestrationActions}
                 orchestrationExtra={orchestrationExtra}
                 scrollBottomInset={scrollBottomInset}
+                width={conversationPaneWidth}
+              />
+              <div
+                onMouseDown={onConversationPaneResizeStart}
+                className={`hidden w-1 shrink-0 cursor-col-resize items-stretch transition-colors hover:bg-orange-500/30 lg:flex ${
+                  conversationPaneResizing ? "bg-orange-500/50" : "bg-transparent"
+                }`}
+                data-testid="conversation-pane-resizer"
+                title="拖拽调整对话栏宽度"
+                aria-label="拖拽调整对话栏宽度"
               />
               <ProductGallery
                 ref={scrollCanvasRef}

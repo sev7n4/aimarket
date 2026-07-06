@@ -12,9 +12,10 @@ type CanvasZoomControlsProps = {
     onReset: () => void;
     isMiniMapOpen: boolean;
     onToggleMiniMap: () => void;
+    bottomInsetPx?: number;
 };
 
-export function CanvasZoomControls({ scale, onScaleChange, onReset, isMiniMapOpen, onToggleMiniMap }: CanvasZoomControlsProps) {
+export function CanvasZoomControls({ scale, onScaleChange, onReset, isMiniMapOpen, onToggleMiniMap, bottomInsetPx = 0 }: CanvasZoomControlsProps) {
     const [shortcutsOpen, setShortcutsOpen] = useState(false);
     const dialogRef = useRef<HTMLDialogElement>(null);
     const dockStyle = { background: canvasTheme.toolbar.panel, borderColor: canvasTheme.toolbar.border, color: canvasTheme.toolbar.item, boxShadow: "0 18px 45px rgba(0,0,0,.32)" };
@@ -42,7 +43,12 @@ export function CanvasZoomControls({ scale, onScaleChange, onReset, isMiniMapOpe
     }, [closeShortcuts]);
 
     return (
-        <div className="absolute bottom-5 left-5 z-50" onMouseDown={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+        <div
+            className="absolute left-5 z-50"
+            style={{ bottom: 20 + bottomInsetPx }}
+            onMouseDown={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+        >
             <div className="flex h-14 items-center gap-1 rounded-xl border px-2 shadow-lg backdrop-blur" style={dockStyle}>
                 <button
                     type="button"
