@@ -28,7 +28,6 @@ import { ContentReportDialog } from "@/components/content-report-dialog";
 import {
   ToolConfirmDialog,
   type ToolConfirmOptions,
-  type ToolConfirmRequest,
 } from "@/components/tool-confirm-dialog";
 import { GridSplitPanel } from "@/components/grid-split-panel";
 import {
@@ -51,12 +50,7 @@ import { copyTextToClipboard } from "@/lib/clipboard";
 import { formatJobErrorMessage } from "@/lib/job-error-message";
 import { type CreationMode } from "@aimarket/ui";
 import type { ImageSession, StudioTool } from "@/lib/types";
-import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
-import type { InfiniteNodeToolRequest } from "@/lib/infinite-node-tool-run";
-import {
-  resolveNodeToolPrompt,
-  resolveNodeToolReferences,
-} from "@/lib/infinite-node-tool-run";
+import type { CanvasItem } from "@/lib/canvas-tools";
 import { StudioOrchestrationProvider } from "@/components/studio-orchestration-provider";
 import { StudioCanvasWithOrchestration } from "@/components/studio-canvas-with-orchestration";
 import { useAuth } from "@/lib/auth-context";
@@ -109,10 +103,8 @@ import {
 } from "@/lib/job-stream";
 import { consumePendingAssets, type PendingAsset } from "@/lib/pending-assets";
 import { consumePendingInspiration, normalizePendingInspiration } from "@/lib/pending-inspiration";
-import { expandFromDirection } from "@/lib/expand-extend";
 import {
   paddingToExtend,
-  type ExpandAspectPreset,
 } from "@/lib/expand-frame";
 import { focusIndexLabel } from "@/lib/focus-index-labels";
 import { resolveToolResolution } from "@/lib/tool-resolution";
@@ -124,52 +116,11 @@ import { clientNavigate } from "@/lib/client-navigate";
 import { writeDraftSessionId } from "@/lib/studio-draft-session";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useConversationPaneWidth } from "@/hooks/use-conversation-pane-width";
-
-type SelectionToolInteraction =
-  | "direct"
-  | "brush"
-  | "prompt"
-  | "click"
-  | "expand-frame";
-
-const TOOL_INTERACTIONS: Record<string, SelectionToolInteraction> = {
-  cutout: "direct",
-  upscale: "direct",
-  enhance: "direct",
-  variation: "direct",
-  "grid-split": "direct",
-  erase: "brush",
-  inpaint: "brush",
-  "focus-edit": "click",
-  expand: "expand-frame",
-  text: "prompt",
-  blend: "prompt",
-};
+import { useStudioToolHandlers } from "@/hooks/use-studio-tool-handlers";
+import { buildToolPromptSuffix } from "@/lib/studio-tool-interaction";
+import type { StudioMentionItemRequest } from "@/lib/canvas-node-handlers";
 
 const FOCUS_CLICK_DEBOUNCE_MS = 1500;
-
-function getToolInteraction(toolId: string): SelectionToolInteraction {
-  return TOOL_INTERACTIONS[toolId] ?? "prompt";
-}
-
-function buildToolPromptSuffix(tool: StudioTool): string {
-  switch (tool.id) {
-    case "erase":
-      return "请处理局部区域：去掉/清理 ";
-    case "inpaint":
-      return "请局部重绘：把指定区域改成 ";
-    case "expand":
-      return "请扩展画面，方向和要求是：";
-    case "text":
-      return "请修改图片文字为：";
-    case "blend":
-      return "请与另一个 @ 图片融合，要求是：";
-    case "focus-edit":
-      return tool.defaultPrompt;
-    default:
-      return `${tool.defaultPrompt}，要求是：`;
-  }
-}
 
 /** Studio 侧栏会话列表：拉取上限（API 按 updated_at 降序） */
 const STUDIO_SIDEBAR_SESSION_LIMIT = 200;
@@ -328,27 +279,8 @@ export function StudioWorkspace({
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(
     null,
   );
-  const [pendingToolId, setPendingToolId] = useState<string | null>(null);
-  const [mentionItemRequest, setMentionItemRequest] = useState<{
-    key: number;
-    item: CanvasItem;
-    promptSuffix?: string;
-    maskSelection?: CanvasMaskSelection;
-  } | null>(null);
-  const [brushRequest, setBrushRequest] = useState<{
-    key: number;
-    itemId: string;
-    toolId: string;
-    toolName: string;
-    promptExtra?: string;
-  } | null>(null);
-  const [expandRequest, setExpandRequest] = useState<{
-    key: number;
-    itemId: string;
-    toolName: string;
-    promptExtra?: string;
-    aspectPreset?: ExpandAspectPreset;
-  } | null>(null);
+  const [mentionItemRequest, setMentionItemRequest] =
+    useState<StudioMentionItemRequest | null>(null);
   const [focusEditSession, setFocusEditSession] =
     useState<FocusEditSession | null>(null);
   const [focusRecognizing, setFocusRecognizing] = useState(false);
@@ -362,10 +294,6 @@ export function StudioWorkspace({
   const lastFocusClickAtRef = useRef(0);
   /** 受控的内容举报对话框（StudioHeader 右上 ⚠ 触发） */
   const [reportOpen, setReportOpen] = useState(false);
-  const [toolConfirm, setToolConfirm] = useState<ToolConfirmRequest | null>(
-    null,
-  );
-  const [toolConfirmPending, setToolConfirmPending] = useState(false);
 
   const handleWorkspaceChange = useCallback(
     (id: string) => {
@@ -984,15 +912,6 @@ export function StudioWorkspace({
     prevItemCountRef.current = count;
   }, [canvasItems.length, pollingJobId, scrollToLatestCanvasBatch]);
 
-  function handleQuickToolFromCanvas(
-    item: CanvasItem,
-    toolId: "cutout" | "expand",
-  ) {
-    const tool = tools.find((t) => t.id === toolId);
-    if (!tool) return;
-    void handleRunSelectionTool(tool, item);
-  }
-
   /**
    * 选中画布图片后，从浮层 AI 工具栏一键跑工具。
    * - 优先 outputId（已生成图）；其次 assetId（上传图）。
@@ -1029,6 +948,37 @@ export function StudioWorkspace({
     );
     hapticLight();
   }
+
+  const {
+    pendingToolId,
+    toolConfirm,
+    toolConfirmPending,
+    setToolConfirm,
+    brushRequest,
+    setBrushRequest,
+    expandRequest,
+    setExpandRequest,
+    runSelectionTool,
+    runQuickToolFromCanvas,
+    runInfiniteNodeTool,
+    executeDirectTool,
+    confirmTool,
+  } = useStudioToolHandlers({
+    sessionId,
+    readOnly,
+    user,
+    tools,
+    canvasItems,
+    canvasRef,
+    registerBatchLineage,
+    onJobStarted: (jobId) => handleJobStarted(jobId),
+    setPollingJobId,
+    setSelectedCanvasId,
+    onRequireLogin: () => setLoginOpen(true),
+    setSelectSourceBanner,
+    setMentionItemRequest,
+    startFocusEditMode,
+  });
 
   const handleFocusImageClick = useCallback(
     async (item: CanvasItem, point: { x: number; y: number }) => {
@@ -1079,235 +1029,6 @@ export function StudioWorkspace({
     },
     [user, readOnly, focusEditSession, sessionId],
   );
-
-  async function executeDirectTool(
-    tool: StudioTool,
-    item: CanvasItem,
-    opts: ToolConfirmOptions,
-  ) {
-    const referenceOutputIds = item.outputId ? [item.outputId] : undefined;
-    const assetIds =
-      !referenceOutputIds && item.assetId ? [item.assetId] : undefined;
-    setPendingToolId(tool.id);
-    try {
-      const userPrompt = opts.prompt?.trim();
-      const prompt =
-        userPrompt || tool.defaultPrompt;
-      const { jobId } = await runTool(tool.id, {
-        sessionId,
-        prompt,
-        referenceOutputIds,
-        assetIds,
-        resolution: resolveToolResolution(tool.id),
-        aspectRatio: tool.id === "expand" ? "auto" : undefined,
-        count: tool.id === "variation" ? opts.count : 1,
-        ...(tool.id === "upscale"
-          ? { scale: opts.scale ?? ("2x" as const) }
-          : {}),
-        ...(tool.id === "expand"
-          ? {
-              extend:
-                opts.expandExtend ??
-                expandFromDirection(opts.expandDirection),
-            }
-          : {}),
-      });
-      void trackEvent("tool_run", {
-        tool_id: tool.id,
-        job_id: jobId,
-        has_reference: true,
-        count: tool.id === "variation" ? opts.count : 1,
-      });
-      registerToolBatchLineage(jobId, item, tool.name);
-      if (canvasRef.current?.isInRefineMode()) {
-        canvasRef.current.beginRefineJob();
-      }
-      setPollingJobId(jobId);
-      setSelectSourceBanner(null);
-    } catch (err) {
-      setSelectSourceBanner(
-        err instanceof Error ? err.message : "工具执行失败",
-      );
-    } finally {
-      setPendingToolId(null);
-    }
-  }
-
-  const handleRunInfiniteNodeTool = useCallback(
-    async (request: InfiniteNodeToolRequest) => {
-      if (readOnly || !sessionId) return;
-      const tool =
-        tools.find((t) => t.id === request.toolId) ??
-        ({
-          id: request.toolId,
-          name: request.toolId,
-          description: "",
-          defaultPrompt: "",
-        } satisfies StudioTool);
-      const item =
-        canvasItems.find((i) => i.id === request.node.id) ?? null;
-      const refs = resolveNodeToolReferences(request.node, item);
-      const prompt =
-        request.prompt?.trim() ||
-        resolveNodeToolPrompt(request.node, tool.defaultPrompt);
-
-      if (tool.requiresSource && !refs.referenceOutputIds?.length && !refs.assetIds?.length) {
-        setSelectSourceBanner(
-          `${tool.name}：请先生成分镜图或选择带参考图的节点`,
-        );
-        return;
-      }
-
-      setPendingToolId(tool.id);
-      try {
-        const { jobId } = await runTool(tool.id, {
-          sessionId,
-          prompt,
-          referenceOutputIds: refs.referenceOutputIds,
-          assetIds: refs.assetIds,
-          resolution: resolveToolResolution(tool.id),
-          aspectRatio: tool.id === "expand" ? "auto" : undefined,
-          toolContext: request.toolContext
-            ? {
-                toolId: request.toolId,
-                ...request.toolContext,
-              }
-            : undefined,
-        });
-        void trackEvent("tool_run", {
-          tool_id: tool.id,
-          job_id: jobId,
-          has_reference: Boolean(
-            refs.referenceOutputIds?.length || refs.assetIds?.length,
-          ),
-          source: "infinite_context_menu",
-        });
-        if (item) {
-          registerToolBatchLineage(jobId, item, tool.name);
-        }
-        handleJobStarted(jobId);
-        setSelectSourceBanner(null);
-      } catch (err) {
-        setSelectSourceBanner(
-          err instanceof Error ? err.message : "工具执行失败",
-        );
-      } finally {
-        setPendingToolId(null);
-      }
-    },
-    [
-      readOnly,
-      sessionId,
-      tools,
-      canvasItems,
-      registerToolBatchLineage,
-      handleJobStarted,
-    ],
-  );
-
-  async function handleToolConfirm(opts: ToolConfirmOptions) {
-    if (!toolConfirm) return;
-    const { tool, item } = toolConfirm;
-    const interaction = getToolInteraction(tool.id);
-
-    if (interaction === "brush") {
-      setToolConfirm(null);
-      setExpandRequest(null);
-      setBrushRequest({
-        key: Date.now(),
-        itemId: item.id,
-        toolId: tool.id,
-        toolName: tool.name,
-        promptExtra:
-          tool.id === "erase" ? opts.prompt?.trim() || undefined : undefined,
-      });
-      setSelectSourceBanner(
-        tool.id === "inpaint"
-          ? `${tool.name}：请先用画笔圈选区域，完成后再在工作台填写修改提示词。`
-          : `${tool.name}：请在图片上涂抹要处理的区域（可调节画笔粗细）。`,
-      );
-      hapticLight();
-      return;
-    }
-
-    if (interaction === "expand-frame") {
-      setToolConfirm(null);
-      setBrushRequest(null);
-      setExpandRequest({
-        key: Date.now(),
-        itemId: item.id,
-        toolName: tool.name,
-        promptExtra: opts.prompt?.trim() || undefined,
-        aspectPreset: opts.expandAspectPreset,
-      });
-      setSelectSourceBanner(
-        `${tool.name}：拖拽外框四角或四边调整扩图范围，可选比例后确认。`,
-      );
-      hapticLight();
-      return;
-    }
-
-    if (interaction === "click") {
-      setToolConfirm(null);
-      const suffix = opts.prompt?.trim()
-        ? `${buildToolPromptSuffix(tool)}${opts.prompt.trim()}`
-        : buildToolPromptSuffix(tool);
-      startFocusEditMode(item, {
-        intent: opts.intent,
-        promptHint: suffix,
-      });
-      return;
-    }
-
-    if (interaction === "prompt") {
-      if (tool.id === "blend") {
-        setToolConfirm(null);
-        const suffix = opts.prompt?.trim()
-          ? `${buildToolPromptSuffix(tool)}${opts.prompt.trim()}`
-          : buildToolPromptSuffix(tool);
-        setMentionItemRequest((prev) => ({
-          key: (prev?.key ?? 0) + 1,
-          item,
-          promptSuffix: suffix,
-        }));
-        setSelectSourceBanner(
-          `${tool.name}：已把当前图 @ 到工作台，请再 @ 另一张素材并提交。`,
-        );
-        hapticLight();
-        return;
-      }
-    }
-
-    setToolConfirmPending(true);
-    try {
-      await executeDirectTool(tool, item, opts);
-      setToolConfirm(null);
-    } finally {
-      setToolConfirmPending(false);
-    }
-  }
-
-  async function handleRunSelectionTool(
-    tool: StudioTool,
-    item: CanvasItem,
-  ) {
-    if (!user) {
-      setLoginOpen(true);
-      return;
-    }
-    if (readOnly || tool.clientOnly) return;
-    setSelectedCanvasId(item.id);
-    const referenceOutputIds = item.outputId ? [item.outputId] : undefined;
-    const assetIds =
-      !referenceOutputIds && item.assetId ? [item.assetId] : undefined;
-    if (tool.requiresSource && !referenceOutputIds && !assetIds) {
-      setSelectSourceBanner("请先在画布点选一张已生成的图片");
-      return;
-    }
-
-    setToolConfirm({ tool, item });
-    hapticLight();
-  }
 
   async function handleCanvasDownload() {
     const selected = canvasItems.find((i) => i.id === selectedCanvasId);
@@ -1940,7 +1661,7 @@ export function StudioWorkspace({
               onInfiniteConnectionsChange={setInfiniteConnections}
               dramaNodePositions={dramaNodePositions}
               onDramaNodePositionsChange={setDramaNodePositions}
-              onRunInfiniteNodeTool={(req) => void handleRunInfiniteNodeTool(req)}
+              onRunInfiniteNodeTool={(req) => void runInfiniteNodeTool(req)}
               onJumpToParentBatch={handleJumpToParentBatch}
               selectedId={selectedCanvasId}
               onSelect={(id) => {
@@ -1975,8 +1696,8 @@ export function StudioWorkspace({
               jobStartedAt={jobStartedAt}
               selectSourceBanner={selectSourceBanner}
               showFailureBannerDismiss={jobFailed}
-              onCutoutItem={(item) => handleQuickToolFromCanvas(item, "cutout")}
-              onExpandItem={(item) => handleQuickToolFromCanvas(item, "expand")}
+              onCutoutItem={(item) => runQuickToolFromCanvas(item, "cutout")}
+              onExpandItem={(item) => runQuickToolFromCanvas(item, "expand")}
               brushRequest={brushRequest}
               focusClickRequest={focusClickRequest}
               onFocusImageClick={(item, point) =>
@@ -2048,7 +1769,7 @@ export function StudioWorkspace({
                 tools,
                 pendingToolId,
                 onRunTool: (tool, item) =>
-                  void handleRunSelectionTool(tool, item),
+                  void runSelectionTool(tool, item),
                 onMentionItem: (item) => {
                   setMentionItemRequest((prev) => ({
                     key: (prev?.key ?? 0) + 1,
@@ -2096,7 +1817,7 @@ export function StudioWorkspace({
                   pendingToolId={pendingToolId}
                   layout={mobile ? "horizontal" : "vertical"}
                   onRunTool={(tool, item) =>
-                    void handleRunSelectionTool(tool, item)
+                    void runSelectionTool(tool, item)
                   }
                   onMentionItem={(item) => {
                     setMentionItemRequest((prev) => ({
@@ -2298,7 +2019,7 @@ export function StudioWorkspace({
         onClose={() => {
           if (!toolConfirmPending) setToolConfirm(null);
         }}
-        onConfirm={(opts) => void handleToolConfirm(opts)}
+        onConfirm={(opts) => void confirmTool(opts)}
       />
       {toolConfirm?.tool.id === "grid-split" ? (
         <GridSplitPanel
@@ -2311,7 +2032,7 @@ export function StudioWorkspace({
           }}
           onConfirm={(opts) => {
             // 将行列数编码到 prompt 中传递给后端
-            void handleToolConfirm({
+            void confirmTool({
               count: 1,
               prompt: `宫格切分 ${opts.rows}×${opts.cols}`,
             });
