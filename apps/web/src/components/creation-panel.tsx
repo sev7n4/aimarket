@@ -31,9 +31,6 @@ import {
   getVideoModelRoutesMeta,
   fetchReferences,
   fetchProviderStatus,
-  submitEcommerceGenerate,
-  submitGeneration,
-  submitVideoGeneration,
   suggestModel,
   uploadAsset,
   registerAssetFromUrl,
@@ -62,8 +59,6 @@ import {
   type MentionItem,
 } from "@/components/mention-picker";
 import {
-  pendingLineageToApiFields,
-  resolveSubmitBatchLineage,
   type CanvasItem,
   type CanvasMaskSelection,
   type PendingBatchLineage,
@@ -173,6 +168,9 @@ import {
   submitAgentOrchestration,
   submitSkillOrchestration,
 } from "@/lib/creation-orchestration-submit";
+import {
+  submitStudioDirectGeneration,
+} from "@/lib/studio-submit";
 import type { StudioDockMode } from "@/lib/studio-dock-state";
 import type {
   FocusEditIntent,
@@ -309,8 +307,6 @@ interface CreationPanelProps {
   agentSkills?: boolean;
   /** Agent Run 结束（成功/失败/取消）后回调 */
   onAgentRunComplete?: () => void;
-  /** 外部触发提交（如 Infinite 空画布创作入口），每次递增 nonce */
-  externalSubmitNonce?: number;
 }
 
 export type CreationPanelHandle = {
@@ -365,7 +361,6 @@ export const CreationPanel = forwardRef<CreationPanelHandle, CreationPanelProps>
   agentOrchestration = false,
   agentSkills = false,
   onAgentRunComplete,
-  externalSubmitNonce,
 }: CreationPanelProps,
   ref,
 ) {
@@ -1715,153 +1710,45 @@ export const CreationPanel = forwardRef<CreationPanelHandle, CreationPanelProps>
 
     setPending(true);
     try {
-      await ensureSession(sessionId, mode, {
-        title: prompt.trim() ? prompt.trim().slice(0, 40) : undefined,
+      const referenceImageSources = buildReferenceSources();
+      const direct = await submitStudioDirectGeneration({
+        sessionId,
+        mode,
+        prompt,
+        creationLane,
+        submitVideo,
+        submitEcommerce,
+        modelId,
+        aspectRatio,
+        count,
+        resolution,
+        videoReferenceMode,
+        videoDurationSec,
+        videoResolution,
+        videoReferences,
+        smartMultiShots,
+        firstLastMotionPrompt,
+        canvasItems,
+        referenceImageSources,
+        mentionedMasks,
+        models,
+        videoRoutes,
+        videoAutoMeta,
+        brand,
+        platform,
+        market,
+        language,
+        designer,
+        productAssetId,
+        referenceAssetId,
       });
-      const submitLineage = resolveSubmitBatchLineage(canvasItems, {
-        maskSelection:
-          mentionedMasks.length > 0
-            ? mentionedMasks[mentionedMasks.length - 1]
-            : null,
-        referenceOutputIds:
-          selectedRefs.length > 0 ? selectedRefs.map((r) => r.id) : undefined,
-        toolName: mentionedMasks[mentionedMasks.length - 1]?.toolId,
-      });
-      const lineageApi = pendingLineageToApiFields(submitLineage);
-      let jobId: string;
-      if (submitVideo) {
-        const videoModel = models.find((m) => m.type === "video");
-        if (!videoModel) {
-          alert("当前暂无可用视频模型");
-          return;
-        }
-        const videoModelId = resolveVideoSubmitModelId(
-          modelId,
-          models,
-          videoAutoMeta,
-        );
-        const route =
-          getVideoModelRoute(videoModelId) ??
-          videoRoutes.find((r) => r.modelId === videoModelId);
-        if (route && !route.available) {
-          alert(route.unavailableReason ?? "该视频模型当前不可用");
-          return;
-        }
-        const degradeHint = capabilityDegradationMessage(videoModelId);
-        if (degradeHint && !window.confirm(`${degradeHint}，是否继续？`)) {
-          return;
-        }
-        if (videoReferenceMode === "omni" && videoReferences.length > 0) {
-          const mentionCheck = validateOmniVideoMentions(prompt, videoReferences);
-          if (!mentionCheck.ok) {
-            alert(mentionCheck.message ?? "请检查 @ 引用");
-            return;
-          }
-        }
-        const videoRefs = buildReferenceSources();
-        const videoAssetIds = Array.from(
-          new Set([...videoRefs.assetIds, ...videoRefs.mentionedAssetIds]),
-        );
-        const structuredRefs =
-          videoReferenceMode === "omni" || videoReferenceMode === "first-last"
-            ? videoReferences.map(({ assetId, mediaType, role }) => ({
-                assetId,
-                mediaType,
-                role,
-              }))
-            : undefined;
-        const shotsPayload =
-          videoReferenceMode === "smart-multi-frame"
-            ? smartMultiShots
-                .filter((s) => s.motionPrompt.trim())
-                .map((s, i) => ({
-                  order: i,
-                  assetId: s.assetId,
-                  motionPrompt: s.motionPrompt.trim(),
-                }))
-            : undefined;
-        const mergedPrompt =
-          videoReferenceMode === "first-last" && firstLastMotionPrompt.trim()
-            ? `${prompt.trim()}\n\n运动描述：${firstLastMotionPrompt.trim()}`
-            : prompt.trim();
-        const res = await submitVideoGeneration({
-          sessionId,
-          prompt: mergedPrompt,
-          modelId: videoModelId,
-          count,
-          resolution,
-          aspectRatio: videoSubmitAspectRatio(),
-          videoResolution,
-          referenceMode: videoReferenceMode,
-          durationSec: videoDurationSec,
-          videoReferences: structuredRefs?.length ? structuredRefs : undefined,
-          smartMultiShots: shotsPayload?.length ? shotsPayload : undefined,
-          assetIds:
-            videoReferenceMode === "omni" && videoAssetIds.length
-              ? videoAssetIds
-              : undefined,
-          referenceOutputIds: normalizeReferenceOutputIds(
-            videoRefs.selectedRefIds,
-          ),
-          sourceLane: "video",
-          ...lineageApi,
-        });
-        jobId = res.jobId;
-      } else if (submitEcommerce) {
-        const res = await submitEcommerceGenerate({
-          sessionId,
-          brand: brand || undefined,
-          platform,
-          market,
-          language,
-          productInfo: prompt.trim(),
-          designer,
-          resolution,
-          productAssetId: productAssetId ?? undefined,
-          referenceAssetId: referenceAssetId ?? undefined,
-        });
-        jobId = res.jobId;
-        setRouteHint(res.routeReason);
+      const jobId = direct.jobId;
+      const submitLineage = direct.lineage;
+      if (direct.routeReason) setRouteHint(direct.routeReason);
+      else if (direct.byokActive) setRouteHint("BYOK 已启用 · 将使用您的 OpenAI Key");
+      if (submitEcommerce) {
         setProductAssetId(null);
         setReferenceAssetId(null);
-      } else {
-        const useAuto = modelId === AUTO_MODEL_ID;
-        const imageRefs = buildReferenceSources();
-        const mergedAssetIds = Array.from(
-          new Set([...imageRefs.assetIds, ...imageRefs.mentionedAssetIds]),
-        );
-        const toolEdit = mentionedMasks.length > 0;
-        const res = await submitGeneration({
-          sessionId,
-          prompt: prompt.trim(),
-          modelId: useAuto ? undefined : modelId,
-          count: toolEdit ? 1 : count,
-          resolution,
-          aspectRatio: coerceAspectRatio(aspectRatio),
-          mode: effectiveMode === "ecommerce" ? "ecommerce" : "image",
-          assetIds: mergedAssetIds.length ? mergedAssetIds : undefined,
-          referenceOutputIds: normalizeReferenceOutputIds(
-            imageRefs.selectedRefIds,
-          ),
-          autoRoute: useAuto,
-          sourceLane: creationLane === "video" ? "video" : "image",
-          toolContext: mentionedMasks.length
-            ? {
-                toolId: mentionedMasks[mentionedMasks.length - 1].toolId,
-                masks: mentionedMasks.map((m) => ({
-                  itemId: m.itemId,
-                  mode: m.mode,
-                  maskDataUrl: m.maskDataUrl,
-                  bbox: m.bbox,
-                  normalizedBbox: m.normalizedBbox,
-                })),
-              }
-            : undefined,
-          ...lineageApi,
-        });
-        jobId = res.jobId;
-        if (res.routeReason) setRouteHint(res.routeReason);
-        else if (res.byokActive) setRouteHint("BYOK 已启用 · 将使用您的 OpenAI Key");
       }
       if (homeDirectSubmit) {
         persistCreationLane("studio", creationLane);
@@ -1902,18 +1789,6 @@ export const CreationPanel = forwardRef<CreationPanelHandle, CreationPanelProps>
       void handleSubmitRef.current();
     },
   }));
-
-  const prevExternalSubmitNonce = useRef<number | undefined>(undefined);
-  useEffect(() => {
-    if (externalSubmitNonce == null) return;
-    if (prevExternalSubmitNonce.current === undefined) {
-      prevExternalSubmitNonce.current = externalSubmitNonce;
-      return;
-    }
-    if (externalSubmitNonce === prevExternalSubmitNonce.current) return;
-    prevExternalSubmitNonce.current = externalSubmitNonce;
-    void handleSubmitRef.current();
-  }, [externalSubmitNonce]);
 
   const autoSubmitFiredRef = useRef(false);
   useEffect(() => {

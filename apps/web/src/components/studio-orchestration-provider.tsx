@@ -66,7 +66,7 @@ export interface StudioOrchestrationSubmitContext {
   referenceAssetId?: string;
 }
 
-interface StudioOrchestrationContextValue {
+export interface StudioOrchestrationContextValue {
   sessionId: string;
   studioMode: CreationMode;
   agentRun: AgentRun | null;

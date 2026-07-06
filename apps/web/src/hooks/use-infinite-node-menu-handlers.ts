@@ -32,8 +32,16 @@ function itemForNode(items: CanvasItem[], node: CanvasNodeData): CanvasItem | nu
   return items.find((i) => i.id === node.id) ?? null;
 }
 
-/** Infinite 节点右键菜单 / 工具链共用 handler 工厂 */
-export function useInfiniteNodeMenuHandlers(ctx: InfiniteNodeMenuHandlerContext) {
+export type BuildInfiniteNodeMenuHandlersOptions = {
+  openAssetUrl?: (url: string) => void;
+};
+
+/** Infinite 节点右键菜单 / 工具链共用 handler 工厂（纯函数，供单测） */
+export function buildInfiniteNodeMenuHandlers(
+  node: CanvasNodeData,
+  ctx: InfiniteNodeMenuHandlerContext,
+  options?: BuildInfiniteNodeMenuHandlersOptions,
+): InfiniteNodeMenuHandlers {
   const {
     items,
     onCutoutItem,
@@ -51,74 +59,75 @@ export function useInfiniteNodeMenuHandlers(ctx: InfiniteNodeMenuHandlerContext)
     onEditDramaNode,
     onExtractVideoLastFrame,
   } = ctx;
+  const openAssetUrl = options?.openAssetUrl ?? ((url: string) => {
+    window.open(assetUrl(url), "_blank");
+  });
+  const item = itemForNode(items, node);
 
-  return useCallback(
-    (node: CanvasNodeData): InfiniteNodeMenuHandlers => {
-      const item = itemForNode(items, node);
-
-      return {
-        onCutout:
-          onCutoutItem && item ? () => onCutoutItem(item) : undefined,
-        onExpand:
-          onExpandItem && item ? () => onExpandItem(item) : undefined,
-        onRerun: onRerun && item ? () => onRerun(item) : undefined,
-        onDownload: () => {
-          if (item) onDownloadItem?.(item);
-          else window.open(assetUrl(node.metadata?.content ?? ""), "_blank");
-        },
-        onDelete: () => onDeleteNodes([node.id]),
-        onRecompose: item
-          ? () => {
-              const idx = items.findIndex((i) => i.id === item.id);
-              onOpenLightbox(items, idx >= 0 ? idx : 0);
-              onSelect(item.id);
-            }
-          : undefined,
-        onVideoInpaint: () => onVideoInpaint(node),
-        onMusicGen,
-        onMultiCam9: () => onRunInfiniteNodeTool("multi-cam-9", node),
-        onMultiCam25: () => onRunInfiniteNodeTool("multi-cam-25", node),
-        onStoryboardEvolve: () =>
-          onRunInfiniteNodeTool("storyboard-evolve", node),
-        onTurnaround360: () =>
-          onRunInfiniteNodeTool("turnaround-360", node),
-        onLighting: () => onOpenLighting(node),
-        onCamera: () => onOpenCamera(node),
-        onEditScript: () => onEditDramaNode(node.id),
-        onEditShot: () => onEditDramaNode(node.id),
-        onEditCharacter: () => onEditDramaNode(node.id),
-        onEditScene: () => onEditDramaNode(node.id),
-        onGenerateShotImage: () => {
-          console.info("[infinite-canvas] 触发分镜图生成：节点", node.id);
-        },
-        onGenerateShotVideo: () => {
-          console.info("[infinite-canvas] 触发分镜视频生成：节点", node.id);
-        },
-        onGenerateCharacterSheet: () => {
-          console.info("[infinite-canvas] 触发三视图生成：节点", node.id);
-        },
-        onExtractKeyframe:
-          item && onExtractVideoLastFrame
-            ? () => onExtractVideoLastFrame(item)
-            : undefined,
-      };
+  return {
+    onCutout: onCutoutItem && item ? () => onCutoutItem(item) : undefined,
+    onExpand: onExpandItem && item ? () => onExpandItem(item) : undefined,
+    onRerun: onRerun && item ? () => onRerun(item) : undefined,
+    onDownload: () => {
+      if (item) onDownloadItem?.(item);
+      else openAssetUrl(node.metadata?.content ?? "");
     },
+    onDelete: () => onDeleteNodes([node.id]),
+    onRecompose: item
+      ? () => {
+          const idx = items.findIndex((i) => i.id === item.id);
+          onOpenLightbox(items, idx >= 0 ? idx : 0);
+          onSelect(item.id);
+        }
+      : undefined,
+    onVideoInpaint: () => onVideoInpaint(node),
+    onMusicGen,
+    onMultiCam9: () => onRunInfiniteNodeTool("multi-cam-9", node),
+    onMultiCam25: () => onRunInfiniteNodeTool("multi-cam-25", node),
+    onStoryboardEvolve: () => onRunInfiniteNodeTool("storyboard-evolve", node),
+    onTurnaround360: () => onRunInfiniteNodeTool("turnaround-360", node),
+    onLighting: () => onOpenLighting(node),
+    onCamera: () => onOpenCamera(node),
+    onEditScript: () => onEditDramaNode(node.id),
+    onEditShot: () => onEditDramaNode(node.id),
+    onEditCharacter: () => onEditDramaNode(node.id),
+    onEditScene: () => onEditDramaNode(node.id),
+    onGenerateShotImage: () => {
+      console.info("[infinite-canvas] 触发分镜图生成：节点", node.id);
+    },
+    onGenerateShotVideo: () => {
+      console.info("[infinite-canvas] 触发分镜视频生成：节点", node.id);
+    },
+    onGenerateCharacterSheet: () => {
+      console.info("[infinite-canvas] 触发三视图生成：节点", node.id);
+    },
+    onExtractKeyframe:
+      item && onExtractVideoLastFrame
+        ? () => onExtractVideoLastFrame(item)
+        : undefined,
+  };
+}
+
+/** Infinite 节点右键菜单 / 工具链共用 handler 工厂 */
+export function useInfiniteNodeMenuHandlers(ctx: InfiniteNodeMenuHandlerContext) {
+  return useCallback(
+    (node: CanvasNodeData) => buildInfiniteNodeMenuHandlers(node, ctx),
     [
-      items,
-      onCutoutItem,
-      onExpandItem,
-      onRerun,
-      onDownloadItem,
-      onDeleteNodes,
-      onSelect,
-      onOpenLightbox,
-      onVideoInpaint,
-      onOpenLighting,
-      onOpenCamera,
-      onMusicGen,
-      onRunInfiniteNodeTool,
-      onEditDramaNode,
-      onExtractVideoLastFrame,
+      ctx.items,
+      ctx.onCutoutItem,
+      ctx.onExpandItem,
+      ctx.onRerun,
+      ctx.onDownloadItem,
+      ctx.onDeleteNodes,
+      ctx.onSelect,
+      ctx.onOpenLightbox,
+      ctx.onVideoInpaint,
+      ctx.onOpenLighting,
+      ctx.onOpenCamera,
+      ctx.onMusicGen,
+      ctx.onRunInfiniteNodeTool,
+      ctx.onEditDramaNode,
+      ctx.onExtractVideoLastFrame,
     ],
   );
 }

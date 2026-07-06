@@ -63,3 +63,21 @@ export function resolveUseInfiniteCanvas(input: CanvasViewInput): boolean {
   if (input.isDramaPlanActive) return false;
   return input.canvasFlowEnabled && input.viewPhase === "workflow";
 }
+
+/**
+ * Infinite 引擎下且短剧 phase split 开启、用户处于 workflow（节点）视图。
+ *
+ * 控制侧栏 Drama/Assistant 面板与 legacy orchestration dock；
+ * **不等于** `resolveUseInfiniteCanvas`（后者只决定是否渲染 Infinite 引擎）。
+ */
+export function resolveIsDramaWorkflowInfiniteView(input: {
+  useInfiniteCanvas: boolean;
+  dramaPhaseSplitEnabled: boolean;
+  viewPhase: DramaStudioViewPhase;
+}): boolean {
+  return (
+    input.useInfiniteCanvas &&
+    input.dramaPhaseSplitEnabled &&
+    input.viewPhase === "workflow"
+  );
+}
