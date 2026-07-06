@@ -3,12 +3,10 @@
 import { useEffect, useMemo } from "react";
 import { X } from "lucide-react";
 
+import { buildCanvasNodeActions } from "@/lib/canvas-node-actions";
 import { canvasTheme } from "./canvas-theme";
 import { CanvasNodeType, type CanvasNodeData } from "./types";
-import {
-  buildInfiniteNodeMenuGroups,
-  type InfiniteNodeMenuHandlers,
-} from "./infinite-node-menu-actions";
+import type { InfiniteNodeMenuHandlers } from "./infinite-node-menu-actions";
 
 export interface InfiniteCanvasContextMenuProps {
   node: CanvasNodeData;
@@ -35,7 +33,10 @@ export function InfiniteCanvasContextMenu({
 
   const groups = useMemo(
     () =>
-      buildInfiniteNodeMenuGroups(node, handlers, {
+      buildCanvasNodeActions({
+        mode: "infinite",
+        node,
+        handlers,
         wrapOnClick: (fn) =>
           fn
             ? () => {

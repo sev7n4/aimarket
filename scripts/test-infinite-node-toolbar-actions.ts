@@ -3,7 +3,7 @@
  * Infinite 节点工具链去重单测（纯逻辑，无需 API）
  * pnpm --filter @aimarket/api exec sh -c 'TSX_TSCONFIG_PATH=../web/tsconfig.json tsx ../../scripts/test-infinite-node-toolbar-actions.ts'
  */
-import { buildInfiniteNodeToolbarActions } from "../apps/web/src/components/infinite-canvas/infinite-node-toolbar-actions.ts";
+import { buildCanvasNodeToolbarActions } from "../apps/web/src/lib/canvas-node-toolbar-actions.ts";
 import {
   CanvasNodeType,
   type CanvasNodeData,
@@ -71,7 +71,7 @@ const canvasItem: CanvasItem = {
 
 // 无 Studio 工具时：仅 menu actions
 {
-  const actions = buildInfiniteNodeToolbarActions({
+  const actions = buildCanvasNodeToolbarActions({
     node: imageNode(),
     handlers: stubHandlers,
   });
@@ -87,7 +87,7 @@ const canvasItem: CanvasItem = {
 
 // 有 Studio 工具时：cutout/expand 去重，variation 保留
 {
-  const actions = buildInfiniteNodeToolbarActions({
+  const actions = buildCanvasNodeToolbarActions({
     node: imageNode(),
     handlers: stubHandlers,
     item: canvasItem,
@@ -124,7 +124,7 @@ const canvasItem: CanvasItem = {
 
 // pending 态传递到 studio action
 {
-  const actions = buildInfiniteNodeToolbarActions({
+  const actions = buildCanvasNodeToolbarActions({
     node: imageNode(),
     handlers: stubHandlers,
     item: canvasItem,
@@ -146,7 +146,7 @@ const canvasItem: CanvasItem = {
     id: "text-1",
     type: CanvasNodeType.Text,
   };
-  const actions = buildInfiniteNodeToolbarActions({
+  const actions = buildCanvasNodeToolbarActions({
     node: textNode,
     handlers: { onDelete: () => {} },
     item: null,

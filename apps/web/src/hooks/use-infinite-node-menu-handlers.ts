@@ -23,6 +23,10 @@ export type InfiniteNodeMenuHandlerContext = {
   onRunInfiniteNodeTool: (toolId: string, node: CanvasNodeData) => void;
   onEditDramaNode: (nodeId: string) => void;
   onExtractVideoLastFrame?: (item: CanvasItem) => void;
+  onGenerateShotImage?: (node: CanvasNodeData) => void;
+  onGenerateShotVideo?: (node: CanvasNodeData) => void;
+  onGenerateCharacterSheet?: (node: CanvasNodeData) => void;
+  onGenerateShotsFromScript?: (node: CanvasNodeData) => void;
 };
 
 function itemForNode(items: CanvasItem[], node: CanvasNodeData): CanvasItem | null {
@@ -58,6 +62,10 @@ export function buildInfiniteNodeMenuHandlers(
     onRunInfiniteNodeTool,
     onEditDramaNode,
     onExtractVideoLastFrame,
+    onGenerateShotImage,
+    onGenerateShotVideo,
+    onGenerateCharacterSheet,
+    onGenerateShotsFromScript,
   } = ctx;
   const openAssetUrl = options?.openAssetUrl ?? ((url: string) => {
     window.open(assetUrl(url), "_blank");
@@ -92,15 +100,17 @@ export function buildInfiniteNodeMenuHandlers(
     onEditShot: () => onEditDramaNode(node.id),
     onEditCharacter: () => onEditDramaNode(node.id),
     onEditScene: () => onEditDramaNode(node.id),
-    onGenerateShotImage: () => {
-      console.info("[infinite-canvas] 触发分镜图生成：节点", node.id);
-    },
-    onGenerateShotVideo: () => {
-      console.info("[infinite-canvas] 触发分镜视频生成：节点", node.id);
-    },
-    onGenerateCharacterSheet: () => {
-      console.info("[infinite-canvas] 触发三视图生成：节点", node.id);
-    },
+    onGenerateShotImage: onGenerateShotImage
+      ? () => onGenerateShotImage(node)
+      : onGenerateShotsFromScript && node.type === CanvasNodeType.Script
+        ? () => onGenerateShotsFromScript(node)
+        : undefined,
+    onGenerateShotVideo: onGenerateShotVideo
+      ? () => onGenerateShotVideo(node)
+      : undefined,
+    onGenerateCharacterSheet: onGenerateCharacterSheet
+      ? () => onGenerateCharacterSheet(node)
+      : undefined,
     onExtractKeyframe:
       item && onExtractVideoLastFrame
         ? () => onExtractVideoLastFrame(item)
@@ -128,6 +138,10 @@ export function useInfiniteNodeMenuHandlers(ctx: InfiniteNodeMenuHandlerContext)
       ctx.onRunInfiniteNodeTool,
       ctx.onEditDramaNode,
       ctx.onExtractVideoLastFrame,
+      ctx.onGenerateShotImage,
+      ctx.onGenerateShotVideo,
+      ctx.onGenerateCharacterSheet,
+      ctx.onGenerateShotsFromScript,
     ],
   );
 }

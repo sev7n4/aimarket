@@ -23,6 +23,8 @@ import type { AgentExternalAction, CanvasAgentSnapshot } from "@/components/infi
 import type { CanvasAgentOp } from "@/components/infinite-canvas/utils";
 import { applyDramaCanvasOps } from "@/components/infinite-canvas/drama/drama-canvas-mutations";
 import { dramaShotIdFromNodeId } from "@/lib/infinite-node-tool-run";
+import type { DesignCanvasNodeActions } from "@/lib/canvas-node-handlers";
+import type { CanvasNodeData } from "@/components/infinite-canvas/types";
 import type { DramaStudioViewPhase } from "@/lib/drama-studio-view";
 import { isCanvasFlowMode } from "@/lib/modes";
 import {
@@ -595,10 +597,56 @@ export const StudioCanvasWithOrchestration = forwardRef<
       />
     ) : null;
 
+  const mergedNodeActions = useMemo((): DesignCanvasNodeActions | undefined => {
+    const base = props.nodeActions;
+    if (!dramaLaneActive) return base;
+
+    const drama: NonNullable<DesignCanvasNodeActions["drama"]> = {
+      ...base?.drama,
+      onGenerateShotImage: dramaRun
+        ? (node: CanvasNodeData) => {
+            const shotId = dramaShotIdFromNodeId(node.id);
+            if (shotId) handleRetryShot(shotId, "keyframe");
+          }
+        : base?.drama?.onGenerateShotImage,
+      onGenerateShotVideo: dramaRun
+        ? (node: CanvasNodeData) => {
+            const shotId = dramaShotIdFromNodeId(node.id);
+            if (shotId) handleRetryShot(shotId, "video");
+          }
+        : base?.drama?.onGenerateShotVideo,
+      onGenerateCharacterSheet: dramaRun
+        ? () => {
+            void rerunDramaFromNode("char_refs", {});
+          }
+        : base?.drama?.onGenerateCharacterSheet,
+      onGenerateShotsFromScript:
+        dramaDraftProject &&
+        (dramaPlanRun?.status === "completed" ||
+          dramaPlanRun?.status === "failed")
+          ? () => {
+              handleRerunFromAgent("storyboard");
+            }
+          : base?.drama?.onGenerateShotsFromScript,
+    };
+
+    return { ...base, drama };
+  }, [
+    props.nodeActions,
+    dramaLaneActive,
+    dramaRun,
+    dramaDraftProject,
+    dramaPlanRun?.status,
+    handleRetryShot,
+    rerunDramaFromNode,
+    handleRerunFromAgent,
+  ]);
+
   return (
     <DesignCanvas
       ref={ref}
       {...props}
+      nodeActions={mergedNodeActions}
       useInfiniteCanvas={useInfiniteCanvas}
       conversationPaneEnabled={dramaLaneActive}
       canvasViewEnabled={canvasViewToggleEnabled}

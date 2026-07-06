@@ -5,21 +5,10 @@ import type {
   ToolConfirmOptions,
   ToolConfirmRequest,
 } from "@/components/tool-confirm-dialog";
+import type { CanvasNodeData } from "@/components/infinite-canvas/types";
 import type { CanvasItem, CanvasMaskSelection, PendingBatchLineage } from "@/lib/canvas-tools";
 import type { ExpandAspectPreset } from "@/lib/expand-frame";
-import { expandFromDirection } from "@/lib/expand-extend";
 import type { InfiniteNodeToolRequest } from "@/lib/infinite-node-tool-run";
-import {
-  resolveNodeToolPrompt,
-  resolveNodeToolReferences,
-} from "@/lib/infinite-node-tool-run";
-import { runTool, trackEvent } from "@/lib/api-client";
-import { hapticLight } from "@/lib/haptics";
-import { resolveToolResolution } from "@/lib/tool-resolution";
-import {
-  buildToolPromptSuffix,
-  getToolInteraction,
-} from "@/lib/studio-tool-interaction";
 import type { StudioTool } from "@/lib/types";
 
 export type StudioBrushRequest = {
@@ -87,4 +76,30 @@ export type UseStudioToolHandlersResult = {
     opts: ToolConfirmOptions,
   ) => Promise<void>;
   confirmTool: (opts: ToolConfirmOptions) => Promise<void>;
+};
+
+/** DesignCanvas 节点动作工厂 props（Scroll + Infinite 共用） */
+export type DesignCanvasNodeActions = {
+  onCutoutItem?: (item: CanvasItem) => void;
+  onExpandItem?: (item: CanvasItem) => void;
+  onRerun?: (item: CanvasItem) => void;
+  onDownloadItem?: (item: CanvasItem) => void;
+  onShareItem?: (item: CanvasItem) => void;
+  onPublishItem?: (item: CanvasItem) => void;
+  onRunInfiniteNodeTool?: (request: InfiniteNodeToolRequest) => void;
+  batchTools?: {
+    tools: StudioTool[];
+    pendingToolId?: string | null;
+    onRunTool: (tool: StudioTool, item: CanvasItem) => void;
+    onMentionItem?: (item: CanvasItem) => void;
+    onExtractVideoLastFrame?: (item: CanvasItem) => void;
+    onAddVideoBgm?: (item: CanvasItem) => void;
+    videoActionBusy?: boolean;
+  };
+  drama?: {
+    onGenerateShotImage?: (node: CanvasNodeData) => void;
+    onGenerateShotVideo?: (node: CanvasNodeData) => void;
+    onGenerateCharacterSheet?: (node: CanvasNodeData) => void;
+    onGenerateShotsFromScript?: (node: CanvasNodeData) => void;
+  };
 };

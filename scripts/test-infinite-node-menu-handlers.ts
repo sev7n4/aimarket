@@ -3,6 +3,7 @@
  * Infinite 节点 menu handler 工厂单测（纯逻辑，无需 API）
  * pnpm --filter @aimarket/api exec sh -c 'TSX_TSCONFIG_PATH=../web/tsconfig.json tsx ../../scripts/test-infinite-node-menu-handlers.ts'
  */
+import { buildCanvasNodeActions } from "../apps/web/src/lib/canvas-node-actions.ts";
 import {
   buildInfiniteNodeMenuHandlers,
   type InfiniteNodeMenuHandlerContext,
@@ -130,18 +131,44 @@ function baseCtx(
   assert("download without item opens asset url", opened.includes("example.com"));
 }
 
-// drama stub handlers 可调用（P2-5 前占位）
+// scroll 右键菜单：仅 cutout/expand/download/delete 子集
 {
-  const handlers = buildInfiniteNodeMenuHandlers(imageNode(), baseCtx());
-  let threw = false;
-  try {
-    handlers.onGenerateShotImage?.();
-    handlers.onGenerateShotVideo?.();
-    handlers.onGenerateCharacterSheet?.();
-  } catch {
-    threw = true;
-  }
-  assert("drama stub handlers callable", !threw);
+  const groups = buildCanvasNodeActions({
+    mode: "scroll",
+    item: canvasItem,
+    handlers: {
+      onCutout: () => {},
+      onExpand: () => {},
+      onDownload: () => {},
+      onDelete: () => {},
+    },
+  });
+  const ids = groups.flatMap((g) => g.actions.map((a) => a.id));
+  assert("scroll menu includes cutout", ids.includes("cutout"));
+  assert("scroll menu includes delete", ids.includes("delete"));
+  assert("scroll menu excludes rerun", !ids.includes("rerun"));
+  assert("scroll menu excludes multi-cam", !ids.includes("multi-cam-9"));
+}
+
+// drama handlers 路由到真实回调（非 console.info stub）
+{
+  let shotImageNode: string | null = null;
+  let charSheetCalled = false;
+  const handlers = buildInfiniteNodeMenuHandlers(
+    imageNode(),
+    baseCtx({
+      onGenerateShotImage: (node) => {
+        shotImageNode = node.id;
+      },
+      onGenerateCharacterSheet: () => {
+        charSheetCalled = true;
+      },
+    }),
+  );
+  handlers.onGenerateShotImage?.();
+  handlers.onGenerateCharacterSheet?.();
+  assert("drama shot image routes node id", shotImageNode === "img-1");
+  assert("drama character sheet routed", charSheetCalled);
   assert(
     "drama edit routes node id",
     typeof handlers.onEditScript === "function",

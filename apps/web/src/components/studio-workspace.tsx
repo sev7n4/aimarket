@@ -1661,7 +1661,6 @@ export function StudioWorkspace({
               onInfiniteConnectionsChange={setInfiniteConnections}
               dramaNodePositions={dramaNodePositions}
               onDramaNodePositionsChange={setDramaNodePositions}
-              onRunInfiniteNodeTool={(req) => void runInfiniteNodeTool(req)}
               onJumpToParentBatch={handleJumpToParentBatch}
               selectedId={selectedCanvasId}
               onSelect={(id) => {
@@ -1675,7 +1674,6 @@ export function StudioWorkspace({
               onUpload={handleCanvasUpload}
               onDownload={() => void handleCanvasDownload()}
               onDeleteSelected={handleDeleteCanvasItem}
-              onRerun={(item) => void handleRerun(item)}
               emptyHint=""
               scrollBottomInset={
                 infiniteCanvasActive ? "" : studioDockScrollInset(dockMode)
@@ -1696,8 +1694,55 @@ export function StudioWorkspace({
               jobStartedAt={jobStartedAt}
               selectSourceBanner={selectSourceBanner}
               showFailureBannerDismiss={jobFailed}
-              onCutoutItem={(item) => runQuickToolFromCanvas(item, "cutout")}
-              onExpandItem={(item) => runQuickToolFromCanvas(item, "expand")}
+              nodeActions={{
+                onCutoutItem: (item) => runQuickToolFromCanvas(item, "cutout"),
+                onExpandItem: (item) => runQuickToolFromCanvas(item, "expand"),
+                onRerun: (item) => void handleRerun(item),
+                onRunInfiniteNodeTool: (req) => void runInfiniteNodeTool(req),
+                batchTools: {
+                  tools,
+                  pendingToolId,
+                  onRunTool: (tool, item) => void runSelectionTool(tool, item),
+                  onMentionItem: (item) => {
+                    setMentionItemRequest((prev) => ({
+                      key: (prev?.key ?? 0) + 1,
+                      item,
+                    }));
+                    hapticLight();
+                  },
+                  onExtractVideoLastFrame: (item) =>
+                    void handleExtractVideoLastFrame(item),
+                  onAddVideoBgm: handleAddVideoBgm,
+                  videoActionBusy,
+                },
+                onShareItem: async (item) => {
+                  try {
+                    await copyTextToClipboard(assetUrl(item.url));
+                    setSelectSourceBanner("图片链接已复制，可粘贴分享");
+                  } catch {
+                    setSelectSourceBanner("复制失败，请重试");
+                  }
+                },
+                onPublishItem: async (item) => {
+                  if (!item.outputId) {
+                    setSelectSourceBanner("仅支持发布已生成的图片或视频");
+                    return;
+                  }
+                  try {
+                    await publishCanvasToInspiration({
+                      outputId: item.outputId,
+                    });
+                    setSelectSourceBanner(
+                      "已发布到灵感发现 · 他人可制作同款并注入提示词",
+                    );
+                    hapticLight();
+                  } catch (err) {
+                    setSelectSourceBanner(
+                      err instanceof Error ? err.message : "发布失败，请重试",
+                    );
+                  }
+                },
+              }}
               brushRequest={brushRequest}
               focusClickRequest={focusClickRequest}
               onFocusImageClick={(item, point) =>
@@ -1764,50 +1809,6 @@ export function StudioWorkspace({
                     : "已完成圈选：区域 mask 已加入工作台，可补充说明后提交。",
                 );
                 hapticLight();
-              }}
-              batchTools={{
-                tools,
-                pendingToolId,
-                onRunTool: (tool, item) =>
-                  void runSelectionTool(tool, item),
-                onMentionItem: (item) => {
-                  setMentionItemRequest((prev) => ({
-                    key: (prev?.key ?? 0) + 1,
-                    item,
-                  }));
-                  hapticLight();
-                },
-                onExtractVideoLastFrame: (item) =>
-                  void handleExtractVideoLastFrame(item),
-                onAddVideoBgm: handleAddVideoBgm,
-                videoActionBusy,
-              }}
-              onShareItem={async (item) => {
-                try {
-                  await copyTextToClipboard(assetUrl(item.url));
-                  setSelectSourceBanner("图片链接已复制，可粘贴分享");
-                } catch {
-                  setSelectSourceBanner("复制失败，请重试");
-                }
-              }}
-              onPublishItem={async (item) => {
-                if (!item.outputId) {
-                  setSelectSourceBanner("仅支持发布已生成的图片或视频");
-                  return;
-                }
-                try {
-                  await publishCanvasToInspiration({
-                    outputId: item.outputId,
-                  });
-                  setSelectSourceBanner(
-                    "已发布到灵感发现 · 他人可制作同款并注入提示词",
-                  );
-                  hapticLight();
-                } catch (err) {
-                  setSelectSourceBanner(
-                    err instanceof Error ? err.message : "发布失败，请重试",
-                  );
-                }
               }}
               selectionToolbar={
                 <CanvasSelectionToolbar
