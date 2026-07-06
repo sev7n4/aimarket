@@ -12,7 +12,8 @@
 |------|------|------|---------|
 | **P0** | 安全网 + 概念收敛 | ✅ 完成 | PR-1 ~ PR-2 |
 | **P1** | 提交主线统一 | ✅ 完成 | PR-3 ~ PR-4 |
-| **P2** | 工具 / 菜单主线统一 | ✅ 完成 | PR-5（#292） |
+| **P2** | 工具 / 菜单主线统一 | ✅ 完成 | #292 |
+| **P3** | 画布三 Pane 拆分 | 🔄 进行中 | PR-8 ~ PR-11 |
 | **P3** | 画布三 Pane 拆分 | ⬜ 未开始 | PR-8 ~ PR-11 |
 | **P4** | 输入层拆分 + 组件去重 | ⬜ 未开始 | PR-12 ~ PR-13 |
 | **P5** | workspace 瘦身 + 收尾 | ⬜ 未开始 | PR-14 |
@@ -86,8 +87,8 @@
 
 | ID | 任务 | 状态 | 产出 | 验证 |
 |----|------|------|------|------|
-| P3-1 | 共享 `CanvasPaneProps` | ⬜ | `canvas-pane-types.ts` | 无行为变更 |
-| P3-2 | `InfiniteCanvasPane.tsx` | ⬜ | 从 design-canvas 迁出 | infinite E2E 绿 |
+| P3-1 | 共享 `CanvasPaneProps` | ✅ | `canvas-panes/canvas-pane-types.ts` | 无行为变更 |
+| P3-2 | `InfiniteCanvasPane.tsx` | ✅ | 从 design-canvas 迁出 | infinite E2E 绿 |
 | P3-3 | `ScrollCanvasPane.tsx` | ⬜ | ProductGallery + 双栏 | canvas-batch E2E |
 | P3-4 | `FreeCanvasPane.tsx` | ⬜ | refine / compare | focus-edit E2E |
 | P3-5 | `DesignCanvas` 瘦身为路由 | ⬜ | <500 行 | 全 E2E 绿 |
@@ -128,10 +129,8 @@
 | PR-2 | P0-3, P0-4 | 同上 | ✅ #291 |
 | PR-3 | P1-1, P1-2 | 同上 | ✅ #291 |
 | PR-4 | P1-3, P1-4, P1-5 | 同上 | ✅ #291 |
-| PR-5 | P2-1 ~ P2-6 | `enhancement/studio-tool-handlers` | 🔄 #292 |
-| PR-6 | — | （并入 PR-5） | — |
-| PR-7 | — | （并入 PR-5） | — |
-| PR-8 | P3-1, P3-2 | `enhancement/infinite-canvas-pane` | ⬜ |
+| PR-5 | P2-1 ~ P2-6 | `enhancement/studio-tool-handlers` | ✅ #292 |
+| PR-8 | P3-1, P3-2 | `enhancement/infinite-canvas-pane` | 🔄 待开 |
 | PR-9 | P3-3 | `enhancement/scroll-canvas-pane` | ⬜ |
 | PR-10 | P3-4, P3-5 | `enhancement/design-canvas-router` | ⬜ |
 | PR-11 | P3-6 | `enhancement/orchestration-overlay` | ⬜ |
@@ -160,7 +159,8 @@
 |------|------|
 | 2026-07-06 | 初版计划；P0 开工分支 `enhancement/studio-refactor-p0` |
 | 2026-07-06 | P2-1：`useStudioToolHandlers` 抽取；`studio-workspace` 2331→2051 行 |
-| 2026-07-06 | P2 完成：`buildCanvasNodeActions` / `buildCanvasNodeToolbarActions`；`nodeActions` factory；Drama handler 接线 |
+| 2026-07-06 | P2 完成并合并 #292（`71a5f6b`） |
+| 2026-07-06 | P3-1/P3-2：`InfiniteCanvasPane` 抽取开工 |
 
 ---
 
