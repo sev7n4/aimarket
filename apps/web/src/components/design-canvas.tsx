@@ -51,11 +51,12 @@ import {
 import { VideoInpaintEditor } from "@/components/video-inpaint-editor";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { ArrowLeft, Bookmark, Columns2, MessageCircle, Music, Network, Plus } from "lucide-react";
-import type { StudioTool } from "@/lib/types";
 import { InfiniteCanvasContainer } from "@/components/infinite-canvas/InfiniteCanvasContainer";
 import { InfiniteCanvasContextMenu } from "@/components/infinite-canvas/InfiniteCanvasContextMenu";
 import { InfiniteCanvasEmptyPrompt } from "@/components/infinite-canvas/InfiniteCanvasEmptyPrompt";
-import { buildInfiniteNodeToolbarActions } from "@/components/infinite-canvas/infinite-node-toolbar-actions";
+import { buildCanvasNodeToolbarActions } from "@/lib/canvas-node-toolbar-actions";
+import { buildCanvasNodeActions } from "@/lib/canvas-node-actions";
+import type { DesignCanvasNodeActions } from "@/lib/canvas-node-handlers";
 import { useInfiniteNodeMenuHandlers } from "@/hooks/use-infinite-node-menu-handlers";
 import { canvasTheme } from "@/components/infinite-canvas/canvas-theme";
 import { LightingOverlay, type LightSource } from "@/components/infinite-canvas/drama/LightingOverlay";
@@ -153,8 +154,8 @@ interface DesignCanvasProps {
   /** 失败时顶部提示条可关闭 */
   showFailureBannerDismiss?: boolean;
   onDismissJobFailure?: () => void;
-  onCutoutItem?: (item: CanvasItem) => void;
-  onExpandItem?: (item: CanvasItem) => void;
+  /** 节点右键 / 工具链工厂（Scroll + Infinite 共用） */
+  nodeActions?: DesignCanvasNodeActions;
   brushRequest?: {
     key: number;
     itemId: string;
@@ -191,7 +192,6 @@ interface DesignCanvasProps {
     parentBatchId: string,
     sourceItemId?: string,
   ) => void;
-  onRerun?: (item: CanvasItem) => void;
   layoutMode?: CanvasLayoutMode;
   onLayoutModeChange?: (mode: CanvasLayoutMode) => void;
   onCancelJob?: () => void;
@@ -206,18 +206,6 @@ interface DesignCanvasProps {
   orchestrationExtra?: React.ReactNode;
   /** 制片模式等：替换滚动画布主区（仍可在下方展示 orchestrationExtra） */
   alternateCanvasContent?: ReactNode;
-  batchTools?: {
-    tools: StudioTool[];
-    pendingToolId?: string | null;
-    onRunTool: (tool: StudioTool, item: CanvasItem) => void;
-    onMentionItem?: (item: CanvasItem) => void;
-    onExtractVideoLastFrame?: (item: CanvasItem) => void;
-    onAddVideoBgm?: (item: CanvasItem) => void;
-    videoActionBusy?: boolean;
-  };
-  onDownloadItem?: (item: CanvasItem) => void;
-  onShareItem?: (item: CanvasItem) => void;
-  onPublishItem?: (item: CanvasItem) => void;
   /** 切换到无限画布模式（Phase 1 默认 false，Phase 2 默认 true） */
   useInfiniteCanvas?: boolean;
   /** 双栏外壳：左对话 + 右产物（仅 agent 车道，scroll 模式桌面端） */
@@ -262,8 +250,6 @@ interface DesignCanvasProps {
   onAgentExternalAction?: (action: AgentExternalAction) => void;
   /** 当前会话 ID（用于 TemplateManager 一键重跑） */
   sessionId?: string;
-  /** Phase 4：InfiniteCanvas 节点右键触发后端工具 */
-  onRunInfiniteNodeTool?: (request: InfiniteNodeToolRequest) => void;
   /** Phase 4.3：模板重跑启动（planRunId + 模板 payload，用于节点布局还原） */
   onTemplatePlanRunStarted?: (
     planRunId: string,
@@ -306,8 +292,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       selectSourceBanner = null,
       showFailureBannerDismiss = false,
       onDismissJobFailure,
-      onCutoutItem,
-      onExpandItem,
+      nodeActions,
       brushRequest = null,
       onBrushComplete,
       onBrushCancel,
@@ -320,7 +305,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       selectionToolbar = null,
       statusChip = null,
       onJumpToParentBatch,
-      onRerun,
       layoutMode = "scroll",
       onLayoutModeChange,
       onCancelJob,
@@ -333,10 +317,6 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       orchestrationActions,
       orchestrationExtra,
       alternateCanvasContent,
-      batchTools,
-      onDownloadItem,
-      onShareItem,
-      onPublishItem,
       useInfiniteCanvas = false,
       conversationPaneEnabled = false,
       onConversationPaneActiveChange,
@@ -357,12 +337,21 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onAgentExternalAction,
       allowDramaNodeCreate = false,
       sessionId,
-      onRunInfiniteNodeTool,
       onPatchDramaShotNode,
       onTemplatePlanRunStarted,
     },
     ref,
   ) {
+    const onCutoutItem = nodeActions?.onCutoutItem;
+    const onExpandItem = nodeActions?.onExpandItem;
+    const onRerun = nodeActions?.onRerun;
+    const onDownloadItem = nodeActions?.onDownloadItem;
+    const onShareItem = nodeActions?.onShareItem;
+    const onPublishItem = nodeActions?.onPublishItem;
+    const batchTools = nodeActions?.batchTools;
+    const onRunInfiniteNodeTool = nodeActions?.onRunInfiniteNodeTool;
+    const dramaNodeActions = nodeActions?.drama;
+
     const scrollCanvasRef = useRef<ProductGalleryHandle>(null);
     const freeCanvasRef = useRef<FreeCanvasHandle>(null);
     const [tool, setTool] = useState<CanvasToolId>("select");
@@ -1235,6 +1224,10 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         setDramaPanelNodeId(nodeId);
       },
       onExtractVideoLastFrame: batchTools?.onExtractVideoLastFrame,
+      onGenerateShotImage: dramaNodeActions?.onGenerateShotImage,
+      onGenerateShotVideo: dramaNodeActions?.onGenerateShotVideo,
+      onGenerateCharacterSheet: dramaNodeActions?.onGenerateCharacterSheet,
+      onGenerateShotsFromScript: dramaNodeActions?.onGenerateShotsFromScript,
     });
 
     const handleInfiniteSelectionChange = useCallback(
@@ -1261,7 +1254,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
           viewport: infiniteViewport,
         };
         const item = contextMenuForItem(node);
-        const toolActions = buildInfiniteNodeToolbarActions({
+        const toolActions = buildCanvasNodeToolbarActions({
           node,
           handlers: getInfiniteNodeMenuHandlers(node),
           item,
@@ -1863,28 +1856,38 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
 
         {contextMenu ? (
           <CanvasContextMenu
-            item={contextMenu.item}
+            groups={buildCanvasNodeActions({
+              mode: "scroll",
+              item: contextMenu.item,
+              handlers: {
+                onCutout:
+                  onCutoutItem && contextMenu.item.outputId
+                    ? () => onCutoutItem(contextMenu.item)
+                    : undefined,
+                onExpand:
+                  onExpandItem && contextMenu.item.outputId
+                    ? () => onExpandItem(contextMenu.item)
+                    : undefined,
+                onDownload: () => {
+                  onSelect(contextMenu.item.id);
+                  onDownload();
+                },
+                onDelete: () => {
+                  onSelect(contextMenu.item.id);
+                  onDeleteSelected();
+                },
+              },
+              wrapOnClick: (fn) =>
+                fn
+                  ? () => {
+                      fn();
+                      setContextMenu(null);
+                    }
+                  : undefined,
+            })}
             x={contextMenu.x}
             y={contextMenu.y}
             onClose={() => setContextMenu(null)}
-            onDownload={() => {
-              onSelect(contextMenu.item.id);
-              onDownload();
-            }}
-            onDelete={() => {
-              onSelect(contextMenu.item.id);
-              onDeleteSelected();
-            }}
-            onCutout={
-              onCutoutItem && contextMenu.item.outputId
-                ? () => onCutoutItem(contextMenu.item)
-                : undefined
-            }
-            onExpand={
-              onExpandItem && contextMenu.item.outputId
-                ? () => onExpandItem(contextMenu.item)
-                : undefined
-            }
           />
         ) : null}
 

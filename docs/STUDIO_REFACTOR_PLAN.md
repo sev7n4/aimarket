@@ -12,7 +12,7 @@
 |------|------|------|---------|
 | **P0** | 安全网 + 概念收敛 | ✅ 完成 | PR-1 ~ PR-2 |
 | **P1** | 提交主线统一 | ✅ 完成 | PR-3 ~ PR-4 |
-| **P2** | 工具 / 菜单主线统一 | ⬜ 未开始 | PR-5 ~ PR-7 |
+| **P2** | 工具 / 菜单主线统一 | ✅ 完成 | PR-5（#292） |
 | **P3** | 画布三 Pane 拆分 | ⬜ 未开始 | PR-8 ~ PR-11 |
 | **P4** | 输入层拆分 + 组件去重 | ⬜ 未开始 | PR-12 ~ PR-13 |
 | **P5** | workspace 瘦身 + 收尾 | ⬜ 未开始 | PR-14 |
@@ -71,12 +71,12 @@
 
 | ID | 任务 | 状态 | 产出 | 验证 |
 |----|------|------|------|------|
-| P2-1 | 抽出 `useStudioToolHandlers()` | ⬜ | `hooks/use-studio-tool-handlers.ts` | workspace ↓300 行 |
-| P2-2 | 统一 `CanvasNodeHandlerContext` | ⬜ | `lib/canvas-node-handlers.ts` | typecheck |
-| P2-3 | `buildCanvasNodeActions()` 合并 Scroll + Infinite | ⬜ | 替换双 menu | 右键 E2E 各 1 |
-| P2-4 | 工具链单入口 `buildCanvasNodeToolbarActions` | ⬜ | 合并 toolbar | 无重复 icon |
-| P2-5 | 实现或删除 Drama stub handlers | ⬜ | 无 console.info | drama E2E |
-| P2-6 | design-canvas 只收 factory props | ⬜ | 减 props | diff 以删为主 |
+| P2-1 | 抽出 `useStudioToolHandlers()` | ✅ | `hooks/use-studio-tool-handlers.ts` | workspace ↓280 行 |
+| P2-2 | 统一 `CanvasNodeHandlerContext` | ✅ | `lib/canvas-node-handlers.ts` | typecheck |
+| P2-3 | `buildCanvasNodeActions()` 合并 Scroll + Infinite | ✅ | `lib/canvas-node-actions.ts` | 右键 E2E 各 1 |
+| P2-4 | 工具链单入口 `buildCanvasNodeToolbarActions` | ✅ | `lib/canvas-node-toolbar-actions.ts` | 无重复 icon |
+| P2-5 | 实现或删除 Drama stub handlers | ✅ | 无 console.info | drama E2E |
+| P2-6 | design-canvas 只收 factory props | ✅ | `nodeActions` prop | diff 以删为主 |
 
 **P2 完成标准**：新增工具只改 1 个文件；菜单定义 1 处。
 
@@ -124,13 +124,13 @@
 
 | PR | 包含任务 | 分支建议 | 合并状态 |
 |----|----------|----------|----------|
-| PR-1 | P0-1, P0-2, P0-5 | `enhancement/studio-refactor-p0` | 🔄 待开 |
-| PR-2 | P0-3, P0-4 | `enhancement/studio-refactor-p0` | 🔄 与 PR-1 合并 |
-| PR-3 | P1-1, P1-2 | `enhancement/studio-submit-extract` | 🔄 与 P0 同分支待 PR |
-| PR-4 | P1-3, P1-4, P1-5 | `enhancement/studio-submit-infinite` | 🔄 与 P0 同分支待 PR |
-| PR-5 | P2-1, P2-2 | `enhancement/studio-tool-handlers` | ⬜ |
-| PR-6 | P2-3, P2-4 | `enhancement/studio-node-actions-unify` | ⬜ |
-| PR-7 | P2-5, P2-6 | `enhancement/studio-drama-stubs` | ⬜ |
+| PR-1 | P0-1, P0-2, P0-5 | `enhancement/studio-refactor-p0` | ✅ #291 |
+| PR-2 | P0-3, P0-4 | 同上 | ✅ #291 |
+| PR-3 | P1-1, P1-2 | 同上 | ✅ #291 |
+| PR-4 | P1-3, P1-4, P1-5 | 同上 | ✅ #291 |
+| PR-5 | P2-1 ~ P2-6 | `enhancement/studio-tool-handlers` | 🔄 #292 |
+| PR-6 | — | （并入 PR-5） | — |
+| PR-7 | — | （并入 PR-5） | — |
 | PR-8 | P3-1, P3-2 | `enhancement/infinite-canvas-pane` | ⬜ |
 | PR-9 | P3-3 | `enhancement/scroll-canvas-pane` | ⬜ |
 | PR-10 | P3-4, P3-5 | `enhancement/design-canvas-router` | ⬜ |
@@ -159,7 +159,8 @@
 | 日期 | 变更 |
 |------|------|
 | 2026-07-06 | 初版计划；P0 开工分支 `enhancement/studio-refactor-p0` |
-| 2026-07-06 | P1 完成：`useStudioSubmit` + `submitStudioDirectGeneration`；Infinite 空画布直调 submit；删 `externalSubmitNonce` |
+| 2026-07-06 | P2-1：`useStudioToolHandlers` 抽取；`studio-workspace` 2331→2051 行 |
+| 2026-07-06 | P2 完成：`buildCanvasNodeActions` / `buildCanvasNodeToolbarActions`；`nodeActions` factory；Drama handler 接线 |
 
 ---
 
