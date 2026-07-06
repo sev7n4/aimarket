@@ -98,12 +98,8 @@ export type InfiniteCanvasPaneProps = CanvasPaneBaseProps & {
   orchestrationExtra?: ReactNode;
 };
 
-/** Scroll 画布 Pane（P3-3 预留） */
-export type ScrollCanvasPaneProps = CanvasPaneBaseProps & {
-  // 由 P3-3 填充
-};
+/** Scroll 画布 Pane（P3-3）— 见 ScrollCanvasPane.tsx */
+export type { ScrollCanvasPaneProps } from "./ScrollCanvasPane";
 
-/** Free / Refine 画布 Pane（P3-4 预留） */
-export type FreeCanvasPaneProps = CanvasPaneBaseProps & {
-  // 由 P3-4 填充
-};
+/** Free / Refine 画布 Pane（P3-4）— 见 FreeCanvasPane.tsx */
+export type { FreeCanvasPaneProps } from "./FreeCanvasPane";

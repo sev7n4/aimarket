@@ -3,7 +3,6 @@
 import { Bookmark, Music, Plus } from "lucide-react";
 
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
-import { ScrollCanvasOrchestrationCard } from "@/components/scroll-canvas-orchestration-card";
 import { InfiniteCanvasContainer } from "@/components/infinite-canvas/InfiniteCanvasContainer";
 import { InfiniteCanvasEmptyPrompt } from "@/components/infinite-canvas/InfiniteCanvasEmptyPrompt";
 import { DramaPropertyPanel } from "@/components/infinite-canvas/drama/DramaPropertyPanel";
@@ -13,6 +12,7 @@ import { MusicGenPanel } from "@/components/infinite-canvas/drama/MusicGenPanel"
 import type { CanvasNodeMetadata, CanvasNodeData } from "@/components/infinite-canvas/types";
 
 import type { InfiniteCanvasPaneProps } from "./canvas-pane-types";
+import { InfiniteOrchestrationDock } from "./OrchestrationOverlay";
 
 function enrichNodesWithBatchIndex(nodes: CanvasNodeData[]): CanvasNodeData[] {
   const batchOrder = new Map<string, number>();
@@ -194,44 +194,14 @@ export function InfiniteCanvasPane({
           <MusicGenPanel sessionId={sessionId} onClose={onCloseMusicGenPanel} />
         ) : null}
       </div>
-      {infiniteOrchestrationDock ? (
-        <div
-          className="shrink-0 overflow-y-auto border-t border-white/10 p-2 sm:p-3"
-          style={{ maxHeight: "42vh" }}
-          data-testid="drama-canvas-overlay"
-        >
-          {alternateCanvasContent}
-        </div>
-      ) : legacyInfiniteOrchestrationDock ? (
-        <div
-          className="shrink-0 overflow-y-auto border-t border-white/10 p-2 sm:p-3"
-          style={{ maxHeight: "42vh" }}
-          data-testid="drama-canvas-overlay"
-        >
-          {alternateCanvasContent}
-          {orchestrationEvent ? (
-            <section
-              data-testid="orchestration-timeline-section"
-              className={alternateCanvasContent ? "mt-3" : undefined}
-            >
-              <ScrollCanvasOrchestrationCard
-                event={orchestrationEvent}
-                actions={orchestrationActions}
-              />
-            </section>
-          ) : null}
-          {orchestrationExtra ? (
-            <div
-              data-testid="orchestration-extra-section"
-              className={
-                alternateCanvasContent || orchestrationEvent ? "mt-3" : undefined
-              }
-            >
-              {orchestrationExtra}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      <InfiniteOrchestrationDock
+        infiniteOrchestrationDock={infiniteOrchestrationDock}
+        legacyInfiniteOrchestrationDock={legacyInfiniteOrchestrationDock}
+        alternateCanvasContent={alternateCanvasContent}
+        orchestrationEvent={orchestrationEvent}
+        orchestrationActions={orchestrationActions}
+        orchestrationExtra={orchestrationExtra}
+      />
     </div>
   );
 }
