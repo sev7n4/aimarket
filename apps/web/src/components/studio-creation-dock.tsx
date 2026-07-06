@@ -62,8 +62,6 @@ interface StudioCreationDockProps {
     item: CanvasItem;
   }) => Promise<string>;
   autoSubmitOnce?: boolean;
-  /** Infinite 空画布触发提交（递增 nonce） */
-  externalSubmitNonce?: number;
 }
 
 /** Studio 底部 Dock：prompt、上传、@、车道、Skill、发送（编排由 Provider 负责） */
@@ -95,7 +93,6 @@ export function StudioCreationDock({
   focusEdit,
   onFocusEditSubmit,
   autoSubmitOnce = false,
-  externalSubmitNonce,
 }: StudioCreationDockProps) {
   return (
     <>
@@ -145,7 +142,6 @@ export function StudioCreationDock({
         agentSkills={false}
         onFocusEditSubmit={onFocusEditSubmit}
         autoSubmitOnce={autoSubmitOnce}
-        externalSubmitNonce={externalSubmitNonce}
       />
     </>
   );

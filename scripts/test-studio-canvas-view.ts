@@ -10,6 +10,7 @@
 import {
   resolveCanvasViewToggleEnabled,
   resolveDramaPhaseSplitEnabled,
+  resolveIsDramaWorkflowInfiniteView,
   resolveUseInfiniteCanvas,
   type CanvasViewInput,
 } from "../apps/web/src/lib/studio-canvas-view.ts";
@@ -113,6 +114,44 @@ assertEq(
     creationLane: "agent",
     studioMode: "production",
     canvasFlowEnabled: false,
+  }),
+  false,
+);
+
+// --- resolveIsDramaWorkflowInfiniteView：短剧 workflow Infinite 侧栏 ---
+assertEq(
+  "drama workflow infinite: all flags on",
+  resolveIsDramaWorkflowInfiniteView({
+    useInfiniteCanvas: true,
+    dramaPhaseSplitEnabled: true,
+    viewPhase: "workflow",
+  }),
+  true,
+);
+assertEq(
+  "drama workflow infinite off: scroll engine",
+  resolveIsDramaWorkflowInfiniteView({
+    useInfiniteCanvas: false,
+    dramaPhaseSplitEnabled: true,
+    viewPhase: "workflow",
+  }),
+  false,
+);
+assertEq(
+  "drama workflow infinite off: agent view",
+  resolveIsDramaWorkflowInfiniteView({
+    useInfiniteCanvas: true,
+    dramaPhaseSplitEnabled: true,
+    viewPhase: "agent",
+  }),
+  false,
+);
+assertEq(
+  "drama workflow infinite off: no phase split",
+  resolveIsDramaWorkflowInfiniteView({
+    useInfiniteCanvas: true,
+    dramaPhaseSplitEnabled: false,
+    viewPhase: "workflow",
   }),
   false,
 );

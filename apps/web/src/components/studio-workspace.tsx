@@ -14,6 +14,7 @@ import {
 import { LoginDialog } from "@/components/login-dialog";
 import type { DesignCanvasHandle } from "@/components/design-canvas";
 import { StudioCreationDock } from "@/components/studio-creation-dock";
+import { StudioInfiniteSubmitBridge } from "@/components/studio-infinite-submit-bridge";
 import { CanvasSelectionToolbar } from "@/components/canvas-selection-toolbar";
 import { StudioDock, studioDockOverlayInsetPx, studioDockScrollInset } from "@/components/studio-dock";
 import { StudioCoach } from "@/components/studio-coach";
@@ -217,7 +218,10 @@ export function StudioWorkspace({
   const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
   const [dockMode, setDockMode] = useState<StudioDockMode>("expanded");
   const [infiniteCanvasActive, setInfiniteCanvasActive] = useState(false);
-  const [infiniteEmptySubmitNonce, setInfiniteEmptySubmitNonce] = useState(0);
+  const [infiniteSubmitApi, setInfiniteSubmitApi] = useState<{
+    submit: () => Promise<void>;
+    submitting: boolean;
+  } | null>(null);
   const [conversationPaneActive, setConversationPaneActive] = useState(false);
   const {
     width: conversationPaneWidth,
@@ -456,6 +460,17 @@ export function StudioWorkspace({
     Boolean(jobStreamStatus) &&
     jobStreamStatus !== "succeeded" &&
     jobStreamStatus !== "failed";
+
+  const handleInfiniteSubmitReady = useCallback(
+    (api: { submit: () => Promise<void>; submitting: boolean }) => {
+      setInfiniteSubmitApi((prev) =>
+        prev?.submit === api.submit && prev.submitting === api.submitting
+          ? prev
+          : api,
+      );
+    },
+    [],
+  );
 
   const openNewStudio = useCallback(() => {
     const wsId = activeWorkspaceId ?? getActiveWorkspaceId();
@@ -1878,6 +1893,21 @@ export function StudioWorkspace({
               void refreshUser();
             }}
           >
+            {infiniteCanvasActive ? (
+              <StudioInfiniteSubmitBridge
+                sessionId={sessionId}
+                mode={mode}
+                prompt={studioPrompt}
+                readOnly={readOnly}
+                user={user}
+                canvasItems={canvasItems}
+                onJobStarted={handleJobStarted}
+                onAuthRequired={() => setLoginOpen(true)}
+                onPromptClear={() => setStudioPrompt("")}
+                onInteractionHint={(message) => setSelectSourceBanner(message)}
+                onReady={handleInfiniteSubmitReady}
+              />
+            ) : null}
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
             {readOnly ? (
               <p className="shrink-0 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200/90">
@@ -1898,9 +1928,10 @@ export function StudioWorkspace({
                   ? {
                       prompt: studioPrompt,
                       onPromptChange: setStudioPrompt,
-                      onSubmit: () =>
-                        setInfiniteEmptySubmitNonce((nonce) => nonce + 1),
-                      submitting: infiniteEmptySubmitting,
+                      onSubmit: () => void infiniteSubmitApi?.submit(),
+                      submitting:
+                        (infiniteSubmitApi?.submitting ?? false) ||
+                        infiniteEmptySubmitting,
                     }
                   : undefined
               }
@@ -2079,10 +2110,10 @@ export function StudioWorkspace({
               statusChip={<ProviderStatusChip />}
             />
 
+            {!infiniteCanvasActive ? (
             <StudioDock
               mode={dockMode}
               onModeChange={setDockMode}
-              hidden={infiniteCanvasActive}
               alignLeft={conversationPaneActive}
               alignLeftWidth={conversationPaneWidth}
             >
@@ -2240,9 +2271,9 @@ export function StudioWorkspace({
                   return jobId;
                 }}
                 autoSubmitOnce={autoSubmitOnce}
-                externalSubmitNonce={infiniteEmptySubmitNonce}
               />
             </StudioDock>
+            ) : null}
           </div>
           </StudioOrchestrationProvider>
         </div>

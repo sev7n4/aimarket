@@ -27,6 +27,7 @@ import { TOOL_DISPLAY_NAMES } from "@/lib/studio-tool-meta";
 import { CanvasToolbar } from "@/components/canvas-toolbar";
 import type { DramaStudioViewPhase } from "@/lib/drama-studio-view";
 import { toggleDramaStudioViewPhase } from "@/lib/drama-studio-view";
+import { resolveIsDramaWorkflowInfiniteView } from "@/lib/studio-canvas-view";
 import { CanvasContextMenu } from "@/components/canvas-context-menu";
 import { CanvasLightbox } from "@/components/canvas-lightbox";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
@@ -485,11 +486,12 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       jobStreamStatus !== "succeeded" &&
       jobStreamStatus !== "failed";
 
-    // 节点编排阶段：Infinite 主区 + 精简操作条；Agent 阶段：Scroll 时间线 + 完整 Studio 面板
-    const isWorkflowInfinite =
-      useInfiniteCanvas &&
-      dramaPhaseSplitEnabled &&
-      dramaViewPhase === "workflow";
+    // 短剧 workflow Infinite：侧栏 Drama/Assistant + orchestration dock（见 studio-canvas-view）
+    const isDramaWorkflowInfiniteView = resolveIsDramaWorkflowInfiniteView({
+      useInfiniteCanvas,
+      dramaPhaseSplitEnabled,
+      viewPhase: dramaViewPhase,
+    });
 
     const showLegacyInfiniteOrchestration =
       useInfiniteCanvas &&
@@ -497,7 +499,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       Boolean(orchestrationEvent);
 
     const infiniteOrchestrationDock =
-      isWorkflowInfinite && Boolean(alternateCanvasContent);
+      isDramaWorkflowInfiniteView && Boolean(alternateCanvasContent);
     const legacyInfiniteOrchestrationDock =
       showLegacyInfiniteOrchestration &&
       (Boolean(alternateCanvasContent) ||
@@ -509,14 +511,14 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
     }, [useInfiniteCanvas, onInfiniteCanvasActiveChange]);
 
     const activeInfiniteStudioNodeId = useMemo(() => {
-      if (!isWorkflowInfinite || infiniteSelectedIds.length !== 1) return null;
+      if (!isDramaWorkflowInfiniteView || infiniteSelectedIds.length !== 1) return null;
       return infiniteSelectedIds[0] ?? null;
-    }, [isWorkflowInfinite, infiniteSelectedIds]);
+    }, [isDramaWorkflowInfiniteView, infiniteSelectedIds]);
 
     useEffect(() => {
-      if (!isWorkflowInfinite) return;
+      if (!isDramaWorkflowInfiniteView) return;
       setDramaPanelNodeId(activeInfiniteStudioNodeId);
-    }, [activeInfiniteStudioNodeId, isWorkflowInfinite]);
+    }, [activeInfiniteStudioNodeId, isDramaWorkflowInfiniteView]);
 
     // Agent 面板使用实时画布快照（含 items + dramaNodes），而非 Studio 传入的空 nodes
     const effectiveAssistantSnapshot = useMemo<CanvasAgentSnapshot | null>(() => {
@@ -1679,13 +1681,13 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                     <Music className="size-4" />
                   </button>
                 </div>
-                {dramaPanelNode && !isWorkflowInfinite ? (
+                {dramaPanelNode && !isDramaWorkflowInfiniteView ? (
                   <DramaPropertyPanel
                     node={dramaPanelNode}
                     onClose={() => setDramaPanelNodeId(null)}
                   />
                 ) : null}
-                {effectiveAssistantSnapshot && !isWorkflowInfinite ? (
+                {effectiveAssistantSnapshot && !isDramaWorkflowInfiniteView ? (
                   <CanvasAssistantPanel
                     snapshot={effectiveAssistantSnapshot}
                     onApplyOps={handleApplyAssistantOps}

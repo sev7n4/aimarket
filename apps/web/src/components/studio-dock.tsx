@@ -7,8 +7,6 @@ import type { StudioDockMode } from "@/lib/studio-dock-state";
 interface StudioDockProps {
   mode: StudioDockMode;
   onModeChange: (mode: StudioDockMode) => void;
-  /** Infinite 节点编排模式下隐藏全局底部创作台 */
-  hidden?: boolean;
   /** 双栏外壳：对齐到左对话栏底部（否则整宽居中） */
   alignLeft?: boolean;
   /** 双栏左对话栏宽度（px），与 ConversationTimeline 拖拽宽度同步 */
@@ -18,23 +16,16 @@ interface StudioDockProps {
 
 /**
  * Studio 底部 Dock 定位层：只负责贴底居中，视觉与控件全部由 CreationPanel 承担。
+ * Infinite 模式下由父级不渲染本组件（P1：不 hidden 挂载）。
  */
 export function StudioDock({
   mode,
   onModeChange,
-  hidden = false,
   alignLeft = false,
   alignLeftWidth,
   children,
 }: StudioDockProps) {
   const leftWidth = alignLeftWidth ?? 340;
-  if (hidden) {
-    return (
-      <div className="hidden" aria-hidden="true">
-        {children}
-      </div>
-    );
-  }
   if (mode === "focus") {
     return (
       <div
