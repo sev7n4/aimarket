@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowUp,
   AtSign,
@@ -309,9 +309,17 @@ interface CreationPanelProps {
   agentSkills?: boolean;
   /** Agent Run 结束（成功/失败/取消）后回调 */
   onAgentRunComplete?: () => void;
+  /** 外部触发提交（如 Infinite 空画布创作入口），每次递增 nonce */
+  externalSubmitNonce?: number;
 }
 
-export function CreationPanel({
+export type CreationPanelHandle = {
+  submit: () => void;
+};
+
+export const CreationPanel = forwardRef<CreationPanelHandle, CreationPanelProps>(
+  function CreationPanel(
+  {
   initialMode = "chat",
   initialPrompt = "",
   compact = false,
@@ -357,7 +365,10 @@ export function CreationPanel({
   agentOrchestration = false,
   agentSkills = false,
   onAgentRunComplete,
-}: CreationPanelProps) {
+  externalSubmitNonce,
+}: CreationPanelProps,
+  ref,
+) {
   const studioOrch = useStudioOrchestrationOptional();
   const isStudioDock = variant === "studio-dock";
   const studioOrchestrationActive = isStudioDock && studioOrch != null;
@@ -1885,6 +1896,25 @@ export function CreationPanel({
 
   const handleSubmitRef = useRef(handleSubmit);
   handleSubmitRef.current = handleSubmit;
+
+  useImperativeHandle(ref, () => ({
+    submit: () => {
+      void handleSubmitRef.current();
+    },
+  }));
+
+  const prevExternalSubmitNonce = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (externalSubmitNonce == null) return;
+    if (prevExternalSubmitNonce.current === undefined) {
+      prevExternalSubmitNonce.current = externalSubmitNonce;
+      return;
+    }
+    if (externalSubmitNonce === prevExternalSubmitNonce.current) return;
+    prevExternalSubmitNonce.current = externalSubmitNonce;
+    void handleSubmitRef.current();
+  }, [externalSubmitNonce]);
+
   const autoSubmitFiredRef = useRef(false);
   useEffect(() => {
     if (!autoSubmitOnce || autoSubmitFiredRef.current || readOnly) return;
@@ -2767,7 +2797,7 @@ export function CreationPanel({
       </GlassPanel>
     </>
   );
-}
+});
 
 function TagSelect({
   value,

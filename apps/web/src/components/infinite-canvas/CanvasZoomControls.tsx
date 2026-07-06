@@ -4,7 +4,7 @@ import { Compass, Focus, HelpCircle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { canvasTheme } from "./canvas-theme";
-import type { ViewportTransform } from "./types";
+import { INFINITE_ZOOM_BAR_HEIGHT, infiniteZoomControlsBottom } from "./infinite-canvas-layout";
 
 type CanvasZoomControlsProps = {
     scale: number;
@@ -18,7 +18,7 @@ type CanvasZoomControlsProps = {
 export function CanvasZoomControls({ scale, onScaleChange, onReset, isMiniMapOpen, onToggleMiniMap, bottomInsetPx = 0 }: CanvasZoomControlsProps) {
     const [shortcutsOpen, setShortcutsOpen] = useState(false);
     const dialogRef = useRef<HTMLDialogElement>(null);
-    const dockStyle = { background: canvasTheme.toolbar.panel, borderColor: canvasTheme.toolbar.border, color: canvasTheme.toolbar.item, boxShadow: "0 18px 45px rgba(0,0,0,.32)" };
+    const dockStyle = { background: canvasTheme.toolbar.panel, borderColor: canvasTheme.toolbar.border, color: canvasTheme.toolbar.item, boxShadow: "0 12px 32px rgba(0,0,0,.28)" };
     const activeStyle = { background: canvasTheme.toolbar.activeBg, color: canvasTheme.toolbar.activeText };
 
     const openShortcuts = useCallback(() => {
@@ -44,31 +44,31 @@ export function CanvasZoomControls({ scale, onScaleChange, onReset, isMiniMapOpe
 
     return (
         <div
-            className="absolute left-5 z-50"
-            style={{ bottom: 20 + bottomInsetPx }}
+            className="absolute right-4 z-50"
+            style={{ bottom: infiniteZoomControlsBottom(bottomInsetPx) }}
             onMouseDown={(event) => event.stopPropagation()}
             onPointerDown={(event) => event.stopPropagation()}
         >
-            <div className="flex h-14 items-center gap-1 rounded-xl border px-2 shadow-lg backdrop-blur" style={dockStyle}>
+            <div className="flex items-center gap-0.5 rounded-lg border px-1.5 shadow-lg backdrop-blur" style={{ ...dockStyle, height: INFINITE_ZOOM_BAR_HEIGHT }}>
                 <button
                     type="button"
-                    className="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:opacity-80"
+                    className="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:opacity-80"
                     style={isMiniMapOpen ? activeStyle : { color: canvasTheme.toolbar.item }}
                     onClick={onToggleMiniMap}
                     title={isMiniMapOpen ? "关闭小地图" : "打开小地图"}
                     aria-label={isMiniMapOpen ? "关闭小地图" : "打开小地图"}
                 >
-                    <Compass className="size-4" />
+                    <Compass className="size-3.5" />
                 </button>
                 <button
                     type="button"
-                    className="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:opacity-80"
+                    className="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:opacity-80"
                     style={{ color: canvasTheme.toolbar.item }}
                     onClick={onReset}
                     title="重置视图"
                     aria-label="重置视图"
                 >
-                    <Focus className="size-4" />
+                    <Focus className="size-3.5" />
                 </button>
                 <span title="放大/缩小画布" className="flex items-center">
                     <input
@@ -77,24 +77,24 @@ export function CanvasZoomControls({ scale, onScaleChange, onReset, isMiniMapOpe
                         max="500"
                         step="1"
                         value={Math.round(scale * 100)}
-                        className="w-24"
+                        className="w-16"
                         style={{ accentColor: canvasTheme.node.activeStroke }}
                         onChange={(event) => onScaleChange(Number(event.target.value) / 100)}
                         aria-label="放大/缩小画布"
                     />
                 </span>
-                <span className="w-10 text-right text-xs tabular-nums" style={{ color: canvasTheme.node.muted }}>
+                <span className="w-8 text-right text-[10px] tabular-nums" style={{ color: canvasTheme.node.muted }}>
                     {Math.round(scale * 100)}%
                 </span>
                 <button
                     type="button"
-                    className="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:opacity-80"
+                    className="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:opacity-80"
                     style={shortcutsOpen ? activeStyle : { color: canvasTheme.toolbar.item }}
                     onClick={openShortcuts}
                     title="快捷键"
                     aria-label="快捷键"
                 >
-                    <HelpCircle className="size-4" />
+                    <HelpCircle className="size-3.5" />
                 </button>
             </div>
             <dialog

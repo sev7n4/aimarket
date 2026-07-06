@@ -53,6 +53,9 @@ import { ArrowLeft, Bookmark, Columns2, MessageCircle, Music, Network, Plus } fr
 import type { StudioTool } from "@/lib/types";
 import { InfiniteCanvasContainer } from "@/components/infinite-canvas/InfiniteCanvasContainer";
 import { InfiniteCanvasContextMenu } from "@/components/infinite-canvas/InfiniteCanvasContextMenu";
+import { InfiniteCanvasEmptyPrompt } from "@/components/infinite-canvas/InfiniteCanvasEmptyPrompt";
+import { buildInfiniteNodeToolbarActions } from "@/components/infinite-canvas/infinite-node-toolbar-actions";
+import { useInfiniteNodeMenuHandlers } from "@/hooks/use-infinite-node-menu-handlers";
 import { canvasTheme } from "@/components/infinite-canvas/canvas-theme";
 import { LightingOverlay, type LightSource } from "@/components/infinite-canvas/drama/LightingOverlay";
 import { CameraOverlay, type CameraParams as DramaCameraParams } from "@/components/infinite-canvas/drama/CameraOverlay";
@@ -226,7 +229,7 @@ interface DesignCanvasProps {
   onConversationPaneResizeStart?: (event: React.MouseEvent) => void;
   /** 双栏分隔条拖拽中 */
   conversationPaneResizing?: boolean;
-  /** Infinite 画布左下角控件需抬高的像素（避开 StudioDock） */
+  /** Infinite 画布右下角控件需抬高的像素（Scroll 模式下避开全局 StudioDock） */
   overlayBottomInsetPx?: number;
   /** 「节点视图 ↔ 滚动视图」切换开关是否可用（三车道一致） */
   canvasViewEnabled?: boolean;
@@ -234,8 +237,16 @@ interface DesignCanvasProps {
   dramaPhaseSplitEnabled?: boolean;
   dramaViewPhase?: DramaStudioViewPhase;
   onDramaViewPhaseChange?: (phase: DramaStudioViewPhase) => void;
-  /** 节点编排 Infinite 模式激活时通知外层（用于隐藏全局底部 Dock） */
-  onInfiniteWorkflowActiveChange?: (active: boolean) => void;
+  /** Infinite 画布模式激活时通知外层（用于隐藏全局底部 Dock） */
+  onInfiniteCanvasActiveChange?: (active: boolean) => void;
+  /** Infinite 空画布创作入口（全局 Dock 隐藏时） */
+  infiniteEmptyCreation?: {
+    prompt: string;
+    onPromptChange: (value: string) => void;
+    onSubmit: () => void;
+    submitting?: boolean;
+    submitLabel?: string;
+  };
   /** Drama 专用画布节点（由 dramaPlanToCanvasNodes 生成，叠加到 InfiniteCanvas 上） */
   dramaNodes?: CanvasNodeData[];
   /** Drama 节点间连线 */
@@ -336,7 +347,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       dramaPhaseSplitEnabled = false,
       dramaViewPhase = "agent",
       onDramaViewPhaseChange,
-      onInfiniteWorkflowActiveChange,
+      onInfiniteCanvasActiveChange,
+      infiniteEmptyCreation,
       dramaNodes = [],
       dramaConnections = [],
       assistantSnapshot,
@@ -493,8 +505,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
         Boolean(orchestrationExtra));
 
     useEffect(() => {
-      onInfiniteWorkflowActiveChange?.(isWorkflowInfinite);
-    }, [isWorkflowInfinite, onInfiniteWorkflowActiveChange]);
+      onInfiniteCanvasActiveChange?.(Boolean(useInfiniteCanvas));
+    }, [useInfiniteCanvas, onInfiniteCanvasActiveChange]);
 
     const activeInfiniteStudioNodeId = useMemo(() => {
       if (!isWorkflowInfinite || infiniteSelectedIds.length !== 1) return null;
@@ -621,6 +633,11 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       }
 
       setInfiniteSelectedIds(newSnapshot.selectedNodeIds);
+      if (newSnapshot.selectedNodeIds.length === 1) {
+        onSelect(newSnapshot.selectedNodeIds[0] ?? null);
+      } else if (newSnapshot.selectedNodeIds.length === 0) {
+        onSelect(null);
+      }
       setInfiniteViewport(newSnapshot.viewport);
 
       setTimeout(() => {
@@ -641,44 +658,8 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       onAgentExternalAction,
       onInfiniteConnectionsChange,
       pushHistory,
+      onSelect,
     ]);
-
-    const renderInfiniteNodeStudioPanel = useCallback(
-      (node: CanvasNodeData) => {
-        if (!isWorkflowInfinite) return null;
-        const snapshot: CanvasAgentSnapshot = {
-          projectId: assistantSnapshot?.projectId ?? "",
-          title: assistantSnapshot?.title ?? "AIMarket Canvas",
-          nodes: [...canvasItemsToNodeData(items), ...dramaNodes],
-          connections: canvasConnections,
-          selectedNodeIds: [node.id],
-          viewport: infiniteViewport,
-        };
-        return (
-          <InfiniteNodeStudioDock
-            node={node}
-            snapshot={snapshot}
-            onApplyOps={handleApplyAssistantOps}
-            readOnly={readOnly}
-            onClose={() => {
-              setInfiniteSelectedIds([]);
-              onSelect(null);
-            }}
-          />
-        );
-      },
-      [
-        isWorkflowInfinite,
-        assistantSnapshot,
-        items,
-        dramaNodes,
-        canvasConnections,
-        infiniteViewport,
-        handleApplyAssistantOps,
-        readOnly,
-        onSelect,
-      ],
-    );
 
     const commitCanvasOps = useCallback(
       (ops: CanvasAgentOp[]) => {
@@ -1231,6 +1212,110 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
       [items],
     );
 
+    const getInfiniteNodeMenuHandlers = useInfiniteNodeMenuHandlers({
+      items,
+      onCutoutItem,
+      onExpandItem,
+      onRerun,
+      onDownloadItem:
+        onDownloadItem ??
+        ((item: CanvasItem) => window.open(assetUrl(item.url), "_blank")),
+      onDeleteNodes: handleDeleteInfiniteNodes,
+      onSelect,
+      onOpenLightbox: (canvasItems, index) => setLightbox({ items: canvasItems, index }),
+      onVideoInpaint: (node) => setShowVideoInpaint({ node }),
+      onOpenLighting: (node) => setShowLighting({ node }),
+      onOpenCamera: (node) => setShowCamera({ node }),
+      onMusicGen: () => setShowMusicGenPanel(true),
+      onRunInfiniteNodeTool: runInfiniteNodeTool,
+      onEditDramaNode: (nodeId) => {
+        onSelect(nodeId);
+        setDramaPanelNodeId(nodeId);
+      },
+      onExtractVideoLastFrame: batchTools?.onExtractVideoLastFrame,
+    });
+
+    const handleInfiniteSelectionChange = useCallback(
+      (ids: string[]) => {
+        setInfiniteSelectedIds(ids);
+        if (ids.length === 1) {
+          onSelect(ids[0] ?? null);
+        } else if (ids.length === 0) {
+          onSelect(null);
+        }
+      },
+      [onSelect],
+    );
+
+    const renderInfiniteNodeStudioPanel = useCallback(
+      (node: CanvasNodeData) => {
+        if (!useInfiniteCanvas) return null;
+        const snapshot: CanvasAgentSnapshot = {
+          projectId: assistantSnapshot?.projectId ?? "",
+          title: assistantSnapshot?.title ?? "AIMarket Canvas",
+          nodes: [...canvasItemsToNodeData(items), ...dramaNodes],
+          connections: canvasConnections,
+          selectedNodeIds: [node.id],
+          viewport: infiniteViewport,
+        };
+        const item = contextMenuForItem(node);
+        const toolActions = buildInfiniteNodeToolbarActions({
+          node,
+          handlers: getInfiniteNodeMenuHandlers(node),
+          item,
+          tools: batchTools?.tools,
+          pendingToolId: batchTools?.pendingToolId,
+          onRunTool: batchTools?.onRunTool,
+        });
+        return (
+          <InfiniteNodeStudioDock
+            node={node}
+            snapshot={snapshot}
+            onApplyOps={handleApplyAssistantOps}
+            readOnly={readOnly}
+            toolActions={toolActions}
+            onClose={() => {
+              setInfiniteSelectedIds([]);
+              onSelect(null);
+            }}
+          />
+        );
+      },
+      [
+        useInfiniteCanvas,
+        assistantSnapshot,
+        items,
+        dramaNodes,
+        canvasConnections,
+        infiniteViewport,
+        handleApplyAssistantOps,
+        readOnly,
+        onSelect,
+        getInfiniteNodeMenuHandlers,
+        contextMenuForItem,
+        batchTools,
+      ],
+    );
+
+    const showInfiniteEmptyPrompt =
+      useInfiniteCanvas &&
+      items.length === 0 &&
+      dramaNodes.length === 0 &&
+      Boolean(infiniteEmptyCreation);
+
+    const openInfiniteCenterCreateMenu = useCallback(() => {
+      const area = infiniteCanvasAreaRef.current?.getBoundingClientRect();
+      if (!area) return;
+      const worldX = (-infiniteViewport.x + area.width / 2) / infiniteViewport.k;
+      const worldY = (-infiniteViewport.y + area.height / 2) / infiniteViewport.k;
+      setPaneCreateMenu({
+        x: area.left + area.width / 2,
+        y: area.top + area.height / 2,
+        worldX,
+        worldY,
+      });
+    }, [infiniteViewport]);
+
     const comparePair = useMemo(() => {
       if (!refineRootItemId || !refineItemId) return null;
       return canShowRefineCompare(items, refineRootItemId, refineItemId);
@@ -1427,7 +1512,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                     selectedNodeIds={infiniteSelectedIds}
                     overlayBottomInsetPx={overlayBottomInsetPx}
                     renderPanel={
-                      isWorkflowInfinite ? renderInfiniteNodeStudioPanel : undefined
+                      useInfiniteCanvas ? renderInfiniteNodeStudioPanel : undefined
                     }
                     onNodesChange={(nodes: CanvasNodeData[]) => {
                       if (applyingAssistantOpsRef.current) return;
@@ -1461,7 +1546,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                       );
                     }}
                     onViewportChange={setInfiniteViewport}
-                    onSelectionChange={setInfiniteSelectedIds}
+                    onSelectionChange={handleInfiniteSelectionChange}
                     onNodeDoubleClick={(nodeId: string) => {
                       onSelect(nodeId);
                       setDramaPanelNodeId(nodeId);
@@ -1525,6 +1610,17 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
                       }
                     }}
                   />
+                  {showInfiniteEmptyPrompt && infiniteEmptyCreation ? (
+                    <InfiniteCanvasEmptyPrompt
+                      prompt={infiniteEmptyCreation.prompt}
+                      onPromptChange={infiniteEmptyCreation.onPromptChange}
+                      onSubmit={infiniteEmptyCreation.onSubmit}
+                      onAddNode={readOnly ? undefined : openInfiniteCenterCreateMenu}
+                      readOnly={readOnly}
+                      submitting={infiniteEmptyCreation.submitting}
+                      submitLabel={infiniteEmptyCreation.submitLabel}
+                    />
+                  ) : null}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -1796,111 +1892,7 @@ export const DesignCanvas = forwardRef<DesignCanvasHandle, DesignCanvasProps>(
             x={infiniteContextMenu.x}
             y={infiniteContextMenu.y}
             onClose={() => setInfiniteContextMenu(null)}
-            onCutout={
-              onCutoutItem && contextMenuForItem(infiniteContextMenu.node)
-                ? () => {
-                    const item = contextMenuForItem(infiniteContextMenu.node);
-                    if (item) onCutoutItem(item);
-                  }
-                : undefined
-            }
-            onExpand={
-              onExpandItem && contextMenuForItem(infiniteContextMenu.node)
-                ? () => {
-                    const item = contextMenuForItem(infiniteContextMenu.node);
-                    if (item) onExpandItem(item);
-                  }
-                : undefined
-            }
-            onRerun={
-              onRerun && contextMenuForItem(infiniteContextMenu.node)
-                ? () => {
-                    const item = contextMenuForItem(infiniteContextMenu.node);
-                    if (item) onRerun(item);
-                  }
-                : undefined
-            }
-            onDownload={() => {
-              const item = contextMenuForItem(infiniteContextMenu.node);
-              if (item) onDownloadItem?.(item);
-              else window.open(assetUrl(infiniteContextMenu.node.metadata?.content ?? ""), "_blank");
-            }}
-            onDelete={() => {
-              handleDeleteInfiniteNodes([infiniteContextMenu.node.id]);
-            }}
-            onRecompose={() => {
-              // 重新合成：暂以 lightbox 重新打开当前节点
-              const item = contextMenuForItem(infiniteContextMenu.node);
-              if (item) {
-                const idx = items.findIndex((i) => i.id === item.id);
-                setLightbox({ items, index: idx >= 0 ? idx : 0 });
-                onSelect(item.id);
-              }
-            }}
-            onVideoInpaint={() => {
-              setShowVideoInpaint({ node: infiniteContextMenu.node });
-            }}
-            onMusicGen={() => {
-              setShowMusicGenPanel(true);
-            }}
-            onMultiCam9={() => {
-              runInfiniteNodeTool("multi-cam-9", infiniteContextMenu.node);
-            }}
-            onMultiCam25={() => {
-              runInfiniteNodeTool("multi-cam-25", infiniteContextMenu.node);
-            }}
-            onStoryboardEvolve={() => {
-              runInfiniteNodeTool("storyboard-evolve", infiniteContextMenu.node);
-            }}
-            onTurnaround360={() => {
-              runInfiniteNodeTool("turnaround-360", infiniteContextMenu.node);
-            }}
-            onLighting={() => {
-              setShowLighting({ node: infiniteContextMenu.node });
-            }}
-            onCamera={() => {
-              setShowCamera({ node: infiniteContextMenu.node });
-            }}
-            onEditScript={() => {
-              onSelect(infiniteContextMenu.node.id);
-              setDramaPanelNodeId(infiniteContextMenu.node.id);
-            }}
-            onEditShot={() => {
-              onSelect(infiniteContextMenu.node.id);
-              setDramaPanelNodeId(infiniteContextMenu.node.id);
-            }}
-            onEditCharacter={() => {
-              onSelect(infiniteContextMenu.node.id);
-              setDramaPanelNodeId(infiniteContextMenu.node.id);
-            }}
-            onEditScene={() => {
-              onSelect(infiniteContextMenu.node.id);
-              setDramaPanelNodeId(infiniteContextMenu.node.id);
-            }}
-            onGenerateShotImage={() => {
-              console.info(
-                "[infinite-canvas] 触发分镜图生成：节点",
-                infiniteContextMenu.node.id,
-              );
-            }}
-            onGenerateShotVideo={() => {
-              console.info(
-                "[infinite-canvas] 触发分镜视频生成：节点",
-                infiniteContextMenu.node.id,
-              );
-            }}
-            onGenerateCharacterSheet={() => {
-              console.info(
-                "[infinite-canvas] 触发三视图生成：节点",
-                infiniteContextMenu.node.id,
-              );
-            }}
-            onExtractKeyframe={() => {
-              const item = contextMenuForItem(infiniteContextMenu.node);
-              if (item && batchTools?.onExtractVideoLastFrame) {
-                batchTools.onExtractVideoLastFrame(item);
-              }
-            }}
+            handlers={getInfiniteNodeMenuHandlers(infiniteContextMenu.node)}
           />
         ) : null}
 

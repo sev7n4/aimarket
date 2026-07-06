@@ -35,7 +35,7 @@ type StudioCanvasProps = Omit<
   ComponentProps<typeof DesignCanvas>,
   "orchestrationEvent" | "orchestrationActions" | "orchestrationExtra" | "alternateCanvasContent"
 > & {
-  onInfiniteWorkflowActiveChange?: (active: boolean) => void;
+  onInfiniteCanvasActiveChange?: (active: boolean) => void;
 };
 
 /** Studio 画布：编排状态来自 Provider，与 Dock 输入解耦 */
@@ -607,7 +607,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
       onDramaViewPhaseChange={
         canvasViewToggleEnabled ? setManualViewPhase : undefined
       }
-      onInfiniteWorkflowActiveChange={props.onInfiniteWorkflowActiveChange}
+      onInfiniteCanvasActiveChange={props.onInfiniteCanvasActiveChange}
       orchestrationEvent={scrollOrchestrationEvent}
       orchestrationActions={timelineActions ?? undefined}
       alternateCanvasContent={alternateCanvasContent}
