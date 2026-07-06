@@ -106,7 +106,7 @@ export function InfiniteNodeStudioDock({
   return (
     <div
       data-testid="infinite-node-studio-dock"
-      data-node-id={node.id}
+      data-dock-node-id={node.id}
       className="pointer-events-auto w-[min(520px,calc(100vw-2rem))] overflow-hidden rounded-xl border shadow-2xl"
       style={{
         background: canvasTheme.toolbar.panel,

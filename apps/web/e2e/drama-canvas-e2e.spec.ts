@@ -290,7 +290,7 @@ test.describe("drama canvas (InfiniteCanvas 生产路径)", () => {
     await scriptNode.click();
     const dock = page.getByTestId("infinite-node-studio-dock");
     await expect(dock).toBeVisible({ timeout: 10_000 });
-    await expect(dock).toHaveAttribute("data-node-id", "drama-script");
+    await expect(dock).toHaveAttribute("data-dock-node-id", "drama-script");
 
     // 3) 关闭后选中 character 节点切换创作台
     await dock.getByRole("button", { name: "关闭节点创作台" }).click();
@@ -298,7 +298,7 @@ test.describe("drama canvas (InfiniteCanvas 生产路径)", () => {
 
     await charNode.click();
     await expect(dock).toBeVisible({ timeout: 10_000 });
-    await expect(dock).toHaveAttribute("data-node-id", "drama-char-char-owner");
+    await expect(dock).toHaveAttribute("data-dock-node-id", "drama-char-char-owner");
   });
 
   test("drama 节点右键菜单可用 (脚本/分镜工具)", async ({ page, request }) => {
