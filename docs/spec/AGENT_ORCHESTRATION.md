@@ -402,6 +402,8 @@ PostgreSQL：`apps/api/src/db/migrations/postgres.sql`
 
 YAML：`id`、`version`、`steps[]`、`confirmIfPointsOver`、`onStepFailed`。
 
+> **架构演进（暂不排期）**：长流水线 Skill 可迁移为 Anthropic 兼容目录包（`SKILL.md` + `pipeline.yaml`），见 [agents/skills/README.md](../agents/skills/README.md)。当前生产仍用扁平 YAML。
+
 示例 Skill：`ecommerce-taobao-launch-v1`（主图套图 → 抠图 → 15s 视频）。
 
 ### 7.3 与 LangGraph 衔接

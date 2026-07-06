@@ -40,6 +40,7 @@ cd apps/web && pnpm exec node ../../scripts/verify-prod-session-switch.mjs
 | 现象 | 处理 |
 |------|------|
 | 规划摘要含「规则引擎」 | 检查百炼/LLM 欠费与 `AGENT_DRAMA_PLAN_MODEL` |
+| Agent 职责 / prompt 迭代 | 见 [agents/drama/README.md](./agents/drama/README.md) |
 | char_refs 500 | 确认 auto 回落链；#195 已合入 |
 | 制作长时间 running | 查 `drama_runs` 与 job 队列；可单步 retry |
 

@@ -1,0 +1,23 @@
+# L2 执行层 — 与 packages/agent-skills/skills/ecommerce-taobao-launch-v1.yaml 同源
+id: ecommerce-taobao-launch-v1
+version: 1
+name: 淘宝上架全套
+description: 电商套图 4 张 + 主图抠白底 + 15 秒宣传片，适合淘宝/天猫上架
+confirmIfPointsOver: 80
+steps:
+  - id: gen_set
+    type: generate_set
+    label: 生成电商套图（4 张）
+  - id: cutout_hero
+    type: tool
+    toolId: cutout
+    label: 主图抠白底
+    sourceStep: gen_set
+    sourceOutputIndex: 0
+  - id: promo_video
+    type: video
+    label: 生成 15 秒宣传片
+    sourceStep: cutout_hero
+    modelId: seedance-2
+    resolution: 1k
+    aspectRatio: "9:16"
