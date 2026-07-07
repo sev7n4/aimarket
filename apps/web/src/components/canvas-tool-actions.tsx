@@ -1,54 +1,11 @@
 "use client";
 
-import {
-  ArrowUpToLine,
-  Brush,
-  Copy,
-  Crop,
-  Crosshair,
-  Eraser,
-  Grid3X3,
-  Layers,
-  Loader2,
-  Maximize2,
-  Scissors,
-  Sparkles,
-  Type,
-  type LucideIcon,
-} from "lucide-react";
-import type { CanvasItem } from "@/lib/canvas-tools";
-import type { StudioTool } from "@/lib/types";
+import { Loader2 } from "lucide-react";
 import type { OverflowIconAction } from "@/components/overflow-icon-row";
-
-const TOOL_ICONS: Record<string, LucideIcon> = {
-  variation: Copy,
-  expand: Maximize2,
-  erase: Eraser,
-  cutout: Scissors,
-  inpaint: Brush,
-  "focus-edit": Crosshair,
-  text: Type,
-  upscale: ArrowUpToLine,
-  enhance: Sparkles,
-  blend: Layers,
-  crop: Crop,
-  "grid-split": Grid3X3,
-};
-
-const TOOL_SHORT: Record<string, string> = {
-  variation: "变体",
-  expand: "扩图",
-  erase: "消除",
-  cutout: "抠图",
-  inpaint: "局改",
-  "focus-edit": "焦点",
-  text: "改字",
-  upscale: "超清",
-  enhance: "变清",
-  blend: "融合",
-  crop: "裁剪",
-  "grid-split": "切分",
-};
+import type { CanvasItem } from "@/lib/canvas-tools";
+import { studioToolIcon } from "@/lib/studio-tool-icons";
+import { toolShortLabel } from "@/lib/studio-tool-meta";
+import type { StudioTool } from "@/lib/types";
 
 export function buildCanvasToolActions(opts: {
   tools: StudioTool[];
@@ -69,13 +26,13 @@ export function buildCanvasToolActions(opts: {
     });
 
   for (const tool of visibleTools) {
-    const Icon = TOOL_ICONS[tool.id] ?? Sparkles;
+    const Icon = studioToolIcon(tool.id);
     const requireMissing = tool.requiresSource && !canUseSource;
     const isPending = pendingToolId === tool.id;
     actions.push({
       id: `canvas-batch-tool-${tool.id}`,
       icon: isPending ? Loader2 : Icon,
-      title: TOOL_SHORT[tool.id] ?? tool.name,
+      title: toolShortLabel(tool.id, tool.name),
       disabled: isPending || requireMissing || !onRunTool,
       spinning: isPending,
       tone: "orange",

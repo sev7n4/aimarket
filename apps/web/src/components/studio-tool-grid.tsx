@@ -1,38 +1,12 @@
 "use client";
 
-import {
-  ArrowUpToLine,
-  AtSign,
-  Brush,
-  Copy,
-  Crop,
-  Crosshair,
-  Eraser,
-  Layers,
-  Loader2,
-  Maximize2,
-  Scissors,
-  Sparkles,
-  Type,
-  Wand2,
-  type LucideIcon,
-} from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { StudioTool } from "@/lib/types";
+import {
+  STUDIO_TOOL_GRID_ICON_FALLBACK,
+  studioToolIcon,
+} from "@/lib/studio-tool-icons";
 import { TOOL_GRID_HINTS } from "@/lib/studio-tool-meta";
-
-const TOOL_ICONS: Record<string, LucideIcon> = {
-  variation: Copy,
-  expand: Maximize2,
-  erase: Eraser,
-  cutout: Scissors,
-  inpaint: Brush,
-  "focus-edit": Crosshair,
-  text: Type,
-  upscale: ArrowUpToLine,
-  enhance: Sparkles,
-  blend: Layers,
-  crop: Crop,
-};
 
 interface StudioToolGridProps {
   tools: StudioTool[];
@@ -70,7 +44,7 @@ export function StudioToolGrid({
       </p>
       <div className="flex flex-wrap gap-1.5">
         {tools.map((tool) => {
-          const Icon = TOOL_ICONS[tool.id] ?? Wand2;
+          const Icon = studioToolIcon(tool.id, STUDIO_TOOL_GRID_ICON_FALLBACK);
           const active = activeToolId === tool.id;
           const isPending = activeToolId === tool.id;
           const subtitle = TOOL_GRID_HINTS[tool.id];

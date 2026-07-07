@@ -12,8 +12,8 @@
 |------|------|------|---------|
 | **P6-0** | 死代码与 deprecated 清理 | ✅ 完成 | #301 |
 | **P6-1** | 提交单源化 | ✅ 完成 | #302 |
-| **P6-2** | `use-creation-panel` 拆分 | 🔄 进行中 | #304 ✅ / submit PR |
-| **P6-3** | 工具 UI meta 单源 | ⬜ 未开始 | — |
+| **P6-2** | `use-creation-panel` 拆分 | ✅ 完成 | #303–#305 |
+| **P6-3** | 工具 UI meta 单源 | 🔄 进行中 | #306 |
 | **P6-4** | Drama 卡片 panel/node 统一 | ⬜ 未开始 | — |
 | **P6-5** | `api-client` 按域拆分 | ⬜ 未开始 | — |
 
@@ -75,8 +75,8 @@
 
 | ID | 任务 | 状态 | 产出 | 验证 |
 |----|------|------|------|------|
-| P6-3-1 | 扩展 `studio-tool-meta.ts` | ⬜ | icon + label + strip 配置 | 删 4 处重复映射表 |
-| P6-3-2 | 收敛 toolbar 组件 | ⬜ | selection-toolbar / batch-tool-strip | 消费 meta 单源 |
+| P6-3-1 | 扩展 `studio-tool-meta.ts` | ✅ | `TOOL_SHORT_LABELS` + `studio-tool-icons` | 删 4 处重复映射表 |
+| P6-3-2 | 收敛 toolbar 组件 | ✅ | selection-toolbar / batch-tool-strip 等 | 消费 meta 单源 |
 
 ---
 
@@ -108,7 +108,8 @@
 | PR-18 | P6-1 提交单源化 | `enhancement/p6-submit-dispatch` | ✅ #302 |
 | PR-19 | P6-2 creation-panel 拆分（1） | `enhancement/p6-creation-panel-view` | ✅ #303 |
 | PR-20 | P6-2 上传/引用 hook | `enhancement/p6-creation-panel-upload` | ✅ #304 |
-| PR-21 | P6-2 提交逻辑 hook | `enhancement/p6-creation-panel-submit` | 🔄 进行中 |
+| PR-21 | P6-2 提交逻辑 hook | `enhancement/p6-creation-panel-submit` | ✅ #305 |
+| PR-22 | P6-3 工具 meta 单源 | `enhancement/p6-tool-meta` | 🔄 进行中 |
 
 ---
 
