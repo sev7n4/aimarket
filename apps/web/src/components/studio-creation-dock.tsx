@@ -1,6 +1,6 @@
 "use client";
 
-import { CreationPanel } from "@/components/creation-panel";
+import { StudioDockCreationPanel } from "@/components/creation/StudioDockCreationPanel";
 import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
 import type { PendingAsset } from "@/lib/pending-assets";
 import type { StudioInspirationApply } from "@/lib/inspiration-studio";
@@ -110,13 +110,8 @@ export function StudioCreationDock({
           只读会话：无法在此生成或编辑
         </p>
       ) : null}
-      <CreationPanel
-        variant="studio-dock"
-        onDockModeChange={onDockModeChange}
-        initialDockExpanded={dockExpanded}
-        showModeTabs={false}
-        rotatingPlaceholder
-        enablePolish
+      <StudioDockCreationPanel
+        readOnly={readOnly}
         mode={mode}
         sessionId={sessionId}
         initialPrompt={initialPrompt}
@@ -131,15 +126,14 @@ export function StudioCreationDock({
         onCancelJob={onCancelJob}
         jobElapsedMs={jobElapsedMs}
         queueAhead={queueAhead}
-        readOnly={readOnly}
         canvasItems={canvasItems}
         selectedCanvasItem={selectedCanvasItem}
         onClearCanvasSelection={onClearCanvasSelection}
         mentionItemRequest={mentionItemRequest}
         onUploadToCanvas={onUploadToCanvas}
+        onDockModeChange={onDockModeChange}
+        dockExpanded={dockExpanded}
         focusEdit={focusEdit}
-        agentOrchestration
-        agentSkills={false}
         onFocusEditSubmit={onFocusEditSubmit}
         autoSubmitOnce={autoSubmitOnce}
       />
