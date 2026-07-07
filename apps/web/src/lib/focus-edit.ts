@@ -94,6 +94,22 @@ export const CROP_SIZE_OPTIONS = [
 
 export const DEFAULT_CROP_SIZE = 128;
 
+/** 焦点编辑快捷键：⌘⇧F / Ctrl+Shift+F（避免单独 ⌘/Ctrl 与复制粘贴冲突） */
+export const FOCUS_EDIT_SHORTCUT_KEY = "f";
+
+export function isFocusEditShortcut(e: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey" | "repeat">): boolean {
+  if (e.repeat || e.altKey) return false;
+  if (!(e.metaKey || e.ctrlKey) || !e.shiftKey) return false;
+  return e.key.toLowerCase() === FOCUS_EDIT_SHORTCUT_KEY;
+}
+
+export function focusEditShortcutLabel(): string {
+  if (typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.platform)) {
+    return "⌘⇧F";
+  }
+  return "Ctrl+Shift+F";
+}
+
 export interface FocusEditSession {
   itemId: string;
   points: FocusPointChip[];

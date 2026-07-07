@@ -6,7 +6,8 @@ import { ChevronRight } from "lucide-react";
 import type { DesignCanvasHandle } from "@/components/design-canvas";
 import { StudioCreationDock } from "@/components/studio-creation-dock";
 import { StudioInfiniteSubmitBridge } from "@/components/studio-infinite-submit-bridge";
-import { CanvasSelectionToolbar } from "@/components/canvas-selection-toolbar";
+import { useStudioCanvasToolBridge } from "@/hooks/use-studio-canvas-tool-bridge";
+import { StudioToolHandlersProvider } from "@/components/studio-tool-handlers-provider";
 import { StudioDock, studioDockOverlayInsetPx, studioDockScrollInset } from "@/components/studio-dock";
 import { StudioCoach } from "@/components/studio-coach";
 import { StudioHeader } from "@/components/studio-header";
@@ -29,7 +30,6 @@ import {
 } from "@/lib/studio-dock-state";
 import { getActiveWorkspaceId } from "@/lib/active-workspace";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
-import { copyTextToClipboard } from "@/lib/clipboard";
 import { formatJobErrorMessage } from "@/lib/job-error-message";
 import { hapticLight } from "@/lib/haptics";
 import { type CreationMode } from "@aimarket/ui";
@@ -39,9 +39,7 @@ import { StudioOrchestrationProvider } from "@/components/studio-orchestration-p
 import { StudioCanvasWithOrchestration } from "@/components/studio-canvas-with-orchestration";
 import { useAuth } from "@/lib/auth-context";
 import {
-  assetUrl,
   listSessions,
-  publishCanvasToInspiration,
   trackEvent,
 } from "@/lib/api-client";
 import {
@@ -56,9 +54,6 @@ import {
   useSessionCanvas,
 } from "@/hooks/use-session-canvas";
 import { type PendingAsset } from "@/lib/pending-assets";
-import {
-  paddingToExtend,
-} from "@/lib/expand-frame";
 import { buildStudioUrl, studioUrlForSession } from "@/lib/studio-navigation";
 import { type SessionKind } from "@/lib/session-kind";
 import { clientNavigate } from "@/lib/client-navigate";
@@ -72,7 +67,6 @@ import {
   STUDIO_SIDEBAR_SESSION_LIMIT,
   useStudioSessionBootstrap,
 } from "@/hooks/use-studio-session-bootstrap";
-import { buildToolPromptSuffix } from "@/lib/studio-tool-interaction";
 import type { StudioMentionItemRequest } from "@/lib/canvas-node-handlers";
 
 import type { StudioWorkspaceProps } from "@/components/studio-workspace-types";
@@ -521,6 +515,31 @@ export function StudioWorkspace({
     registerToolBatchLineage,
   });
 
+  const canvasToolBridge = useStudioCanvasToolBridge({
+    readOnly,
+    mobile,
+    tools,
+    canvasItems,
+    selectedCanvasItem,
+    pendingToolId,
+    brushRequest,
+    setBrushRequest,
+    expandRequest,
+    setExpandRequest,
+    focusClickRequest,
+    handleFocusImageClick,
+    runSelectionTool,
+    runQuickToolFromCanvas,
+    runInfiniteNodeTool,
+    executeDirectTool,
+    handleRerun,
+    handleExtractVideoLastFrame,
+    handleAddVideoBgm,
+    videoActionBusy,
+    setMentionItemRequest,
+    setSelectSourceBanner,
+  });
+
   const handleTitleSaved = useCallback((title: string) => {
     setSessions((prev) =>
       prev.map((s) => (s.id === sessionId ? { ...s, title } : s)),
@@ -640,6 +659,7 @@ export function StudioWorkspace({
               <ChevronRight className="size-3.5" strokeWidth={1.75} />
             </button>
           ) : null}
+          <StudioToolHandlersProvider value={canvasToolBridge}>
           <StudioOrchestrationProvider
             sessionId={sessionId}
             mode={mode}
@@ -733,141 +753,6 @@ export function StudioWorkspace({
               jobStartedAt={jobStartedAt}
               selectSourceBanner={selectSourceBanner}
               showFailureBannerDismiss={jobFailed}
-              nodeActions={{
-                onCutoutItem: (item) => runQuickToolFromCanvas(item, "cutout"),
-                onExpandItem: (item) => runQuickToolFromCanvas(item, "expand"),
-                onRerun: (item) => void handleRerun(item),
-                onRunInfiniteNodeTool: (req) => void runInfiniteNodeTool(req),
-                batchTools: {
-                  tools,
-                  pendingToolId,
-                  onRunTool: (tool, item) => void runSelectionTool(tool, item),
-                  onMentionItem: (item) => {
-                    setMentionItemRequest((prev) => ({
-                      key: (prev?.key ?? 0) + 1,
-                      item,
-                    }));
-                    hapticLight();
-                  },
-                  onExtractVideoLastFrame: (item) =>
-                    void handleExtractVideoLastFrame(item),
-                  onAddVideoBgm: handleAddVideoBgm,
-                  videoActionBusy,
-                },
-                onShareItem: async (item) => {
-                  try {
-                    await copyTextToClipboard(assetUrl(item.url));
-                    setSelectSourceBanner("图片链接已复制，可粘贴分享");
-                  } catch {
-                    setSelectSourceBanner("复制失败，请重试");
-                  }
-                },
-                onPublishItem: async (item) => {
-                  if (!item.outputId) {
-                    setSelectSourceBanner("仅支持发布已生成的图片或视频");
-                    return;
-                  }
-                  try {
-                    await publishCanvasToInspiration({
-                      outputId: item.outputId,
-                    });
-                    setSelectSourceBanner(
-                      "已发布到灵感发现 · 他人可制作同款并注入提示词",
-                    );
-                    hapticLight();
-                  } catch (err) {
-                    setSelectSourceBanner(
-                      err instanceof Error ? err.message : "发布失败，请重试",
-                    );
-                  }
-                },
-              }}
-              brushRequest={brushRequest}
-              focusClickRequest={focusClickRequest}
-              onFocusImageClick={(item, point) =>
-                void handleFocusImageClick(item, point)
-              }
-              onFocusClickCancel={() => {
-                setSelectSourceBanner(
-                  "点选已完成：请在工作站补充 prompt 并提交焦点编辑。",
-                );
-              }}
-              expandRequest={expandRequest}
-              onExpandCancel={() => {
-                setExpandRequest(null);
-                setSelectSourceBanner(null);
-              }}
-              onExpandComplete={(padding, aspect) => {
-                const item = canvasItems.find(
-                  (i) => i.id === expandRequest?.itemId,
-                );
-                const tool = tools.find((t) => t.id === "expand");
-                if (!item || !tool) return;
-                const extend = paddingToExtend(
-                  padding,
-                  item.width,
-                  item.height,
-                );
-                const promptExtra = expandRequest?.promptExtra ?? "";
-                setExpandRequest(null);
-                void executeDirectTool(tool, item, {
-                  count: 1,
-                  prompt: promptExtra || undefined,
-                  expandDirection: undefined,
-                  expandExtend: extend,
-                  expandAspectPreset: aspect,
-                });
-              }}
-              onBrushCancel={() => {
-                setBrushRequest(null);
-                setSelectSourceBanner(null);
-              }}
-              onBrushComplete={(selection) => {
-                const item = canvasItems.find((i) => i.id === selection.itemId);
-                if (!item) return;
-                const tool = tools.find((t) => t.id === selection.toolId);
-                const promptExtra = brushRequest?.promptExtra ?? "";
-                setBrushRequest(null);
-                setMentionItemRequest((prev) => ({
-                  key: (prev?.key ?? 0) + 1,
-                  item,
-                  promptSuffix:
-                    buildToolPromptSuffix(
-                      tool ?? {
-                        id: selection.toolId,
-                        name: "局部编辑",
-                        description: "",
-                        defaultPrompt: "请根据圈选区域进行局部编辑",
-                      },
-                    ) + promptExtra,
-                  maskSelection: selection,
-                }));
-                setSelectSourceBanner(
-                  selection.toolId === "inpaint"
-                    ? "已完成圈选：请在工作台填写要将该区域改成什么，然后提交。"
-                    : "已完成圈选：区域 mask 已加入工作台，可补充说明后提交。",
-                );
-                hapticLight();
-              }}
-              selectionToolbar={
-                <CanvasSelectionToolbar
-                  tools={tools}
-                  selectedItem={selectedCanvasItem}
-                  readOnly={readOnly}
-                  pendingToolId={pendingToolId}
-                  layout={mobile ? "horizontal" : "vertical"}
-                  onRunTool={(tool, item) =>
-                    void runSelectionTool(tool, item)
-                  }
-                  onMentionItem={(item) => {
-                    setMentionItemRequest((prev) => ({
-                      key: (prev?.key ?? 0) + 1,
-                      item,
-                    }));
-                    hapticLight();
-                  }}
-                />
-              }
               statusChip={<ProviderStatusChip />}
             />
 
@@ -911,6 +796,7 @@ export function StudioWorkspace({
             ) : null}
           </div>
           </StudioOrchestrationProvider>
+          </StudioToolHandlersProvider>
         </div>
       </div>
 

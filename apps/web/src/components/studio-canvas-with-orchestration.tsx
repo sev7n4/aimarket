@@ -24,6 +24,7 @@ import type { CanvasAgentOp } from "@/components/infinite-canvas/utils";
 import { applyDramaCanvasOps } from "@/components/infinite-canvas/drama/drama-canvas-mutations";
 import { dramaShotIdFromNodeId } from "@/lib/infinite-node-tool-run";
 import type { DesignCanvasNodeActions } from "@/lib/canvas-node-handlers";
+import { useStudioToolHandlersContextOptional } from "@/components/studio-tool-handlers-provider";
 import type { CanvasNodeData } from "@/components/infinite-canvas/types";
 import type { DramaStudioViewPhase } from "@/lib/drama-studio-view";
 import { isCanvasFlowMode } from "@/lib/modes";
@@ -77,6 +78,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     refineDramaPlan,
     creationLane,
   } = useStudioOrchestration();
+  const toolCtx = useStudioToolHandlersContextOptional();
 
   /** 短剧 UI / 编排仅在 Agent 车道展示；图片 / 视频车道走各自画布逻辑 */
   const dramaLaneActive = creationLane === "agent";
@@ -598,7 +600,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     ) : null;
 
   const mergedNodeActions = useMemo((): DesignCanvasNodeActions | undefined => {
-    const base = props.nodeActions;
+    const base = props.nodeActions ?? toolCtx?.nodeActions;
     if (!dramaLaneActive) return base;
 
     const drama: NonNullable<DesignCanvasNodeActions["drama"]> = {
@@ -633,6 +635,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     return { ...base, drama };
   }, [
     props.nodeActions,
+    toolCtx?.nodeActions,
     dramaLaneActive,
     dramaRun,
     dramaDraftProject,
@@ -645,6 +648,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
   return (
     <DesignCanvas
       ref={ref}
+      {...toolCtx}
       {...props}
       nodeActions={mergedNodeActions}
       useInfiniteCanvas={useInfiniteCanvas}
