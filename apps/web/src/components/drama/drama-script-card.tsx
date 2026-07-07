@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { Sparkles } from "lucide-react";
 
-import { DramaAssetCardShell } from "@/components/drama/drama-asset-card-shell";
-import { DramaBadge } from "@/components/drama/drama-badge";
+import {
+  DramaScriptCardShell,
+  dramaScriptDisplayFromPayload,
+} from "@/components/drama/drama-script-card-shell";
 import { DramaAssetRegenPopover } from "@/components/drama/drama-asset-regen-popover";
 import type { DramaProjectPayload } from "@/lib/types";
 
@@ -32,25 +34,80 @@ export function DramaScriptCard({
   onRefine,
 }: DramaScriptCardProps) {
   const [regenOpen, setRegenOpen] = useState(false);
-  const actCount = script.acts.length;
-  const narratorCount = script.narratorLines.length;
+
+  const editableBody = editable ? (
+    <>
+      <input
+        className="w-full rounded border border-white/10 bg-black/30 px-2 py-1.5 text-sm font-medium text-zinc-100"
+        value={script.title}
+        onChange={(e) => onTitleChange?.(e.target.value)}
+        placeholder="短剧标题"
+      />
+      <textarea
+        className="w-full resize-none rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs leading-relaxed text-zinc-400"
+        rows={2}
+        value={script.logline}
+        onChange={(e) => onLoglineChange?.(e.target.value)}
+        placeholder="一句话梗概"
+      />
+      {script.acts.length > 0 ? (
+        <div className="space-y-1.5 pt-1">
+          <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+            场次大纲
+          </div>
+          {script.acts.map((act, i) => (
+            <div
+              key={`${act.act}-${act.sceneId}-${i}`}
+              className="rounded-md border border-white/10 bg-black/20 p-2"
+            >
+              <div className="mb-1 text-[10px] font-medium text-violet-300/80">
+                第 {act.act} 幕
+                {act.emotion ? (
+                  <span className="ml-1 text-zinc-500">· {act.emotion}</span>
+                ) : null}
+              </div>
+              <textarea
+                className="w-full resize-none rounded border border-white/10 bg-black/30 p-1 text-xs text-zinc-300"
+                rows={2}
+                value={act.summary}
+                onChange={(e) => onActSummaryChange?.(i, e.target.value)}
+              />
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {script.narratorLines.length > 0 ? (
+        <div className="space-y-1 pt-1">
+          <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+            旁白
+          </div>
+          {script.narratorLines.map((line, i) =>
+            onNarratorLineChange ? (
+              <textarea
+                key={i}
+                className="w-full resize-none rounded border border-white/10 bg-black/30 p-1 text-[11px] text-zinc-400"
+                rows={2}
+                value={line}
+                onChange={(e) => onNarratorLineChange(i, e.target.value)}
+              />
+            ) : (
+              <p key={i} className="text-[11px] leading-relaxed text-zinc-500">
+                {line}
+              </p>
+            ),
+          )}
+        </div>
+      ) : null}
+    </>
+  ) : undefined;
 
   return (
     <>
-      <DramaAssetCardShell
-        category="script"
+      <DramaScriptCardShell
+        mode="panel"
+        script={dramaScriptDisplayFromPayload(script)}
         testId="drama-script-card"
         className="rounded-lg border border-white/10 bg-black/20"
-        badges={
-          <>
-            {actCount > 0 ? (
-              <DramaBadge color="#8b5cf6">{actCount} 幕</DramaBadge>
-            ) : null}
-            {narratorCount > 0 ? (
-              <DramaBadge color="#6366f1">{narratorCount} 旁白</DramaBadge>
-            ) : null}
-          </>
-        }
         footer={
           editable && onRefine ? (
             <button
@@ -66,91 +123,8 @@ export function DramaScriptCard({
           ) : null
         }
       >
-        {editable ? (
-          <>
-            <input
-              className="w-full rounded border border-white/10 bg-black/30 px-2 py-1.5 text-sm font-medium text-zinc-100"
-              value={script.title}
-              onChange={(e) => onTitleChange?.(e.target.value)}
-              placeholder="短剧标题"
-            />
-            <textarea
-              className="w-full resize-none rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs leading-relaxed text-zinc-400"
-              rows={2}
-              value={script.logline}
-              onChange={(e) => onLoglineChange?.(e.target.value)}
-              placeholder="一句话梗概"
-            />
-          </>
-        ) : (
-          <>
-            <div className="text-sm font-semibold leading-snug text-zinc-100">
-              {script.title || "AI 短剧"}
-            </div>
-            {script.logline ? (
-              <p className="text-xs leading-relaxed text-zinc-400">
-                {script.logline}
-              </p>
-            ) : null}
-          </>
-        )}
-
-        {script.acts.length > 0 ? (
-          <div className="space-y-1.5 pt-1">
-            <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-              场次大纲
-            </div>
-            {script.acts.map((act, i) => (
-              <div
-                key={`${act.act}-${act.sceneId}-${i}`}
-                className="rounded-md border border-white/10 bg-black/20 p-2"
-              >
-                <div className="mb-1 text-[10px] font-medium text-violet-300/80">
-                  第 {act.act} 幕
-                  {act.emotion ? (
-                    <span className="ml-1 text-zinc-500">· {act.emotion}</span>
-                  ) : null}
-                </div>
-                {editable ? (
-                  <textarea
-                    className="w-full resize-none rounded border border-white/10 bg-black/30 p-1 text-xs text-zinc-300"
-                    rows={2}
-                    value={act.summary}
-                    onChange={(e) => onActSummaryChange?.(i, e.target.value)}
-                  />
-                ) : (
-                  <p className="text-xs leading-relaxed text-zinc-400">
-                    {act.summary}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        {script.narratorLines.length > 0 ? (
-          <div className="space-y-1 pt-1">
-            <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-              旁白
-            </div>
-            {script.narratorLines.map((line, i) =>
-              editable && onNarratorLineChange ? (
-                <textarea
-                  key={i}
-                  className="w-full resize-none rounded border border-white/10 bg-black/30 p-1 text-[11px] text-zinc-400"
-                  rows={2}
-                  value={line}
-                  onChange={(e) => onNarratorLineChange(i, e.target.value)}
-                />
-              ) : (
-                <p key={i} className="text-[11px] leading-relaxed text-zinc-500">
-                  {line}
-                </p>
-              ),
-            )}
-          </div>
-        ) : null}
-      </DramaAssetCardShell>
+        {editableBody}
+      </DramaScriptCardShell>
 
       {onRefine ? (
         <DramaAssetRegenPopover

@@ -86,6 +86,7 @@
 | ID | 任务 | 状态 | 产出 | 验证 |
 |----|------|------|------|------|
 | P6-4-1 | Scene 实体 shell | ✅ | `DramaSceneCardShell` + `mode: panel \| node` | panel + canvas E2E |
+| P6-4-2 | Script 实体 shell | ✅ | `DramaScriptCardShell` + `mode: panel \| node` | typecheck 绿 |
 | P6-4-2 | Script / Character / Shot | ⬜ | 同上模式 | drama E2E |
 
 **不切**：`drama-studio-panel.tsx` 整体（964 行，另立后续阶段）。
