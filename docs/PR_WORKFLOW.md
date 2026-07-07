@@ -19,7 +19,14 @@ AIMarket 与 **pintuotuo** 对齐，使用同一套 Agent Skill：**`.cursor/ski
   - `Integration Tests`
   - `E2E Tests`
 
-## 与 pintuotuo 相同 / 不同
+## Studio / 画布 PR 自检（P5-3）
+
+涉及 `design-canvas`、`studio-workspace`、Infinite/Scroll/Free 画布或 Dock 的 PR，描述中请注明：
+
+- [ ] 受影响画布模式：Infinite / Scroll / Free / 无
+- [ ] 是否动提交主线（`useStudioSubmit` / `runStudioSubmit` / CreationPanel）
+- [ ] 合并部署后是否需跑 [PROD_SMOKE_INFINITE.md](./PROD_SMOKE_INFINITE.md)
+
 
 | 相同 | 不同 |
 |------|------|

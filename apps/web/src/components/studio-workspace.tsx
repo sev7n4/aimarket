@@ -34,7 +34,6 @@ import {
   ToolGridResultPanel,
   type ToolGridResultState,
 } from "@/components/tool-grid-result-panel";
-import { isToolGridToolId } from "@/lib/tool-grid-labels";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { WorkspaceProvider } from "@/lib/workspace-context";
 import {
@@ -56,7 +55,6 @@ import { StudioCanvasWithOrchestration } from "@/components/studio-canvas-with-o
 import { useAuth } from "@/lib/auth-context";
 import {
   assetUrl,
-  cancelJob,
   ensureSession,
   fetchSession,
   exportSession,
@@ -92,15 +90,9 @@ import type { DramaTemplateMetadata } from "@/lib/types";
 import { persistCreationLane } from "@/lib/creation-dock-prefs";
 import { extractVideoLastFrame } from "@/lib/video-frame-extract";
 import {
-  invalidateSessionCanvasBundle,
   prefetchSessionCanvasBundle,
   useSessionCanvas,
 } from "@/hooks/use-session-canvas";
-import {
-  watchJob,
-  JOB_STREAM_DISCONNECTED_HINT,
-  JOB_STREAM_STILL_RUNNING_HINT,
-} from "@/lib/job-stream";
 import { consumePendingAssets, type PendingAsset } from "@/lib/pending-assets";
 import { consumePendingInspiration, normalizePendingInspiration } from "@/lib/pending-inspiration";
 import {
@@ -108,7 +100,6 @@ import {
 } from "@/lib/expand-frame";
 import { focusIndexLabel } from "@/lib/focus-index-labels";
 import { resolveToolResolution } from "@/lib/tool-resolution";
-import { formatToolProviderLabel } from "@/lib/studio-tool-meta";
 import { hapticLight } from "@/lib/haptics";
 import { type SessionKind } from "@/lib/session-kind";
 import { buildStudioUrl, studioUrlForSession } from "@/lib/studio-navigation";
@@ -117,6 +108,7 @@ import { writeDraftSessionId } from "@/lib/studio-draft-session";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useConversationPaneWidth } from "@/hooks/use-conversation-pane-width";
 import { useStudioToolHandlers } from "@/hooks/use-studio-tool-handlers";
+import { useStudioJobStream } from "@/hooks/use-studio-job-stream";
 import { buildToolPromptSuffix } from "@/lib/studio-tool-interaction";
 import type { StudioMentionItemRequest } from "@/lib/canvas-node-handlers";
 
@@ -155,10 +147,6 @@ export function StudioWorkspace({
   const loadCanvasRef = useRef<
     (opts?: { force?: boolean }) => Promise<void>
   >(async () => {});
-  const handleJobCompleteRef = useRef<
-    (completedJobId?: string) => Promise<void>
-  >(async () => {});
-  const completingJobIdRef = useRef<string | null>(null);
   const { user, loading: authLoading, refreshUser } = useAuth();
   const uploadRef = useRef<HTMLInputElement>(null);
   const bgmInputRef = useRef<HTMLInputElement>(null);
@@ -189,18 +177,6 @@ export function StudioWorkspace({
   const [selectSourceBanner, setSelectSourceBanner] = useState<string | null>(
     null,
   );
-  const [jobFailed, setJobFailed] = useState(false);
-  const [jobError, setJobError] = useState<string | null>(null);
-  const [jobFailedToolType, setJobFailedToolType] = useState<string | null>(
-    null,
-  );
-
-  const dismissJobFailure = useCallback(() => {
-    setJobFailed(false);
-    setJobError(null);
-    setJobFailedToolType(null);
-    setSelectSourceBanner(null);
-  }, []);
 
   const [mode, setMode] = useState<CreationMode>(initialMode);
   const [selectedCanvasId, setSelectedCanvasId] = useState<string | null>(null);
@@ -262,20 +238,9 @@ export function StudioWorkspace({
   );
   const [tools, setTools] = useState<StudioTool[]>([]);
   const [ready, setReady] = useState(false);
-  const [pollingJobId, setPollingJobId] = useState<string | null>(null);
   const [toolGridResult, setToolGridResult] =
     useState<ToolGridResultState | null>(null);
-  /** SSE 早断时递增以重新挂载 watchJob */
-  const [jobWatchSeq, setJobWatchSeq] = useState(0);
-  const [jobStreamStatus, setJobStreamStatus] = useState<string | null>(null);
-  const [jobProgressCompleted, setJobProgressCompleted] = useState(0);
-  const [jobProgressTotal, setJobProgressTotal] = useState(0);
-  const [jobStartedAt, setJobStartedAt] = useState<number | null>(null);
-  const [queueAhead, setQueueAhead] = useState<number | null>(null);
-  const [activeJobPrompt, setActiveJobPrompt] = useState<string | null>(null);
-  const [, setJobTick] = useState(0);
   const [studioPrompt, setStudioPrompt] = useState(initialPrompt);
-  const lastOutputCountRef = useRef(0);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(
     null,
   );
@@ -383,11 +348,6 @@ export function StudioWorkspace({
 
   const infiniteOverlayBottomInsetPx =
     infiniteCanvasActive ? 0 : studioDockOverlayInsetPx(dockMode);
-
-  const infiniteEmptySubmitting =
-    Boolean(jobStreamStatus) &&
-    jobStreamStatus !== "succeeded" &&
-    jobStreamStatus !== "failed";
 
   const handleInfiniteSubmitReady = useCallback(
     (api: { submit: () => Promise<void>; submitting: boolean }) => {
@@ -570,50 +530,6 @@ export function StudioWorkspace({
   }, [authLoading, user, sessionId, initSession]);
 
   useEffect(() => {
-    if (!initialJobId || !user) return;
-    let cancelled = false;
-    void fetchJob(initialJobId)
-      .then((job) => {
-        if (cancelled) return;
-        if (job.status === "succeeded" || job.status === "failed") {
-          setPollingJobId(null);
-          setJobStreamStatus(null);
-          setActiveJobPrompt(null);
-          void loadCanvasRef.current({ force: true });
-          if (job.status === "failed") {
-            setJobFailed(true);
-            setJobError(job.error ?? null);
-            setJobFailedToolType(job.tool_type ?? null);
-            const friendly = formatJobErrorMessage(job.error, {
-              toolType: job.tool_type,
-            });
-            const refundHint =
-              job.points_cost > 0
-                ? `，已退回 ${job.points_cost} 积分`
-                : "，积分已退回";
-            setSelectSourceBanner(
-              friendly
-                ? `${friendly}${refundHint}`
-                : (job.error ?? `生成失败${refundHint}`),
-            );
-            void refreshUser();
-          }
-          router.replace(
-            `/studio?sessionId=${encodeURIComponent(sessionId)}&mode=${mode}`,
-          );
-          return;
-        }
-        setPollingJobId(initialJobId);
-      })
-      .catch(() => {
-        if (!cancelled) setPollingJobId(initialJobId);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [initialJobId, user, sessionId, mode, router, refreshUser]);
-
-  useEffect(() => {
     if (!initialToolId || !tools.length) return;
     const tool = tools.find((t) => t.id === initialToolId);
     if (!tool) return;
@@ -634,28 +550,6 @@ export function StudioWorkspace({
     [registerBatchLineage],
   );
 
-  const handleJobStarted = useCallback(
-    (jobId: string, lineage?: PendingBatchLineage) => {
-      if (lineage) registerBatchLineage(jobId, lineage);
-      if (canvasRef.current?.isInRefineMode()) {
-        canvasRef.current.beginRefineJob();
-      } else {
-        setSelectedCanvasId(null);
-        window.requestAnimationFrame(() => {
-          canvasRef.current?.scrollToGenerating();
-        });
-      }
-      setActiveJobPrompt(studioPrompt.trim() || null);
-      setPollingJobId(jobId);
-      void listSessions(
-        STUDIO_SIDEBAR_SESSION_LIMIT,
-        undefined,
-        activeWorkspaceId ?? undefined,
-      ).then(setSessions);
-    },
-    [registerBatchLineage, studioPrompt, activeWorkspaceId],
-  );
-
   /** 仅滚动/高亮最新批次，不写入 selectedCanvasId（避免误绑定图生图参考） */
   const scrollToLatestCanvasBatch = useCallback(() => {
     const target = pickLatestBatchFocusTarget(canvasItemsRef.current);
@@ -668,6 +562,52 @@ export function StudioWorkspace({
     canvasRef.current?.pulseItem(target.itemId);
   }, []);
 
+  const {
+    pollingJobId,
+    setPollingJobId,
+    jobStreamStatus,
+    jobProgressCompleted,
+    jobProgressTotal,
+    queueAhead,
+    jobFailed,
+    jobError,
+    jobFailedToolType,
+    jobElapsedMs,
+    infiniteEmptySubmitting,
+    activeJobPrompt,
+    jobStartedAt,
+    dismissJobFailure,
+    handleJobStarted,
+    handleCancelJob,
+  } = useStudioJobStream({
+    user,
+    sessionId,
+    mode,
+    router,
+    studioPrompt,
+    activeWorkspaceId,
+    initialJobId,
+    canvasRef,
+    canvasItemsRef,
+    loadCanvas,
+    loadCanvasRef,
+    refreshUser,
+    registerBatchLineage,
+    setSessions,
+    setSelectedCanvasId,
+    setSelectSourceBanner,
+    setToolGridResult,
+    scrollToLatestCanvasBatch,
+  });
+
+  useEffect(() => {
+    const count = canvasItems.length;
+    if (count > prevItemCountRef.current && pollingJobId) {
+      scrollToLatestCanvasBatch();
+    }
+    prevItemCountRef.current = count;
+  }, [canvasItems.length, pollingJobId, scrollToLatestCanvasBatch]);
+
   const handleJumpToParentBatch = useCallback(
     (parentBatchId: string, sourceItemId?: string) => {
       canvasRef.current?.fitToBatch(parentBatchId);
@@ -678,239 +618,6 @@ export function StudioWorkspace({
     },
     [],
   );
-
-  const handleJobComplete = useCallback(async (completedJobId?: string) => {
-    if (
-      completedJobId &&
-      completingJobIdRef.current === completedJobId
-    ) {
-      return;
-    }
-    if (completedJobId) completingJobIdRef.current = completedJobId;
-    try {
-    invalidateSessionCanvasBundle(sessionId);
-    let jobStatus: string | undefined;
-    let toolType: string | undefined;
-    let failedJobError: string | null = null;
-    let failedPointsCost = 0;
-    let completedJob: Awaited<ReturnType<typeof fetchJob>> | undefined;
-    if (completedJobId) {
-      try {
-        const job = await fetchJob(completedJobId);
-        completedJob = job;
-        jobStatus = job.status;
-        toolType = job.tool_type ?? undefined;
-        if (job.status === "failed") {
-          failedJobError = job.error ?? null;
-          failedPointsCost = job.points_cost ?? 0;
-        }
-        if (
-          job.tool_type &&
-          job.status === "succeeded" &&
-          !canvasRef.current?.isInRefineMode()
-        ) {
-          const provider = formatToolProviderLabel(job.image_provider);
-          if (provider) {
-            setSelectSourceBanner(`精修完成 · ${provider}`);
-          }
-        }
-      } catch {
-        /* 忽略 provider 展示失败 */
-      }
-    }
-    await loadCanvas({ force: true });
-    await refreshUser();
-    setSessions(
-      await listSessions(
-        STUDIO_SIDEBAR_SESSION_LIMIT,
-        undefined,
-        activeWorkspaceId ?? undefined,
-      ),
-    );
-    if (jobStatus === "failed") {
-      setJobFailed(true);
-      setJobError(failedJobError);
-      setJobFailedToolType(toolType ?? null);
-      const friendly = formatJobErrorMessage(failedJobError, {
-        toolType,
-      });
-      const refundHint =
-        failedPointsCost > 0
-          ? `，已退回 ${failedPointsCost} 积分`
-          : "，积分已退回";
-      setSelectSourceBanner(
-        friendly
-          ? `${friendly}${refundHint}`
-          : (failedJobError ?? `生成失败${refundHint}`),
-      );
-    } else if (jobStatus === "succeeded") {
-      setJobFailed(false);
-      setJobError(null);
-      setJobFailedToolType(null);
-      if (
-        completedJob &&
-        toolType &&
-        isToolGridToolId(toolType)
-      ) {
-        const urls = [...(completedJob.outputs ?? [])]
-          .sort((a, b) => a.sort_order - b.sort_order)
-          .map((o) => o.url)
-          .filter(Boolean);
-        if (urls.length > 0) {
-          setToolGridResult({ toolId: toolType, urls });
-        }
-      }
-    } else if (
-      completedJobId &&
-      (jobStatus === "queued" || jobStatus === "running")
-    ) {
-      completingJobIdRef.current = null;
-      setJobStreamStatus(jobStatus);
-      setSelectSourceBanner("生成仍在进行，正在继续等待结果…");
-      setJobWatchSeq((n) => n + 1);
-      return;
-    }
-    setPollingJobId(null);
-    setJobStreamStatus(null);
-    setJobProgressCompleted(0);
-    setJobProgressTotal(0);
-    setJobStartedAt(null);
-    setQueueAhead(null);
-    setActiveJobPrompt(null);
-    lastOutputCountRef.current = 0;
-    router.replace(
-      `/studio?sessionId=${encodeURIComponent(sessionId)}&mode=${mode}`,
-    );
-    if (canvasRef.current?.isInRefineMode()) {
-      if (jobStatus === "succeeded") {
-        canvasRef.current.completeRefineJob({ toolName: toolType });
-      } else {
-        canvasRef.current.cancelRefineJob();
-      }
-    } else {
-      setSelectedCanvasId(null);
-      window.requestAnimationFrame(() => scrollToLatestCanvasBatch());
-    }
-    } finally {
-      if (completedJobId && completingJobIdRef.current === completedJobId) {
-        completingJobIdRef.current = null;
-      }
-    }
-  }, [
-    loadCanvas,
-    refreshUser,
-    activeWorkspaceId,
-    scrollToLatestCanvasBatch,
-    router,
-    sessionId,
-    mode,
-  ]);
-
-  handleJobCompleteRef.current = handleJobComplete;
-
-  useEffect(() => {
-    if (!pollingJobId || !user) return;
-    const t0 = performance.now();
-    const jobId = pollingJobId;
-    let cancelled = false;
-
-    void fetchJob(jobId)
-      .then((job) => {
-        if (cancelled) return;
-        setJobStreamStatus(job.status);
-        if (job.count) setJobProgressTotal(job.count);
-        setQueueAhead(job.queue_ahead ?? null);
-        if (job.status === "succeeded" || job.status === "failed") {
-          if (job.status === "failed") {
-            setJobFailed(true);
-            setJobError(job.error ?? null);
-          }
-          void handleJobCompleteRef.current(jobId);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setJobStreamStatus("queued");
-      });
-
-    setJobFailed(false);
-    setJobError(null);
-    setJobFailedToolType(null);
-    setJobProgressCompleted(0);
-    setJobStartedAt(Date.now());
-    lastOutputCountRef.current = 0;
-    const tickTimer = window.setInterval(() => setJobTick((n) => n + 1), 1000);
-    const stop = watchJob(
-      jobId,
-      (ev) => {
-        setJobStreamStatus(ev.status);
-        if (ev.count) setJobProgressTotal(ev.count);
-        if (ev.queueAhead !== undefined) setQueueAhead(ev.queueAhead);
-        if (typeof ev.completed === "number") {
-          setJobProgressCompleted(ev.completed);
-          if (
-            ev.status === "running" &&
-            ev.completed > lastOutputCountRef.current
-          ) {
-            lastOutputCountRef.current = ev.completed;
-            void loadCanvasRef.current({ force: true });
-          }
-        }
-        if (ev.status === "failed") {
-          setJobFailed(true);
-          setJobError(ev.error ?? null);
-        }
-      },
-      () => {
-        void handleJobCompleteRef.current(jobId);
-      },
-      async (err) => {
-        try {
-          const job = await fetchJob(jobId);
-          if (job.status === "succeeded" || job.status === "failed") {
-            void handleJobCompleteRef.current(jobId);
-            return;
-          }
-          if (job.status === "queued" || job.status === "running") {
-            completingJobIdRef.current = null;
-            setJobStreamStatus(job.status);
-            setSelectSourceBanner(JOB_STREAM_STILL_RUNNING_HINT);
-            setJobWatchSeq((n) => n + 1);
-            return;
-          }
-        } catch {
-          /* fall through */
-        }
-        void trackEvent("generation_fail", {
-          job_id: jobId,
-          error_code: "STREAM_ERROR",
-          duration_ms: Math.round(performance.now() - t0),
-        });
-        setJobFailed(true);
-        const streamMsg =
-          err instanceof Error ? err.message : JOB_STREAM_DISCONNECTED_HINT;
-        setJobError(streamMsg);
-        setPollingJobId(null);
-        setActiveJobPrompt(null);
-        setJobStreamStatus("failed");
-      },
-    );
-    return () => {
-      cancelled = true;
-      window.clearInterval(tickTimer);
-      stop();
-    };
-  }, [pollingJobId, user, jobWatchSeq]);
-
-  const jobElapsedMs =
-    jobStartedAt != null ? Date.now() - jobStartedAt : undefined;
-
-  useEffect(() => {
-    const count = canvasItems.length;
-    if (count > prevItemCountRef.current && pollingJobId) {
-      scrollToLatestCanvasBatch();
-    }
-    prevItemCountRef.current = count;
-  }, [canvasItems.length, pollingJobId, scrollToLatestCanvasBatch]);
 
   /**
    * 选中画布图片后，从浮层 AI 工具栏一键跑工具。
@@ -1232,28 +939,6 @@ export function StudioWorkspace({
       setSelectSourceBanner(err instanceof Error ? err.message : "配乐失败");
     } finally {
       setVideoActionBusy(false);
-    }
-  }
-
-  async function handleCancelJob() {
-    if (!pollingJobId || !user) return;
-    
-    try {
-      const result = await cancelJob(pollingJobId);
-      setPollingJobId(null);
-      setJobStreamStatus(null);
-      setJobProgressCompleted(0);
-      setJobProgressTotal(0);
-      setJobStartedAt(null);
-      setQueueAhead(null);
-      setActiveJobPrompt(null);
-      setSelectSourceBanner(`任务已取消，积分已退回（${result.refundedPoints}积分）`);
-      await refreshUser();
-      await loadCanvas({ force: true });
-    } catch (err) {
-      setSelectSourceBanner(
-        err instanceof Error ? err.message : "取消任务失败",
-      );
     }
   }
 
