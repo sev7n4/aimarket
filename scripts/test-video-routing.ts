@@ -8,6 +8,7 @@ import {
   resolveVideoModelRoute,
   resolveVideoProvider,
 } from "../apps/api/src/providers/video/registry.ts";
+import { VIDEO_MODEL_IDS } from "../apps/api/src/lib/models.ts";
 
 const results: { name: string; pass: boolean; detail?: string }[] = [];
 
@@ -114,10 +115,17 @@ withEnv({ VIDEO_PROVIDER: "mock", AGNES_API_KEY: undefined }, () => {
   }
 });
 
-// 5) meta 列表覆盖三模型
+// 5) meta 列表覆盖完整视频模型目录（与 VIDEO_MODEL_IDS 对齐，避免硬编码数量）
 withEnv({ VIDEO_PROVIDER: "auto", AGNES_API_KEY: "sk-test" }, () => {
   const routes = getVideoModelRoutes();
-  ok("getVideoModelRoutes 含 3 项", routes.length === 3);
+  ok(
+    `getVideoModelRoutes 覆盖全部 ${VIDEO_MODEL_IDS.length} 个模型`,
+    routes.length === VIDEO_MODEL_IDS.length,
+    `实际=${routes.length}`,
+  );
+  const routeIds = new Set(routes.map((r) => r.modelId));
+  const allKnown = VIDEO_MODEL_IDS.every((id) => routeIds.has(id));
+  ok("每个视频模型都有路由项", allKnown);
 });
 
 const failed = results.filter((r) => !r.pass).length;
