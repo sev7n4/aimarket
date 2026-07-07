@@ -4,7 +4,7 @@ import type { ReactNode, Ref } from "react";
 import type { CreationPanelHandle, CreationPanelProps } from "@/components/creation-panel-types";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUp,
   AtSign,
@@ -32,7 +32,6 @@ import {
   getVideoModelRoute,
   getVideoModelRoutesMeta,
   fetchReferences,
-  fetchProviderStatus,
   suggestModel,
   uploadAsset,
   registerAssetFromUrl,
@@ -44,7 +43,6 @@ import { polishPrompt } from "@/lib/prompt-polish";
 import { resolveIntent } from "@/lib/intent-router";
 import {
   readRecentAcceptedPrompts,
-  recordAcceptedPrompt,
 } from "@/lib/prompt-style-profile";
 import {
   resolveVideoSubmitModelId,
@@ -64,15 +62,14 @@ import {
 } from "@/lib/canvas-tools";
 import type { SessionReference } from "@/lib/types";
 import { useRotatingPlaceholder } from "@/hooks/use-rotating-placeholder";
-import { randomUUID } from "@/lib/uuid";
-import { clientNavigate } from "@/lib/client-navigate";
-import { storePendingAssets, type PendingAsset } from "@/lib/pending-assets";
+import type { PendingAsset } from "@/lib/pending-assets";
 import { CreationPanelPill } from "@/components/creation-panel-primitives";
 import { CreationPanelView } from "@/components/creation-panel-view";
 import { CreationPanelInspirationVars } from "@/components/creation-panel-inspiration-vars";
 import { CreationPanelJobStatusBar } from "@/components/creation-panel-job-status-bar";
 import { useCreationDockDrag } from "@/hooks/use-creation-dock-drag";
 import { useCreationPanelAssets } from "@/hooks/use-creation-panel-assets";
+import { useCreationPanelSubmit } from "@/hooks/use-creation-panel-submit";
 import {
   UploadPreviewStack,
   type UploadPreviewItem,
@@ -132,19 +129,13 @@ import { ReferenceChips } from "@/components/reference-chips";
 import { extractMentionLabelsFromPrompt } from "@/lib/mention-sync";
 import {
   hasReferenceImages,
-  normalizeReferenceOutputIds,
-  resolveCreationSubmitPathFromContext,
 } from "@/lib/creation-lane-submit";
-import {
-  dispatchCreationSubmit,
-} from "@/lib/creation-submit-dispatch";
 import {
   isAgentAwaitingConfirm,
   isAgentRunInFlight,
   isSkillAwaitingConfirm,
   isSkillRunInFlight,
 } from "@/lib/creation-orchestration-submit";
-import { runStudioSubmit } from "@/lib/studio-submit";
 import type { StudioDockMode } from "@/lib/studio-dock-state";
 import type {
   FocusEditIntent,
@@ -257,7 +248,6 @@ export function useCreationPanel(
   const [inspirationVars, setInspirationVars] = useState<
     Record<string, string>
   >({});
-  const [pending, setPending] = useState(false);
   const [polishBusy, setPolishBusy] = useState(false);
   const [polishHint, setPolishHint] = useState<string | null>(null);
   const [polishCandidates, setPolishCandidates] = useState<string[]>([]);
@@ -267,7 +257,6 @@ export function useCreationPanel(
     () => initialDockExpanded && !dockLineOnly,
   );
   const [dockFocused, setDockFocused] = useState(false);
-  const [navigating, setNavigating] = useState(false);
   const [mentionedMasks, setMentionedMasks] = useState<CanvasMaskSelection[]>(
     [],
   );
@@ -999,366 +988,6 @@ export function useCreationPanel(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mentionItemRequest?.key]);
 
-  function handleSubmitAttempt() {
-    if (readOnly || pending || streamBusy) return;
-    if (
-      !prompt.trim() &&
-      effectiveMode !== "ecommerce" &&
-      !selectedSkillId
-    ) {
-      onInteractionHint?.("请先输入描述，再点击开始生成");
-      textareaRef.current?.focus();
-      return;
-    }
-    // 采纳判定：提交内容命中某条润色候选 → 记入个性化风格画像
-    if (polishCandidates.includes(prompt.trim())) {
-      recordAcceptedPrompt(prompt.trim());
-    }
-    void handleSubmit();
-  }
-
-  async function handleSubmit() {
-    if (readOnly) return;
-    if (!prompt.trim() && !submitEcommerce && !activeSkillId) {
-      onInteractionHint?.("请先输入描述，再点击生成");
-      textareaRef.current?.focus();
-      return;
-    }
-    if (submitEcommerce || (activeSkillId && activeSkillId !== DRAMA_SKILL_ID)) {
-      if (prompt.trim().length < 10) {
-        alert("请填写至少 10 字的产品卖点/描述");
-        return;
-      }
-      if (!resolveProductAssetId()) {
-        alert("请先上传商品图（上传附件或产品图）");
-        return;
-      }
-    }
-
-    const referenceImageSources = buildReferenceSources();
-    const hasRefs = hasReferenceImages(referenceImageSources);
-    if (hasRefs && modelId === AUTO_MODEL_ID) {
-      try {
-        const providerStatus = await fetchProviderStatus();
-        const i2iReady =
-          providerStatus.seedreamConfigured ||
-          (providerStatus.aliyunWanConfigured &&
-            Boolean(providerStatus.aliyunWanI2iConfigured));
-        if (!i2iReady) {
-          const proceed = confirm(
-            "您引用了参考图片，但未配置图生图 API key。\n\n" +
-            "当前将使用文生图流程，生成效果可能无法参考您引用的图片。\n\n" +
-            "建议：\n" +
-            "1. 配置 ARK_API_KEY（火山方舟 Seedream，推荐）\n" +
-            "2. 配置 DASHSCOPE_API_KEY（阿里云万相）\n\n" +
-            "是否继续提交？（继续将走文生图流程）"
-          );
-          if (!proceed) return;
-        }
-      } catch (err) {
-        console.warn("Failed to check provider status:", err);
-      }
-    }
-
-    if (homeDirectSubmit && !user) {
-      onAuthRequired?.("登录后即可开始生成");
-      return;
-    }
-
-    if (homeDirectSubmit && creationLane === "agent") {
-      const trimmed = prompt.trim();
-      if (!trimmed) {
-        onInteractionHint?.("请输入你想完成的目标");
-        return;
-      }
-      setNavigating(true);
-      persistCreationLane("studio", creationLane);
-      try {
-        await ensureSession(sessionId!, mode, {
-          title: trimmed.slice(0, 40),
-        });
-      } catch {
-        /* 仍跳转 Studio，由编排侧再次 ensure */
-      }
-      const params = new URLSearchParams({
-        sessionId: sessionId!,
-        mode,
-        q: trimmed,
-        submit: "1",
-      });
-      clientNavigate(router, `/studio?${params.toString()}`);
-      return;
-    }
-
-    const shouldNavigate = shouldNavigateOnSubmit;
-
-    if (shouldNavigate) {
-      const id = sessionId ?? randomUUID();
-      const params = new URLSearchParams({ sessionId: id, mode });
-      if (prompt.trim()) params.set("q", prompt.trim());
-      if (assetIds.length && uploadPreviews.length) {
-        storePendingAssets(
-          id,
-          uploadPreviews.map((p) => ({ id: p.id, url: p.url })),
-        );
-      } else if (assetIds.length) {
-        storePendingAssets(
-          id,
-          assetIds.map((aid) => ({ id: aid, url: "" })),
-        );
-      }
-      clientNavigate(router, `/studio?${params.toString()}`);
-      return;
-    }
-
-    if (!user) {
-      onAuthRequired?.("登录后即可开始生成");
-      return;
-    }
-    if (!sessionId) return;
-
-    if (focusEdit?.points.length && onFocusEditSubmit) {
-      const sourceItem = canvasItems.find(
-        (i) => i.id === focusEdit.points[0]?.itemId,
-      );
-      if (!sourceItem) {
-        alert("找不到焦点对应的画布图片，请重新点选");
-        return;
-      }
-      setPending(true);
-      try {
-        await ensureSession(sessionId, mode);
-        const jobId = await onFocusEditSubmit({
-          prompt: prompt.trim(),
-          intent: focusEdit.intent,
-          points: focusEdit.points,
-          item: sourceItem,
-        });
-        setPrompt("");
-        await refreshUser();
-        void trackEvent("focus_edit_submit", {
-          sessionId,
-          intent: focusEdit.intent,
-          count: focusEdit.points.length,
-        });
-        onJobStarted?.(jobId);
-      } catch (err) {
-        alert(err instanceof Error ? err.message : "焦点编辑提交失败");
-      } finally {
-        setPending(false);
-      }
-      return;
-    }
-
-    if (isStudioDock) {
-      setPending(true);
-      try {
-        const result = await runStudioSubmit({
-          readOnly,
-          sessionId,
-          mode,
-          prompt,
-          creationLane,
-          activeSkillId,
-          modelId,
-          aspectRatio,
-          count,
-          resolution,
-          videoReferenceMode,
-          videoDurationSec,
-          videoResolution,
-          videoReferences,
-          smartMultiShots,
-          firstLastMotionPrompt,
-          canvasItems,
-          referenceImageSources,
-          mentionedMasks,
-          models,
-          videoRoutes,
-          videoAutoMeta,
-          productAssetId: resolveProductAssetId(),
-          referenceAssetId: referenceAssetId ?? undefined,
-          studioOrchestrationActive,
-          studioOrch: studioOrch ?? null,
-          agentRun: orchAgentRun,
-          skillRun: orchSkillRun,
-          confirmAgentRun: confirmAgentRunAction,
-          startAgentRun: startAgentRun,
-          confirmSkillRun: confirmSkillRunAction,
-          startSkillRun: startSkillRun,
-        });
-        if (result.status !== "direct") return;
-        setPrompt("");
-        clearAttachmentState();
-        setMentionedMasks([]);
-        setDockSkillId(null);
-        await refreshUser();
-        void trackEvent("generation_submit", { mode, sessionId });
-        onJobStarted?.(result.jobId, result.lineage);
-        const refs = await fetchReferences(sessionId);
-        setReferences(refs);
-      } catch (err) {
-        alert(err instanceof Error ? err.message : "提交失败");
-      } finally {
-        setPending(false);
-      }
-      return;
-    }
-
-    const focusEditActive = Boolean(focusEdit?.points.length);
-    const submitPath = resolveCreationSubmitPathFromContext({
-      studioOrchestrationActive,
-      skillsEnabled,
-      agentEnabled,
-      isDock,
-      creationLane,
-      activeSkillId,
-      focusEditActive,
-      mentionedMasksCount: mentionedMasks.length,
-      submitVideo,
-      submitEcommerce,
-      referenceImageSources,
-      dramaSkillActive: dramaOrchestrationActive,
-    });
-
-    setPending(true);
-    try {
-      const dispatchResult = await dispatchCreationSubmit({
-        submitPath,
-        sessionId,
-        mode,
-        effectiveMode,
-        prompt,
-        creationLane,
-        activeSkillId,
-        focusEditActive,
-        mentionedMasksCount: mentionedMasks.length,
-        submitVideo,
-        hasReferenceImages: hasRefs,
-        productAssetId: resolveProductAssetId(),
-        referenceAssetId: referenceAssetId ?? undefined,
-        studioOrch: studioOrch ?? null,
-        agentRun: orchAgentRun,
-        skillRun: orchSkillRun,
-        confirmAgentRun: confirmAgentRunAction,
-        startAgentRun: startAgentRun,
-        confirmSkillRun: confirmSkillRunAction,
-        startSkillRun: startSkillRun,
-        onAgentStarted: () => {
-          void trackEvent("agent_run_start", {
-            sessionId: sessionId ?? "",
-            mode,
-          });
-        },
-        onSkillStarted: () => {
-          void trackEvent("skill_run_start", {
-            sessionId: sessionId ?? "",
-            skillId: activeSkillId ?? "",
-          });
-        },
-        directGeneration: {
-          submitVideo,
-          submitEcommerce,
-          modelId,
-          aspectRatio,
-          count,
-          resolution,
-          videoReferenceMode,
-          videoDurationSec,
-          videoResolution,
-          videoReferences,
-          smartMultiShots,
-          firstLastMotionPrompt,
-          canvasItems,
-          referenceImageSources,
-          mentionedMasks,
-          models,
-          videoRoutes,
-          videoAutoMeta,
-          brand,
-          platform,
-          market,
-          language,
-          designer,
-          productAssetId,
-          referenceAssetId,
-        },
-      });
-
-      if (dispatchResult.kind === "orchestration" && dispatchResult.handled) {
-        return;
-      }
-      if (dispatchResult.kind === "skill") {
-        if (
-          dispatchResult.result === "validation_failed" ||
-          dispatchResult.result === "in_flight"
-        ) {
-          return;
-        }
-        return;
-      }
-      if (dispatchResult.kind === "agent") {
-        if (dispatchResult.result === "in_flight") return;
-        return;
-      }
-      if (dispatchResult.kind !== "direct") return;
-
-      const jobId = dispatchResult.jobId;
-      const submitLineage = dispatchResult.lineage;
-      if (dispatchResult.routeReason) setRouteHint(dispatchResult.routeReason);
-      else if (dispatchResult.byokActive) {
-        setRouteHint("BYOK 已启用 · 将使用您的 OpenAI Key");
-      }
-      if (submitEcommerce) {
-        setProductAssetId(null);
-        setReferenceAssetId(null);
-      }
-      if (homeDirectSubmit) {
-        persistCreationLane("studio", creationLane);
-        setNavigating(true);
-        clientNavigate(
-          router,
-          `/studio?sessionId=${encodeURIComponent(sessionId)}&mode=${encodeURIComponent(mode)}&jobId=${encodeURIComponent(jobId)}`,
-          "replace",
-        );
-      }
-      setPrompt("");
-      clearAttachmentState();
-      setMentionedMasks([]);
-      setDockSkillId(null);
-      await refreshUser();
-      void trackEvent("generation_submit", { mode, sessionId });
-      onJobStarted?.(jobId, submitLineage);
-      if (sessionId) {
-        const refs = await fetchReferences(sessionId);
-        setReferences(refs);
-      }
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "提交失败");
-    } finally {
-      setPending(false);
-    }
-  }
-
-  const handleSubmitRef = useRef(handleSubmit);
-  handleSubmitRef.current = handleSubmit;
-
-  useImperativeHandle(ref, () => ({
-    submit: () => {
-      void handleSubmitRef.current();
-    },
-  }));
-
-  const autoSubmitFiredRef = useRef(false);
-  useEffect(() => {
-    if (!autoSubmitOnce || autoSubmitFiredRef.current || readOnly) return;
-    if (!isStudioDock || !prompt.trim() || !user || !sessionId) return;
-    autoSubmitFiredRef.current = true;
-    const t = window.setTimeout(() => {
-      void handleSubmitRef.current();
-    }, 350);
-    return () => window.clearTimeout(t);
-  }, [autoSubmitOnce, isStudioDock, prompt, user, sessionId, readOnly]);
 
   const focusEditReady =
     Boolean(focusEdit?.points.length) &&
@@ -1399,6 +1028,86 @@ export function useCreationPanel(
     skillInFlight ||
     agentInFlight ||
     imageLaneJobActive;
+
+  const {
+    pending,
+    navigating,
+    handleSubmit,
+    handleSubmitAttempt,
+  } = useCreationPanelSubmit({
+    panelRef: ref,
+    readOnly,
+    streamBusy,
+    prompt,
+    effectiveMode,
+    selectedSkillId,
+    polishCandidates,
+    onInteractionHint,
+    textareaRef,
+    submitEcommerce,
+    activeSkillId,
+    buildReferenceSources,
+    resolveProductAssetId,
+    modelId,
+    homeDirectSubmit,
+    user,
+    onAuthRequired,
+    creationLane,
+    sessionId,
+    mode,
+    router,
+    shouldNavigateOnSubmit,
+    assetIds,
+    uploadPreviews,
+    focusEdit,
+    onFocusEditSubmit,
+    canvasItems,
+    setPrompt,
+    refreshUser,
+    onJobStarted,
+    isStudioDock,
+    aspectRatio,
+    count,
+    resolution,
+    videoReferenceMode,
+    videoDurationSec,
+    videoResolution,
+    videoReferences,
+    smartMultiShots,
+    firstLastMotionPrompt,
+    mentionedMasks,
+    models,
+    videoRoutes,
+    videoAutoMeta,
+    referenceAssetId,
+    productAssetId,
+    studioOrchestrationActive,
+    studioOrch: studioOrch ?? null,
+    orchAgentRun,
+    orchSkillRun,
+    confirmAgentRun: confirmAgentRunAction,
+    startAgentRun,
+    confirmSkillRun: confirmSkillRunAction,
+    startSkillRun,
+    clearAttachmentState,
+    setMentionedMasks,
+    setDockSkillId,
+    setReferences,
+    skillsEnabled,
+    agentEnabled,
+    isDock,
+    submitVideo,
+    dramaOrchestrationActive,
+    setRouteHint,
+    setProductAssetId,
+    setReferenceAssetId,
+    brand,
+    platform,
+    market,
+    language,
+    designer,
+    autoSubmitOnce,
+  });
 
   /** Studio 图片车道：进度以画布时间线为主，Dock 仅在失败时展示状态条 */
   const showDockJobStatusBar =
