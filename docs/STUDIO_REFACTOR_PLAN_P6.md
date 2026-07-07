@@ -68,6 +68,7 @@
 | P6-2-2 | 上传 / @ 引用 hook | ✅ | `use-creation-panel-assets.ts` | 首页 + dock E2E |
 | P6-2-3 | 提交逻辑 hook | ✅ | `use-creation-panel-submit.ts` | typecheck 绿 |
 | P6-2-4 | Job 状态 / 灵感表单组件 | ✅ | `CreationPanelJobStatusBar` 等 | 纯展示拆分 |
+| P6-2-5 | 润色逻辑 hook | ✅ | `use-creation-panel-polish.ts` | typecheck 绿 |
 
 ---
 
