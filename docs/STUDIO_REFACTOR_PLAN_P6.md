@@ -12,7 +12,7 @@
 |------|------|------|---------|
 | **P6-0** | 死代码与 deprecated 清理 | ✅ 完成 | #301 |
 | **P6-1** | 提交单源化 | ✅ 完成 | #302 |
-| **P6-2** | `use-creation-panel` 拆分 | 🔄 进行中 | #303 |
+| **P6-2** | `use-creation-panel` 拆分 | 🔄 进行中 | #304 |
 | **P6-3** | 工具 UI meta 单源 | ⬜ 未开始 | — |
 | **P6-4** | Drama 卡片 panel/node 统一 | ⬜ 未开始 | — |
 | **P6-5** | `api-client` 按域拆分 | ⬜ 未开始 | — |
@@ -65,8 +65,8 @@
 | ID | 任务 | 状态 | 产出 | 验证 |
 |----|------|------|------|------|
 | P6-2-1 | `CreationPanelView.tsx` | ✅ | 纯 JSX 壳层 + overlays | dock / 首页 E2E |
-| P6-2-2 | 按 lane 拆 form hooks | ⬜ | `use-image-lane-form` 等 | hook 主体 <800 行 |
-| P6-2-3 | Focus edit / chips 子模块 | ⬜ | 从巨型 hook 迁出 | 首页 + dock E2E |
+| P6-2-2 | 上传 / @ 引用 hook | ✅ | `use-creation-panel-assets.ts` | 首页 + dock E2E |
+| P6-2-3 | Job 状态 / 灵感表单组件 | ✅ | `CreationPanelJobStatusBar` 等 | 纯展示拆分 |
 
 ---
 

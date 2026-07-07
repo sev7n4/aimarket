@@ -38,7 +38,6 @@ import {
   registerAssetFromUrl,
   trackEvent,
   optimizePromptApi,
-  reversePromptFromImage,
   renderInspiration,
 } from "@/lib/api-client";
 import { polishPrompt } from "@/lib/prompt-polish";
@@ -47,7 +46,6 @@ import {
   readRecentAcceptedPrompts,
   recordAcceptedPrompt,
 } from "@/lib/prompt-style-profile";
-import { jobStatusLabel } from "@/lib/job-stream";
 import {
   resolveVideoSubmitModelId,
   videoAutoPickerLabel,
@@ -58,7 +56,6 @@ import { useAuth } from "@/lib/auth-context";
 import {
   MentionPicker,
   canvasItemToMentionItem,
-  type MentionItem,
 } from "@/components/mention-picker";
 import {
   type CanvasItem,
@@ -72,7 +69,10 @@ import { clientNavigate } from "@/lib/client-navigate";
 import { storePendingAssets, type PendingAsset } from "@/lib/pending-assets";
 import { CreationPanelPill } from "@/components/creation-panel-primitives";
 import { CreationPanelView } from "@/components/creation-panel-view";
+import { CreationPanelInspirationVars } from "@/components/creation-panel-inspiration-vars";
+import { CreationPanelJobStatusBar } from "@/components/creation-panel-job-status-bar";
 import { useCreationDockDrag } from "@/hooks/use-creation-dock-drag";
+import { useCreationPanelAssets } from "@/hooks/use-creation-panel-assets";
 import {
   UploadPreviewStack,
   type UploadPreviewItem,
@@ -120,29 +120,16 @@ import { applyModeVideoSettings } from "@/components/video-output-settings";
 import {
   assignOmniRefLabels,
   validateOmniVideoMentions,
-  videoRefsToMentionCandidates,
 } from "@/lib/video-mention";
 import { useCreationLaneDrafts } from "@/hooks/use-creation-lane-drafts";
 import { useVideoPickCandidates } from "@/hooks/use-video-pick-candidates";
-import {
-  canAutoBindCanvasItem,
-  mergeReferenceSources,
-} from "@/lib/canvas-reference-bind";
 import {
   resolveCanvasItemForVideoPick,
   routePickToVideoSlots,
   type VideoPickCandidate,
 } from "@/lib/canvas-video-reference-bind";
-import {
-  ReferenceChips,
-  type ReferenceChipItem,
-} from "@/components/reference-chips";
-import {
-  extractMentionLabelsFromPrompt,
-  filterAssetIdsByPromptLabels,
-  filterRefsByPromptLabels,
-  removeMentionTokenFromPrompt,
-} from "@/lib/mention-sync";
+import { ReferenceChips } from "@/components/reference-chips";
+import { extractMentionLabelsFromPrompt } from "@/lib/mention-sync";
 import {
   hasReferenceImages,
   normalizeReferenceOutputIds,
@@ -239,13 +226,7 @@ export function useCreationPanel(
     navigateOnSubmit ?? (!sessionId && !homeDirectSubmit);
   const router = useRouter();
   const { user, refreshUser } = useAuth();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const uploadTargetRef = useRef<"product" | "reference" | "general">("general");
-  const handleUploadRef = useRef<(files: File[]) => Promise<void>>(async () => {});
-  const [uploadTarget, setUploadTarget] = useState<
-    "product" | "reference" | "general"
-  >("general");
-
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [internalMode, setInternalMode] = useState<CreationMode>(initialMode);
   const mode = controlledMode ?? internalMode;
   const setMode = (m: CreationMode) => {
@@ -281,32 +262,15 @@ export function useCreationPanel(
   const [polishHint, setPolishHint] = useState<string | null>(null);
   const [polishCandidates, setPolishCandidates] = useState<string[]>([]);
   const [polishCandidateIndex, setPolishCandidateIndex] = useState(0);
-  const [assetIds, setAssetIds] = useState<string[]>([]);
-  const [productAssetId, setProductAssetId] = useState<string | null>(null);
-  const [referenceAssetId, setReferenceAssetId] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [references, setReferences] = useState<SessionReference[]>([]);
-  const [selectedRefs, setSelectedRefs] = useState<SessionReference[]>([]);
-  const [mentionOpen, setMentionOpen] = useState(false);
-  /** @ 后的查询字符串（从光标往前找 @ 截取） */
-  const [mentionQuery, setMentionQuery] = useState("");
-  /** 已通过 @ 引用的 canvas-asset 项，提交时把 assetId 合并到请求 */
-  const [mentionedAssetIds, setMentionedAssetIds] = useState<string[]>([]);
-  const [mentionedAssetPreviews, setMentionedAssetPreviews] = useState<
-    Array<UploadPreviewItem & { label?: string }>
-  >([]);
-  const [mentionedMasks, setMentionedMasks] = useState<CanvasMaskSelection[]>(
-    [],
-  );
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [dockExpanded, setDockExpanded] = useState(
     () => initialDockExpanded && !dockLineOnly,
   );
   const [dockFocused, setDockFocused] = useState(false);
   const [navigating, setNavigating] = useState(false);
-  const [uploadPreviews, setUploadPreviews] = useState<UploadPreviewItem[]>([]);
-  const [uploadPreviewIndex, setUploadPreviewIndex] = useState<number | null>(null);
-  const [reversing, setReversing] = useState(false);
+  const [mentionedMasks, setMentionedMasks] = useState<CanvasMaskSelection[]>(
+    [],
+  );
 
   const rotatingText = useRotatingPlaceholder(
     mode,
@@ -386,6 +350,68 @@ export function useCreationPanel(
   });
   const submitEcommerce = !isDock && effectiveMode === "ecommerce";
   const submitVideo = isDock ? creationLane === "video" : isVideoModel;
+  const focusEditActive = Boolean(focusEdit?.points.length);
+
+  const assets = useCreationPanelAssets({
+    sessionId,
+    mode,
+    user,
+    homeDirectSubmit,
+    restoredAssets,
+    onAuthRequired,
+    onUploadToCanvas,
+    sessionEnsuredRef,
+    prompt,
+    setPrompt,
+    textareaRef,
+    canvasItems,
+    selectedCanvasItem,
+    onClearCanvasSelection,
+    creationLane,
+    focusEditActive,
+    videoReferences,
+    videoReferenceMode,
+  });
+  const {
+    fileRef,
+    uploadTargetRef,
+    handleUploadRef,
+    uploadTarget,
+    assetIds,
+    setAssetIds,
+    productAssetId,
+    setProductAssetId,
+    referenceAssetId,
+    setReferenceAssetId,
+    uploading,
+    selectedRefs,
+    setSelectedRefs,
+    mentionOpen,
+    setMentionOpen,
+    mentionQuery,
+    setMentionQuery,
+    mentionedAssetIds,
+    setMentionedAssetIds,
+    mentionedAssetPreviews,
+    setMentionedAssetPreviews,
+    uploadPreviews,
+    setUploadPreviews,
+    uploadPreviewIndex,
+    setUploadPreviewIndex,
+    reversing,
+    buildReferenceSources,
+    resolveProductAssetId,
+    syncMentionStateFromPrompt,
+    canvasReferenceActive,
+    referenceChips,
+    handleRemoveReferenceChip,
+    insertMention,
+    openUpload,
+    handleUpload,
+    handlePromptReverse,
+    clearAttachmentState,
+    mentionUploadedAssets,
+  } = assets;
 
   const {
     skills: skillPackages,
@@ -402,13 +428,7 @@ export function useCreationPanel(
     onRunSettled: (run) => {
       if (run.status === "completed") {
         setPrompt("");
-        setAssetIds([]);
-        setUploadPreviews([]);
-        setProductAssetId(null);
-        setReferenceAssetId(null);
-        setSelectedRefs([]);
-        setMentionedAssetIds([]);
-        setMentionedAssetPreviews([]);
+        clearAttachmentState();
         setMentionedMasks([]);
         setSelectedSkillId(null);
         setDockSkillId(null);
@@ -451,7 +471,8 @@ export function useCreationPanel(
     _role?: VideoMediaRef["role"],
   ) {
     if (!sessionId) throw new Error("会话未就绪");
-    if (!requireAuth("登录后即可上传参考素材")) {
+    if (!user) {
+      onAuthRequired?.("登录后即可上传参考素材");
       throw new Error("需要登录");
     }
     setVideoUploading(true);
@@ -487,115 +508,6 @@ export function useCreationPanel(
       return "当前模型在智能多帧模式下将合并 prompt 与首图";
     }
     return undefined;
-  }
-
-  function buildReferenceSources() {
-    return mergeReferenceSources(
-      {
-        assetIds,
-        mentionedAssetIds,
-        selectedRefIds: selectedRefs.map((r) => r.id),
-      },
-      selectedCanvasItem,
-      creationLane,
-      Boolean(focusEdit?.points.length),
-    );
-  }
-
-  function resolveAssetMentionLabel(assetId: string): string | undefined {
-    const preview = mentionedAssetPreviews.find((p) => p.id === assetId);
-    if (preview?.label) return preview.label;
-    const canvasIdx = canvasItems.findIndex((item) => item.assetId === assetId);
-    if (canvasIdx >= 0) {
-      return canvasItems[canvasIdx]?.label ?? `图${canvasIdx + 1}`;
-    }
-    const uploadIdx = uploadPreviews.findIndex((p) => p.id === assetId);
-    if (uploadIdx >= 0) {
-      return `上传图${uploadIdx + 1}`;
-    }
-    const videoRef = videoReferences.find((r) => r.assetId === assetId);
-    if (videoRef?.label) return videoRef.label;
-    return undefined;
-  }
-
-  function syncMentionStateFromPrompt(nextPrompt: string) {
-    const labels = extractMentionLabelsFromPrompt(nextPrompt);
-    setSelectedRefs((prev) => filterRefsByPromptLabels(prev, labels));
-    const labelByAssetId = new Map<string, string>();
-    for (const assetId of mentionedAssetIds) {
-      const label = resolveAssetMentionLabel(assetId);
-      if (label) labelByAssetId.set(assetId, label);
-    }
-    setMentionedAssetIds((prev) =>
-      filterAssetIdsByPromptLabels(prev, labelByAssetId, labels),
-    );
-    setMentionedAssetPreviews((prev) =>
-      prev.filter((preview) => {
-        const label = preview.label ?? resolveAssetMentionLabel(preview.id);
-        return label != null && labels.includes(label);
-      }),
-    );
-  }
-
-  const canvasReferenceActive =
-    canAutoBindCanvasItem(
-      selectedCanvasItem,
-      creationLane,
-      Boolean(focusEdit?.points.length),
-    ) && creationLane !== "video";
-
-  const referenceChips = useMemo((): ReferenceChipItem[] => {
-    const chips: ReferenceChipItem[] = [];
-    if (canvasReferenceActive && selectedCanvasItem) {
-      chips.push({
-        id: selectedCanvasItem.id,
-        variant: "canvas",
-        label: selectedCanvasItem.label ?? "图片",
-        url: selectedCanvasItem.url,
-      });
-    }
-    for (const ref of selectedRefs) {
-      chips.push({
-        id: ref.id,
-        variant: "mention-output",
-        label: ref.label,
-        url: ref.url,
-      });
-    }
-    for (const assetId of mentionedAssetIds) {
-      const preview = mentionedAssetPreviews.find((p) => p.id === assetId);
-      chips.push({
-        id: assetId,
-        variant: "mention-asset",
-        label: preview?.label ?? resolveAssetMentionLabel(assetId) ?? "素材",
-        url: preview?.url,
-      });
-    }
-    return chips;
-  }, [
-    canvasReferenceActive,
-    selectedCanvasItem,
-    selectedRefs,
-    mentionedAssetIds,
-    mentionedAssetPreviews,
-    canvasItems,
-    uploadPreviews,
-    videoReferences,
-  ]);
-
-  function handleRemoveReferenceChip(chip: ReferenceChipItem) {
-    if (chip.variant === "canvas") {
-      onClearCanvasSelection?.();
-      return;
-    }
-    if (chip.variant === "mention-output") {
-      setSelectedRefs((prev) => prev.filter((ref) => ref.id !== chip.id));
-      setPrompt(removeMentionTokenFromPrompt(prompt, chip.label));
-      return;
-    }
-    setMentionedAssetIds((prev) => prev.filter((id) => id !== chip.id));
-    setMentionedAssetPreviews((prev) => prev.filter((p) => p.id !== chip.id));
-    setPrompt(removeMentionTokenFromPrompt(prompt, chip.label));
   }
 
   function handleCreationLaneChange(lane: CreationLane) {
@@ -671,11 +583,7 @@ export function useCreationPanel(
     onRunSettled: (run) => {
       if (run.status === "completed") {
         setPrompt("");
-        setAssetIds([]);
-        setUploadPreviews([]);
-        setSelectedRefs([]);
-        setMentionedAssetIds([]);
-        setMentionedAssetPreviews([]);
+        clearAttachmentState();
         setMentionedMasks([]);
         void refreshUser();
         void trackEvent("agent_run_complete", {
@@ -714,17 +622,11 @@ export function useCreationPanel(
       resetSkillRun();
     }
     setPrompt("");
-    setAssetIds([]);
-    setUploadPreviews([]);
-    setProductAssetId(null);
-    setReferenceAssetId(null);
-    setSelectedRefs([]);
-    setMentionedAssetIds([]);
-    setMentionedAssetPreviews([]);
+    clearAttachmentState();
     setMentionedMasks([]);
     setSelectedSkillId(null);
     setDockSkillId(null);
-  }, [sessionId, resetAgentRun, resetSkillRun, studioOrchestrationActive, setPrompt]);
+  }, [sessionId, resetAgentRun, resetSkillRun, studioOrchestrationActive, setPrompt, clearAttachmentState]);
 
   useEffect(() => {
     if (!studioOrchestrationActive || !studioOrch) return;
@@ -752,17 +654,11 @@ export function useCreationPanel(
     if (orchestrationResetTick <= lastOrchestrationResetRef.current) return;
     lastOrchestrationResetRef.current = orchestrationResetTick;
     setPrompt("");
-    setAssetIds([]);
-    setUploadPreviews([]);
-    setProductAssetId(null);
-    setReferenceAssetId(null);
-    setSelectedRefs([]);
-    setMentionedAssetIds([]);
-    setMentionedAssetPreviews([]);
+    clearAttachmentState();
     setMentionedMasks([]);
     setSelectedSkillId(null);
     setDockSkillId(null);
-  }, [studioOrchestrationActive, orchestrationResetTick, setPrompt]);
+  }, [studioOrchestrationActive, orchestrationResetTick, setPrompt, clearAttachmentState]);
 
   const skillAwaitingConfirm = isSkillAwaitingConfirm(orchSkillRun);
   const skillInFlight = isSkillRunInFlight(orchSkillRun);
@@ -771,9 +667,6 @@ export function useCreationPanel(
     (["completed", "failed", "cancelled"] as SkillRunStatus[]).includes(
       orchSkillRun.status,
     );
-
-  const resolveProductAssetId = () =>
-    productAssetId ?? assetIds[0] ?? mentionedAssetIds[0] ?? undefined;
 
   const agentAwaitingConfirm = isAgentAwaitingConfirm(orchAgentRun);
   const agentInFlight = isAgentRunInFlight(orchAgentRun);
@@ -837,33 +730,6 @@ export function useCreationPanel(
       ),
     );
 
-  const mentionUploadedAssets = useMemo(() => {
-    const fromStack = uploadPreviews
-      .filter((preview) => assetIds.includes(preview.id))
-      .map((preview, idx) => ({
-        id: preview.id,
-        url: preview.url,
-        label: `上传图${idx + 1}`,
-      }));
-    if (creationLane !== "video" || videoReferenceMode !== "omni") {
-      return fromStack;
-    }
-    const fromVideo = videoRefsToMentionCandidates(videoReferences);
-    const seen = new Set(fromStack.map((a) => a.id));
-    return [
-      ...fromStack,
-      ...fromVideo
-        .filter((v) => !seen.has(v.assetId))
-        .map((v) => ({ id: v.assetId, url: v.url, label: v.label })),
-    ];
-  }, [
-    uploadPreviews,
-    assetIds,
-    creationLane,
-    videoReferenceMode,
-    videoReferences,
-  ]);
-
   useEffect(() => {
     if (!user) {
       setModels([]);
@@ -885,22 +751,6 @@ export function useCreationPanel(
   useEffect(() => {
     if (initialPrompt) setPrompt(initialPrompt);
   }, [initialPrompt]);
-
-  useEffect(() => {
-    if (!restoredAssets?.length || !sessionId) return;
-    setAssetIds(restoredAssets.map((a) => a.id));
-    setUploadPreviews(
-      restoredAssets
-        .filter((a) => a.url)
-        .map((a) => ({
-          id: a.id,
-          url:
-            a.url.startsWith("blob:") || a.url.startsWith("http")
-              ? a.url
-              : assetUrl(a.url),
-        })),
-    );
-  }, [restoredAssets, sessionId]);
 
   useEffect(() => {
     if (!isDock) return;
@@ -1061,146 +911,6 @@ export function useCreationPanel(
     effectiveMode,
   ]);
 
-  function requireAuth(hint: string): boolean {
-    if (user) return true;
-    onAuthRequired?.(hint);
-    return false;
-  }
-
-  async function handleUpload(selectedFiles: File[]) {
-    if (!selectedFiles.length || !sessionId) return;
-    if (!requireAuth("登录后即可上传参考图")) return;
-    const target = uploadTargetRef.current;
-    setUploading(true);
-    try {
-      /** 首页 sessionId 为客户端 UUID，须先 ensure 再上传，否则 assets FK 触发 500 */
-      if (user) {
-        await ensureSession(sessionId, mode);
-        sessionEnsuredRef.current = true;
-      }
-      if (target === "product") {
-        const asset = await uploadAsset(selectedFiles[0]!, sessionId);
-        setProductAssetId(asset.id);
-        return;
-      }
-      if (target === "reference") {
-        const asset = await uploadAsset(selectedFiles[0]!, sessionId);
-        setReferenceAssetId(asset.id);
-        return;
-      }
-      const remaining = Math.max(0, 4 - assetIds.length);
-      const batch = selectedFiles.slice(0, remaining);
-      for (const file of batch) {
-        const asset = await uploadAsset(file, sessionId);
-        const previewUrl =
-          asset.url.startsWith("http") || asset.url.startsWith("blob:")
-            ? asset.url
-            : assetUrl(asset.thumbUrl ?? asset.url);
-        if (onUploadToCanvas) {
-          // Studio：缩略图仅作 Dock 视觉反馈；生成参考仍靠画布点选 / @
-          onUploadToCanvas(asset.id, asset.url, asset.thumbUrl);
-          setUploadPreviews((prev) =>
-            [...prev, { id: asset.id, url: previewUrl }].slice(0, 4),
-          );
-        } else {
-          setAssetIds((prev) => [...prev, asset.id].slice(0, 4));
-          setUploadPreviews((prev) =>
-            [...prev, { id: asset.id, url: previewUrl }].slice(0, 4),
-          );
-        }
-      }
-      const extraFiles = selectedFiles.slice(remaining);
-      for (const file of extraFiles) {
-        const asset = await uploadAsset(file, sessionId);
-        const previewUrl =
-          asset.url.startsWith("http") || asset.url.startsWith("blob:")
-            ? asset.url
-            : assetUrl(asset.thumbUrl ?? asset.url);
-        if (onUploadToCanvas) {
-          onUploadToCanvas(asset.id, asset.url, asset.thumbUrl);
-          setUploadPreviews((prev) =>
-            [...prev, { id: asset.id, url: previewUrl }].slice(0, 4),
-          );
-        } else {
-          setAssetIds((prev) => [...prev, asset.id].slice(0, 4));
-          setUploadPreviews((prev) =>
-            [...prev, { id: asset.id, url: previewUrl }].slice(0, 4),
-          );
-        }
-      }
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "上传失败");
-    } finally {
-      setUploading(false);
-      uploadTargetRef.current = "general";
-      setUploadTarget("general");
-    }
-  }
-  handleUploadRef.current = handleUpload;
-
-  function openUpload(target: "product" | "reference" | "general") {
-    if (!sessionId) {
-      onAuthRequired?.("会话未就绪，请刷新页面后重试");
-      return;
-    }
-    if (homeDirectSubmit && !requireAuth("登录后即可上传参考图")) return;
-    uploadTargetRef.current = target;
-    setUploadTarget(target);
-    fileRef.current?.click();
-  }
-
-  /**
-   * 从 textarea 当前光标位置往前找到最近的 @，截取 [@..光标] 区间，
-   * 用 chip 文本 `@${label} ` 整体替换，并把对应 assetId/outputId 落到提交字段。
-   */
-  function insertMention(item: MentionItem, promptSuffix = "") {
-    const textarea = textareaRef.current;
-    const labelTok = `@${item.label} `;
-    const insertText = promptSuffix ? `${labelTok}${promptSuffix}` : labelTok;
-    if (textarea) {
-      const value = textarea.value;
-      const caret = textarea.selectionStart ?? value.length;
-      const before = value.slice(0, caret);
-      const after = value.slice(caret);
-      const atIdx = before.lastIndexOf("@");
-      const replaceFrom = atIdx >= 0 ? atIdx : caret;
-      const next = `${value.slice(0, replaceFrom)}${insertText}${after}`;
-      setPrompt(next);
-      requestAnimationFrame(() => {
-        if (!textareaRef.current) return;
-        const pos = replaceFrom + insertText.length;
-        textareaRef.current.focus();
-        textareaRef.current.setSelectionRange(pos, pos);
-      });
-    } else {
-      setPrompt((p) => `${p}${insertText}`);
-    }
-
-    if (item.source === "history-output" || item.source === "canvas-output") {
-      const refLike: SessionReference = {
-        id: item.outputId,
-        url: item.url,
-        label: item.label,
-        createdAt: new Date().toISOString(),
-      };
-      setSelectedRefs((prev) =>
-        prev.find((r) => r.id === refLike.id) ? prev : [...prev, refLike],
-      );
-    } else if (item.source === "canvas-asset" || item.source === "upload-asset") {
-      setMentionedAssetIds((prev) =>
-        prev.includes(item.assetId) ? prev : [...prev, item.assetId],
-      );
-      setMentionedAssetPreviews((prev) =>
-        prev.find((p) => p.id === item.assetId)
-          ? prev
-          : [...prev, { id: item.assetId, url: item.url, label: item.label }],
-      );
-    }
-
-    setMentionOpen(false);
-    setMentionQuery("");
-  }
-
   const { candidates: videoPickCandidates, loading: videoPickCandidatesLoading } =
     useVideoPickCandidates({
       sessionId,
@@ -1288,31 +998,6 @@ export function useCreationPanel(
     // 只响应外部请求 key，避免 canvasItems 刷新时重复插入同一 @ token。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mentionItemRequest?.key]);
-
-  async function handlePromptReverse() {
-    if (!sessionId) return;
-    if (!requireAuth("登录后可使用图生文")) return;
-    const assetId = assetIds[0];
-    const imageUrl = uploadPreviews[0]?.url;
-    if (!assetId && !imageUrl) {
-      alert("请先上传参考图");
-      return;
-    }
-    setReversing(true);
-    try {
-      const data = await reversePromptFromImage({
-        sessionId,
-        assetId,
-        imageUrl: assetId ? undefined : imageUrl,
-      });
-      setPrompt(data.prompt);
-      void trackEvent("prompt_reverse", { source: data.source });
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "图生文失败");
-    } finally {
-      setReversing(false);
-    }
-  }
 
   function handleSubmitAttempt() {
     if (readOnly || pending || streamBusy) return;
@@ -1504,11 +1189,7 @@ export function useCreationPanel(
         });
         if (result.status !== "direct") return;
         setPrompt("");
-        setAssetIds([]);
-        setUploadPreviews([]);
-        setSelectedRefs([]);
-        setMentionedAssetIds([]);
-        setMentionedAssetPreviews([]);
+        clearAttachmentState();
         setMentionedMasks([]);
         setDockSkillId(null);
         await refreshUser();
@@ -1642,11 +1323,7 @@ export function useCreationPanel(
         );
       }
       setPrompt("");
-      setAssetIds([]);
-      setUploadPreviews([]);
-      setSelectedRefs([]);
-      setMentionedAssetIds([]);
-      setMentionedAssetPreviews([]);
+      clearAttachmentState();
       setMentionedMasks([]);
       setDockSkillId(null);
       await refreshUser();
@@ -1754,7 +1431,6 @@ export function useCreationPanel(
     readOnly: Boolean(readOnly),
     onDropFiles: (files) => {
       uploadTargetRef.current = "general";
-      setUploadTarget("general");
       void handleUploadRef.current(files);
     },
     onInvalidDrop: () =>
@@ -1764,61 +1440,23 @@ export function useCreationPanel(
   const body = (
     <>
       {showDockJobStatusBar ? (
-        <div
-          className={`mb-2 flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs ${
-            jobStreamStatus === "failed"
-              ? "border-red-500/30 bg-red-500/5 text-red-300"
-              : "border-orange-500/20 bg-orange-500/5 text-orange-200/90"
-          }`}
-        >
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              {streamBusy ? (
-                <Loader2 className="size-3.5 shrink-0 animate-spin" />
-              ) : null}
-              <span>{jobStatusLabel(jobStreamStatus)}</span>
-            </div>
-            {jobStatusSubtext ? (
-              <p className="mt-0.5 text-[10px] text-zinc-500">{jobStatusSubtext}</p>
-            ) : null}
-          </div>
-          {streamBusy && pollingJobId && onCancelJob ? (
-            <button
-              type="button"
-              onClick={onCancelJob}
-              className="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300 transition hover:bg-white/20 hover:text-white"
-              title="取消任务"
-            >
-              取消
-            </button>
-          ) : null}
-        </div>
+        <CreationPanelJobStatusBar
+          jobStreamStatus={jobStreamStatus}
+          streamBusy={streamBusy}
+          jobStatusSubtext={jobStatusSubtext}
+          pollingJobId={pollingJobId}
+          onCancelJob={onCancelJob}
+        />
       ) : null}
 
-      {!effectiveCollapsed && inspirationApply && (inspirationApply.variables?.length ?? 0) > 0 ? (
-        <div className="mb-3 rounded-xl border border-orange-500/20 bg-orange-500/5 p-3">
-          <p className="mb-2 text-xs font-medium text-orange-200/90">
-            同款模板 · {inspirationApply.title}
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {inspirationApply.variables!.map((v) => (
-              <label key={v.key} className="block space-y-1">
-                <span className="text-[10px] text-zinc-500">{v.label}</span>
-                <input
-                  type="text"
-                  value={inspirationVars[v.key] ?? v.default}
-                  onChange={(e) =>
-                    setInspirationVars((prev) => ({
-                      ...prev,
-                      [v.key]: e.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-zinc-100 outline-none focus:border-orange-500/40"
-                />
-              </label>
-            ))}
-          </div>
-        </div>
+      {!effectiveCollapsed && inspirationApply ? (
+        <CreationPanelInspirationVars
+          inspirationApply={inspirationApply}
+          inspirationVars={inspirationVars}
+          onInspirationVarChange={(key, value) =>
+            setInspirationVars((prev) => ({ ...prev, [key]: value }))
+          }
+        />
       ) : null}
 
       {showModeTabs && variant === "default" ? (
