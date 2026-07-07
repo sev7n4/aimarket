@@ -29,19 +29,15 @@ import type {
   VideoResolution,
 } from "@/lib/creation-dock-prefs";
 import {
-  buildDirectSubmitContext,
-  buildOrchestrationDispatchContext,
+  dispatchCreationSubmit,
+} from "@/lib/creation-submit-dispatch";
+import {
   hasReferenceImages,
   normalizeReferenceOutputIds,
-  resolveCreationSubmitPath,
-  shouldOrchestrationHandleSubmit,
+  resolveCreationSubmitPathFromContext,
   type ReferenceImageSources,
 } from "@/lib/creation-lane-submit";
 import { AUTO_MODEL_ID } from "@/lib/creation-lane-drafts";
-import {
-  submitAgentOrchestration,
-  submitSkillOrchestration,
-} from "@/lib/creation-orchestration-submit";
 import { shouldUseDramaOrchestration } from "@/lib/drama-submit-routing";
 
 const ASPECT_RATIOS: AspectRatio[] = [
@@ -461,7 +457,7 @@ export async function runStudioSubmit(
     ),
   });
 
-  const directSubmitContext = buildDirectSubmitContext({
+  const submitPath = resolveCreationSubmitPathFromContext({
     studioOrchestrationActive,
     skillsEnabled: false,
     agentEnabled: studioOrchestrationActive,
@@ -473,97 +469,78 @@ export async function runStudioSubmit(
     submitVideo,
     submitEcommerce,
     referenceImageSources,
-  });
-  const orchestrationDispatchWouldHandle =
-    studioOrchestrationActive &&
-    shouldOrchestrationHandleSubmit(
-      buildOrchestrationDispatchContext({
-        creationLane,
-        activeSkillId,
-        focusEditActive,
-        mentionedMasksCount: mentionedMasks.length,
-        submitVideo,
-        referenceImageSources,
-        dramaSkillActive: dramaOrchestrationActive,
-      }),
-    );
-  const submitPath = resolveCreationSubmitPath({
-    direct: directSubmitContext,
-    orchestrationDispatchWouldHandle,
+    dramaSkillActive: dramaOrchestrationActive,
   });
 
-  if (submitPath === "orchestration" && studioOrch) {
-    const handled = await studioOrch.dispatchSubmit({
-      prompt,
-      creationLane,
-      activeSkillId,
-      effectiveMode,
-      focusEditActive,
-      mentionedMasksCount: mentionedMasks.length,
+  const dispatchResult = await dispatchCreationSubmit({
+    submitPath,
+    sessionId,
+    mode,
+    effectiveMode,
+    prompt,
+    creationLane,
+    activeSkillId,
+    focusEditActive,
+    mentionedMasksCount: mentionedMasks.length,
+    submitVideo,
+    hasReferenceImages: hasRefs,
+    productAssetId,
+    referenceAssetId,
+    studioOrch,
+    agentRun,
+    skillRun,
+    confirmAgentRun,
+    startAgentRun,
+    confirmSkillRun,
+    startSkillRun,
+    onAlert,
+    directGeneration: {
       submitVideo,
-      hasReferenceImages: hasRefs,
-      productAssetId: productAssetId ?? undefined,
-      referenceAssetId: referenceAssetId ?? undefined,
-    });
-    if (handled) return { status: "orchestration" };
-  }
+      submitEcommerce,
+      modelId,
+      aspectRatio,
+      count,
+      resolution,
+      videoReferenceMode,
+      videoDurationSec,
+      videoResolution,
+      videoReferences,
+      smartMultiShots,
+      firstLastMotionPrompt,
+      canvasItems,
+      referenceImageSources,
+      mentionedMasks,
+      models,
+      videoRoutes,
+      videoAutoMeta,
+      productAssetId,
+      referenceAssetId,
+      confirm: onConfirm,
+    },
+  });
 
-  if (submitPath === "skill" && activeSkillId) {
-    const skillResult = await submitSkillOrchestration({
-      prompt,
-      activeSkillId,
-      productAssetId: productAssetId ?? undefined,
-      referenceAssetId: referenceAssetId ?? undefined,
-      skillRun,
-      ensureSession: () => ensureSession(sessionId, mode),
-      confirmRun: confirmSkillRun,
-      startRun: startSkillRun,
-      onValidationError: onAlert,
-    });
-    if (skillResult !== "started" && skillResult !== "confirm") {
+  if (dispatchResult.kind === "orchestration" && dispatchResult.handled) {
+    return { status: "orchestration" };
+  }
+  if (dispatchResult.kind === "skill") {
+    if (
+      dispatchResult.result !== "started" &&
+      dispatchResult.result !== "confirm"
+    ) {
       return { status: "blocked" };
     }
     return { status: "orchestration" };
   }
-
-  if (submitPath === "agent") {
-    const agentResult = await submitAgentOrchestration({
-      prompt,
-      agentRun: agentRun as AgentRun | null | undefined,
-      ensureSession: () => ensureSession(sessionId, mode),
-      confirmRun: confirmAgentRun,
-      startRun: startAgentRun,
-    });
-    if (agentResult === "in_flight") return { status: "blocked" };
+  if (dispatchResult.kind === "agent") {
+    if (dispatchResult.result === "in_flight") return { status: "blocked" };
     return { status: "orchestration" };
   }
-
-  const direct = await submitStudioDirectGeneration({
-    sessionId,
-    mode,
-    prompt,
-    creationLane,
-    submitVideo,
-    submitEcommerce,
-    modelId,
-    aspectRatio,
-    count,
-    resolution,
-    videoReferenceMode,
-    videoDurationSec,
-    videoResolution,
-    videoReferences,
-    smartMultiShots,
-    firstLastMotionPrompt,
-    canvasItems,
-    referenceImageSources,
-    mentionedMasks,
-    models,
-    videoRoutes,
-    videoAutoMeta,
-    productAssetId,
-    referenceAssetId,
-    confirm: onConfirm,
-  });
-  return { status: "direct", jobId: direct.jobId, lineage: direct.lineage };
+  if (dispatchResult.kind === "direct") {
+    return {
+      status: "direct",
+      jobId: dispatchResult.jobId,
+      lineage: dispatchResult.lineage,
+    };
+  }
+  return { status: "blocked" };
 }

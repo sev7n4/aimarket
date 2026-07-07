@@ -156,22 +156,20 @@ import {
   removeMentionTokenFromPrompt,
 } from "@/lib/mention-sync";
 import {
-  buildDirectSubmitContext,
-  buildOrchestrationDispatchContext,
   hasReferenceImages,
   normalizeReferenceOutputIds,
-  resolveCreationSubmitPath,
-  shouldOrchestrationHandleSubmit,
+  resolveCreationSubmitPathFromContext,
 } from "@/lib/creation-lane-submit";
+import {
+  dispatchCreationSubmit,
+} from "@/lib/creation-submit-dispatch";
 import {
   isAgentAwaitingConfirm,
   isAgentRunInFlight,
   isSkillAwaitingConfirm,
   isSkillRunInFlight,
-  submitAgentOrchestration,
-  submitSkillOrchestration,
 } from "@/lib/creation-orchestration-submit";
-import { runStudioSubmit, submitStudioDirectGeneration } from "@/lib/studio-submit";
+import { runStudioSubmit } from "@/lib/studio-submit";
 import type { StudioDockMode } from "@/lib/studio-dock-state";
 import type {
   FocusEditIntent,
@@ -1539,7 +1537,7 @@ export function useCreationPanel(
     }
 
     const focusEditActive = Boolean(focusEdit?.points.length);
-    const directSubmitContext = buildDirectSubmitContext({
+    const submitPath = resolveCreationSubmitPathFromContext({
       studioOrchestrationActive,
       skillsEnabled,
       agentEnabled,
@@ -1550,142 +1548,98 @@ export function useCreationPanel(
       mentionedMasksCount: mentionedMasks.length,
       submitVideo,
       submitEcommerce,
-      referenceImageSources: referenceImageSources,
+      referenceImageSources,
+      dramaSkillActive: dramaOrchestrationActive,
     });
-    const orchestrationDispatchWouldHandle =
-      studioOrchestrationActive &&
-      shouldOrchestrationHandleSubmit(
-        buildOrchestrationDispatchContext({
-          creationLane,
-          activeSkillId,
-          focusEditActive,
-          mentionedMasksCount: mentionedMasks.length,
-          submitVideo,
-          referenceImageSources: referenceImageSources,
-          dramaSkillActive: dramaOrchestrationActive,
-        }),
-      );
-    const submitPath = resolveCreationSubmitPath({
-      direct: directSubmitContext,
-      orchestrationDispatchWouldHandle,
-    });
-
-    if (submitPath === "orchestration" && studioOrch) {
-      setPending(true);
-      try {
-        const handled = await studioOrch.dispatchSubmit({
-          prompt,
-          creationLane,
-          activeSkillId,
-          effectiveMode,
-          focusEditActive,
-          mentionedMasksCount: mentionedMasks.length,
-          submitVideo,
-          hasReferenceImages: hasRefs,
-          productAssetId: resolveProductAssetId(),
-          referenceAssetId: referenceAssetId ?? undefined,
-        });
-        if (handled) return;
-      } catch (err) {
-        alert(err instanceof Error ? err.message : "提交失败");
-      } finally {
-        setPending(false);
-      }
-    }
-
-    if (submitPath === "skill" && activeSkillId) {
-      setPending(true);
-      try {
-        const skillResult = await submitSkillOrchestration({
-          prompt,
-          activeSkillId,
-          productAssetId: resolveProductAssetId(),
-          referenceAssetId: referenceAssetId ?? undefined,
-          skillRun: orchSkillRun,
-          ensureSession: () => ensureSession(sessionId, mode),
-          confirmRun: confirmSkillRunAction,
-          startRun: startSkillRun,
-          onValidationError: (message) => alert(message),
-          onStarted: () => {
-            void trackEvent("skill_run_start", {
-              sessionId: sessionId ?? "",
-              skillId: activeSkillId,
-            });
-          },
-        });
-        if (skillResult === "validation_failed" || skillResult === "in_flight") {
-          return;
-        }
-      } catch (err) {
-        alert(err instanceof Error ? err.message : "套餐提交失败");
-      } finally {
-        setPending(false);
-      }
-      return;
-    }
-
-    if (submitPath === "agent") {
-      setPending(true);
-      try {
-        const agentResult = await submitAgentOrchestration({
-          prompt,
-          agentRun: orchAgentRun,
-          ensureSession: () => ensureSession(sessionId, mode),
-          confirmRun: confirmAgentRunAction,
-          startRun: startAgentRun,
-          onStarted: () => {
-            void trackEvent("agent_run_start", {
-              sessionId: sessionId ?? "",
-              mode,
-            });
-          },
-        });
-        if (agentResult === "in_flight") return;
-      } catch (err) {
-        alert(err instanceof Error ? err.message : "Agent 提交失败");
-      } finally {
-        setPending(false);
-      }
-      return;
-    }
 
     setPending(true);
     try {
-      const direct = await submitStudioDirectGeneration({
+      const dispatchResult = await dispatchCreationSubmit({
+        submitPath,
         sessionId,
         mode,
+        effectiveMode,
         prompt,
         creationLane,
+        activeSkillId,
+        focusEditActive,
+        mentionedMasksCount: mentionedMasks.length,
         submitVideo,
-        submitEcommerce,
-        modelId,
-        aspectRatio,
-        count,
-        resolution,
-        videoReferenceMode,
-        videoDurationSec,
-        videoResolution,
-        videoReferences,
-        smartMultiShots,
-        firstLastMotionPrompt,
-        canvasItems,
-        referenceImageSources,
-        mentionedMasks,
-        models,
-        videoRoutes,
-        videoAutoMeta,
-        brand,
-        platform,
-        market,
-        language,
-        designer,
-        productAssetId,
-        referenceAssetId,
+        hasReferenceImages: hasRefs,
+        productAssetId: resolveProductAssetId(),
+        referenceAssetId: referenceAssetId ?? undefined,
+        studioOrch: studioOrch ?? null,
+        agentRun: orchAgentRun,
+        skillRun: orchSkillRun,
+        confirmAgentRun: confirmAgentRunAction,
+        startAgentRun: startAgentRun,
+        confirmSkillRun: confirmSkillRunAction,
+        startSkillRun: startSkillRun,
+        onAgentStarted: () => {
+          void trackEvent("agent_run_start", {
+            sessionId: sessionId ?? "",
+            mode,
+          });
+        },
+        onSkillStarted: () => {
+          void trackEvent("skill_run_start", {
+            sessionId: sessionId ?? "",
+            skillId: activeSkillId ?? "",
+          });
+        },
+        directGeneration: {
+          submitVideo,
+          submitEcommerce,
+          modelId,
+          aspectRatio,
+          count,
+          resolution,
+          videoReferenceMode,
+          videoDurationSec,
+          videoResolution,
+          videoReferences,
+          smartMultiShots,
+          firstLastMotionPrompt,
+          canvasItems,
+          referenceImageSources,
+          mentionedMasks,
+          models,
+          videoRoutes,
+          videoAutoMeta,
+          brand,
+          platform,
+          market,
+          language,
+          designer,
+          productAssetId,
+          referenceAssetId,
+        },
       });
-      const jobId = direct.jobId;
-      const submitLineage = direct.lineage;
-      if (direct.routeReason) setRouteHint(direct.routeReason);
-      else if (direct.byokActive) setRouteHint("BYOK 已启用 · 将使用您的 OpenAI Key");
+
+      if (dispatchResult.kind === "orchestration" && dispatchResult.handled) {
+        return;
+      }
+      if (dispatchResult.kind === "skill") {
+        if (
+          dispatchResult.result === "validation_failed" ||
+          dispatchResult.result === "in_flight"
+        ) {
+          return;
+        }
+        return;
+      }
+      if (dispatchResult.kind === "agent") {
+        if (dispatchResult.result === "in_flight") return;
+        return;
+      }
+      if (dispatchResult.kind !== "direct") return;
+
+      const jobId = dispatchResult.jobId;
+      const submitLineage = dispatchResult.lineage;
+      if (dispatchResult.routeReason) setRouteHint(dispatchResult.routeReason);
+      else if (dispatchResult.byokActive) {
+        setRouteHint("BYOK 已启用 · 将使用您的 OpenAI Key");
+      }
       if (submitEcommerce) {
         setProductAssetId(null);
         setReferenceAssetId(null);
