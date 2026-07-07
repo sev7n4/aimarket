@@ -132,8 +132,8 @@
 | PR-5 | P2-1 ~ P2-6 | `enhancement/studio-tool-handlers` | ✅ #292 |
 | PR-8 | P3-1 ~ P3-6 | `enhancement/infinite-canvas-pane` | ✅ #293 |
 | PR-9 | P3-5 收尾 `use-design-canvas` | `enhancement/design-canvas-router` | ✅ #294 |
-| PR-12 | P4-1, P4-2 | `enhancement/creation-panel-split` | 🔄 进行中 |
-| PR-13 | P4-3, P4-4 | `enhancement/component-dedup` | ⬜ |
+| PR-12 | P4-1, P4-2 | `enhancement/creation-panel-split` | ✅ #296 |
+| PR-13 | P4-3, P4-4 | `enhancement/component-dedup` | 🔄 进行中 |
 | PR-14 | P5-* | `enhancement/studio-workspace-slim` | ⬜ |
 
 ---
@@ -163,6 +163,7 @@
 | 2026-07-07 | P3-5：`use-design-canvas` + `DesignCanvasView`；`design-canvas.tsx` 16 行（P3 完成） |
 | 2026-07-07 | PR #294 合并；P4 输入层拆分开工 |
 | 2026-07-07 | PR #295 合并（P4-1）；P4-2：`creation-panel.tsx` 14 行 + `use-creation-panel` + studio-dock 对接 `runStudioSubmit` |
+| 2026-07-07 | PR #296 合并（P4-2）；P4-3/P4-4：MusicGenPanel + MultiCamGrid 双实现合并为 `variant` prop |
 
 ---
 
