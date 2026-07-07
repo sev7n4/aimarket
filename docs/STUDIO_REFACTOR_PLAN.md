@@ -91,7 +91,7 @@
 | P3-2 | `InfiniteCanvasPane.tsx` | ✅ | 从 design-canvas 迁出 | infinite E2E 绿 |
 | P3-3 | `ScrollCanvasPane.tsx` | ✅ | ProductGallery + 双栏 | canvas-batch E2E |
 | P3-4 | `FreeCanvasPane.tsx` | ✅ | refine / compare | focus-edit E2E |
-| P3-5 | `DesignCanvas` 瘦身为路由 | 🔄 | 1707 行（目标 <500，待 `use-design-canvas`） | 全 E2E 绿 |
+| P3-5 | `DesignCanvas` 瘦身为路由 | ✅ | `design-canvas.tsx` 16 行 + `use-design-canvas` + `DesignCanvasView` | 全 E2E 绿 |
 | P3-6 | 合并 Orchestration overlay 三路径 | ✅ | `OrchestrationOverlay` | drama production E2E |
 
 **P3 完成标准**：`design-canvas.tsx` <500 行；三模式零交叉 import。
@@ -130,8 +130,8 @@
 | PR-3 | P1-1, P1-2 | 同上 | ✅ #291 |
 | PR-4 | P1-3, P1-4, P1-5 | 同上 | ✅ #291 |
 | PR-5 | P2-1 ~ P2-6 | `enhancement/studio-tool-handlers` | ✅ #292 |
-| PR-8 | P3-1 ~ P3-6（P3-5 部分） | `enhancement/infinite-canvas-pane` | 🔄 #293 |
-| PR-9 | P3-5 收尾 `use-design-canvas` | `enhancement/design-canvas-router` | ⬜ |
+| PR-8 | P3-1 ~ P3-6 | `enhancement/infinite-canvas-pane` | ✅ #293 |
+| PR-9 | P3-5 收尾 `use-design-canvas` | `enhancement/design-canvas-router` | 🔄 待开 |
 | PR-12 | P4-1, P4-2 | `enhancement/creation-panel-split` | ⬜ |
 | PR-13 | P4-3, P4-4 | `enhancement/component-dedup` | ⬜ |
 | PR-14 | P5-* | `enhancement/studio-workspace-slim` | ⬜ |
@@ -160,6 +160,7 @@
 | 2026-07-06 | P2 完成并合并 #292（`71a5f6b`） |
 | 2026-07-06 | P3-1/P3-2：`InfiniteCanvasPane` 抽取开工 |
 | 2026-07-06 | P3-3~P3-6：三 Pane + OrchestrationOverlay + Chrome/Menus/ToolPanels；`design-canvas` 2084→1707 行 |
+| 2026-07-07 | P3-5：`use-design-canvas` + `DesignCanvasView`；`design-canvas.tsx` 16 行（P3 完成） |
 
 ---
 
