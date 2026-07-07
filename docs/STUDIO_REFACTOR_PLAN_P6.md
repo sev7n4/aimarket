@@ -14,7 +14,7 @@
 | **P6-1** | 提交单源化 | ✅ 完成 | #302 / #307 |
 | **P6-2** | `use-creation-panel` 拆分 | ✅ 完成 | #303–#305 |
 | **P6-3** | 工具 UI meta 单源 | ✅ 完成 | #306 |
-| **P6-4** | Drama 卡片 panel/node 统一 | ⬜ 未开始 | — |
+| **P6-4** | Drama 卡片 panel/node 统一 | 🔄 进行中 | scene PR |
 | **P6-5** | `api-client` 按域拆分 | ⬜ 未开始 | — |
 
 **P6 完成标准**
@@ -84,7 +84,7 @@
 
 | ID | 任务 | 状态 | 产出 | 验证 |
 |----|------|------|------|------|
-| P6-4-1 | Scene 实体 shell | ⬜ | `DramaSceneCardShell` + `mode: panel \| node` | 1 PR / 实体 |
+| P6-4-1 | Scene 实体 shell | ✅ | `DramaSceneCardShell` + `mode: panel \| node` | panel + canvas E2E |
 | P6-4-2 | Script / Character / Shot | ⬜ | 同上模式 | drama E2E |
 
 **不切**：`drama-studio-panel.tsx` 整体（964 行，另立后续阶段）。
