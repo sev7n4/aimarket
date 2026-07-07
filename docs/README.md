@@ -9,7 +9,8 @@
 | [DEPLOY.md](./DEPLOY.md) | 生产部署清单 |
 | [SMOKE_TEST.md](./SMOKE_TEST.md) | 发版冒烟清单 |
 | [MAGIC_WAND_PROMPT_ENGINE.md](./MAGIC_WAND_PROMPT_ENGINE.md) | 魔术棒四层提示词引擎（v1.0 闭环） |
-| [STUDIO_REFACTOR_PLAN.md](./STUDIO_REFACTOR_PLAN.md) | **Studio 业务代码重构计划与任务跟踪** |
+| [STUDIO_REFACTOR_PLAN.md](./STUDIO_REFACTOR_PLAN.md) | **Studio 业务代码重构计划与任务跟踪（P0–P5）** |
+| [STUDIO_REFACTOR_PLAN_P6.md](./STUDIO_REFACTOR_PLAN_P6.md) | **P6 业务逻辑单源化计划（进行中）** |
 | [STUDIO_CANVAS_MODES.md](./STUDIO_CANVAS_MODES.md) | Studio 画布模式概念表（Infinite / Scroll / Dock） |
 | [PROD_SMOKE_INFINITE.md](./PROD_SMOKE_INFINITE.md) | Infinite 画布部署后冒烟清单 |
 | [agents/drama/README.md](./agents/drama/README.md) | AI 短剧多 Agent 分层 manifest（规划五 Agent + QC） |

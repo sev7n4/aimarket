@@ -13,18 +13,19 @@
 | **P0** | 安全网 + 概念收敛 | ✅ 完成 | PR-1 ~ PR-2 |
 | **P1** | 提交主线统一 | ✅ 完成 | PR-3 ~ PR-4 |
 | **P2** | 工具 / 菜单主线统一 | ✅ 完成 | #292 |
-| **P3** | 画布三 Pane 拆分 | 🔄 进行中 | PR-8 ~ PR-11 |
-| **P3** | 画布三 Pane 拆分 | ⬜ 未开始 | PR-8 ~ PR-11 |
-| **P4** | 输入层拆分 + 组件去重 | ✅ 完成 | PR-12 ~ PR-14 |
-| **P5** | workspace 瘦身 + 收尾 | 🔄 进行中 | PR-14 |
+| **P3** | 画布三 Pane 拆分 | ✅ 完成 | #293 ~ #294 |
+| **P4** | 输入层拆分 + 组件去重 | ✅ 完成 | #295 ~ #298 |
+| **P5** | workspace 瘦身 + 收尾 | ✅ 完成 | #299 ~ #300 |
+| **P6** | 业务逻辑单源化 | 🔄 进行中 | 见 [STUDIO_REFACTOR_PLAN_P6.md](./STUDIO_REFACTOR_PLAN_P6.md) |
 
-**基线行数（main @ PR #290 后）**
+**基线行数（main @ #300 后）**
 
-| 文件 | 基线 | P3 目标 | P5 目标 |
-|------|------|---------|---------|
-| `creation-panel.tsx` | 2857 | 2857 | <400 |
-| `studio-workspace.tsx` | 2299 | ~2000 | **940** |
-| `design-canvas.tsx` | 2197 | <500 | <400 |
+| 文件 | 基线 (P0) | P5 目标 | 当前 |
+|------|-----------|---------|------|
+| `creation-panel.tsx` | 2857 | <400 | **14** |
+| `studio-workspace.tsx` | 2299 | <1000 | **823** |
+| `design-canvas.tsx` | 2197 | <500 | **16** |
+| `creation-dock-controls.tsx` | — | 按 lane 拆 | **3** |
 
 ---
 
@@ -136,7 +137,8 @@
 | PR-13 | P4-3, P4-4 | `enhancement/component-dedup` | ✅ #297 |
 | PR-14 | P4-5, P5-1 开工 | `enhancement/studio-workspace-slim` | ✅ #298 |
 | PR-15 | P5-1 达标 | `enhancement/studio-workspace-slim` | ✅ #299 |
-| PR-16 | P5-2 Provider + 焦点快捷键 | `enhancement/studio-tool-handlers-provider` | 🔄 进行中 |
+| PR-16 | P5-2 Provider + 焦点快捷键 | `enhancement/studio-tool-handlers-provider` | ✅ #300 |
+| PR-17 | P6-0 死代码清理 | `chore/p6-dead-code-cleanup` | 🔄 进行中 |
 
 ---
 
@@ -169,19 +171,20 @@
 | 2026-07-07 | PR #297 合并（P4-3/P4-4）；P4-5：`creation-dock-controls/` 按 lane 拆分；P5-1：`useStudioJobStream` |
 | 2026-07-07 | PR #298 合并（P4-5 + `useStudioJobStream`）；`studio-workspace` 1737 行 |
 | 2026-07-07 | P5-1 达标：`studio-workspace.tsx` 940 行；抽取 focus/canvas/session hooks + Sidebar/Overlays |
-| 2026-07-07 | P5-2：`StudioToolHandlersProvider`；焦点编辑快捷键改为 ⌘⇧F（修复与复制冲突） |
+| 2026-07-07 | P5-2 合并 #300；`StudioToolHandlersProvider` + 焦点快捷键 ⌘⇧F |
+| 2026-07-07 | P6 计划：[STUDIO_REFACTOR_PLAN_P6.md](./STUDIO_REFACTOR_PLAN_P6.md)；P6-0 死代码清理开工 |
 
 ---
 
 ## 架构终态（参考）
 
 ```
-studio-workspace（壳）
-  ├── useStudioSubmit / useStudioToolHandlers
+studio-workspace（壳 ~823 行）
+  ├── useStudioJobStream / useStudioFocusEdit / useStudioCanvasActions
+  ├── StudioToolHandlersProvider → useStudioCanvasToolBridge
   ├── StudioOrchestrationProvider
-  └── DesignCanvas（薄路由）
-        ├── InfiniteCanvasPane
-        ├── ScrollCanvasPane
-        └── FreeCanvasPane
-              └── buildCanvasNodeActions / buildCanvasNodeToolbarActions
+  └── DesignCanvas（薄路由 16 行）
+        ├── use-design-canvas + DesignCanvasView
+        ├── InfiniteCanvasPane / ScrollCanvasPane / FreeCanvasPane
+        └── buildCanvasNodeActions / buildCanvasNodeToolbarActions
 ```
