@@ -12,9 +12,9 @@
 |------|------|------|---------|
 | **P6-0** | 死代码与 deprecated 清理 | ✅ 完成 | #301 |
 | **P6-1** | 提交单源化 | ✅ 完成 | #302 / #307 |
-| **P6-2** | `use-creation-panel` 拆分 | 🔄 进行中 | #303–#305 / #310 / video PR |
+| **P6-2** | `use-creation-panel` 拆分 | 🔄 进行中 | #303–#305 / #310 / #312 / #314 |
 | **P6-3** | 工具 UI meta 单源 | ✅ 完成 | #306 |
-| **P6-4** | Drama 卡片 panel/node 统一 | 🔄 进行中 | #309 / #311 |
+| **P6-4** | Drama 卡片 panel/node 统一 | 🔄 进行中 | #309 / #311 / #313 |
 | **P6-5** | `api-client` 按域拆分 | ⬜ 未开始 | — |
 
 **P6 完成标准**
@@ -89,7 +89,7 @@
 |----|------|------|------|------|
 | P6-4-1 | Scene 实体 shell | ✅ | `DramaSceneCardShell` + `mode: panel \| node` | panel + canvas E2E |
 | P6-4-2 | Script shell | ✅ | `DramaScriptCardShell` + `mode: panel \| node` | panel + canvas E2E |
-| P6-4-3 | Character shell | 🔄 | `DramaCharacterCardShell` + `mode: panel \| node` | panel + canvas E2E |
+| P6-4-3 | Character shell | ✅ | `DramaCharacterCardShell` + `mode: panel \| node` | panel + canvas E2E |
 | P6-4-4 | Shot shell | ⬜ | 同上模式 | drama E2E |
 
 **不切**：`drama-studio-panel.tsx` 整体（964 行，另立后续阶段）。
@@ -121,7 +121,7 @@
 | PR-26 | P6-2-5 polish hook | `enhancement/p6-creation-panel-polish` | ✅ #310 |
 | PR-27 | P6-4-2 Script shell | `enhancement/p6-drama-script-card-shell` | ✅ #311 |
 | PR-28 | P6-2-6 video hook | `enhancement/p6-creation-panel-video` | ✅ #312 |
-| PR-29 | P6-4-3 Character shell | `enhancement/p6-drama-character-card-shell` | 🔄 进行中 |
+| PR-29 | P6-4-3 Character shell | `enhancement/p6-drama-character-card-shell` | ✅ #313 |
 | PR-30 | P6-2-7 dock hook | `enhancement/p6-creation-panel-dock` | 🔄 进行中 |
 
 ---
