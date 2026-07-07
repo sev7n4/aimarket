@@ -11,7 +11,7 @@
 | 阶段 | 主题 | 状态 | 目标 PR |
 |------|------|------|---------|
 | **P6-0** | 死代码与 deprecated 清理 | ✅ 完成 | #301 |
-| **P6-1** | 提交单源化 | ✅ 完成 | #302 |
+| **P6-1** | 提交单源化 | ✅ 完成 | #302 / #307 |
 | **P6-2** | `use-creation-panel` 拆分 | ✅ 完成 | #303–#305 |
 | **P6-3** | 工具 UI meta 单源 | ✅ 完成 | #306 |
 | **P6-4** | Drama 卡片 panel/node 统一 | ⬜ 未开始 | — |
@@ -54,7 +54,7 @@
 | P6-1-2 | 合并路径决策 | ✅ | `resolveCreationSubmitPathFromContext()` | 吸收 orchestration 布尔守卫 |
 | P6-1-3 | UI 入口收敛 | ✅ | `useStudioSubmit` / `use-creation-panel` / `runStudioSubmit` | 均只调 dispatch |
 | P6-1-4 | 删重复布尔守卫 | ✅ | `intent-router.ts` 精简 | `enhanceSubmitPath` 消费单源路径 |
-| P6-1-5 | 单测扩展 | ⬜ | `test-creation-lane-submit.ts` | intent 增强分支覆盖 |
+| P6-1-5 | 单测扩展 | ✅ | `test-creation-lane-submit.ts` | intent 增强分支覆盖 |
 
 **P6-1 完成标准**：`grep resolveCreationSubmitPath` 决策逻辑仅一处；预估净删 ~400 行。
 

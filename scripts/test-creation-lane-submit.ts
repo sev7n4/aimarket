@@ -9,11 +9,13 @@ import {
   hasReferenceImages,
   resolveCreationSubmitPath,
   resolveCreationSubmitPathFromContext,
+  resolveCreationSubmitPathWithIntent,
   shouldOrchestrationHandleSubmit,
   shouldUseAgentSubmit,
   shouldUseSkillSubmit,
   type ReferenceImageSources,
 } from "../apps/web/src/lib/creation-lane-submit.ts";
+import { enhanceSubmitPath } from "../apps/web/src/lib/intent-router.ts";
 
 const emptyRefs: ReferenceImageSources = {
   assetIds: [],
@@ -228,6 +230,95 @@ assertEq(
     referenceImageSources: emptyRefs,
   }),
   "agent",
+);
+
+// --- intent-enhanced routing (P6-1-5) ---
+const intentHomeDock = buildDirectSubmitContext({
+  ...homeDockBase,
+  creationLane: "image",
+  activeSkillId: null,
+  submitVideo: false,
+});
+
+const compositeIntent = resolveCreationSubmitPathWithIntent({
+  direct: intentHomeDock,
+  orchestrationDispatchWouldHandle: false,
+  prompt: "局部修改后做视频",
+});
+ok(
+  "intent composite routes to agent",
+  compositeIntent.path === "agent" && compositeIntent.analysis.isComposite,
+);
+
+const orchestrationSkillCtx = buildDirectSubmitContext({
+  studioOrchestrationActive: true,
+  skillsEnabled: true,
+  agentEnabled: true,
+  isDock: true,
+  creationLane: "agent",
+  activeSkillId: "ecommerce-set",
+  focusEditActive: false,
+  mentionedMasksCount: 0,
+  submitVideo: false,
+  submitEcommerce: false,
+  referenceImageSources: emptyRefs,
+});
+const orchestrationIntent = resolveCreationSubmitPathWithIntent({
+  direct: orchestrationSkillCtx,
+  orchestrationDispatchWouldHandle: true,
+  prompt: "局部修改后做视频",
+});
+ok(
+  "intent cannot bypass orchestration dispatch",
+  orchestrationIntent.path === "orchestration",
+);
+
+const focusEditIntent = enhanceSubmitPath(
+  {
+    prompt: "局部修改成红色",
+    creationLane: "image",
+    activeSkillId: null,
+    focusEditActive: true,
+    mentionedMasksCount: 0,
+    submitVideo: false,
+    hasReferenceImages: false,
+    hasSelectedCanvasItem: true,
+    dramaSkillActive: false,
+    studioOrchestrationActive: false,
+    skillsEnabled: true,
+    agentEnabled: true,
+    isDock: true,
+    submitEcommerce: false,
+  },
+  "image-or-video",
+);
+ok(
+  "intent high-confidence focus-edit override",
+  focusEditIntent.path === "focus-edit" && focusEditIntent.analysis.confidence > 0.7,
+);
+
+const alignedIntent = enhanceSubmitPath(
+  {
+    prompt: "",
+    creationLane: "agent",
+    activeSkillId: null,
+    focusEditActive: false,
+    mentionedMasksCount: 0,
+    submitVideo: false,
+    hasReferenceImages: false,
+    hasSelectedCanvasItem: false,
+    dramaSkillActive: false,
+    studioOrchestrationActive: false,
+    skillsEnabled: true,
+    agentEnabled: true,
+    isDock: true,
+    submitEcommerce: false,
+  },
+  "agent",
+);
+ok(
+  "intent aligned with boolean guard keeps agent",
+  alignedIntent.path === "agent",
 );
 
 const failed = results.filter((r) => !r.pass);
