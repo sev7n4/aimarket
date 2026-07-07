@@ -121,10 +121,7 @@
 | PR-26 | P6-2-5 polish hook | `enhancement/p6-creation-panel-polish` | ✅ #310 |
 | PR-27 | P6-4-2 Script shell | `enhancement/p6-drama-script-card-shell` | ✅ #311 |
 | PR-28 | P6-2-6 video hook | `enhancement/p6-creation-panel-video` | ✅ #312 |
-<<<<<<< HEAD
-| PR-29 | P6-4-3 Character shell | `enhancement/p6-drama-character-card-shell` | 🔄 进行中 |
-=======
->>>>>>> f4f952c (refactor(web): P6-2-7 提取 useCreationPanelDock)
+| PR-29 | P6-4-3 Character shell | `enhancement/p6-drama-character-card-shell` | ✅ #313 |
 | PR-30 | P6-2-7 dock hook | `enhancement/p6-creation-panel-dock` | 🔄 进行中 |
 
 ---
