@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import {
   Button,
-  GlassPanel,
   ModeTabs,
   type CreationMode,
 } from "@aimarket/ui";
@@ -71,24 +70,14 @@ import { useRotatingPlaceholder } from "@/hooks/use-rotating-placeholder";
 import { randomUUID } from "@/lib/uuid";
 import { clientNavigate } from "@/lib/client-navigate";
 import { storePendingAssets, type PendingAsset } from "@/lib/pending-assets";
-import { HomeGenerationPreview } from "@/components/home-generation-preview";
-import { CanvasLightbox } from "@/components/canvas-lightbox";
+import { CreationPanelPill } from "@/components/creation-panel-primitives";
+import { CreationPanelView } from "@/components/creation-panel-view";
+import { useCreationDockDrag } from "@/hooks/use-creation-dock-drag";
 import {
   UploadPreviewStack,
   type UploadPreviewItem,
 } from "@/components/upload-preview-stack";
 
-const DOCK_UPLOAD_IMAGE_TYPES = /^image\/(jpeg|png|webp)$/i;
-
-function imageFilesFromDataTransfer(dt: DataTransfer): File[] {
-  return Array.from(dt.files ?? []).filter((f) =>
-    DOCK_UPLOAD_IMAGE_TYPES.test(f.type),
-  );
-}
-
-function dataTransferHasFiles(dt: DataTransfer): boolean {
-  return dt.types.includes("Files") || dt.files.length > 0;
-}
 import {
   GenerationSettingsPopover,
   type AspectRatio,
@@ -106,7 +95,6 @@ import { useAgentRun } from "@/hooks/use-agent-run";
 import { useSkillRun } from "@/hooks/use-skill-run";
 import type { AgentRunStatus, SkillRunStatus } from "@/lib/types";
 import { useStudioOrchestrationOptional } from "@/components/studio-orchestration-provider";
-import { StudioDockFocusButton } from "@/components/studio-dock-controls";
 import {
   CreationDockToolbar,
   CreationLanePicker,
@@ -253,6 +241,7 @@ export function useCreationPanel(
   const { user, refreshUser } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const uploadTargetRef = useRef<"product" | "reference" | "general">("general");
+  const handleUploadRef = useRef<(files: File[]) => Promise<void>>(async () => {});
   const [uploadTarget, setUploadTarget] = useState<
     "product" | "reference" | "general"
   >("general");
@@ -296,8 +285,6 @@ export function useCreationPanel(
   const [productAssetId, setProductAssetId] = useState<string | null>(null);
   const [referenceAssetId, setReferenceAssetId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [dockDragOver, setDockDragOver] = useState(false);
-  const dockDragDepthRef = useRef(0);
   const [references, setReferences] = useState<SessionReference[]>([]);
   const [selectedRefs, setSelectedRefs] = useState<SessionReference[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
@@ -1149,6 +1136,7 @@ export function useCreationPanel(
       setUploadTarget("general");
     }
   }
+  handleUploadRef.current = handleUpload;
 
   function openUpload(target: "product" | "reference" | "general") {
     if (!sessionId) {
@@ -1754,6 +1742,24 @@ export function useCreationPanel(
           jobElapsedMs > 0
         ? `已用时 ${Math.max(1, Math.floor(jobElapsedMs / 1000))} 秒`
         : null;
+
+  const {
+    dockDragOver,
+    handleDockDragEnter,
+    handleDockDragLeave,
+    handleDockDragOver,
+    handleDockDrop,
+  } = useCreationDockDrag({
+    enabled: isDock,
+    readOnly: Boolean(readOnly),
+    onDropFiles: (files) => {
+      uploadTargetRef.current = "general";
+      setUploadTarget("general");
+      void handleUploadRef.current(files);
+    },
+    onInvalidDrop: () =>
+      onInteractionHint?.("仅支持拖拽 JPG / PNG / WebP 图片"),
+  });
 
   const body = (
     <>
@@ -2414,10 +2420,10 @@ export function useCreationPanel(
             </>
           ) : (
             <>
-              <Pill>最新图片 V2 Pro · 4 张 · 2K</Pill>
-              <Pill>
+              <CreationPanelPill>最新图片 V2 Pro · 4 张 · 2K</CreationPanelPill>
+              <CreationPanelPill>
                 智能 · {resolution.toUpperCase()} · 1:1 套图
-              </Pill>
+              </CreationPanelPill>
             </>
           )}
         </div>
@@ -2456,171 +2462,22 @@ export function useCreationPanel(
     </>
   );
 
-  function handleDockDragEnter(e: React.DragEvent) {
-    if (!isDock || readOnly) return;
-    if (!dataTransferHasFiles(e.dataTransfer)) return;
-    e.preventDefault();
-    dockDragDepthRef.current += 1;
-    setDockDragOver(true);
-  }
-
-  function handleDockDragLeave(e: React.DragEvent) {
-    if (!isDock || readOnly) return;
-    e.preventDefault();
-    dockDragDepthRef.current = Math.max(0, dockDragDepthRef.current - 1);
-    if (dockDragDepthRef.current === 0) setDockDragOver(false);
-  }
-
-  function handleDockDragOver(e: React.DragEvent) {
-    if (!isDock || readOnly) return;
-    if (!dataTransferHasFiles(e.dataTransfer)) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "copy";
-  }
-
-  function handleDockDrop(e: React.DragEvent) {
-    if (!isDock || readOnly) return;
-    e.preventDefault();
-    dockDragDepthRef.current = 0;
-    setDockDragOver(false);
-    const files = imageFilesFromDataTransfer(e.dataTransfer);
-    if (!files.length) {
-      onInteractionHint?.("仅支持拖拽 JPG / PNG / WebP 图片");
-      return;
-    }
-    uploadTargetRef.current = "general";
-    setUploadTarget("general");
-    void handleUpload(files);
-  }
-
-  if (isDock) {
-    const panel = (
-      <div
-        data-testid="creation-dock-drop-zone"
-        data-drag-active={dockDragOver ? "true" : undefined}
-        onDragEnter={handleDockDragEnter}
-        onDragLeave={handleDockDragLeave}
-        onDragOver={handleDockDragOver}
-        onDrop={handleDockDrop}
-        className={`relative w-full overflow-visible rounded-[1.5rem] border bg-gradient-to-b from-white/[0.07] via-zinc-950/76 to-zinc-950/92 shadow-[0_12px_48px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)_inset,0_-18px_42px_rgba(249,115,22,0.06),0_12px_48px_rgba(139,92,246,0.05)] backdrop-blur-2xl backdrop-saturate-150 transition ${
-          dockDragOver
-            ? "border-orange-400/50 ring-2 ring-orange-500/35"
-            : "border-white/[0.12]"
-        }`}
-      >
-        <div
-          className="pointer-events-none absolute -left-10 top-0 h-28 w-28 rounded-full bg-orange-500/[0.08] blur-3xl"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute -right-8 top-2 h-24 w-24 rounded-full bg-violet-500/[0.08] blur-3xl"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent"
-          aria-hidden
-        />
-        {onDockModeChange ? (
-          <StudioDockFocusButton onModeChange={onDockModeChange} />
-        ) : null}
-        {body}
-      </div>
-    );
-    return (
-      <>
-        <HomeGenerationPreview open={navigating} />
-        {uploadPreviewIndex != null && uploadPreviews.length > 0 ? (
-          <CanvasLightbox
-            items={uploadPreviews.map((item, i) => ({
-              id: item.id,
-              url: item.url,
-              label: `上传图 ${i + 1}`,
-            }))}
-            initialIndex={Math.min(uploadPreviewIndex, uploadPreviews.length - 1)}
-            onClose={() => setUploadPreviewIndex(null)}
-          />
-        ) : null}
-        {panel}
-      </>
-    );
-  }
-
   return (
-    <>
-      <HomeGenerationPreview open={navigating} />
-      {uploadPreviewIndex != null && uploadPreviews.length > 0 ? (
-        <CanvasLightbox
-          items={uploadPreviews.map((item, i) => ({
-            id: item.id,
-            url: item.url,
-            label: `上传图 ${i + 1}`,
-          }))}
-          initialIndex={Math.min(uploadPreviewIndex, uploadPreviews.length - 1)}
-          onClose={() => setUploadPreviewIndex(null)}
-        />
-      ) : null}
-      <GlassPanel
-        className={`mx-auto w-full max-w-3xl p-4 sm:p-5 ${compact ? "" : "shadow-orange-500/5"}`}
-      >
-        {body}
-      </GlassPanel>
-    </>
-  );
-}
-
-function TagSelect({
-  value,
-  options,
-  onChange,
-}: {
-  value: string;
-  options: string[];
-  onChange: (v: string) => void;
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-300 outline-none"
+    <CreationPanelView
+      isDock={isDock}
+      compact={compact}
+      navigating={navigating}
+      uploadPreviewIndex={uploadPreviewIndex}
+      uploadPreviews={uploadPreviews}
+      onUploadPreviewClose={() => setUploadPreviewIndex(null)}
+      onDockModeChange={onDockModeChange}
+      dockDragOver={dockDragOver}
+      onDockDragEnter={handleDockDragEnter}
+      onDockDragLeave={handleDockDragLeave}
+      onDockDragOver={handleDockDragOver}
+      onDockDrop={handleDockDrop}
     >
-      {options.map((o) => (
-        <option key={o} value={o} className="bg-zinc-900">
-          {o}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function UploadSlot({
-  label,
-  onClick,
-  loading,
-}: {
-  label: string;
-  onClick?: () => void;
-  loading?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex h-24 w-24 flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-white/15 bg-black/30 text-xs text-zinc-400 transition hover:border-orange-500/40 hover:bg-white/5"
-    >
-      {loading ? (
-        <Loader2 className="size-5 animate-spin" />
-      ) : (
-        <ImagePlus className="size-5" />
-      )}
-      {label}
-    </button>
-  );
-}
-
-function Pill({ children }: { children: ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300">
-      {children}
-    </span>
+      {body}
+    </CreationPanelView>
   );
 }
