@@ -7,6 +7,7 @@ import {
   MAX_FOCUS_POINTS,
   CROP_SIZE_OPTIONS,
   DEFAULT_CROP_SIZE,
+  focusEditShortcutLabel,
 } from "@/lib/focus-edit";
 import { focusIndexLabel } from "@/lib/focus-index-labels";
 import { assetUrl } from "@/lib/api-client";
@@ -81,7 +82,7 @@ export function FocusEditChips({
           焦点编辑
         </span>
         <span className="text-[10px] text-zinc-500">
-          {points.length}/{MAX_FOCUS_POINTS}
+          {points.length}/{MAX_FOCUS_POINTS} · {focusEditShortcutLabel()} 开关
         </span>
         {recognizing ? (
           <span className="text-[10px] text-zinc-500">识别中…</span>

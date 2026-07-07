@@ -4,7 +4,7 @@
 |------|------|
 | 版本 | v1.0 |
 | 日期 | 2026-05-28 |
-| 对标 | 椒图 AI Studio「焦点编辑」（快捷键 Win: Ctrl / Mac: ⌘） |
+| 对标 | 椒图 AI Studio「焦点编辑」（原快捷键单独 Ctrl/⌘；AIMarket 改为 **⌘⇧F / Ctrl+Shift+F** 避免与复制冲突） |
 | 参考 | [飞书：焦点编辑用法](https://my.feishu.cn/wiki/OHECwnf0hiztE0kj8wCc89ySnpb) · `docs/research/JIAOTUAI_RESEARCH_REPORT.md` §5.1 |
 | 架构约束 | 遵循 `docs/spec/JIAOTU_OPTIMIZED_DESIGN.md`：统一 Job + `POST /tools/:toolId/run`，不新增椒图式 `/image/*` 一等公民路由 |
 
@@ -80,7 +80,7 @@ sequenceDiagram
 
 ### 2.3 前端行为要点（椒图 ChatEditor 逆向）
 
-- 工具栏按钮「焦点编辑」，快捷键 **Ctrl / ⌘**。
+- 工具栏按钮「焦点编辑」，快捷键 **⌘⇧F / Ctrl+Shift+F**（单独 Ctrl/⌘ 会与复制粘贴冲突，已弃用）。
 - 焦点模式开启后：画布 `mouse:down` 防抖（约 1.5s），禁用多选/历史。
 - 单次会话最多 **10** 个焦点标记。
 - 富文本编辑器支持 `focusMarker` 节点（`attrs.key` 关联焦点）。

@@ -7,6 +7,8 @@ import { pickLatestBatchFocusTarget } from "@/lib/canvas-tools";
 import {
   DEFAULT_CROP_SIZE,
   MAX_FOCUS_POINTS,
+  isFocusEditShortcut,
+  focusEditShortcutLabel,
   type FocusEditSession,
   type FocusPointChip,
 } from "@/lib/focus-edit";
@@ -95,7 +97,7 @@ export function useStudioFocusEdit({
         }));
       }
       setSelectSourceBanner(
-        "焦点编辑：在图片上点击要修改的位置，在工作站输入短 prompt 后提交。",
+        `焦点编辑：在图片上点击要修改的位置，在工作站输入短 prompt 后提交（${focusEditShortcutLabel()} 开关）。`,
       );
       hapticLight();
     },
@@ -180,8 +182,7 @@ export function useStudioFocusEdit({
     function onKeyDown(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if (e.repeat || e.shiftKey || e.altKey) return;
-      if (e.key !== "Control" && e.key !== "Meta") return;
+      if (!isFocusEditShortcut(e)) return;
       e.preventDefault();
       if (readOnly || !user) return;
       const item =
