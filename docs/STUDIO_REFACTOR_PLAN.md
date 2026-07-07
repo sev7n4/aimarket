@@ -102,7 +102,7 @@
 
 | ID | 任务 | 状态 | 产出 | 验证 |
 |----|------|------|------|------|
-| P4-1 | 拆分 Home / StudioDock CreationPanel | ⬜ | 共享 `useStudioSubmit` | 首页 + dock E2E |
+| P4-1 | 拆分 Home / StudioDock CreationPanel | 🔄 | `HomeCreationPanel` + `StudioDockCreationPanel` | 首页 + dock E2E |
 | P4-2 | `creation-panel.tsx` <400 行 | ⬜ | re-export 或薄组合 | import 兼容 |
 | P4-3 | 合并 MusicGenPanel 双实现 | ⬜ | variant prop | 音乐 toggle E2E |
 | P4-4 | 合并 MultiCamGrid 双实现 | ⬜ | 同上 | 手动 / E2E |
@@ -131,8 +131,8 @@
 | PR-4 | P1-3, P1-4, P1-5 | 同上 | ✅ #291 |
 | PR-5 | P2-1 ~ P2-6 | `enhancement/studio-tool-handlers` | ✅ #292 |
 | PR-8 | P3-1 ~ P3-6 | `enhancement/infinite-canvas-pane` | ✅ #293 |
-| PR-9 | P3-5 收尾 `use-design-canvas` | `enhancement/design-canvas-router` | 🔄 待开 |
-| PR-12 | P4-1, P4-2 | `enhancement/creation-panel-split` | ⬜ |
+| PR-9 | P3-5 收尾 `use-design-canvas` | `enhancement/design-canvas-router` | ✅ #294 |
+| PR-12 | P4-1, P4-2 | `enhancement/creation-panel-split` | 🔄 进行中 |
 | PR-13 | P4-3, P4-4 | `enhancement/component-dedup` | ⬜ |
 | PR-14 | P5-* | `enhancement/studio-workspace-slim` | ⬜ |
 
@@ -161,6 +161,7 @@
 | 2026-07-06 | P3-1/P3-2：`InfiniteCanvasPane` 抽取开工 |
 | 2026-07-06 | P3-3~P3-6：三 Pane + OrchestrationOverlay + Chrome/Menus/ToolPanels；`design-canvas` 2084→1707 行 |
 | 2026-07-07 | P3-5：`use-design-canvas` + `DesignCanvasView`；`design-canvas.tsx` 16 行（P3 完成） |
+| 2026-07-07 | PR #294 合并；P4 输入层拆分开工 |
 
 ---
 

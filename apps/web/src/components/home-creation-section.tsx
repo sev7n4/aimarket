@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { CreationPanel } from "@/components/creation-panel";
+import { HomeCreationPanel } from "@/components/creation/HomeCreationPanel";
 import { LoginDialog } from "@/components/login-dialog";
 import { BrandSloganHeading } from "@/components/brand-slogan-heading";
 import { HomeProductionEntry } from "@/components/home-production-entry";
@@ -52,26 +52,14 @@ export function HomeCreationSection({
   }, [dockPinned, prompt]);
 
   const creationPanel = (
-    <CreationPanel
-      variant="dock"
-      showModeTabs={false}
-      mode="chat"
+    <HomeCreationPanel
       sessionId={sessionId}
-      leadingUpload
-      enablePolish
-      homeDirectSubmit
-      rotatingPlaceholder
       onAuthRequired={openLogin}
-      submitOnEnter
       onInspirationClick={onOpenInspiration}
       inspirationCoverUrl={inspirationCoverUrl}
       inspirationActive={inspirationOpen}
-      agentOrchestration
-      agentSkills={false}
       prompt={prompt}
       onPromptChange={setPrompt}
-      initialDockExpanded
-      dockLineOnly={false}
     />
   );
 

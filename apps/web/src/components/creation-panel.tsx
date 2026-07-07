@@ -197,7 +197,7 @@ function coerceAspectRatio(value: string): AspectRatio {
     : "1:1";
 }
 
-interface CreationPanelProps {
+export interface CreationPanelProps {
   initialMode?: CreationMode;
   initialPrompt?: string;
   compact?: boolean;
