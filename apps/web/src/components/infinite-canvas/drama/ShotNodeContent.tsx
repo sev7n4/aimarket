@@ -5,7 +5,7 @@ import { DramaAssetCardShell } from "@/components/drama/drama-asset-card-shell";
 import { DramaBadge } from "@/components/drama/drama-badge";
 import { canvasTheme } from "../canvas-theme";
 import type { CanvasNodeData } from "../types";
-import { MultiCamGrid } from "./MultiCamGrid";
+import { MultiCamGrid } from "@/components/multi-cam-grid";
 
 const shotStatusColors: Record<string, string> = {
   pending: "#78716c",
@@ -90,6 +90,7 @@ export function ShotNodeContent({ node }: ShotNodeContentProps) {
     hero = (
       <>
         <MultiCamGrid
+          variant="canvas"
           variants={variants}
           gridSize={variants.length > 9 ? 5 : 3}
           heroIndex={m?.keyframeHeroIndex}

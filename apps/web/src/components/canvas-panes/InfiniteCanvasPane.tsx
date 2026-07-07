@@ -8,7 +8,7 @@ import { InfiniteCanvasEmptyPrompt } from "@/components/infinite-canvas/Infinite
 import { DramaPropertyPanel } from "@/components/infinite-canvas/drama/DramaPropertyPanel";
 import { CanvasAssistantPanel } from "@/components/infinite-canvas/agent/CanvasAssistantPanel";
 import { TemplateManager } from "@/components/infinite-canvas/TemplateManager";
-import { MusicGenPanel } from "@/components/infinite-canvas/drama/MusicGenPanel";
+import { MusicGenPanel } from "@/components/music-gen-panel";
 import type { CanvasNodeMetadata, CanvasNodeData } from "@/components/infinite-canvas/types";
 
 import type { InfiniteCanvasPaneProps } from "./canvas-pane-types";
@@ -191,7 +191,11 @@ export function InfiniteCanvasPane({
           />
         ) : null}
         {showMusicGenPanel ? (
-          <MusicGenPanel sessionId={sessionId} onClose={onCloseMusicGenPanel} />
+          <MusicGenPanel
+            variant="sidebar"
+            sessionId={sessionId}
+            onClose={onCloseMusicGenPanel}
+          />
         ) : null}
       </div>
       <InfiniteOrchestrationDock
