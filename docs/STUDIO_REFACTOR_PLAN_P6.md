@@ -13,7 +13,7 @@
 | **P6-0** | 死代码与 deprecated 清理 | ✅ 完成 | #301 |
 | **P6-1** | 提交单源化 | ✅ 完成 | #302 |
 | **P6-2** | `use-creation-panel` 拆分 | ✅ 完成 | #303–#305 |
-| **P6-3** | 工具 UI meta 单源 | 🔄 进行中 | #306 |
+| **P6-3** | 工具 UI meta 单源 | ✅ 完成 | #306 |
 | **P6-4** | Drama 卡片 panel/node 统一 | ⬜ 未开始 | — |
 | **P6-5** | `api-client` 按域拆分 | ⬜ 未开始 | — |
 
@@ -53,7 +53,7 @@
 | P6-1-1 | 新建 `dispatchCreationSubmit()` | ✅ | `lib/creation-submit-dispatch.ts` | 合并 `runStudioSubmit` + creation-panel 分支 |
 | P6-1-2 | 合并路径决策 | ✅ | `resolveCreationSubmitPathFromContext()` | 吸收 orchestration 布尔守卫 |
 | P6-1-3 | UI 入口收敛 | ✅ | `useStudioSubmit` / `use-creation-panel` / `runStudioSubmit` | 均只调 dispatch |
-| P6-1-4 | 删重复布尔守卫 | ⬜ | `intent-router.ts` 精简 | 删除「与 creation-lane-submit 保持同步」副本 |
+| P6-1-4 | 删重复布尔守卫 | ✅ | `intent-router.ts` 精简 | `enhanceSubmitPath` 消费单源路径 |
 | P6-1-5 | 单测扩展 | ⬜ | `test-creation-lane-submit.ts` | intent 增强分支覆盖 |
 
 **P6-1 完成标准**：`grep resolveCreationSubmitPath` 决策逻辑仅一处；预估净删 ~400 行。
@@ -109,7 +109,8 @@
 | PR-19 | P6-2 creation-panel 拆分（1） | `enhancement/p6-creation-panel-view` | ✅ #303 |
 | PR-20 | P6-2 上传/引用 hook | `enhancement/p6-creation-panel-upload` | ✅ #304 |
 | PR-21 | P6-2 提交逻辑 hook | `enhancement/p6-creation-panel-submit` | ✅ #305 |
-| PR-22 | P6-3 工具 meta 单源 | `enhancement/p6-tool-meta` | 🔄 进行中 |
+| PR-22 | P6-3 工具 meta 单源 | `enhancement/p6-tool-meta` | ✅ #306 |
+| PR-23 | P6-1-4 intent-router 精简 | `enhancement/p6-intent-router-cleanup` | 🔄 进行中 |
 
 ---
 

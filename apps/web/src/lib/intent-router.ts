@@ -1,6 +1,6 @@
 import type { CreationLane } from "./creation-dock-prefs";
 
-/** 提交路径类型（与 creation-lane-submit.ts 保持同步） */
+/** 提交路径类型（由 creation-lane-submit.ts 产出） */
 export type SubmitPath =
   | "orchestration"
   | "skill"
@@ -445,11 +445,9 @@ export function resolveIntent(input: IntentRouterInput): IntentAnalysis {
  */
 export function enhanceSubmitPath(
   input: IntentRouterInput,
+  booleanPath: SubmitPath,
 ): { path: SubmitPath; analysis: IntentAnalysis } {
   const analysis = resolveIntent(input);
-
-  // 计算布尔守卫路径（与 creation-lane-submit.ts 逻辑一致）
-  const booleanPath = computeBooleanGuardPath(input);
 
   // 规则1：复合意图 → agent
   if (analysis.isComposite) {
@@ -468,57 +466,4 @@ export function enhanceSubmitPath(
 
   // 规则4：默认布尔守卫
   return { path: booleanPath, analysis };
-}
-
-// ─── 布尔守卫路径计算 ────────────────────────────────────────────────────────
-
-/** 计算布尔守卫路径（复刻 creation-lane-submit.ts 的 resolveSubmitPath 逻辑） */
-function computeBooleanGuardPath(input: IntentRouterInput): SubmitPath {
-  // shouldOrchestrationHandleSubmit 等价逻辑
-  const orchestrationWouldHandle = (() => {
-    if (input.submitVideo) return false;
-    if (input.focusEditActive || input.mentionedMasksCount > 0) return false;
-    if (input.hasReferenceImages && !input.dramaSkillActive) return false;
-    if (input.activeSkillId) return true;
-    if (input.creationLane === "agent") return true;
-    return false;
-  })();
-
-  if (orchestrationWouldHandle && input.studioOrchestrationActive) {
-    return "orchestration";
-  }
-
-  // shouldUseSkillSubmit 等价逻辑
-  if (
-    input.studioOrchestrationActive === false &&
-    input.skillsEnabled &&
-    !!input.activeSkillId &&
-    !input.focusEditActive &&
-    input.mentionedMasksCount === 0 &&
-    !input.submitVideo &&
-    !input.hasReferenceImages
-  ) {
-    return "skill";
-  }
-
-  // shouldUseAgentSubmit 等价逻辑
-  if (
-    input.studioOrchestrationActive === false &&
-    input.agentEnabled &&
-    !input.hasReferenceImages &&
-    !input.activeSkillId &&
-    !input.focusEditActive &&
-    input.mentionedMasksCount === 0 &&
-    !input.submitVideo &&
-    !input.submitEcommerce &&
-    input.isDock &&
-    input.creationLane === "agent"
-  ) {
-    return "agent";
-  }
-
-  // focus-edit
-  if (input.focusEditActive) return "focus-edit";
-
-  return "image-or-video";
 }

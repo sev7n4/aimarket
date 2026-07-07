@@ -276,7 +276,12 @@ export function resolveCreationSubmitPathWithIntent(
     submitEcommerce: direct.submitEcommerce,
   };
 
-  const { path, analysis } = enhanceSubmitPath(intentInput);
+  const booleanPath = resolveCreationSubmitPath({
+    direct,
+    orchestrationDispatchWouldHandle,
+  });
+
+  const { path, analysis } = enhanceSubmitPath(intentInput, booleanPath);
 
   // 编排接管优先级不变：意图路由不应跳过编排
   if (orchestrationDispatchWouldHandle && path !== "orchestration") {
