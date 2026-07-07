@@ -15,8 +15,8 @@
 | **P2** | 工具 / 菜单主线统一 | ✅ 完成 | #292 |
 | **P3** | 画布三 Pane 拆分 | 🔄 进行中 | PR-8 ~ PR-11 |
 | **P3** | 画布三 Pane 拆分 | ⬜ 未开始 | PR-8 ~ PR-11 |
-| **P4** | 输入层拆分 + 组件去重 | ⬜ 未开始 | PR-12 ~ PR-13 |
-| **P5** | workspace 瘦身 + 收尾 | ⬜ 未开始 | PR-14 |
+| **P4** | 输入层拆分 + 组件去重 | ✅ 完成 | PR-12 ~ PR-14 |
+| **P5** | workspace 瘦身 + 收尾 | 🔄 进行中 | PR-14 |
 
 **基线行数（main @ PR #290 后）**
 
@@ -106,7 +106,7 @@
 | P4-2 | `creation-panel.tsx` <400 行 | ✅ | `creation-panel-types` + `use-creation-panel` + `runStudioSubmit` | import 兼容 |
 | P4-3 | 合并 MusicGenPanel 双实现 | ✅ | `variant` embedded/sidebar | 音乐 toggle E2E |
 | P4-4 | 合并 MultiCamGrid 双实现 | ✅ | `variant` grid/canvas | 手动 / E2E |
-| P4-5 | `creation-dock-controls` 按 lane 拆子模块 | ⬜ | 可选 | lint 绿 |
+| P4-5 | `creation-dock-controls` 按 lane 拆子模块 | ✅ | `creation-dock-controls/` 目录 | lint 绿 |
 
 ---
 
@@ -114,10 +114,10 @@
 
 | ID | 任务 | 状态 | 产出 | 验证 |
 |----|------|------|------|------|
-| P5-1 | `studio-workspace.tsx` <1000 行 | ⬜ | 仅会话/Job/布局 | 全 CI 绿 |
+| P5-1 | `studio-workspace.tsx` <1000 行 | 🔄 | `useStudioJobStream` 抽取 | 全 CI 绿 |
 | P5-2 | 可选 `StudioToolHandlersProvider` | ⬜ | Context 减 props | design-canvas props ↓50% |
-| P5-3 | 更新 PR 模板检查项 | ⬜ | `.github` 或 PR_WORKFLOW | 新 PR 声明画布模式 |
-| P5-4 | 生产复测清单 | ⬜ | `PROD_SMOKE_INFINITE.md` | 部署后 5 分钟 |
+| P5-3 | 更新 PR 模板检查项 | ✅ | `PR_WORKFLOW` 画布模式清单 | 新 PR 声明画布模式 |
+| P5-4 | 生产复测清单 | ✅ | `PROD_SMOKE_INFINITE.md` | 部署后 5 分钟 |
 
 ---
 
@@ -133,8 +133,8 @@
 | PR-8 | P3-1 ~ P3-6 | `enhancement/infinite-canvas-pane` | ✅ #293 |
 | PR-9 | P3-5 收尾 `use-design-canvas` | `enhancement/design-canvas-router` | ✅ #294 |
 | PR-12 | P4-1, P4-2 | `enhancement/creation-panel-split` | ✅ #296 |
-| PR-13 | P4-3, P4-4 | `enhancement/component-dedup` | 🔄 进行中 |
-| PR-14 | P5-* | `enhancement/studio-workspace-slim` | ⬜ |
+| PR-13 | P4-3, P4-4 | `enhancement/component-dedup` | ✅ #297 |
+| PR-14 | P4-5, P5-1 开工 | `enhancement/studio-workspace-slim` | 🔄 进行中 |
 
 ---
 
@@ -164,6 +164,7 @@
 | 2026-07-07 | PR #294 合并；P4 输入层拆分开工 |
 | 2026-07-07 | PR #295 合并（P4-1）；P4-2：`creation-panel.tsx` 14 行 + `use-creation-panel` + studio-dock 对接 `runStudioSubmit` |
 | 2026-07-07 | PR #296 合并（P4-2）；P4-3/P4-4：MusicGenPanel + MultiCamGrid 双实现合并为 `variant` prop |
+| 2026-07-07 | PR #297 合并（P4-3/P4-4）；P4-5：`creation-dock-controls/` 按 lane 拆分；P5-1：`useStudioJobStream` |
 
 ---
 
