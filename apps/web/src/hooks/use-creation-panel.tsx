@@ -36,14 +36,8 @@ import {
   uploadAsset,
   registerAssetFromUrl,
   trackEvent,
-  optimizePromptApi,
   renderInspiration,
 } from "@/lib/api-client";
-import { polishPrompt } from "@/lib/prompt-polish";
-import { resolveIntent } from "@/lib/intent-router";
-import {
-  readRecentAcceptedPrompts,
-} from "@/lib/prompt-style-profile";
 import {
   resolveVideoSubmitModelId,
   videoAutoPickerLabel,
@@ -70,6 +64,7 @@ import { CreationPanelJobStatusBar } from "@/components/creation-panel-job-statu
 import { useCreationDockDrag } from "@/hooks/use-creation-dock-drag";
 import { useCreationPanelAssets } from "@/hooks/use-creation-panel-assets";
 import { useCreationPanelSubmit } from "@/hooks/use-creation-panel-submit";
+import { useCreationPanelPolish } from "@/hooks/use-creation-panel-polish";
 import {
   UploadPreviewStack,
   type UploadPreviewItem,
@@ -248,10 +243,6 @@ export function useCreationPanel(
   const [inspirationVars, setInspirationVars] = useState<
     Record<string, string>
   >({});
-  const [polishBusy, setPolishBusy] = useState(false);
-  const [polishHint, setPolishHint] = useState<string | null>(null);
-  const [polishCandidates, setPolishCandidates] = useState<string[]>([]);
-  const [polishCandidateIndex, setPolishCandidateIndex] = useState(0);
   const [references, setReferences] = useState<SessionReference[]>([]);
   const [dockExpanded, setDockExpanded] = useState(
     () => initialDockExpanded && !dockLineOnly,
@@ -401,6 +392,39 @@ export function useCreationPanel(
     clearAttachmentState,
     mentionUploadedAssets,
   } = assets;
+
+  const {
+    polishBusy,
+    polishHint,
+    polishCandidates,
+    polishCandidateIndex,
+    handlePolish,
+    cyclePolishCandidate,
+    resetPolish,
+  } = useCreationPanelPolish({
+    prompt,
+    setPrompt,
+    user,
+    effectiveMode,
+    creationLane,
+    activeSkillId,
+    focusEdit,
+    mentionedMasks,
+    submitVideo,
+    referenceChips,
+    assetIds,
+    selectedRefs,
+    mentionedAssetIds,
+    selectedCanvasItem,
+    dramaOrchestrationActive,
+    studioOrchestrationActive,
+    skillsEnabled,
+    agentEnabled,
+    isDock,
+    submitEcommerce,
+    modelId,
+    aspectRatio,
+  });
 
   const {
     skills: skillPackages,
@@ -1300,9 +1324,7 @@ export function useCreationPanel(
                   const v = e.target.value;
                   setPrompt(v);
                   if (polishCandidates.length > 0) {
-                    setPolishCandidates([]);
-                    setPolishCandidateIndex(0);
-                    setPolishHint(null);
+                    resetPolish();
                   }
                   syncMentionStateFromPrompt(v);
                   // 检测光标前的 @<query>，弹出/更新引用 popover
@@ -1396,84 +1418,7 @@ export function useCreationPanel(
                           : "输入描述后可一键润色"
                   }
                   disabled={!prompt.trim() || polishBusy}
-                  onClick={() => {
-                    const raw = prompt.trim();
-                    if (!raw || polishBusy) return;
-                    const polishApiMode = toApiCreationMode(effectiveMode);
-                    const hasRefs =
-                      referenceChips.length > 0 ||
-                      assetIds.length > 0 ||
-                      selectedRefs.length > 0 ||
-                      mentionedAssetIds.length > 0;
-                    // 意图识别：推断创作方向，驱动后端场景化润色
-                    const intent = resolveIntent({
-                      prompt: raw,
-                      creationLane,
-                      activeSkillId,
-                      focusEditActive: Boolean(focusEdit?.points.length),
-                      mentionedMasksCount: mentionedMasks.length,
-                      submitVideo,
-                      hasReferenceImages: hasRefs,
-                      hasSelectedCanvasItem: Boolean(selectedCanvasItem),
-                      dramaSkillActive: dramaOrchestrationActive,
-                      studioOrchestrationActive,
-                      skillsEnabled,
-                      agentEnabled,
-                      isDock,
-                      submitEcommerce,
-                    });
-                    const sourceLabel = (
-                      source: "template-mock" | "openai" | "dashscope",
-                    ) => {
-                      if (source === "dashscope") return "百炼";
-                      if (source === "openai") return "OpenAI";
-                      return "模板";
-                    };
-                    const composeHint = (
-                      source: "template-mock" | "openai" | "dashscope",
-                      directionLabel?: string,
-                    ) =>
-                      directionLabel
-                        ? `${sourceLabel(source)} · ${directionLabel}`
-                        : sourceLabel(source);
-                    setPolishCandidates([]);
-                    setPolishCandidateIndex(0);
-                    if (!user || !getToken()) {
-                      setPrompt(polishPrompt(polishApiMode, raw));
-                      setPolishHint(composeHint("template-mock"));
-                      return;
-                    }
-                    setPolishBusy(true);
-                    void optimizePromptApi(raw, polishApiMode, {
-                      context: {
-                        modelId:
-                          modelId === AUTO_MODEL_ID ? undefined : modelId,
-                        aspectRatio,
-                        hasReferenceImages: hasRefs,
-                        creationLane,
-                        intentSignal: intent.primarySignal,
-                        intentConfidence: intent.confidence,
-                        recentAccepted: readRecentAcceptedPrompts(3),
-                      },
-                    })
-                      .then((res) => {
-                        const candidates = [
-                          res.prompt,
-                          ...(res.variants ?? []),
-                        ];
-                        setPrompt(res.prompt);
-                        setPolishCandidates(candidates);
-                        setPolishCandidateIndex(0);
-                        setPolishHint(
-                          composeHint(res.source, res.directionLabel),
-                        );
-                      })
-                      .catch(() => {
-                        setPrompt(polishPrompt(polishApiMode, raw));
-                        setPolishHint(composeHint("template-mock"));
-                      })
-                      .finally(() => setPolishBusy(false));
-                  }}
+                  onClick={handlePolish}
                   className={`absolute bottom-1 right-1 rounded-lg p-1.5 transition ${
                     prompt.trim() && !polishBusy
                       ? "text-orange-400 hover:bg-white/10 hover:text-orange-300"
@@ -1492,12 +1437,7 @@ export function useCreationPanel(
                 <button
                   type="button"
                   title={`换一个（${polishCandidateIndex + 1}/${polishCandidates.length}）`}
-                  onClick={() => {
-                    const next =
-                      (polishCandidateIndex + 1) % polishCandidates.length;
-                    setPolishCandidateIndex(next);
-                    setPrompt(polishCandidates[next]);
-                  }}
+                  onClick={cyclePolishCandidate}
                   className="absolute bottom-1 right-9 rounded-lg p-1.5 text-orange-400 transition hover:bg-white/10 hover:text-orange-300"
                   aria-label="换一个润色结果"
                 >
