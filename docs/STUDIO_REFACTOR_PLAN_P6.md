@@ -12,9 +12,9 @@
 |------|------|------|---------|
 | **P6-0** | 死代码与 deprecated 清理 | ✅ 完成 | #301 |
 | **P6-1** | 提交单源化 | ✅ 完成 | #302 / #307 |
-| **P6-2** | `use-creation-panel` 拆分 | ✅ 完成 | #303–#305 |
+| **P6-2** | `use-creation-panel` 拆分 | 🔄 进行中 | #303–#305 / #310 / video PR |
 | **P6-3** | 工具 UI meta 单源 | ✅ 完成 | #306 |
-| **P6-4** | Drama 卡片 panel/node 统一 | 🔄 进行中 | scene PR |
+| **P6-4** | Drama 卡片 panel/node 统一 | 🔄 进行中 | #309 / #311 |
 | **P6-5** | `api-client` 按域拆分 | ⬜ 未开始 | — |
 
 **P6 完成标准**
@@ -69,6 +69,7 @@
 | P6-2-3 | 提交逻辑 hook | ✅ | `use-creation-panel-submit.ts` | typecheck 绿 |
 | P6-2-4 | Job 状态 / 灵感表单组件 | ✅ | `CreationPanelJobStatusBar` 等 | 纯展示拆分 |
 | P6-2-5 | 润色逻辑 hook | ✅ | `use-creation-panel-polish.ts` | typecheck 绿 |
+| P6-2-6 | 视频参考 hook | 🔄 | `use-creation-panel-video.ts` | panel 1770→1705 行 |
 
 ---
 
@@ -86,8 +87,8 @@
 | ID | 任务 | 状态 | 产出 | 验证 |
 |----|------|------|------|------|
 | P6-4-1 | Scene 实体 shell | ✅ | `DramaSceneCardShell` + `mode: panel \| node` | panel + canvas E2E |
-| P6-4-2 | Script 实体 shell | ✅ | `DramaScriptCardShell` + `mode: panel \| node` | typecheck 绿 |
-| P6-4-2 | Script / Character / Shot | ⬜ | 同上模式 | drama E2E |
+| P6-4-2 | Script shell | ✅ | `DramaScriptCardShell` + `mode: panel \| node` | panel + canvas E2E |
+| P6-4-3 | Character / Shot shell | ⬜ | 同上模式 | drama E2E |
 
 **不切**：`drama-studio-panel.tsx` 整体（964 行，另立后续阶段）。
 
@@ -112,7 +113,12 @@
 | PR-20 | P6-2 上传/引用 hook | `enhancement/p6-creation-panel-upload` | ✅ #304 |
 | PR-21 | P6-2 提交逻辑 hook | `enhancement/p6-creation-panel-submit` | ✅ #305 |
 | PR-22 | P6-3 工具 meta 单源 | `enhancement/p6-tool-meta` | ✅ #306 |
-| PR-23 | P6-1-4 intent-router 精简 | `enhancement/p6-intent-router-cleanup` | 🔄 进行中 |
+| PR-23 | P6-1-4 intent-router 精简 | `enhancement/p6-intent-router-cleanup` | ✅ #307 |
+| PR-24 | P6-1-5 单测扩展 | `enhancement/p6-intent-router-tests` | ✅ #308 |
+| PR-25 | P6-4-1 Scene shell | `enhancement/p6-drama-scene-card-shell` | ✅ #309 |
+| PR-26 | P6-2-5 polish hook | `enhancement/p6-creation-panel-polish` | ✅ #310 |
+| PR-27 | P6-4-2 Script shell | `enhancement/p6-drama-script-card-shell` | ✅ #311 |
+| PR-28 | P6-2-6 video hook | `enhancement/p6-creation-panel-video` | 🔄 进行中 |
 
 ---
 
