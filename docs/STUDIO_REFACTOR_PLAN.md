@@ -23,7 +23,7 @@
 | 文件 | 基线 | P3 目标 | P5 目标 |
 |------|------|---------|---------|
 | `creation-panel.tsx` | 2857 | 2857 | <400 |
-| `studio-workspace.tsx` | 2299 | ~2000 | <1000 |
+| `studio-workspace.tsx` | 2299 | ~2000 | **940** |
 | `design-canvas.tsx` | 2197 | <500 | <400 |
 
 ---
@@ -114,7 +114,7 @@
 
 | ID | 任务 | 状态 | 产出 | 验证 |
 |----|------|------|------|------|
-| P5-1 | `studio-workspace.tsx` <1000 行 | 🔄 | `useStudioJobStream` 抽取 | 全 CI 绿 |
+| P5-1 | `studio-workspace.tsx` <1000 行 | ✅ | `useStudioFocusEdit` / `useStudioCanvasActions` / `useStudioSessionBootstrap` + `StudioWorkspaceSidebar` / `StudioWorkspaceOverlays` | 全 CI 绿 |
 | P5-2 | 可选 `StudioToolHandlersProvider` | ⬜ | Context 减 props | design-canvas props ↓50% |
 | P5-3 | 更新 PR 模板检查项 | ✅ | `PR_WORKFLOW` 画布模式清单 | 新 PR 声明画布模式 |
 | P5-4 | 生产复测清单 | ✅ | `PROD_SMOKE_INFINITE.md` | 部署后 5 分钟 |
@@ -134,7 +134,8 @@
 | PR-9 | P3-5 收尾 `use-design-canvas` | `enhancement/design-canvas-router` | ✅ #294 |
 | PR-12 | P4-1, P4-2 | `enhancement/creation-panel-split` | ✅ #296 |
 | PR-13 | P4-3, P4-4 | `enhancement/component-dedup` | ✅ #297 |
-| PR-14 | P4-5, P5-1 开工 | `enhancement/studio-workspace-slim` | 🔄 进行中 |
+| PR-14 | P4-5, P5-1 开工 | `enhancement/studio-workspace-slim` | ✅ #298 |
+| PR-15 | P5-1 达标 | `enhancement/studio-workspace-slim` | 🔄 进行中 |
 
 ---
 
@@ -165,6 +166,8 @@
 | 2026-07-07 | PR #295 合并（P4-1）；P4-2：`creation-panel.tsx` 14 行 + `use-creation-panel` + studio-dock 对接 `runStudioSubmit` |
 | 2026-07-07 | PR #296 合并（P4-2）；P4-3/P4-4：MusicGenPanel + MultiCamGrid 双实现合并为 `variant` prop |
 | 2026-07-07 | PR #297 合并（P4-3/P4-4）；P4-5：`creation-dock-controls/` 按 lane 拆分；P5-1：`useStudioJobStream` |
+| 2026-07-07 | PR #298 合并（P4-5 + `useStudioJobStream`）；`studio-workspace` 1737 行 |
+| 2026-07-07 | P5-1 达标：`studio-workspace.tsx` 940 行；抽取 focus/canvas/session hooks + Sidebar/Overlays |
 
 ---
 
