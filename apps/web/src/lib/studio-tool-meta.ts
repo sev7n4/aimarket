@@ -35,6 +35,30 @@ export const TOOL_DISPLAY_NAMES: Record<string, string> = {
   "grid-split": "宫格切分",
 };
 
+/** 画布工具条 / 批量条等紧凑 UI 的短标签 */
+export const TOOL_SHORT_LABELS: Record<string, string> = {
+  variation: "变体",
+  expand: "扩图",
+  erase: "消除",
+  cutout: "抠图",
+  inpaint: "局改",
+  "focus-edit": "焦点",
+  text: "改字",
+  upscale: "超清",
+  enhance: "变清",
+  blend: "融合",
+  crop: "裁剪",
+  "grid-split": "切分",
+};
+
+export function toolShortLabel(toolId: string, fallback = toolId): string {
+  return TOOL_SHORT_LABELS[toolId] ?? TOOL_DISPLAY_NAMES[toolId] ?? fallback;
+}
+
+export function toolDisplayName(toolId: string, fallback = toolId): string {
+  return TOOL_DISPLAY_NAMES[toolId] ?? fallback;
+}
+
 /** 工具网格副文案：是否需要 prompt、张数、推荐路径等 */
 export const TOOL_GRID_HINTS: Record<string, string> = {
   variation: "选图 · 1–4 张 · 同构图微差",
