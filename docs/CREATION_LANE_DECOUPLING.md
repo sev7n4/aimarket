@@ -90,7 +90,7 @@ submitByLane(lane)
 
 **任务**：
 
-- [x] `LaneDraft` + `useCreationLaneState`
+- [x] `LaneDraft` + `useCreationLaneDrafts`（原 `useCreationLaneState` 已移除，见 P6-0）
 - [x] 拆分 `aimarket.home.lane` / `aimarket.studio.lane`（迁移旧 key）
 - [x] Studio 默认 `creationLane` 改为 `image`
 - [x] 更新 E2E：`creation-dock-ui.spec.ts` 中 Studio 默认期望由 Agent → 图片
