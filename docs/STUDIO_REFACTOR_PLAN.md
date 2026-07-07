@@ -102,8 +102,8 @@
 
 | ID | 任务 | 状态 | 产出 | 验证 |
 |----|------|------|------|------|
-| P4-1 | 拆分 Home / StudioDock CreationPanel | 🔄 | `HomeCreationPanel` + `StudioDockCreationPanel` | 首页 + dock E2E |
-| P4-2 | `creation-panel.tsx` <400 行 | ⬜ | re-export 或薄组合 | import 兼容 |
+| P4-1 | 拆分 Home / StudioDock CreationPanel | ✅ | `HomeCreationPanel` + `StudioDockCreationPanel` | 首页 + dock E2E |
+| P4-2 | `creation-panel.tsx` <400 行 | ✅ | `creation-panel-types` + `use-creation-panel` + `runStudioSubmit` | import 兼容 |
 | P4-3 | 合并 MusicGenPanel 双实现 | ⬜ | variant prop | 音乐 toggle E2E |
 | P4-4 | 合并 MultiCamGrid 双实现 | ⬜ | 同上 | 手动 / E2E |
 | P4-5 | `creation-dock-controls` 按 lane 拆子模块 | ⬜ | 可选 | lint 绿 |
@@ -162,6 +162,7 @@
 | 2026-07-06 | P3-3~P3-6：三 Pane + OrchestrationOverlay + Chrome/Menus/ToolPanels；`design-canvas` 2084→1707 行 |
 | 2026-07-07 | P3-5：`use-design-canvas` + `DesignCanvasView`；`design-canvas.tsx` 16 行（P3 完成） |
 | 2026-07-07 | PR #294 合并；P4 输入层拆分开工 |
+| 2026-07-07 | PR #295 合并（P4-1）；P4-2：`creation-panel.tsx` 14 行 + `use-creation-panel` + studio-dock 对接 `runStudioSubmit` |
 
 ---
 
