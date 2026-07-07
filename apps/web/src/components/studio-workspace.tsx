@@ -1,17 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SessionTitleActions } from "@/components/session-title-actions";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Flag,
-  Plus,
-  X,
-} from "lucide-react";
-import { LoginDialog } from "@/components/login-dialog";
+import { ChevronRight } from "lucide-react";
 import type { DesignCanvasHandle } from "@/components/design-canvas";
 import { StudioCreationDock } from "@/components/studio-creation-dock";
 import { StudioInfiniteSubmitBridge } from "@/components/studio-infinite-submit-bridge";
@@ -24,17 +15,11 @@ import {
   AppLeftRail,
 } from "@/components/app-left-rail";
 import { ProviderStatusChip } from "@/components/provider-status-banner";
-import { ContentReportDialog } from "@/components/content-report-dialog";
 import {
-  ToolConfirmDialog,
-  type ToolConfirmOptions,
-} from "@/components/tool-confirm-dialog";
-import { GridSplitPanel } from "@/components/grid-split-panel";
-import {
-  ToolGridResultPanel,
   type ToolGridResultState,
 } from "@/components/tool-grid-result-panel";
-import { WorkspaceSwitcher } from "@/components/workspace-switcher";
+import { StudioWorkspaceSidebar } from "@/components/studio-workspace/StudioWorkspaceSidebar";
+import { StudioWorkspaceOverlays } from "@/components/studio-workspace/StudioWorkspaceOverlays";
 import { WorkspaceProvider } from "@/lib/workspace-context";
 import {
   defaultStudioDockMode,
@@ -44,9 +29,9 @@ import {
 } from "@/lib/studio-dock-state";
 import { getActiveWorkspaceId } from "@/lib/active-workspace";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
-import { resolveApiBase } from "@/lib/api-base";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { formatJobErrorMessage } from "@/lib/job-error-message";
+import { hapticLight } from "@/lib/haptics";
 import { type CreationMode } from "@aimarket/ui";
 import type { ImageSession, StudioTool } from "@/lib/types";
 import type { CanvasItem } from "@/lib/canvas-tools";
@@ -55,78 +40,44 @@ import { StudioCanvasWithOrchestration } from "@/components/studio-canvas-with-o
 import { useAuth } from "@/lib/auth-context";
 import {
   assetUrl,
-  ensureSession,
-  fetchSession,
-  exportSession,
-  fetchJob,
-  fetchTools,
   listSessions,
   publishCanvasToInspiration,
-  recognizeFocusPoint,
-  runTool,
-  submitGeneration,
-  uploadAsset,
   trackEvent,
-  requestVideoBgmMux,
 } from "@/lib/api-client";
 import {
-  MAX_FOCUS_POINTS,
-  DEFAULT_CROP_SIZE,
-  type FocusEditSession,
-  type FocusPointChip,
-} from "@/lib/focus-edit";
-import {
-  createUploadCanvasItem,
   pickLatestBatchFocusTarget,
-  type PendingBatchLineage,
 } from "@/lib/canvas-tools";
 import {
-  coerceInspirationAspect,
-  consumePendingDramaTemplate,
-  importInspirationReferencesToCanvas,
   type StudioInspirationApply,
 } from "@/lib/inspiration-studio";
 import type { DramaTemplateMetadata } from "@/lib/types";
-import { persistCreationLane } from "@/lib/creation-dock-prefs";
-import { extractVideoLastFrame } from "@/lib/video-frame-extract";
 import {
   prefetchSessionCanvasBundle,
   useSessionCanvas,
 } from "@/hooks/use-session-canvas";
-import { consumePendingAssets, type PendingAsset } from "@/lib/pending-assets";
-import { consumePendingInspiration, normalizePendingInspiration } from "@/lib/pending-inspiration";
+import { type PendingAsset } from "@/lib/pending-assets";
 import {
   paddingToExtend,
 } from "@/lib/expand-frame";
-import { focusIndexLabel } from "@/lib/focus-index-labels";
-import { resolveToolResolution } from "@/lib/tool-resolution";
-import { hapticLight } from "@/lib/haptics";
-import { type SessionKind } from "@/lib/session-kind";
 import { buildStudioUrl, studioUrlForSession } from "@/lib/studio-navigation";
+import { type SessionKind } from "@/lib/session-kind";
 import { clientNavigate } from "@/lib/client-navigate";
-import { writeDraftSessionId } from "@/lib/studio-draft-session";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useConversationPaneWidth } from "@/hooks/use-conversation-pane-width";
 import { useStudioToolHandlers } from "@/hooks/use-studio-tool-handlers";
 import { useStudioJobStream } from "@/hooks/use-studio-job-stream";
+import { useStudioFocusEdit } from "@/hooks/use-studio-focus-edit";
+import { useStudioCanvasActions } from "@/hooks/use-studio-canvas-actions";
+import {
+  STUDIO_SIDEBAR_SESSION_LIMIT,
+  useStudioSessionBootstrap,
+} from "@/hooks/use-studio-session-bootstrap";
 import { buildToolPromptSuffix } from "@/lib/studio-tool-interaction";
 import type { StudioMentionItemRequest } from "@/lib/canvas-node-handlers";
 
-const FOCUS_CLICK_DEBOUNCE_MS = 1500;
+import type { StudioWorkspaceProps } from "@/components/studio-workspace-types";
 
-/** Studio 侧栏会话列表：拉取上限（API 按 updated_at 降序） */
-const STUDIO_SIDEBAR_SESSION_LIMIT = 200;
-
-interface StudioWorkspaceProps {
-  sessionId: string;
-  initialMode: CreationMode;
-  initialPrompt: string;
-  initialTitle?: string;
-  initialKind?: SessionKind;
-  initialJobId?: string;
-  initialToolId?: string;
-  autoSubmitOnce?: boolean;
-}
+export type { StudioWorkspaceProps } from "@/components/studio-workspace-types";
 
 export function StudioWorkspace({
   sessionId,
@@ -150,8 +101,7 @@ export function StudioWorkspace({
   const { user, loading: authLoading, refreshUser } = useAuth();
   const uploadRef = useRef<HTMLInputElement>(null);
   const bgmInputRef = useRef<HTMLInputElement>(null);
-  const pendingBgmVideoRef = useRef<CanvasItem | null>(null);
-  const [videoActionBusy, setVideoActionBusy] = useState(false);
+  const clearBrushRef = useRef<(() => void) | null>(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
@@ -246,17 +196,6 @@ export function StudioWorkspace({
   );
   const [mentionItemRequest, setMentionItemRequest] =
     useState<StudioMentionItemRequest | null>(null);
-  const [focusEditSession, setFocusEditSession] =
-    useState<FocusEditSession | null>(null);
-  const [focusRecognizing, setFocusRecognizing] = useState(false);
-
-  useEffect(() => {
-    if (!focusEditSession) return;
-    setDockMode((prev) => (prev === "focus" ? "expanded" : prev));
-  }, [focusEditSession]);
-
-  const [focusClickKey, setFocusClickKey] = useState(0);
-  const lastFocusClickAtRef = useRef(0);
   /** 受控的内容举报对话框（StudioHeader 右上 ⚠ 触发） */
   const [reportOpen, setReportOpen] = useState(false);
 
@@ -378,156 +317,28 @@ export function StudioWorkspace({
     );
   }, [router, mode, sessionKind, activeWorkspaceId]);
 
-  const applySourceInspiration = useCallback(
-    (src: NonNullable<Awaited<ReturnType<typeof ensureSession>>["sourceInspiration"]>) => {
-      const normalized = normalizePendingInspiration({
-        id: src.id,
-        title: src.title,
-        prompt: src.prompt,
-        modelId: src.modelId,
-        aspectRatio: coerceInspirationAspect(src.aspectRatio),
-        resolution: src.resolution,
-        variables: src.variables,
-        variableValues: src.variableValues ?? {},
-        referenceUrls: src.referenceUrls ?? [],
-        creationLane: src.mediaType === "video" ? "video" : undefined,
-      });
-      persistCreationLane("studio", normalized.creationLane);
-      setInspirationApply({
-        ...normalized,
-        aspectRatio: coerceInspirationAspect(normalized.aspectRatio),
-        applyKey: 1,
-      });
-    },
-    [],
-  );
-
-  const initSession = useCallback(async () => {
-    if (!user) return;
-    const pending = consumePendingAssets(sessionId);
-    if (pending.length) setRestoredAssets(pending);
-
-    const pendingRaw = consumePendingInspiration(sessionId);
-    const pendingInspiration = pendingRaw
-      ? normalizePendingInspiration(pendingRaw)
-      : null;
-    const pendingDramaTemplate = consumePendingDramaTemplate(sessionId);
-    if (pendingDramaTemplate) {
-      const { inspirationId: _inspId, title: _title, ...tpl } = pendingDramaTemplate;
-      setDramaTemplateApply(tpl);
-      if (tpl.userIdea) {
-        setStudioPrompt(tpl.userIdea);
-      }
-    }
-    if (pendingInspiration) {
-      persistCreationLane("studio", pendingInspiration.creationLane);
-      setInspirationApply({
-        ...pendingInspiration,
-        aspectRatio: coerceInspirationAspect(pendingInspiration.aspectRatio),
-        applyKey: 1,
-      });
-    }
-
-    const wsId = activeWorkspaceId ?? getActiveWorkspaceId() ?? undefined;
-    writeDraftSessionId(sessionId, wsId);
-
-    const mustPersist = pending.length > 0 || pendingInspiration != null;
-    let existing: Awaited<ReturnType<typeof fetchSession>> | null = null;
-    if (!mustPersist) {
-      try {
-        existing = await fetchSession(sessionId);
-      } catch {
-        existing = null;
-      }
-    }
-
-    if (mustPersist) {
-      const ensured = await ensureSession(sessionId, mode, {
-        title: initialTitle ?? pendingInspiration?.title,
-        kind:
-          pendingInspiration ?
-            pendingInspiration.creationLane === "video" ?
-              "canvas"
-            : "project"
-          : (initialKind ?? "canvas"),
-        workspaceId: wsId,
-        sourceInspirationId: pendingInspiration?.id,
-      });
-      setCanEdit(ensured.can_edit ?? true);
-      if (!pendingInspiration && ensured.sourceInspiration) {
-        applySourceInspiration(ensured.sourceInspiration);
-        if (
-          mode === "production" &&
-          ensured.sourceInspiration.dramaTemplate
-        ) {
-          setDramaTemplateApply(ensured.sourceInspiration.dramaTemplate);
-          setStudioPrompt(ensured.sourceInspiration.dramaTemplate.userIdea);
-        }
-      }
-      await loadCanvas();
-      if (pendingInspiration?.referenceUrls.length) {
-        const refItems = await importInspirationReferencesToCanvas(
-          sessionId,
-          pendingInspiration.referenceUrls,
-        );
-        setCanvasItems((prev) => [...prev, ...refItems]);
-        if (refItems[0]) setSelectedCanvasId(refItems[0].id);
-      }
-    } else if (existing) {
-      setCanEdit(existing.can_edit ?? true);
-      if (existing.title) setFetchedSessionTitle(existing.title);
-      if (!pendingInspiration && existing.sourceInspiration) {
-        applySourceInspiration(existing.sourceInspiration);
-        if (
-          mode === "production" &&
-          existing.sourceInspiration.dramaTemplate &&
-          !pendingDramaTemplate
-        ) {
-          setDramaTemplateApply(existing.sourceInspiration.dramaTemplate);
-          setStudioPrompt(existing.sourceInspiration.dramaTemplate.userIdea);
-        }
-      }
-      await loadCanvas();
-    } else {
-      /** 本地草稿：尚未入库，避免打开空白 Studio 即创建「新建画布」 */
-      setCanEdit(true);
-    }
-
-    const listPromise = listSessions(
-      STUDIO_SIDEBAR_SESSION_LIMIT,
-      undefined,
-      wsId,
-    );
-    const toolsPromise = fetchTools().catch(() => []);
-    setReady(true);
-    const [list, toolList] = await Promise.all([listPromise, toolsPromise]);
-    setSessions(list);
-    setTools(toolList);
-  }, [
-    user,
+  useStudioSessionBootstrap({
     sessionId,
     mode,
     initialTitle,
     initialKind,
+    user,
+    authLoading,
+    activeWorkspaceId,
     loadCanvas,
     setCanvasItems,
-    activeWorkspaceId,
     setCanEdit,
-    applySourceInspiration,
-  ]);
-
-  useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
-      setReady(true);
-      fetchTools().then(setTools).catch(() => setTools([]));
-      return;
-    }
-    const stored = getActiveWorkspaceId();
-    if (stored) setActiveWorkspaceId(stored);
-    setReady(false);
-    initSession().catch(() => setReady(true));
-  }, [authLoading, user, sessionId, initSession]);
+    setSelectedCanvasId,
+    setRestoredAssets,
+    setInspirationApply,
+    setDramaTemplateApply,
+    setStudioPrompt,
+    setSessions,
+    setTools,
+    setReady,
+    setFetchedSessionTitle,
+    setActiveWorkspaceId,
+  });
 
   useEffect(() => {
     if (!initialToolId || !tools.length) return;
@@ -619,42 +430,33 @@ export function StudioWorkspace({
     [],
   );
 
-  /**
-   * 选中画布图片后，从浮层 AI 工具栏一键跑工具。
-   * - 优先 outputId（已生成图）；其次 assetId（上传图）。
-   * - clientOnly 工具（如 crop）不在浮层显示，由画布原生工具栏承担。
-   */
-  function exitFocusEditMode() {
-    setFocusEditSession(null);
-    setFocusRecognizing(false);
-    setFocusClickKey((k) => k + 1);
-  }
+  const selectedCanvasItem =
+    selectedCanvasId ?
+      (canvasItems.find((i) => i.id === selectedCanvasId) ?? null)
+    : null;
 
-  function startFocusEditMode(
-    item: CanvasItem,
-    opts?: { intent?: "edit" | "replace"; promptHint?: string },
-  ) {
-    setBrushRequest(null);
-    setFocusEditSession({
-      itemId: item.id,
-      points: [],
-      intent: opts?.intent ?? "edit",
-      cropSize: DEFAULT_CROP_SIZE,
-    });
-    setFocusClickKey((k) => k + 1);
-    setSelectedCanvasId(item.id);
-    if (opts?.promptHint) {
-      setMentionItemRequest((prev) => ({
-        key: (prev?.key ?? 0) + 1,
-        item,
-        promptSuffix: opts.promptHint,
-      }));
-    }
-    setSelectSourceBanner(
-      "焦点编辑：在图片上点击要修改的位置，在工作站输入短 prompt 后提交。",
-    );
-    hapticLight();
-  }
+  const {
+    focusRecognizing,
+    focusClickRequest,
+    startFocusEditMode,
+    handleFocusImageClick,
+    focusEditDockProps,
+    handleFocusEditSubmit,
+  } = useStudioFocusEdit({
+    sessionId,
+    user,
+    readOnly,
+    canvasItems,
+    selectedCanvasItem,
+    setSelectSourceBanner,
+    setMentionItemRequest,
+    setSelectedCanvasId,
+    setDockMode,
+    clearBrushRequest: () => clearBrushRef.current?.(),
+    canvasRef,
+    registerToolBatchLineage,
+    setPollingJobId,
+  });
 
   const {
     pendingToolId,
@@ -687,260 +489,37 @@ export function StudioWorkspace({
     startFocusEditMode,
   });
 
-  const handleFocusImageClick = useCallback(
-    async (item: CanvasItem, point: { x: number; y: number }) => {
-      if (!user || readOnly || !focusEditSession || item.id !== focusEditSession.itemId) {
-        return;
-      }
-      const now = Date.now();
-      if (now - lastFocusClickAtRef.current < FOCUS_CLICK_DEBOUNCE_MS) {
-        setSelectSourceBanner("点击过快，请稍候再添加焦点");
-        return;
-      }
-      lastFocusClickAtRef.current = now;
-      if (focusEditSession.points.length >= MAX_FOCUS_POINTS) {
-        setSelectSourceBanner(`最多添加 ${MAX_FOCUS_POINTS} 个焦点`);
-        return;
-      }
-      setFocusRecognizing(true);
-      try {
-        const imageUrl = assetUrl(item.url);
-        const data = await recognizeFocusPoint({
-          sessionId,
-          imageUrl,
-          x: point.x,
-          y: point.y,
-          cropSize: focusEditSession.cropSize,
-        });
-        const chip: FocusPointChip = {
-          pointId: data.pointId,
-          objectName: data.objectName?.trim() || "目标区域",
-          x: point.x,
-          y: point.y,
-          itemId: item.id,
-        };
-        setFocusEditSession((prev) =>
-          prev && prev.itemId === item.id
-            ? { ...prev, points: [...prev.points, chip] }
-            : prev,
-        );
-        setSelectSourceBanner(null);
-        hapticLight();
-      } catch (err) {
-        setSelectSourceBanner(
-          err instanceof Error ? err.message : "焦点识别失败",
-        );
-      } finally {
-        setFocusRecognizing(false);
-      }
-    },
-    [user, readOnly, focusEditSession, sessionId],
-  );
+  clearBrushRef.current = () => setBrushRequest(null);
 
-  async function handleCanvasDownload() {
-    const selected = canvasItems.find((i) => i.id === selectedCanvasId);
-    if (selected) {
-      window.open(assetUrl(selected.url), "_blank");
-      return;
-    }
-    if (!user) {
-      setLoginOpen(true);
-      return;
-    }
-    const data = await exportSession(sessionId);
-    for (const f of data.files) {
-      window.open(
-        f.url.startsWith("http") ? f.url : `${resolveApiBase()}${f.url}`,
-        "_blank",
-      );
-    }
-    if (!data.files.length) setSelectSourceBanner("暂无可下载内容");
-  }
-
-  function handleCanvasUpload() {
-    if (!user) {
-      setLoginOpen(true);
-      return;
-    }
-    if (readOnly) return;
-    uploadRef.current?.click();
-  }
-
-  async function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !user || readOnly) return;
-    try {
-      await ensureSession(sessionId, mode);
-      const { id, url, thumbUrl } = await uploadAsset(file, sessionId);
-      setCanvasItems((prev) => [
-        ...prev,
-        createUploadCanvasItem(url, prev, {
-          assetId: id,
-          role: "product",
-          thumbUrl,
-        }),
-      ]);
-      hapticLight();
-    } catch (err) {
-      setSelectSourceBanner(
-        err instanceof Error ? err.message : "上传失败",
-      );
-    }
-  }
-
-  function handleUploadToCanvas(assetId: string, url: string, thumbUrl?: string) {
-    if (readOnly) return;
-    setCanvasItems((prev) => [
-      ...prev,
-      createUploadCanvasItem(url, prev, { assetId, role: "product", thumbUrl }),
-    ]);
-    hapticLight();
-  }
-
-  function handleDeleteCanvasItem() {
-    if (readOnly || !selectedCanvasId) return;
-    setCanvasItems((prev) => prev.filter((i) => i.id !== selectedCanvasId));
-    setSelectedCanvasId(null);
-  }
-
-  async function handleRerun(item: CanvasItem) {
-    if (!user) {
-      setLoginOpen(true);
-      return;
-    }
-    if (readOnly || !item.generationParams) {
-      setSelectSourceBanner("此图片无法重跑：缺少原始生成参数");
-      return;
-    }
-
-    const params = item.generationParams;
-    setSelectSourceBanner("正在重跑任务...");
-
-    try {
-      let jobId: string;
-      
-      if (params.toolType) {
-        const { jobId: id } = await runTool(params.toolType, {
-          sessionId,
-          prompt: params.prompt,
-          resolution: params.resolution,
-          referenceOutputIds: item.outputId ? [item.outputId] : undefined,
-        });
-        jobId = id;
-        void trackEvent("tool_run", {
-          tool_id: params.toolType,
-          job_id: jobId,
-          has_reference: Boolean(item.outputId),
-        });
-        registerToolBatchLineage(jobId, item, params.toolType);
-      } else {
-        const { jobId: id } = await submitGeneration({
-          sessionId,
-          prompt: params.prompt,
-          modelId: params.modelId,
-          count: params.count ?? 1,
-          resolution: params.resolution ?? "standard",
-          aspectRatio: params.aspectRatio,
-          mode: params.toolType ? "chat" : mode,
-        });
-        jobId = id;
-        void trackEvent("generation_rerun", {
-          job_id: jobId,
-          model_id: params.modelId ?? "unknown",
-        });
-      }
-      
-      setPollingJobId(jobId);
-      setSelectSourceBanner(null);
-    } catch (err) {
-      setSelectSourceBanner(
-        err instanceof Error ? err.message : "重跑失败",
-      );
-    }
-  }
-
-  async function handleExtractVideoLastFrame(item: CanvasItem) {
-    if (!user) {
-      setLoginOpen(true);
-      return;
-    }
-    if (readOnly || !item.isVideo) return;
-    setVideoActionBusy(true);
-    setSelectSourceBanner("正在提取视频尾帧...");
-    try {
-      const blob = await extractVideoLastFrame(item.url);
-      const file = new File([blob], `last-frame-${item.id.slice(0, 8)}.jpg`, {
-        type: "image/jpeg",
-      });
-      await ensureSession(sessionId, mode);
-      const { id, url, thumbUrl } = await uploadAsset(file, sessionId);
-      const newItem = createUploadCanvasItem(url, canvasItemsRef.current, {
-        assetId: id,
-        role: "reference",
-        label: "视频尾帧",
-        thumbUrl,
-      });
-      setCanvasItems((prev) => [...prev, newItem]);
-      setMentionItemRequest((prev) => ({
-        key: (prev?.key ?? 0) + 1,
-        item: newItem,
-      }));
-      setSelectSourceBanner("尾帧已提取并加入画布，已引用到工作台");
-      hapticLight();
-    } catch (err) {
-      setSelectSourceBanner(
-        err instanceof Error ? err.message : "尾帧提取失败",
-      );
-    } finally {
-      setVideoActionBusy(false);
-    }
-  }
-
-  function handleAddVideoBgm(item: CanvasItem) {
-    if (!user) {
-      setLoginOpen(true);
-      return;
-    }
-    if (readOnly || !item.isVideo) return;
-    pendingBgmVideoRef.current = item;
-    bgmInputRef.current?.click();
-  }
-
-  async function onBgmFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    const item = pendingBgmVideoRef.current;
-    pendingBgmVideoRef.current = null;
-    if (!file || !item || !user) return;
-    setVideoActionBusy(true);
-    setSelectSourceBanner("正在上传音频...");
-    try {
-      await ensureSession(sessionId, mode);
-      const { id } = await uploadAsset(file, sessionId);
-      const { outputUrl, assetId } = await requestVideoBgmMux({
-        sessionId,
-        videoUrl: assetUrl(item.url),
-        audioAssetId: id,
-      });
-      const muxedItem = {
-        ...createUploadCanvasItem(outputUrl, canvasItemsRef.current, {
-          assetId,
-          role: "output" as const,
-          label: "配乐视频",
-        }),
-        isVideo: true,
-      };
-      setCanvasItems((prev) => [...prev, muxedItem]);
-      setSelectedCanvasId(muxedItem.id);
-      setSelectSourceBanner("配乐视频已合成并加入画布");
-      hapticLight();
-    } catch (err) {
-      setSelectSourceBanner(err instanceof Error ? err.message : "配乐失败");
-    } finally {
-      setVideoActionBusy(false);
-    }
-  }
+  const {
+    videoActionBusy,
+    handleCanvasDownload,
+    handleCanvasUpload,
+    onFileSelected,
+    handleUploadToCanvas,
+    handleDeleteCanvasItem,
+    handleRerun,
+    handleExtractVideoLastFrame,
+    handleAddVideoBgm,
+    onBgmFileSelected,
+  } = useStudioCanvasActions({
+    sessionId,
+    mode,
+    user,
+    readOnly,
+    canvasItems,
+    canvasItemsRef,
+    selectedCanvasId,
+    uploadRef,
+    bgmInputRef,
+    setCanvasItems,
+    setSelectedCanvasId,
+    setLoginOpen,
+    setSelectSourceBanner,
+    setMentionItemRequest,
+    setPollingJobId,
+    registerToolBatchLineage,
+  });
 
   const handleTitleSaved = useCallback((title: string) => {
     setSessions((prev) =>
@@ -969,60 +548,6 @@ export function StudioWorkspace({
     },
     [sessionId, mode, sessionKind, router, activeWorkspaceId],
   );
-
-  const selectedCanvasItem =
-    selectedCanvasId ?
-      (canvasItems.find((i) => i.id === selectedCanvasId) ?? null)
-    : null;
-
-  const focusClickRequest =
-    focusEditSession
-      ? {
-          key: focusClickKey,
-          itemId: focusEditSession.itemId,
-          toolName: "焦点编辑",
-          markers: focusEditSession.points.map((p) => ({
-            x: p.x,
-            y: p.y,
-            label: p.objectName,
-          })),
-        }
-      : null;
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if (e.repeat || e.shiftKey || e.altKey) return;
-      if (e.key !== "Control" && e.key !== "Meta") return;
-      e.preventDefault();
-      if (readOnly || !user) return;
-      const item =
-        selectedCanvasItem ??
-        (() => {
-          const t = pickLatestBatchFocusTarget(canvasItems);
-          return t ? canvasItems.find((i) => i.id === t.itemId) : null;
-        })();
-      if (!item?.outputId && !item?.assetId) {
-        setSelectSourceBanner("请先在画布点选一张图片，再开启焦点编辑");
-        return;
-      }
-      if (focusEditSession?.itemId === item.id) {
-        exitFocusEditMode();
-        setSelectSourceBanner(null);
-      } else {
-        startFocusEditMode(item);
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [
-    user,
-    readOnly,
-    selectedCanvasItem,
-    canvasItems,
-    focusEditSession?.itemId,
-  ]);
 
   /** 移动端与收起工作区时展示顶栏汉堡，打开工作区抽屉 */
   const showTopBar = mobile || workspaceCollapsed;
@@ -1071,198 +596,27 @@ export function StudioWorkspace({
       <StudioCoach />
 
       <div className={`relative flex min-h-0 flex-1 ${APP_LEFT_RAIL_PAD_CLASS}`}>
-        {sidebarOpen ? (
-          <button
-            type="button"
-            className="fixed inset-0 z-40 bg-black/60 lg:hidden"
-            aria-label="关闭侧栏"
-            onClick={() => setSidebarOpen(false)}
-          />
-        ) : null}
-
-        <aside
-          style={
-            workspaceCollapsed ? undefined : { width: workspaceWidth }
-          }
-          className={`fixed bottom-0 left-0 z-50 flex min-h-0 w-[min(85vw,280px)] flex-col border-r border-white/5 bg-[#080808] p-3 transition-all lg:left-14 ${
-            showTopBar ? "top-12" : "top-0"
-          } ${
-            sidebarOpen
-              ? "translate-x-0"
-              : "-translate-x-full pointer-events-none"
-          } ${
-            workspaceCollapsed
-              ? "lg:hidden"
-              : "lg:pointer-events-auto lg:static lg:top-auto lg:z-0 lg:m-2 lg:mr-0 lg:w-auto lg:translate-x-0 lg:rounded-2xl lg:border lg:bg-[#090909]/95"
-          }`}
-        >
-          <div className="mb-2 flex items-center justify-between lg:hidden">
-            <span className="text-xs font-medium text-zinc-500">工作区</span>
-            <div className="flex items-center gap-1">
-              {user && sessionId ? (
-                <button
-                  type="button"
-                  onClick={() => setReportOpen(true)}
-                  className="rounded-lg p-1.5 text-zinc-500 hover:text-amber-300"
-                  aria-label="举报违规内容"
-                  title="举报违规内容"
-                >
-                  <Flag className="size-4" />
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => setSidebarOpen(false)}
-                className="rounded-lg p-1 text-zinc-500 hover:text-white"
-                title="关闭侧栏"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-          </div>
-
-          {!workspaceCollapsed ? (
-            <button
-              type="button"
-              onClick={() => setWorkspaceCollapsed(true)}
-              className="mb-2 hidden size-7 items-center justify-center rounded-md text-zinc-500 transition hover:bg-white/5 hover:text-zinc-300 lg:flex"
-              aria-label="收起工作区"
-              title="收起工作区"
-            >
-              <ChevronLeft className="size-3.5" strokeWidth={1.75} />
-            </button>
-          ) : null}
-
-          {!workspaceCollapsed && user && sessionId ? (
-            <div className="mb-3 hidden border-b border-white/5 pb-3 lg:block">
-              <div className="flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <SessionTitleActions
-                    sessionId={sessionId}
-                    title={sessionTitle}
-                    variant="header"
-                    disabled={readOnly}
-                    onTitleSaved={handleTitleSaved}
-                    onDeleted={() => handleSessionDeleted()}
-                  />
-                  <div className="mt-1 flex items-center gap-2">
-                    {sessionKind === "project" ? (
-                      <span className="rounded bg-purple-500/15 px-1.5 py-0.5 text-[9px] font-medium text-purple-300">
-                        项目
-                      </span>
-                    ) : null}
-                    <span className="text-[10px] text-zinc-600">
-                      内容由 AI 生成
-                    </span>
-                  </div>
-                </div>
-                {!readOnly ? (
-                  <button
-                    type="button"
-                    onClick={() => setReportOpen(true)}
-                    className="shrink-0 rounded-lg p-1.5 text-zinc-500 hover:bg-white/5 hover:text-amber-300"
-                    aria-label="举报违规内容"
-                    title="举报违规内容"
-                  >
-                    <Flag className="size-3.5" />
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-
-          <div className="mb-3 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => {
-                setSidebarOpen(false);
-                openNewStudio();
-              }}
-              data-testid="studio-workspace-new"
-              className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-black transition hover:bg-zinc-200"
-            >
-              <Plus className="size-3.5" />
-              新建
-            </button>
-          </div>
-
-          {user ? (
-            <WorkspaceSwitcher onWorkspaceChange={handleWorkspaceChange} />
-          ) : null}
-
-          <div className="mt-4 flex shrink-0 items-center justify-between">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">
-              画布历史
-            </p>
-            <Link
-              href={
-                sessionId
-                  ? `/projects?from=studio&sessionId=${encodeURIComponent(sessionId)}&mode=${mode}&kind=${sessionKind}`
-                  : "/projects?from=studio"
-              }
-              onClick={() => setSidebarOpen(false)}
-              className="text-[10px] text-zinc-500 hover:text-orange-400"
-            >
-              查看全部
-            </Link>
-          </div>
-          <ul className="mt-2 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain">
-            {displaySessions.map((s) => (
-              <li key={s.id} className="group">
-                <Link
-                  href={studioUrlForSession({
-                    id: s.id,
-                    mode: s.mode,
-                    kind: s.kind,
-                  })}
-                  data-testid={`studio-session-row-${s.id}`}
-                  onMouseEnter={() => prefetchSessionCanvasBundle(s.id)}
-                  onFocus={() => prefetchSessionCanvasBundle(s.id)}
-                  onClick={(e) => {
-                    if (s.id === sessionId) {
-                      e.preventDefault();
-                      return;
-                    }
-                    e.preventDefault();
-                    setSidebarOpen(false);
-                    clientNavigate(
-                      router,
-                      studioUrlForSession({
-                        id: s.id,
-                        mode: s.mode,
-                        kind: s.kind,
-                      }),
-                    );
-                  }}
-                  className={`block w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm transition ${
-                    s.id === sessionId
-                      ? "bg-white/10 text-white"
-                      : "text-zinc-500 hover:bg-white/5"
-                  }`}
-                >
-                  <SessionTitleActions
-                    sessionId={s.id}
-                    title={s.title}
-                    variant="row"
-                    disabled={!user || s.can_edit === false}
-                    onTitleSaved={(title) => {
-                      setSessions((prev) =>
-                        prev.map((x) =>
-                          x.id === s.id ? { ...x, title } : x,
-                        ),
-                      );
-                    }}
-                    onDeleted={() => handleSessionDeleted(s.id)}
-                  />
-                  <div className="text-[10px] text-zinc-600">
-                    {s.status === "draft" ? "草稿 · " : "画布 · "}
-                    {s.mode}
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </aside>
+        <StudioWorkspaceSidebar
+          showTopBar={showTopBar}
+          sidebarOpen={sidebarOpen}
+          workspaceCollapsed={workspaceCollapsed}
+          workspaceWidth={workspaceWidth}
+          sessionId={sessionId}
+          sessionTitle={sessionTitle}
+          sessionKind={sessionKind}
+          mode={mode}
+          readOnly={readOnly}
+          user={user}
+          displaySessions={displaySessions}
+          onCloseSidebar={() => setSidebarOpen(false)}
+          onCollapseWorkspace={() => setWorkspaceCollapsed(true)}
+          onOpenReport={() => setReportOpen(true)}
+          onNewStudio={openNewStudio}
+          onWorkspaceChange={handleWorkspaceChange}
+          onTitleSaved={handleTitleSaved}
+          onSessionDeleted={handleSessionDeleted}
+          setSessions={setSessions}
+        />
 
         {!workspaceCollapsed && (
           <div
@@ -1549,134 +903,8 @@ export function StudioWorkspace({
                 onUploadToCanvas={handleUploadToCanvas}
                 onDockModeChange={setDockMode}
                 dockExpanded={dockMode === "expanded" && mode === "production"}
-                focusEdit={
-                  focusEditSession
-                    ? {
-                        points: focusEditSession.points,
-                        intent: focusEditSession.intent,
-                        cropSize: focusEditSession.cropSize,
-                        recognizing: focusRecognizing,
-                        onIntentChange: (intent) =>
-                          setFocusEditSession((prev) =>
-                            prev ? { ...prev, intent } : prev,
-                          ),
-                        onRemovePoint: (pointId) =>
-                          setFocusEditSession((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  points: prev.points.filter(
-                                    (p) => p.pointId !== pointId,
-                                  ),
-                                }
-                              : prev,
-                          ),
-                        onEditPoint: (pointId, newName) =>
-                          setFocusEditSession((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  points: prev.points.map((p) =>
-                                    p.pointId === pointId
-                                      ? { ...p, objectName: newName }
-                                      : p,
-                                  ),
-                                }
-                              : prev,
-                          ),
-                        onChipPromptChange: (pointId, chipPrompt) =>
-                          setFocusEditSession((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  points: prev.points.map((p) =>
-                                    p.pointId === pointId
-                                      ? { ...p, chipPrompt }
-                                      : p,
-                                  ),
-                                }
-                              : prev,
-                          ),
-                        onReplaceImage: (pointId, assetId, url) =>
-                          setFocusEditSession((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  points: prev.points.map((p) =>
-                                    p.pointId === pointId
-                                      ? {
-                                          ...p,
-                                          replaceAssetId: assetId,
-                                          replaceAssetUrl: url,
-                                        }
-                                      : p,
-                                  ),
-                                }
-                              : prev,
-                          ),
-                        onClearAll: () =>
-                          setFocusEditSession((prev) =>
-                            prev ? { ...prev, points: [] } : prev,
-                          ),
-                        onCropSizeChange: (size) =>
-                          setFocusEditSession((prev) =>
-                            prev ? { ...prev, cropSize: size } : prev,
-                          ),
-                        onCancel: exitFocusEditMode,
-                      }
-                    : null
-                }
-                onFocusEditSubmit={async ({ prompt, intent, points, item }) => {
-                  const referenceOutputIds = item.outputId
-                    ? [item.outputId]
-                    : undefined;
-                  const replaceAssets = points
-                    .map((p) => p.replaceAssetId)
-                    .filter((id): id is string => Boolean(id));
-                  const assetIds = [
-                    ...(!referenceOutputIds && item.assetId
-                      ? [item.assetId]
-                      : []),
-                    ...replaceAssets,
-                  ];
-                  const chipLines = points
-                    .map((p, i) => {
-                      const chip = p.chipPrompt?.trim();
-                      if (!chip) return null;
-                      return `${focusIndexLabel(i)}${p.objectName}：${chip}`;
-                    })
-                    .filter((line): line is string => Boolean(line));
-                  const mergedPrompt = [chipLines.join("；"), prompt.trim()]
-                    .filter(Boolean)
-                    .join("\n");
-                  const { jobId } = await runTool("focus-edit", {
-                    sessionId,
-                    prompt: mergedPrompt || "按焦点区域进行局部编辑",
-                    referenceOutputIds,
-                    assetIds: assetIds.length ? assetIds : undefined,
-                    resolution: resolveToolResolution("focus-edit"),
-                    intent,
-                    focusPoints: points.map((p) => ({
-                      pointId: p.pointId,
-                      objectName: p.objectName,
-                      x: p.x,
-                      y: p.y,
-                    })),
-                  });
-                  void trackEvent("tool_run", {
-                    tool_id: "focus-edit",
-                    job_id: jobId,
-                    intent,
-                    focus_count: points.length,
-                  });
-                  registerToolBatchLineage(jobId, item, "焦点编辑");
-                  exitFocusEditMode();
-                  if (canvasRef.current?.isInRefineMode()) {
-                    canvasRef.current.beginRefineJob();
-                  }
-                  setPollingJobId(jobId);
-                  return jobId;
-                }}
+                focusEdit={focusEditDockProps}
+                onFocusEditSubmit={handleFocusEditSubmit}
                 autoSubmitOnce={autoSubmitOnce}
               />
             </StudioDock>
@@ -1686,52 +914,24 @@ export function StudioWorkspace({
         </div>
       </div>
 
-      {user ? (
-        <ContentReportDialog
-          sessionId={sessionId}
-          jobId={pollingJobId}
-          open={reportOpen}
-          onClose={() => setReportOpen(false)}
-        />
-      ) : null}
-      <ToolConfirmDialog
-        key={
-          toolConfirm
-            ? `${toolConfirm.tool.id}-${toolConfirm.item.id}`
-            : "closed"
-        }
-        request={toolConfirm?.tool.id === "grid-split" ? null : toolConfirm}
-        pending={toolConfirmPending}
-        onClose={() => {
+      <StudioWorkspaceOverlays
+        user={user}
+        sessionId={sessionId}
+        pollingJobId={pollingJobId}
+        reportOpen={reportOpen}
+        onReportClose={() => setReportOpen(false)}
+        loginOpen={loginOpen}
+        onLoginClose={() => setLoginOpen(false)}
+        toolConfirm={toolConfirm}
+        toolConfirmPending={toolConfirmPending}
+        onToolConfirmClose={() => {
           if (!toolConfirmPending) setToolConfirm(null);
         }}
-        onConfirm={(opts) => void confirmTool(opts)}
+        onConfirmTool={(opts) => void confirmTool(opts)}
+        toolGridResult={toolGridResult}
+        onToolGridResultClose={() => setToolGridResult(null)}
       />
-      {toolConfirm?.tool.id === "grid-split" ? (
-        <GridSplitPanel
-          key={`${toolConfirm.tool.id}-${toolConfirm.item.id}`}
-          tool={toolConfirm.tool}
-          item={toolConfirm.item}
-          pending={toolConfirmPending}
-          onClose={() => {
-            if (!toolConfirmPending) setToolConfirm(null);
-          }}
-          onConfirm={(opts) => {
-            // 将行列数编码到 prompt 中传递给后端
-            void confirmTool({
-              count: 1,
-              prompt: `宫格切分 ${opts.rows}×${opts.cols}`,
-            });
-          }}
-        />
-      ) : null}
-      {toolGridResult ? (
-        <ToolGridResultPanel
-          result={toolGridResult}
-          onClose={() => setToolGridResult(null)}
-        />
-      ) : null}
-      <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
+
     </WorkspaceProvider>
   );
 }
