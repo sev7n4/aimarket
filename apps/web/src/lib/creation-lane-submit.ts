@@ -184,6 +184,57 @@ export function resolveCreationSubmitPath(
   });
 }
 
+/** 路径决策输入（Studio Dock / Home Dock 共用） */
+export type CreationSubmitPathContext = {
+  studioOrchestrationActive: boolean;
+  skillsEnabled: boolean;
+  agentEnabled: boolean;
+  isDock: boolean;
+  creationLane: CreationLane;
+  activeSkillId: string | null;
+  focusEditActive: boolean;
+  mentionedMasksCount: number;
+  submitVideo: boolean;
+  submitEcommerce: boolean;
+  referenceImageSources: ReferenceImageSources;
+  dramaSkillActive?: boolean;
+};
+
+export function resolveCreationSubmitPathFromContext(
+  ctx: CreationSubmitPathContext,
+): SubmitPath {
+  const directSubmitContext = buildDirectSubmitContext({
+    studioOrchestrationActive: ctx.studioOrchestrationActive,
+    skillsEnabled: ctx.skillsEnabled,
+    agentEnabled: ctx.agentEnabled,
+    isDock: ctx.isDock,
+    creationLane: ctx.creationLane,
+    activeSkillId: ctx.activeSkillId,
+    focusEditActive: ctx.focusEditActive,
+    mentionedMasksCount: ctx.mentionedMasksCount,
+    submitVideo: ctx.submitVideo,
+    submitEcommerce: ctx.submitEcommerce,
+    referenceImageSources: ctx.referenceImageSources,
+  });
+  const orchestrationDispatchWouldHandle =
+    ctx.studioOrchestrationActive &&
+    shouldOrchestrationHandleSubmit(
+      buildOrchestrationDispatchContext({
+        creationLane: ctx.creationLane,
+        activeSkillId: ctx.activeSkillId,
+        focusEditActive: ctx.focusEditActive,
+        mentionedMasksCount: ctx.mentionedMasksCount,
+        submitVideo: ctx.submitVideo,
+        referenceImageSources: ctx.referenceImageSources,
+        dramaSkillActive: ctx.dramaSkillActive,
+      }),
+    );
+  return resolveCreationSubmitPath({
+    direct: directSubmitContext,
+    orchestrationDispatchWouldHandle,
+  });
+}
+
 // ─── 意图增强路由 ────────────────────────────────────────────────────────────
 
 /** 意图增强的提交路径输入 */

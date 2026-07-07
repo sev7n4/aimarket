@@ -11,7 +11,7 @@
 | 阶段 | 主题 | 状态 | 目标 PR |
 |------|------|------|---------|
 | **P6-0** | 死代码与 deprecated 清理 | ✅ 完成 | #301 |
-| **P6-1** | 提交单源化 | ⬜ 未开始 | — |
+| **P6-1** | 提交单源化 | 🔄 进行中 | #302 |
 | **P6-2** | `use-creation-panel` 拆分 | ⬜ 未开始 | — |
 | **P6-3** | 工具 UI meta 单源 | ⬜ 未开始 | — |
 | **P6-4** | Drama 卡片 panel/node 统一 | ⬜ 未开始 | — |
@@ -50,9 +50,9 @@
 
 | ID | 任务 | 状态 | 产出 | 验证 |
 |----|------|------|------|------|
-| P6-1-1 | 新建 `dispatchCreationSubmit()` | ⬜ | `lib/creation-submit-dispatch.ts` | 合并 `runStudioSubmit` + creation-panel 分支 |
-| P6-1-2 | 合并路径决策 | ⬜ | `resolveSubmitPath()` | 吸收 `creation-lane-submit` + `intent-router` 增强 |
-| P6-1-3 | UI 入口收敛 | ⬜ | `useStudioSubmit` / `use-creation-panel` / Infinite bridge | 均只调 dispatch |
+| P6-1-1 | 新建 `dispatchCreationSubmit()` | ✅ | `lib/creation-submit-dispatch.ts` | 合并 `runStudioSubmit` + creation-panel 分支 |
+| P6-1-2 | 合并路径决策 | ✅ | `resolveCreationSubmitPathFromContext()` | 吸收 orchestration 布尔守卫 |
+| P6-1-3 | UI 入口收敛 | ✅ | `useStudioSubmit` / `use-creation-panel` / `runStudioSubmit` | 均只调 dispatch |
 | P6-1-4 | 删重复布尔守卫 | ⬜ | `intent-router.ts` 精简 | 删除「与 creation-lane-submit 保持同步」副本 |
 | P6-1-5 | 单测扩展 | ⬜ | `test-creation-lane-submit.ts` | intent 增强分支覆盖 |
 
@@ -103,8 +103,8 @@
 
 | PR | 包含任务 | 分支建议 | 合并状态 |
 |----|----------|----------|----------|
-| PR-17 | P6-0 死代码清理 | `chore/p6-dead-code-cleanup` | 🔄 进行中 |
-| PR-18 | P6-1 提交单源化 | `enhancement/p6-submit-dispatch` | ⬜ |
+| PR-17 | P6-0 死代码清理 | `chore/p6-dead-code-cleanup` | ✅ #301 |
+| PR-18 | P6-1 提交单源化 | `enhancement/p6-submit-dispatch` | 🔄 进行中 |
 | PR-19 | P6-2 creation-panel 拆分（1） | `enhancement/p6-creation-panel-view` | ⬜ |
 | PR-20 | P6-3 工具 meta | `enhancement/p6-tool-meta` | ⬜ |
 

@@ -8,6 +8,7 @@ import {
   buildOrchestrationDispatchContext,
   hasReferenceImages,
   resolveCreationSubmitPath,
+  resolveCreationSubmitPathFromContext,
   shouldOrchestrationHandleSubmit,
   shouldUseAgentSubmit,
   shouldUseSkillSubmit,
@@ -209,6 +210,24 @@ assertEq(
     orchestrationDispatchWouldHandle: false,
   }),
   "focus-edit",
+);
+
+assertEq(
+  "path from context matches resolveCreationSubmitPath",
+  resolveCreationSubmitPathFromContext({
+    studioOrchestrationActive: false,
+    skillsEnabled: true,
+    agentEnabled: true,
+    isDock: true,
+    creationLane: "agent",
+    activeSkillId: null,
+    focusEditActive: false,
+    mentionedMasksCount: 0,
+    submitVideo: false,
+    submitEcommerce: false,
+    referenceImageSources: emptyRefs,
+  }),
+  "agent",
 );
 
 const failed = results.filter((r) => !r.pass);
