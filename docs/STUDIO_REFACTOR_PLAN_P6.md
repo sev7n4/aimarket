@@ -12,7 +12,7 @@
 |------|------|------|---------|
 | **P6-0** | 死代码与 deprecated 清理 | ✅ 完成 | #301 |
 | **P6-1** | 提交单源化 | ✅ 完成 | #302 |
-| **P6-2** | `use-creation-panel` 拆分 | 🔄 进行中 | #304 |
+| **P6-2** | `use-creation-panel` 拆分 | 🔄 进行中 | #304 ✅ / submit PR |
 | **P6-3** | 工具 UI meta 单源 | ⬜ 未开始 | — |
 | **P6-4** | Drama 卡片 panel/node 统一 | ⬜ 未开始 | — |
 | **P6-5** | `api-client` 按域拆分 | ⬜ 未开始 | — |
@@ -66,7 +66,8 @@
 |----|------|------|------|------|
 | P6-2-1 | `CreationPanelView.tsx` | ✅ | 纯 JSX 壳层 + overlays | dock / 首页 E2E |
 | P6-2-2 | 上传 / @ 引用 hook | ✅ | `use-creation-panel-assets.ts` | 首页 + dock E2E |
-| P6-2-3 | Job 状态 / 灵感表单组件 | ✅ | `CreationPanelJobStatusBar` 等 | 纯展示拆分 |
+| P6-2-3 | 提交逻辑 hook | ✅ | `use-creation-panel-submit.ts` | typecheck 绿 |
+| P6-2-4 | Job 状态 / 灵感表单组件 | ✅ | `CreationPanelJobStatusBar` 等 | 纯展示拆分 |
 
 ---
 
@@ -106,7 +107,8 @@
 | PR-17 | P6-0 死代码清理 | `chore/p6-dead-code-cleanup` | ✅ #301 |
 | PR-18 | P6-1 提交单源化 | `enhancement/p6-submit-dispatch` | ✅ #302 |
 | PR-19 | P6-2 creation-panel 拆分（1） | `enhancement/p6-creation-panel-view` | ✅ #303 |
-| PR-20 | P6-2 上传/引用 hook | `enhancement/p6-creation-panel-upload` | 🔄 进行中 |
+| PR-20 | P6-2 上传/引用 hook | `enhancement/p6-creation-panel-upload` | ✅ #304 |
+| PR-21 | P6-2 提交逻辑 hook | `enhancement/p6-creation-panel-submit` | 🔄 进行中 |
 
 ---
 
