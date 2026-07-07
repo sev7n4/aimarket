@@ -69,7 +69,8 @@
 | P6-2-3 | 提交逻辑 hook | ✅ | `use-creation-panel-submit.ts` | typecheck 绿 |
 | P6-2-4 | Job 状态 / 灵感表单组件 | ✅ | `CreationPanelJobStatusBar` 等 | 纯展示拆分 |
 | P6-2-5 | 润色逻辑 hook | ✅ | `use-creation-panel-polish.ts` | typecheck 绿 |
-| P6-2-6 | 视频参考 hook | 🔄 | `use-creation-panel-video.ts` | panel 1770→1705 行 |
+| P6-2-6 | 视频参考 hook | ✅ | `use-creation-panel-video.ts` | panel 1770→1705 行 |
+| P6-2-7 | Dock / lane hook | 🔄 | `use-creation-panel-dock.ts` | panel 1705→1538 行 |
 
 ---
 
@@ -88,7 +89,8 @@
 |----|------|------|------|------|
 | P6-4-1 | Scene 实体 shell | ✅ | `DramaSceneCardShell` + `mode: panel \| node` | panel + canvas E2E |
 | P6-4-2 | Script shell | ✅ | `DramaScriptCardShell` + `mode: panel \| node` | panel + canvas E2E |
-| P6-4-3 | Character / Shot shell | ⬜ | 同上模式 | drama E2E |
+| P6-4-3 | Character shell | 🔄 | `DramaCharacterCardShell` + `mode: panel \| node` | panel + canvas E2E |
+| P6-4-4 | Shot shell | ⬜ | 同上模式 | drama E2E |
 
 **不切**：`drama-studio-panel.tsx` 整体（964 行，另立后续阶段）。
 
@@ -118,7 +120,9 @@
 | PR-25 | P6-4-1 Scene shell | `enhancement/p6-drama-scene-card-shell` | ✅ #309 |
 | PR-26 | P6-2-5 polish hook | `enhancement/p6-creation-panel-polish` | ✅ #310 |
 | PR-27 | P6-4-2 Script shell | `enhancement/p6-drama-script-card-shell` | ✅ #311 |
-| PR-28 | P6-2-6 video hook | `enhancement/p6-creation-panel-video` | 🔄 进行中 |
+| PR-28 | P6-2-6 video hook | `enhancement/p6-creation-panel-video` | ✅ #312 |
+| PR-29 | P6-4-3 Character shell | `enhancement/p6-drama-character-card-shell` | 🔄 进行中 |
+| PR-30 | P6-2-7 dock hook | `enhancement/p6-creation-panel-dock` | 🔄 进行中 |
 
 ---
 
