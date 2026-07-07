@@ -105,8 +105,8 @@
 |----|----------|----------|----------|
 | PR-17 | P6-0 死代码清理 | `chore/p6-dead-code-cleanup` | ✅ #301 |
 | PR-18 | P6-1 提交单源化 | `enhancement/p6-submit-dispatch` | ✅ #302 |
-| PR-19 | P6-2 creation-panel 拆分（1） | `enhancement/p6-creation-panel-view` | 🔄 进行中 |
-| PR-20 | P6-3 工具 meta | `enhancement/p6-tool-meta` | ⬜ |
+| PR-19 | P6-2 creation-panel 拆分（1） | `enhancement/p6-creation-panel-view` | ✅ #303 |
+| PR-20 | P6-2 上传/引用 hook | `enhancement/p6-creation-panel-upload` | 🔄 进行中 |
 
 ---
 
