@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GripVertical, Loader2, Plus, ShoppingBag, X } from "lucide-react";
+import { Loader2, Plus, ShoppingBag, X } from "lucide-react";
+import {
+  DramaShotCardShell,
+  DramaShotTimelineGrip,
+  dramaShotDisplayFromShot,
+} from "@/components/drama/drama-shot-card-shell";
 import type {
   DramaCharacterCard,
   DramaProjectPayload,
@@ -11,7 +16,6 @@ import {
   createDramaShot,
   reorderDramaShots,
   shotDialogueLine,
-  shotThumbnailUrl,
   sortDramaShots,
 } from "@/lib/drama-shot-helpers";
 import {
@@ -221,8 +225,6 @@ export function DramaShotTimeline({
       >
         {sorted.map((shot, index) => {
           const selected = shot.id === selectedId;
-          const thumb = shotThumbnailUrl(shot);
-          const dialogue = shotDialogueLine(shot);
           const isDropTarget = dropIndex === index && dragIndex !== index;
 
           return (
@@ -260,36 +262,12 @@ export function DramaShotTimeline({
                     : "border-white/10 bg-black/30 hover:border-white/20"
                 } ${dragIndex === index ? "opacity-50" : ""}`}
               >
-                <div className="relative aspect-[9/16] w-full bg-black/50">
-                  {thumb ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={thumb}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-[10px] text-zinc-600">
-                      待生成
-                    </div>
-                  )}
-                  {!readOnly ? (
-                    <span className="absolute left-1 top-1 rounded bg-black/60 p-0.5 text-zinc-400">
-                      <GripVertical className="size-3" />
-                    </span>
-                  ) : null}
-                  <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1 py-0.5 text-[9px] text-zinc-300">
-                    {shot.durationSec}s
-                  </span>
-                </div>
-                <div className="space-y-0.5 p-2">
-                  <div className="text-[11px] font-medium text-zinc-200">
-                    S{shot.order + 1}
-                  </div>
-                  <p className="line-clamp-2 text-[10px] text-zinc-500">
-                    {dialogue ? `「${dialogue}」` : shot.visualPrompt}
-                  </p>
-                </div>
+                <DramaShotCardShell
+                  mode="panel"
+                  layout="timeline"
+                  shot={dramaShotDisplayFromShot(shot)}
+                  timelineLeading={!readOnly ? <DramaShotTimelineGrip /> : null}
+                />
               </button>
             </div>
           );
