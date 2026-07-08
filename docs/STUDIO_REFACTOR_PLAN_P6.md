@@ -72,7 +72,8 @@
 | P6-2-6 | 视频参考 hook | ✅ | `use-creation-panel-video.ts` | panel 1770→1705 行 |
 | P6-2-7 | Dock / lane hook | ✅ | `use-creation-panel-dock.ts` | panel 1705→1538 行 |
 | P6-2-8 | Orchestration / session hook | ✅ | `use-creation-panel-orchestration.ts` | panel 1538→1418 行；#316 |
-| P6-2-9 | Models / fetch effects hook | 🔄 | `use-creation-panel-catalog.ts` | panel 1418→1326 行 |
+| P6-2-9 | Models / fetch effects hook | ✅ | `use-creation-panel-catalog.ts` | panel 1418→1326 行；#317 |
+| P6-2-10 | Mention / video pick hook | 🔄 | `use-creation-panel-mention.ts` | panel 1326→1267 行 |
 
 ---
 
@@ -127,7 +128,8 @@
 | PR-30 | P6-2-7 dock hook | `enhancement/p6-creation-panel-dock` | ✅ #314 |
 | PR-31 | P6-4-4 Shot shell | `enhancement/p6-drama-shot-card-shell` | ✅ #315 |
 | PR-32 | P6-2-8 orchestration hook | `enhancement/p6-creation-panel-orchestration` | ✅ #316 |
-| PR-33 | P6-2-9 catalog hook | `enhancement/p6-creation-panel-catalog` | 🔄 进行中 |
+| PR-33 | P6-2-9 catalog hook | `enhancement/p6-creation-panel-catalog` | ✅ #317 |
+| PR-34 | P6-2-10 mention hook | `enhancement/p6-creation-panel-mention` | 🔄 进行中 |
 
 ---
 

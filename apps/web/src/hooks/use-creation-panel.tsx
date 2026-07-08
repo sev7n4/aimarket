@@ -4,7 +4,7 @@ import type { ReactNode, Ref } from "react";
 import type { CreationPanelHandle, CreationPanelProps } from "@/components/creation-panel-types";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   ArrowUp,
   AtSign,
@@ -23,12 +23,10 @@ import {
 import { modeTabs, placeholders, PRODUCTION_DOCK_PLACEHOLDER, toApiCreationMode } from "@/lib/modes";
 import {
   getToken,
-  registerAssetFromUrl,
 } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import {
   MentionPicker,
-  canvasItemToMentionItem,
 } from "@/components/mention-picker";
 import {
   type CanvasItem,
@@ -88,10 +86,7 @@ import {
   validateOmniVideoMentions,
 } from "@/lib/video-mention";
 import { useCreationLaneDrafts } from "@/hooks/use-creation-lane-drafts";
-import { useVideoPickCandidates } from "@/hooks/use-video-pick-candidates";
-import {
-  resolveCanvasItemForVideoPick,
-} from "@/lib/canvas-video-reference-bind";
+import { useCreationPanelMention } from "@/hooks/use-creation-panel-mention";
 import { ReferenceChips } from "@/components/reference-chips";
 import type { StudioDockMode } from "@/lib/studio-dock-state";
 import type {
@@ -507,73 +502,19 @@ export function useCreationPanel(
     aspectRatio,
   });
 
-  const { candidates: videoPickCandidates, loading: videoPickCandidatesLoading } =
-    useVideoPickCandidates({
+  const { videoPickCandidates, videoPickCandidatesLoading } =
+    useCreationPanelMention({
       sessionId,
       creationLane,
       canvasItems,
       uploadPreviews,
       videoReferenceMode,
+      mentionItemRequest,
+      insertMention,
+      applyVideoPickCandidate,
+      setMentionedMasks,
+      onInteractionHint,
     });
-
-  useEffect(() => {
-    if (!mentionItemRequest) return;
-    const index = canvasItems.findIndex(
-      (item) => item.id === mentionItemRequest.item.id,
-    );
-    const canvasItem = mentionItemRequest.item;
-
-    if (creationLane === "video" && sessionId) {
-      void (async () => {
-        try {
-          const pick = await resolveCanvasItemForVideoPick(
-            canvasItem,
-            index >= 0 ? index : 0,
-            sessionId,
-            registerAssetFromUrl,
-          );
-          if (!pick) return;
-          applyVideoPickCandidate(pick);
-          if (videoReferenceMode === "omni") {
-            const mention = canvasItemToMentionItem(
-              canvasItem,
-              index >= 0 ? index : 0,
-            );
-            if (mention) {
-              insertMention(mention, mentionItemRequest.promptSuffix ?? "");
-            }
-          }
-          if (mentionItemRequest.maskSelection) {
-            setMentionedMasks((prev) => [
-              ...prev.filter((m) => m.id !== mentionItemRequest.maskSelection!.id),
-              mentionItemRequest.maskSelection!,
-            ]);
-          }
-        } catch (err) {
-          onInteractionHint?.(
-            err instanceof Error ? err.message : "引用到视频参考失败",
-          );
-        }
-      })();
-      return;
-    }
-
-    const mention = canvasItemToMentionItem(
-      canvasItem,
-      index >= 0 ? index : 0,
-    );
-    if (!mention) return;
-    insertMention(mention, mentionItemRequest.promptSuffix ?? "");
-    if (mentionItemRequest.maskSelection) {
-      setMentionedMasks((prev) => [
-        ...prev.filter((m) => m.id !== mentionItemRequest.maskSelection!.id),
-        mentionItemRequest.maskSelection!,
-      ]);
-    }
-    // 只响应外部请求 key，避免 canvasItems 刷新时重复插入同一 @ token。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mentionItemRequest?.key]);
-
 
   const focusEditReady =
     Boolean(focusEdit?.points.length) &&
