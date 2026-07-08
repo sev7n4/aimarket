@@ -17,7 +17,8 @@ import {
   resolveNodeToolPrompt,
   resolveNodeToolReferences,
 } from "@/lib/infinite-node-tool-run";
-import { runTool, trackEvent } from "@/lib/api-client";
+import { runTool } from "@/lib/api/generation";
+import { trackEvent } from "@/lib/api/studio";
 import { hapticLight } from "@/lib/haptics";
 import { resolveToolResolution } from "@/lib/tool-resolution";
 import {

@@ -2,13 +2,13 @@ import type { CreationMode } from "@aimarket/ui";
 
 import type { AspectRatio } from "@/components/generation-settings-popover";
 import {
-  ensureSession,
-  fetchProviderStatus,
   getVideoModelRoute,
   submitEcommerceGenerate,
   submitGeneration,
   submitVideoGeneration,
-} from "@/lib/api-client";
+} from "@/lib/api/generation";
+import { ensureSession } from "@/lib/api/sessions";
+import { fetchProviderStatus } from "@/lib/api/studio";
 import type { ImageModel, VideoModelRouteMeta, AgentRun, SkillRun } from "@/lib/types";
 import { resolveVideoSubmitModelId, type VideoAutoMeta } from "@/lib/video-auto-model";
 import { validateOmniVideoMentions } from "@/lib/video-mention";

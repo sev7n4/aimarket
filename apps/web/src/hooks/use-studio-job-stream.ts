@@ -3,11 +3,8 @@
 import { useCallback, useEffect, useRef, useState, type RefObject, type Dispatch, type SetStateAction, type MutableRefObject } from "react";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import type { DesignCanvasHandle } from "@/components/design-canvas";
-import {
-  cancelJob,
-  fetchJob,
-  listSessions,
-} from "@/lib/api-client";
+import { cancelJob, fetchJob } from "@/lib/api/generation";
+import { listSessions } from "@/lib/api/sessions";
 import type { PendingBatchLineage } from "@/lib/canvas-tools";
 import type { CreationMode } from "@aimarket/ui";
 import type { ImageSession } from "@/lib/types";
@@ -21,7 +18,7 @@ import {
 import { isToolGridToolId } from "@/lib/tool-grid-labels";
 import type { ToolGridResultState } from "@/components/tool-grid-result-panel";
 import { formatToolProviderLabel } from "@/lib/studio-tool-meta";
-import { trackEvent } from "@/lib/api-client";
+import { trackEvent } from "@/lib/api/studio";
 
 const STUDIO_SIDEBAR_SESSION_LIMIT = 200;
 

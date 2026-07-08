@@ -4,9 +4,9 @@ import type { ImageSession, StudioTool } from "@/lib/types";
 import {
   ensureSession,
   fetchSession,
-  fetchTools,
   listSessions,
-} from "@/lib/api-client";
+} from "@/lib/api/sessions";
+import { fetchTools } from "@/lib/api/studio";
 import { getActiveWorkspaceId } from "@/lib/active-workspace";
 import { consumePendingAssets, type PendingAsset } from "@/lib/pending-assets";
 import { consumePendingInspiration, normalizePendingInspiration } from "@/lib/pending-inspiration";
