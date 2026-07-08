@@ -6,7 +6,7 @@ import {
   confirmAgentRun,
   createAgentRun,
   fetchAgentRun,
-} from "@/lib/api-client";
+} from "@/lib/api/agent";
 import type { CreationMode } from "@aimarket/ui";
 import type { AgentRun } from "@/lib/types";
 import { toApiCreationMode } from "@/lib/modes";

@@ -6,7 +6,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { LoginDialog } from "@/components/login-dialog";
-import { fetchInspirationDetail, fetchInspirationPage, trackEvent } from "@/lib/api-client";
+import { fetchInspirationDetail, fetchInspirationPage } from "@/lib/api/inspiration";
+import { trackEvent } from "@/lib/api/studio";
 import {
   APPAREL_FAN_CATEGORIES,
   getApparelFanMeta,

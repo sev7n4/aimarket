@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { AgentPlan } from "@/lib/types";
-import { fetchAgentPlan } from "@/lib/api-client";
+import { fetchAgentPlan } from "@/lib/api/agent";
 
 interface AgentPlanPreviewProps {
   prompt: string;

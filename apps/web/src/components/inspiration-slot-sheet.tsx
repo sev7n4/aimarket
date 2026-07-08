@@ -5,7 +5,11 @@ import Image from "next/image";
 import { Loader2, Sparkles, X } from "lucide-react";
 import type { InspirationDetail } from "@/lib/types";
 import { InspirationCoverMedia } from "@/components/inspiration-cover-media";
-import { renderInspiration, trackEvent, copyInspirationToProductionSession } from "@/lib/api-client";
+import {
+  renderInspiration,
+  copyInspirationToProductionSession,
+} from "@/lib/api/inspiration";
+import { trackEvent } from "@/lib/api/studio";
 import { useAuth } from "@/lib/auth-context";
 import {
   applyDramaTemplateToStudio,

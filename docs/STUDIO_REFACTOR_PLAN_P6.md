@@ -108,7 +108,7 @@
 | ID | 任务 | 状态 | 产出 | 验证 |
 |----|------|------|------|------|
 | P6-5-1 | `lib/api/*.ts` 域模块 | ✅ | 16 域 + `core.ts` | `api-client.ts` re-export 兼容 |
-| P6-5-2 | 渐进迁移 import | 🔄 | creation-panel + studio/drama 直引子模块 | typecheck 绿 |
+| P6-5-2 | 渐进迁移 import | 🔄 | creation-panel + studio/drama/inspiration/agent 直引子模块 | typecheck 绿 |
 
 ---
 
@@ -138,7 +138,8 @@
 | PR-36 | P6-2-12 body props 分组 | `enhancement/p6-creation-panel-body-props` | ✅ #320 |
 | PR-37 | P6-5-1 api-client 域拆分 | `enhancement/p6-api-client-split` | ✅ #321 |
 | PR-38 | P6-5-2 studio-* import 迁移 | `enhancement/p6-api-client-migrate-studio` | ✅ #322 |
-| PR-39 | P6-5-2 drama-* import 迁移 | `enhancement/p6-api-client-migrate-drama` | 🔄 进行中 |
+| PR-39 | P6-5-2 drama-* import 迁移 | `enhancement/p6-api-client-migrate-drama` | ✅ #323 |
+| PR-40 | P6-5-2 inspiration/agent import 迁移 | `enhancement/p6-api-client-migrate-inspiration-agent` | 🔄 进行中 |
 
 ---
 
