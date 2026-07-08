@@ -73,7 +73,8 @@
 | P6-2-7 | Dock / lane hook | ✅ | `use-creation-panel-dock.ts` | panel 1705→1538 行 |
 | P6-2-8 | Orchestration / session hook | ✅ | `use-creation-panel-orchestration.ts` | panel 1538→1418 行；#316 |
 | P6-2-9 | Models / fetch effects hook | ✅ | `use-creation-panel-catalog.ts` | panel 1418→1326 行；#317 |
-| P6-2-10 | Mention / video pick hook | 🔄 | `use-creation-panel-mention.ts` | panel 1326→1267 行 |
+| P6-2-10 | Mention / video pick hook | ✅ | `use-creation-panel-mention.ts` | panel 1326→1267 行；#318 |
+| P6-2-11 | Body JSX 组件化 | 🔄 | `creation-panel-body.tsx` | panel 1267→753 行 |
 
 ---
 
