@@ -124,7 +124,8 @@
 | PR-28 | P6-2-6 video hook | `enhancement/p6-creation-panel-video` | ✅ #312 |
 | PR-29 | P6-4-3 Character shell | `enhancement/p6-drama-character-card-shell` | ✅ #313 |
 | PR-30 | P6-2-7 dock hook | `enhancement/p6-creation-panel-dock` | ✅ #314 |
-| PR-31 | P6-4-4 Shot shell | `enhancement/p6-drama-shot-card-shell` | 🔄 进行中 |
+| PR-31 | P6-4-4 Shot shell | `enhancement/p6-drama-shot-card-shell` | ✅ #315 |
+| PR-32 | P6-2-8 orchestration hook | `enhancement/p6-creation-panel-orchestration` | 🔄 进行中 |
 
 ---
 
