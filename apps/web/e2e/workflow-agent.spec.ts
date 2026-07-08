@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { registerViaEmail } from "./helpers/auth";
-import { gotoStudioAndWait, studioWorkstation } from "./helpers/studio";
+import { gotoWorkflowAndWait, studioWorkstation } from "./helpers/studio";
 
 /**
  * NeoWOW 式 /workflow 入口 smoke：
@@ -22,11 +22,8 @@ test.describe("Workflow Shell", () => {
   test("访问 /workflow 展示无限画布与 Agent 面板", async ({ page }) => {
     await skipCoach(page);
     await registerViaEmail(page, { emailPrefix: "workflow" });
-    await gotoStudioAndWait(page, "/workflow");
+    await gotoWorkflowAndWait(page, "/workflow");
 
-    await expect(page.getByTestId("workflow-page")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId("infinite-canvas-pane")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId("workflow-agent-panel")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("workflow-agent-input")).toBeVisible();
 
     const resizeHandle = page.getByTestId("workflow-agent-resize-handle");
