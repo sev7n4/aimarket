@@ -130,7 +130,8 @@
 | PR-31 | P6-4-4 Shot shell | `enhancement/p6-drama-shot-card-shell` | ✅ #315 |
 | PR-32 | P6-2-8 orchestration hook | `enhancement/p6-creation-panel-orchestration` | ✅ #316 |
 | PR-33 | P6-2-9 catalog hook | `enhancement/p6-creation-panel-catalog` | ✅ #317 |
-| PR-34 | P6-2-10 mention hook | `enhancement/p6-creation-panel-mention` | 🔄 进行中 |
+| PR-34 | P6-2-10 mention hook | `enhancement/p6-creation-panel-mention` | ✅ #318 |
+| PR-35 | P6-2-11 body 组件 | `enhancement/p6-creation-panel-body` | 🔄 进行中 |
 
 ---
 
