@@ -20,7 +20,7 @@ import type {
   AgentSkillPublic,
   SkillRunStatus,
 } from "@/lib/types";
-import { trackEvent } from "@/lib/api-client";
+import { trackEvent } from "@/lib/api/studio";
 import type { CanvasMaskSelection } from "@/lib/canvas-tools";
 
 export type UseCreationPanelOrchestrationInput = {

@@ -22,7 +22,7 @@ import type { UploadPreviewItem } from "@/components/upload-preview-stack";
 import type { CanvasMaskSelection } from "@/lib/canvas-tools";
 import type { FocusPointChip } from "@/lib/focus-edit";
 import type { FocusEditIntent } from "@/lib/focus-edit";
-import { renderInspiration } from "@/lib/api-client";
+import { renderInspiration } from "@/lib/api/inspiration";
 
 const ASPECT_RATIOS: AspectRatio[] = [
   "1:1",

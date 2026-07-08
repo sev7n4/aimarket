@@ -7,13 +7,13 @@ import { AUTO_MODEL_ID } from "@/components/model-picker";
 import {
   estimatePoints,
   fetchModels,
-  fetchReferences,
-  fetchSession,
-  getToken,
   getVideoAutoModelMeta,
   getVideoModelRoutesMeta,
   suggestModel,
-} from "@/lib/api-client";
+} from "@/lib/api/generation";
+import { fetchReferences } from "@/lib/api/generation";
+import { fetchSession } from "@/lib/api/sessions";
+import { getToken } from "@/lib/api/core";
 import { hasReferenceImages, type ReferenceImageSources } from "@/lib/creation-lane-submit";
 import type { ImageModel, SessionReference, VideoModelRouteMeta } from "@/lib/types";
 import type { VideoAutoMeta } from "@/lib/video-auto-model";

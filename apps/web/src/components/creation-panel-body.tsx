@@ -17,7 +17,7 @@ import {
   type CreationMode,
 } from "@aimarket/ui";
 import { modeTabs, placeholders, PRODUCTION_DOCK_PLACEHOLDER } from "@/lib/modes";
-import { getToken } from "@/lib/api-client";
+import { getToken } from "@/lib/api/core";
 import { MentionPicker } from "@/components/mention-picker";
 import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
 import { CreationPanelPill } from "@/components/creation-panel-primitives";
