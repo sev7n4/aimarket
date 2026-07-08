@@ -15,7 +15,7 @@
 | **P6-2** | `use-creation-panel` 拆分 | 🔄 进行中 | #303–#305 / #310 / #312 / #314 / orch PR |
 | **P6-3** | 工具 UI meta 单源 | ✅ 完成 | #306 |
 | **P6-4** | Drama 卡片 panel/node 统一 | ✅ 完成 | #309 / #311 / #313 / shot PR |
-| **P6-5** | `api-client` 按域拆分 | ⬜ 未开始 | — |
+| **P6-5** | `api-client` 按域拆分 | 🔄 进行中 | #321 / #322 / #323 |
 
 **P6 完成标准**
 
@@ -108,7 +108,7 @@
 | ID | 任务 | 状态 | 产出 | 验证 |
 |----|------|------|------|------|
 | P6-5-1 | `lib/api/*.ts` 域模块 | ✅ | 16 域 + `core.ts` | `api-client.ts` re-export 兼容 |
-| P6-5-2 | 渐进迁移 import | 🔄 | creation-panel + studio-* 直引子模块 | typecheck 绿 |
+| P6-5-2 | 渐进迁移 import | 🔄 | creation-panel + studio/drama 直引子模块 | typecheck 绿 |
 
 ---
 
@@ -137,7 +137,8 @@
 | PR-35 | P6-2-11 body 组件 | `enhancement/p6-creation-panel-body` | ✅ #319 |
 | PR-36 | P6-2-12 body props 分组 | `enhancement/p6-creation-panel-body-props` | ✅ #320 |
 | PR-37 | P6-5-1 api-client 域拆分 | `enhancement/p6-api-client-split` | ✅ #321 |
-| PR-38 | P6-5-2 studio-* import 迁移 | `enhancement/p6-api-client-migrate-studio` | 🔄 进行中 |
+| PR-38 | P6-5-2 studio-* import 迁移 | `enhancement/p6-api-client-migrate-studio` | ✅ #322 |
+| PR-39 | P6-5-2 drama-* import 迁移 | `enhancement/p6-api-client-migrate-drama` | 🔄 进行中 |
 
 ---
 
