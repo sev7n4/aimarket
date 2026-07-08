@@ -8,10 +8,8 @@ import { AUTO_MODEL_ID } from "@/components/model-picker";
 import type { ReferenceChipItem } from "@/components/reference-chips";
 import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
 import type { CreationLane } from "@/lib/creation-dock-prefs";
-import {
-  getToken,
-  optimizePromptApi,
-} from "@/lib/api-client";
+import { getToken } from "@/lib/api/core";
+import { optimizePromptApi } from "@/lib/api/generation";
 import { resolveIntent } from "@/lib/intent-router";
 import { polishPrompt } from "@/lib/prompt-polish";
 import { readRecentAcceptedPrompts } from "@/lib/prompt-style-profile";

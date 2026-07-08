@@ -22,12 +22,9 @@ import {
   type ReferenceImageSources,
 } from "@/lib/creation-lane-submit";
 import { dispatchCreationSubmit } from "@/lib/creation-submit-dispatch";
-import {
-  ensureSession,
-  fetchProviderStatus,
-  fetchReferences,
-  trackEvent,
-} from "@/lib/api-client";
+import { fetchReferences } from "@/lib/api/generation";
+import { ensureSession } from "@/lib/api/sessions";
+import { fetchProviderStatus, trackEvent } from "@/lib/api/studio";
 import { clientNavigate } from "@/lib/client-navigate";
 import { persistCreationLane } from "@/lib/creation-dock-prefs";
 import { recordAcceptedPrompt } from "@/lib/prompt-style-profile";

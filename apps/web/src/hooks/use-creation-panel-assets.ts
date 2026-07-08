@@ -12,13 +12,11 @@ import {
 } from "@/lib/canvas-reference-bind";
 import type { CanvasItem } from "@/lib/canvas-tools";
 import type { CreationLane, VideoMediaRef, VideoReferenceMode } from "@/lib/creation-dock-prefs";
-import {
-  assetUrl,
-  ensureSession,
-  reversePromptFromImage,
-  trackEvent,
-  uploadAsset,
-} from "@/lib/api-client";
+import { assetUrl } from "@/lib/api/core";
+import { uploadAsset } from "@/lib/api/assets";
+import { reversePromptFromImage } from "@/lib/api/generation";
+import { ensureSession } from "@/lib/api/sessions";
+import { trackEvent } from "@/lib/api/studio";
 import {
   extractMentionLabelsFromPrompt,
   filterAssetIdsByPromptLabels,

@@ -16,7 +16,10 @@ import type {
   VideoResolution,
 } from "@/lib/creation-dock-prefs";
 import { assignOmniRefLabels } from "@/lib/video-mention";
-import { assetUrl, ensureSession, getVideoModelRoute, uploadAsset } from "@/lib/api-client";
+import { assetUrl } from "@/lib/api/core";
+import { uploadAsset } from "@/lib/api/assets";
+import { ensureSession } from "@/lib/api/sessions";
+import { getVideoModelRoute } from "@/lib/api/generation";
 import { applyModeVideoSettings } from "@/components/video-output-settings";
 import { extractMentionLabelsFromPrompt } from "@/lib/mention-sync";
 import type { ImageModel, VideoModelRouteMeta } from "@/lib/types";

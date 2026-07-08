@@ -8,7 +8,7 @@ import {
 } from "@/components/mention-picker";
 import type { UploadPreviewItem } from "@/components/upload-preview-stack";
 import { useVideoPickCandidates } from "@/hooks/use-video-pick-candidates";
-import { registerAssetFromUrl } from "@/lib/api-client";
+import { registerAssetFromUrl } from "@/lib/api/assets";
 import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
 import {
   resolveCanvasItemForVideoPick,
