@@ -6,15 +6,24 @@ import { Bot, Loader2, PanelRightClose } from "lucide-react";
 import { canvasTheme } from "../canvas-theme";
 import { cn } from "@aimarket/ui";
 import type { CanvasAgentOp, CanvasAgentSnapshot } from "../utils";
-import type { OrchestratorMessage, OrchestratorToolCall } from "./types";
-import { ALL_AGENT_TOOLS } from "./agent-tools";
 import {
   runCanvasAgentLoop,
+  continueAgentLoopAfterApproval,
   type ToolCallResult,
 } from "./online-agent-loop";
+import type { OrchestratorMessage, OrchestratorToolCall } from "./types";
+import { ALL_AGENT_TOOLS } from "./agent-tools";
+
+const WORKFLOW_QUICK_TAGS = [
+  "生成一张产品主图",
+  "把选中节点扩图",
+  "创建 3×3 分镜宫格",
+  "整理画布并分组",
+] as const;
 
 type PanelTab = "chat" | "history" | "log";
 type MessageRole = "user" | "assistant" | "tool" | "error";
+type PanelVariant = "floating" | "docked";
 
 interface ChatMessage {
   id: string;
@@ -38,10 +47,83 @@ type CanvasAssistantPanelProps = {
   onApplyOps: (ops: CanvasAgentOp[]) => CanvasAgentSnapshot;
   initialCollapsed?: boolean;
   confirmTools?: boolean;
+  variant?: PanelVariant;
+  width?: number;
 };
 
 function nanoid() {
   return Math.random().toString(36).slice(2, 11);
+}
+
+function buildAgentCallbacks({
+  appendMessage,
+  addLog,
+  setPendingToolCalls,
+  onCompleteExtra,
+}: {
+  appendMessage: (msg: ChatMessage) => void;
+  addLog: (title: string, data?: unknown) => void;
+  setPendingToolCalls: React.Dispatch<
+    React.SetStateAction<{
+      toolCalls: OrchestratorToolCall[];
+      step: number;
+      messages: OrchestratorMessage[];
+    } | null>
+  >;
+  onCompleteExtra?: (finalText: string) => void;
+}) {
+  return {
+    onAssistantMessage: (assistantText: string) => {
+      appendMessage({ id: nanoid(), role: "assistant", text: assistantText });
+    },
+    onToolCallPending: (
+      toolCalls: OrchestratorToolCall[],
+      step: number,
+      messages: OrchestratorMessage[],
+    ) => {
+      setPendingToolCalls({ toolCalls, step, messages });
+      appendMessage({
+        id: nanoid(),
+        role: "assistant",
+        text: "准备执行操作，等待确认…",
+        toolCalls,
+        pending: true,
+      });
+    },
+    onToolCallApproved: (results: ToolCallResult[], step: number) => {
+      addLog(`步骤 ${step} 执行完成`, results);
+      setPendingToolCalls(null);
+      appendMessage({
+        id: nanoid(),
+        role: "tool",
+        text: results.map((r) => `${r.name}: ${r.message}`).join("\n"),
+        toolResults: results,
+      });
+    },
+    onToolCallRejected: (step: number) => {
+      addLog(`步骤 ${step} 已取消`, null);
+      setPendingToolCalls(null);
+    },
+    onMaxStepsReached: () => {
+      addLog("达到最大步数上限", { maxSteps: 6 });
+      appendMessage({
+        id: nanoid(),
+        role: "assistant",
+        text: "已达到最大步数限制 (6 步)。",
+      });
+    },
+    onError: (error: string) => {
+      addLog("Agent 错误", error);
+      appendMessage({ id: nanoid(), role: "error", text: error });
+    },
+    onComplete: (finalText: string) => {
+      addLog("Agent 完成", finalText);
+      if (finalText) {
+        appendMessage({ id: nanoid(), role: "assistant", text: finalText });
+      }
+      onCompleteExtra?.(finalText);
+    },
+  };
 }
 
 export function CanvasAssistantPanel({
@@ -49,7 +131,10 @@ export function CanvasAssistantPanel({
   onApplyOps,
   initialCollapsed = false,
   confirmTools = false,
+  variant = "floating",
+  width = 520,
 }: CanvasAssistantPanelProps) {
+  const isDocked = variant === "docked";
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [tab, setTab] = useState<PanelTab>("chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -59,13 +144,13 @@ export function CanvasAssistantPanel({
   const [pendingToolCalls, setPendingToolCalls] = useState<{
     toolCalls: OrchestratorToolCall[];
     step: number;
+    messages: OrchestratorMessage[];
   } | null>(null);
 
   const snapshotRef = useRef(snapshot);
   snapshotRef.current = snapshot;
 
   const historyMessagesRef = useRef<OrchestratorMessage[]>([]);
-  const loopMessagesRef = useRef<OrchestratorMessage[]>([]);
 
   const addLog = useCallback((title: string, data?: unknown) => {
     setLogs((prev) =>
@@ -80,105 +165,105 @@ export function CanvasAssistantPanel({
     setMessages((prev) => [...prev, msg]);
   }, []);
 
+  const runAgent = useCallback(
+    async (text: string) => {
+      if (!text || isRunning) return;
+
+      setIsRunning(true);
+      setTab("chat");
+      appendMessage({ id: nanoid(), role: "user", text });
+
+      addLog("发送请求", {
+        text,
+        selectedNodeIds: snapshotRef.current.selectedNodeIds,
+        nodeCount: snapshotRef.current.nodes.length,
+      });
+
+      const userTurn: OrchestratorMessage = { role: "user", content: text };
+
+      try {
+        await runCanvasAgentLoop({
+          snapshot: snapshotRef.current,
+          userMessage: text,
+          historyMessages: historyMessagesRef.current,
+          tools: ALL_AGENT_TOOLS,
+          onApplyOps: (ops) => {
+            const updated = onApplyOps(ops);
+            snapshotRef.current = updated;
+            return updated;
+          },
+          confirmTools,
+          callbacks: buildAgentCallbacks({
+            appendMessage,
+            addLog,
+            setPendingToolCalls,
+            onCompleteExtra: (finalText) => {
+              historyMessagesRef.current = [
+                ...historyMessagesRef.current,
+                userTurn,
+                ...(finalText ? [{ role: "assistant" as const, content: finalText }] : []),
+              ];
+            },
+          }),
+        });
+      } catch (err) {
+        addLog("Agent 异常", err);
+        appendMessage({
+          id: nanoid(),
+          role: "error",
+          text: err instanceof Error ? err.message : "未知错误",
+        });
+      } finally {
+        setIsRunning(false);
+      }
+    },
+    [isRunning, appendMessage, addLog, onApplyOps, confirmTools],
+  );
+
   const handleSend = useCallback(async () => {
     const text = input.trim();
-    if (!text || isRunning) return;
-
+    if (!text) return;
     setInput("");
+    await runAgent(text);
+  }, [input, runAgent]);
+
+  const handleApprovePending = useCallback(async () => {
+    if (!pendingToolCalls || isRunning) return;
     setIsRunning(true);
-    setTab("chat");
-    appendMessage({ id: nanoid(), role: "user", text });
-
-    addLog("发送请求", {
-      text,
-      selectedNodeIds: snapshotRef.current.selectedNodeIds,
-      nodeCount: snapshotRef.current.nodes.length,
-    });
-
-    const userTurn: OrchestratorMessage = { role: "user", content: text };
-
     try {
-      await runCanvasAgentLoop({
+      await continueAgentLoopAfterApproval({
+        approvedToolCalls: pendingToolCalls.toolCalls,
         snapshot: snapshotRef.current,
-        userMessage: text,
-        historyMessages: historyMessagesRef.current,
+        messages: pendingToolCalls.messages,
         tools: ALL_AGENT_TOOLS,
+        step: pendingToolCalls.step,
         onApplyOps: (ops) => {
           const updated = onApplyOps(ops);
           snapshotRef.current = updated;
           return updated;
         },
-        confirmTools,
-        callbacks: {
-          onAssistantMessage: (assistantText) => {
-            appendMessage({ id: nanoid(), role: "assistant", text: assistantText });
-          },
-          onToolCallPending: (toolCalls, step) => {
-            setPendingToolCalls({ toolCalls, step });
-            appendMessage({
-              id: nanoid(),
-              role: "assistant",
-              text: "准备执行操作，等待确认…",
-              toolCalls,
-              pending: true,
-            });
-          },
-          onToolCallApproved: (results, step) => {
-            addLog(`步骤 ${step} 执行完成`, results);
-            setPendingToolCalls(null);
-            appendMessage({
-              id: nanoid(),
-              role: "tool",
-              text: results.map((r) => `${r.name}: ${r.message}`).join("\n"),
-              toolResults: results,
-            });
-          },
-          onToolCallRejected: (step) => {
-            addLog(`步骤 ${step} 已取消`, null);
-            setPendingToolCalls(null);
-          },
-          onMaxStepsReached: () => {
-            addLog("达到最大步数上限", { maxSteps: 6 });
-            appendMessage({
-              id: nanoid(),
-              role: "assistant",
-              text: "已达到最大步数限制 (6 步)。",
-            });
-          },
-          onError: (error) => {
-            addLog("Agent 错误", error);
-            appendMessage({ id: nanoid(), role: "error", text: error });
-          },
-          onComplete: (finalText) => {
-            addLog("Agent 完成", finalText);
-            if (finalText) {
-              appendMessage({ id: nanoid(), role: "assistant", text: finalText });
-            }
-            historyMessagesRef.current = [
-              ...historyMessagesRef.current,
-              userTurn,
-              ...(finalText ? [{ role: "assistant" as const, content: finalText }] : []),
-            ];
-          },
-        },
-      });
-    } catch (err) {
-      addLog("Agent 异常", err);
-      appendMessage({
-        id: nanoid(),
-        role: "error",
-        text: err instanceof Error ? err.message : "未知错误",
+        callbacks: buildAgentCallbacks({
+          appendMessage,
+          addLog,
+          setPendingToolCalls,
+        }),
       });
     } finally {
       setIsRunning(false);
     }
-  }, [input, isRunning, appendMessage, addLog, onApplyOps, confirmTools]);
+  }, [pendingToolCalls, isRunning, appendMessage, addLog, onApplyOps]);
+
+  const handleRejectPending = useCallback(() => {
+    if (!pendingToolCalls) return;
+    addLog(`步骤 ${pendingToolCalls.step} 已取消`, null);
+    setPendingToolCalls(null);
+  }, [pendingToolCalls, addLog]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
         e.preventDefault();
-        handleSend();
+        void handleSend();
       }
     },
     [handleSend],
@@ -189,9 +274,13 @@ export function CanvasAssistantPanel({
       <button
         type="button"
         onClick={() => setCollapsed(false)}
-        className="absolute right-0 top-1/2 z-30 flex size-10 items-center justify-center rounded-l-lg transition hover:bg-white/10"
+        className={cn(
+          "z-30 flex size-10 items-center justify-center rounded-l-lg transition hover:bg-white/10",
+          isDocked ? "shrink-0" : "absolute right-0 top-1/2",
+        )}
         style={{ background: canvasTheme.canvas.background, borderColor: canvasTheme.node.stroke }}
         aria-label="展开助手面板"
+        data-testid="workflow-agent-expand"
       >
         <Bot className="size-5" style={{ color: canvasTheme.node.muted }} />
       </button>
@@ -200,11 +289,16 @@ export function CanvasAssistantPanel({
 
   return (
     <div
-      className="absolute right-0 top-0 flex h-full w-[380px] flex-col border-l"
+      className={cn(
+        "flex h-full flex-col border-l",
+        isDocked ? "relative shrink-0" : "absolute right-0 top-0 w-[380px]",
+      )}
       style={{
-        background: canvasTheme.canvas.background,
+        width: isDocked ? width : undefined,
+        background: isDocked ? "#1a1a1e" : canvasTheme.canvas.background,
         borderColor: canvasTheme.node.stroke,
       }}
+      data-testid="workflow-agent-panel"
     >
       <div
         className="flex items-center justify-between border-b px-4 py-3"
@@ -213,7 +307,7 @@ export function CanvasAssistantPanel({
         <div className="flex items-center gap-2">
           <Bot className="size-4" style={{ color: canvasTheme.node.muted }} />
           <span className="text-sm font-semibold" style={{ color: canvasTheme.node.text }}>
-            画布助手
+            {isDocked ? "Agent" : "画布助手"}
           </span>
           {isRunning && (
             <Loader2 className="size-3.5 animate-spin" style={{ color: canvasTheme.node.muted }} />
@@ -259,6 +353,23 @@ export function CanvasAssistantPanel({
               >
                 <Bot className="mx-auto mb-2 size-6 opacity-50" />
                 对画布下达指令，助手将自动执行
+                {isDocked ? (
+                  <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+                    {WORKFLOW_QUICK_TAGS.map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => void runAgent(tag)}
+                        disabled={isRunning}
+                        className="rounded-full border px-2.5 py-1 text-[10px] transition hover:bg-white/5 disabled:opacity-40"
+                        style={{ borderColor: canvasTheme.node.stroke, color: canvasTheme.node.muted }}
+                        data-testid="workflow-agent-quick-tag"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             )}
             {messages.map((msg) => (
@@ -318,15 +429,21 @@ export function CanvasAssistantPanel({
           <div className="flex gap-2">
             <button
               type="button"
-              className="flex-1 rounded-lg py-1.5 text-xs font-medium transition"
+              onClick={() => void handleApprovePending()}
+              disabled={isRunning}
+              className="flex-1 rounded-lg py-1.5 text-xs font-medium transition disabled:opacity-40"
               style={{ background: "#6366f1", color: "#fff" }}
+              data-testid="workflow-agent-confirm"
             >
               确认
             </button>
             <button
               type="button"
-              className="flex-1 rounded-lg py-1.5 text-xs font-medium transition"
+              onClick={handleRejectPending}
+              disabled={isRunning}
+              className="flex-1 rounded-lg py-1.5 text-xs font-medium transition disabled:opacity-40"
               style={{ background: canvasTheme.node.panel, color: canvasTheme.node.muted }}
+              data-testid="workflow-agent-cancel"
             >
               取消
             </button>
@@ -350,10 +467,11 @@ export function CanvasAssistantPanel({
             borderColor: canvasTheme.node.stroke,
             color: canvasTheme.node.text,
           }}
+          data-testid="workflow-agent-input"
         />
         <button
           type="button"
-          onClick={handleSend}
+          onClick={() => void handleSend()}
           disabled={!input.trim() || isRunning}
           className="flex size-9 shrink-0 items-center justify-center rounded-lg font-medium transition disabled:opacity-30"
           style={{
@@ -361,6 +479,7 @@ export function CanvasAssistantPanel({
             color: input.trim() && !isRunning ? "#fff" : canvasTheme.node.faint,
           }}
           aria-label="发送"
+          data-testid="workflow-agent-send"
         >
           {isRunning ? (
             <Loader2 className="size-4 animate-spin" />

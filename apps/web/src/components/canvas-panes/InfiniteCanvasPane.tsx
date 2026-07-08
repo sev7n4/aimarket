@@ -1,6 +1,7 @@
 "use client";
 
 import { Bookmark, Music, Plus } from "lucide-react";
+import { cn } from "@aimarket/ui";
 
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
 import { InfiniteCanvasContainer } from "@/components/infinite-canvas/InfiniteCanvasContainer";
@@ -64,6 +65,10 @@ export function InfiniteCanvasPane({
   assistantSnapshot,
   showAssistantPanel,
   onApplyAssistantOps,
+  workflowShell = false,
+  agentPanelWidth = 520,
+  agentPanelDragging = false,
+  onAgentPanelResizeStart,
   templateSelectedNodes,
   templateSelectedConnections,
   sessionId,
@@ -83,7 +88,12 @@ export function InfiniteCanvasPane({
       className="flex min-h-0 flex-1 flex-col overflow-hidden"
       data-testid="infinite-canvas-pane"
     >
-      <div className="relative flex min-h-0 flex-1">
+      <div
+        className={cn(
+          "relative flex min-h-0 flex-1",
+          workflowShell ? "flex-row" : "",
+        )}
+      >
         <div className="relative min-h-0 flex-1">
           {jobOverlay.show || jobOverlay.failed ? (
             <CanvasJobOverlay
@@ -174,11 +184,25 @@ export function InfiniteCanvasPane({
             onClose={onCloseDramaPanel}
           />
         ) : null}
+        {workflowShell && assistantSnapshot && showAssistantPanel && onAgentPanelResizeStart ? (
+          <button
+            type="button"
+            aria-label="拖拽调整 Agent 面板宽度"
+            onMouseDown={onAgentPanelResizeStart}
+            className={cn(
+              "z-30 hidden w-1 shrink-0 cursor-col-resize transition-colors hover:bg-indigo-500/40 lg:block",
+              agentPanelDragging ? "bg-indigo-500/60" : "bg-white/5",
+            )}
+            data-testid="workflow-agent-resize-handle"
+          />
+        ) : null}
         {assistantSnapshot && showAssistantPanel ? (
           <CanvasAssistantPanel
             snapshot={assistantSnapshot}
             onApplyOps={onApplyAssistantOps}
-            initialCollapsed
+            initialCollapsed={!workflowShell}
+            variant={workflowShell ? "docked" : "floating"}
+            width={workflowShell ? agentPanelWidth : undefined}
           />
         ) : null}
         {showTemplateManager ? (

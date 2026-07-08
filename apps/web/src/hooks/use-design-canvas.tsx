@@ -9,6 +9,8 @@ import {
   REFINE_SINGLE_OUTPUT_TOOL_IDS,
 } from "@/lib/canvas-tools";
 import { resolveIsDramaWorkflowInfiniteView } from "@/lib/studio-canvas-view";
+import { WORKFLOW_AGENT_PANEL } from "@/lib/workflow-shell";
+import { useResizablePanelWidth } from "@/hooks/use-resizable-panel-width";
 import type { ProductGalleryHandle } from "@/components/product-gallery";
 import type { FreeCanvasHandle } from "@/components/free-canvas";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
@@ -116,6 +118,7 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       sessionId,
       onPatchDramaShotNode,
       onTemplatePlanRunStarted,
+      workflowShell = false,
     } = props;
     const onCutoutItem = nodeActions?.onCutoutItem;
     const onExpandItem = nodeActions?.onExpandItem;
@@ -308,6 +311,16 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     const refineChainBeforeRef = useRef<Set<string>>(new Set());
     const refineJobMetaRef = useRef<{ toolName?: string } | null>(null);
     const mobile = useIsMobile(MOBILE_BREAKPOINT);
+    const {
+      width: agentPanelWidth,
+      dragging: agentPanelDragging,
+      onResizeStart: onAgentPanelResizeStart,
+    } = useResizablePanelWidth({
+      storageKey: WORKFLOW_AGENT_PANEL.storageKey,
+      defaultWidth: WORKFLOW_AGENT_PANEL.defaultWidth,
+      minWidth: WORKFLOW_AGENT_PANEL.minWidth,
+      maxWidth: WORKFLOW_AGENT_PANEL.maxWidth,
+    });
     // Ref to prevent feedback loop when applying assistant ops
     const applyingAssistantOpsRef = useRef(false);
 
@@ -1290,6 +1303,10 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     lightbox,
     enterRefineMode,
     setVideoInpaintSubmitting,
+    workflowShell,
+    agentPanelWidth,
+    agentPanelDragging,
+    onAgentPanelResizeStart,
   };}
 
 export type DesignCanvasViewModel = ReturnType<typeof useDesignCanvas>;

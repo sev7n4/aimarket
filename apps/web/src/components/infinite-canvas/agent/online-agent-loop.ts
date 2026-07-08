@@ -40,7 +40,11 @@ export type ToolCallResult = {
 
 export type AgentLoopCallbacks = {
   onAssistantMessage: (text: string) => void;
-  onToolCallPending: (toolCalls: OrchestratorToolCall[], step: number) => void;
+  onToolCallPending: (
+    toolCalls: OrchestratorToolCall[],
+    step: number,
+    messages: OrchestratorMessage[],
+  ) => void;
   onToolCallApproved: (results: ToolCallResult[], step: number) => void;
   onToolCallRejected: (step: number) => void;
   onMaxStepsReached: () => void;
@@ -214,9 +218,7 @@ export async function runCanvasAgentLoop({
       if (confirmTools && writableCalls.length > 0 && !isFirstStep) {
         // 需要用户确认
         callbacks.onAssistantMessage(result.content || "准备执行操作，等待确认…");
-        callbacks.onToolCallPending(result.toolCalls, step);
-        // 暂停 — 等待用户 approve/reject
-        // 注意：这里需要调用方在 approve 时调用 continueWithApprovedResults
+        callbacks.onToolCallPending(result.toolCalls, step, messages);
         return; // 暂停循环，等待外部 approve
       }
 
@@ -317,7 +319,7 @@ export async function continueAgentLoopAfterApproval({
 
       if (writableCalls.length > 0) {
         callbacks.onAssistantMessage(result.content || "准备执行操作，等待确认…");
-        callbacks.onToolCallPending(result.toolCalls, nextStep);
+        callbacks.onToolCallPending(result.toolCalls, nextStep, messages);
         return; // 等待下一轮批准
       }
 

@@ -70,3 +70,28 @@ export function studioUrlForSession(session: {
   });
   return `/studio?${params.toString()}`;
 }
+
+/** NeoWOW 式工作流入口（左画布 + 右 Agent） */
+export function buildWorkflowUrl(options?: {
+  sessionId?: string;
+  title?: string;
+  prompt?: string;
+  workspaceId?: string | null;
+  newDraft?: boolean;
+}): string {
+  const sessionId =
+    options?.sessionId ??
+    (options?.newDraft === false
+      ? getOrCreateDraftSessionId(options?.workspaceId)
+      : allocateDraftSessionId(options?.workspaceId));
+  const params = new URLSearchParams({
+    sessionId,
+    title: options?.title ?? "未命名工作流",
+  });
+  if (options?.prompt) params.set("q", options.prompt);
+  return `/workflow?${params.toString()}`;
+}
+
+export function workflowUrlForSession(session: { id: string }): string {
+  return `/workflow?sessionId=${encodeURIComponent(session.id)}`;
+}
