@@ -74,7 +74,8 @@
 | P6-2-8 | Orchestration / session hook | ✅ | `use-creation-panel-orchestration.ts` | panel 1538→1418 行；#316 |
 | P6-2-9 | Models / fetch effects hook | ✅ | `use-creation-panel-catalog.ts` | panel 1418→1326 行；#317 |
 | P6-2-10 | Mention / video pick hook | ✅ | `use-creation-panel-mention.ts` | panel 1326→1267 行；#318 |
-| P6-2-11 | Body JSX 组件化 | 🔄 | `creation-panel-body.tsx` | panel 1267→753 行 |
+| P6-2-11 | Body JSX 组件化 | ✅ | `creation-panel-body.tsx` | panel 1267→753 行；#319 |
+| P6-2-12 | Body props 分组 | 🔄 | `creation-panel-body-props.ts` | 12 组 props + build/flatten |
 
 ---
 
@@ -131,7 +132,8 @@
 | PR-32 | P6-2-8 orchestration hook | `enhancement/p6-creation-panel-orchestration` | ✅ #316 |
 | PR-33 | P6-2-9 catalog hook | `enhancement/p6-creation-panel-catalog` | ✅ #317 |
 | PR-34 | P6-2-10 mention hook | `enhancement/p6-creation-panel-mention` | ✅ #318 |
-| PR-35 | P6-2-11 body 组件 | `enhancement/p6-creation-panel-body` | 🔄 进行中 |
+| PR-35 | P6-2-11 body 组件 | `enhancement/p6-creation-panel-body` | ✅ #319 |
+| PR-36 | P6-2-12 body props 分组 | `enhancement/p6-creation-panel-body-props` | 🔄 进行中 |
 
 ---
 

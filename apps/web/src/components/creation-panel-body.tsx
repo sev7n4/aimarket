@@ -68,158 +68,13 @@ import type {
 } from "@/lib/types";
 import type { VideoAutoMeta } from "@/lib/video-auto-model";
 import type { VideoPickCandidate } from "@/lib/canvas-video-reference-bind";
-
-export type CreationPanelPropsVariant = "default" | "dock" | "studio-dock";
-
-export type CreationPanelBodyFocusEdit = {
-  points: FocusPointChip[];
-  intent: FocusEditIntent;
-  cropSize?: number;
-  recognizing?: boolean;
-  onIntentChange: (intent: FocusEditIntent) => void;
-  onRemovePoint: (pointId: string) => void;
-  onEditPoint?: (pointId: string, newName: string) => void;
-  onChipPromptChange?: (pointId: string, prompt: string) => void;
-  onReplaceImage?: (pointId: string, assetId: string, url: string) => void;
-  onClearAll?: () => void;
-  onCropSizeChange?: (size: number) => void;
-  onCancel?: () => void;
-};
-
-export type CreationPanelBodyProps = {
-  showDockJobStatusBar: boolean;
-  jobStreamStatus: string | null;
-  streamBusy: boolean;
-  jobStatusSubtext: string | null;
-  pollingJobId: string | null;
-  onCancelJob?: () => void;
-  effectiveCollapsed: boolean;
-  inspirationApply: StudioInspirationApply | null;
-  inspirationVars: Record<string, string>;
-  setInspirationVars: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  showModeTabs: boolean;
-  variant: CreationPanelPropsVariant;
-  mode: CreationMode;
-  setMode: (mode: CreationMode) => void;
-  fileRef: RefObject<HTMLInputElement | null>;
-  uploadTarget: "product" | "reference" | "general";
-  handleUpload: (files: File[]) => void | Promise<void>;
-  isDock: boolean;
-  dockCompactLine: boolean;
-  creationLane: CreationLane;
-  canvasItems: CanvasItem[];
-  mentionUploadedAssets: Array<{ id: string; url: string; label?: string }>;
-  references: SessionReference[];
-  mentionQuery: string;
-  mentionOpen: boolean;
-  insertMention: (item: MentionItem, promptSuffix?: string) => void;
-  setMentionOpen: (open: boolean) => void;
-  setMentionQuery: (query: string) => void;
-  setDockFocused: (focused: boolean) => void;
-  setDockExpanded: (expanded: boolean) => void;
-  openUpload: (target: "product" | "reference" | "general") => void;
-  dockIconBtnClassSm: string;
-  uploading: boolean;
-  videoReferenceMode: VideoReferenceMode;
-  videoReferences: VideoMediaRef[];
-  setVideoReferences: (refs: VideoMediaRef[]) => void;
-  smartMultiShots: SmartMultiShot[];
-  setSmartMultiShots: (shots: SmartMultiShot[]) => void;
-  firstLastMotionPrompt: string;
-  setFirstLastMotionPrompt: React.Dispatch<React.SetStateAction<string>>;
-  uploadVideoReference: (
-    file: File,
-    role?: VideoMediaRef["role"],
-  ) => Promise<{ assetId: string; url: string; mimeType: string }>;
-  videoPickCandidates: VideoPickCandidate[];
-  videoPickCandidatesLoading: boolean;
-  applyVideoPickCandidate: (pick: VideoPickCandidate) => void;
-  readOnly: boolean;
-  pending: boolean;
-  videoUploading: boolean;
-  smartMultiDegraded: boolean;
-  agentLaneAvailable: boolean;
-  handleCreationLaneChange: (lane: CreationLane) => void;
-  showInlineUploadStack: boolean;
-  uploadPreviews: UploadPreviewItem[];
-  setUploadPreviewIndex: (index: number | null) => void;
-  setUploadPreviews: React.Dispatch<React.SetStateAction<UploadPreviewItem[]>>;
-  setAssetIds: React.Dispatch<React.SetStateAction<string[]>>;
-  isStudioDock: boolean;
-  textareaRef: RefObject<HTMLTextAreaElement | null>;
-  prompt: string;
-  setPrompt: (p: string | ((prev: string) => string)) => void;
-  polishCandidates: string[];
-  resetPolish: () => void;
-  syncMentionStateFromPrompt: (prompt: string) => void;
-  rotatingPlaceholder: boolean;
-  rotatingText: string;
-  effectiveMode: CreationMode;
-  dockShouldExpand: boolean;
-  submitOnEnter: boolean;
-  handleSubmitAttempt: () => void;
-  enablePolish: boolean;
-  polishBusy: boolean;
-  polishHint: string | null;
-  handlePolish: () => void;
-  cyclePolishCandidate: () => void;
-  polishCandidateIndex: number;
-  referenceChips: ReferenceChipItem[];
-  handleRemoveReferenceChip: (chip: ReferenceChipItem) => void;
-  mentionedMasks: CanvasMaskSelection[];
-  focusEdit: CreationPanelBodyFocusEdit | null | undefined;
-  sessionId?: string;
-  assetIds: string[];
-  routeHint: string | null;
-  skillsEnabled: boolean;
-  skillPackages: AgentSkillPublic[];
-  selectedSkillId: string | null;
-  skillInFlight: boolean;
-  orchSkillBusy: boolean;
-  orchSkillRun: SkillRun | null;
-  skillIdle: boolean;
-  setSelectedSkillId: (id: string | null) => void;
-  activeSkillId: string | null;
-  selectedSkill: AgentSkillPublic | null;
-  skillRun: SkillRun | null;
-  skillBusy: boolean;
-  handleSubmit: () => void | Promise<void>;
-  cancelSkillRunAction: () => void | Promise<SkillRun | null>;
-  agentEnabled: boolean;
-  homeDirectSubmit: boolean;
-  agentRun: AgentRun | null;
-  agentBusy: boolean;
-  cancelAgentRunAction: () => void | Promise<AgentRun | null>;
-  showStackUpload: boolean;
-  dockIconBtnClass: string;
-  reversing: boolean;
-  handlePromptReverse: () => void | Promise<void>;
-  outputPrefMode: OutputPreferenceMode;
-  handleOutputPrefModeChange: (mode: OutputPreferenceMode) => void;
-  models: ImageModel[];
-  modelId: string;
-  setModelId: (id: string) => void;
-  count: number;
-  setCount: (count: number) => void;
-  resolution: string;
-  aspectRatio: AspectRatio;
-  setResolution: (resolution: string) => void;
-  setAspectRatio: (ratio: AspectRatio) => void;
-  handleVideoReferenceModeChange: (mode: VideoReferenceMode) => void;
-  videoDurationSec: VideoDurationSec;
-  setVideoDurationSec: (sec: VideoDurationSec) => void;
-  videoResolution: VideoResolution;
-  setVideoResolution: (resolution: VideoResolution) => void;
-  videoAutoMeta: VideoAutoMeta | null;
-  videoRoutes: VideoModelRouteMeta[];
-  isVideoModel: boolean;
-  estimated: number | null;
-  user: { id: string } | null;
-  submitAriaLabel: string;
-  submitLoading: boolean;
-};
+import {
+  flattenCreationPanelBodyProps,
+  type CreationPanelBodyProps,
+} from "@/components/creation-panel-body-props";
 
 export function CreationPanelBody(props: CreationPanelBodyProps) {
+  const flat = flattenCreationPanelBodyProps(props);
   const {
     showDockJobStatusBar,
     jobStreamStatus,
@@ -348,7 +203,7 @@ export function CreationPanelBody(props: CreationPanelBodyProps) {
     user,
     submitAriaLabel,
     submitLoading,
-  } = props;
+  } = flat;
 
   return (
     <>
