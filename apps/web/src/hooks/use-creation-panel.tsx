@@ -4,7 +4,7 @@ import type { ReactNode, Ref } from "react";
 import type { CreationPanelHandle, CreationPanelProps } from "@/components/creation-panel-types";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowUp,
   AtSign,
@@ -22,21 +22,9 @@ import {
 } from "@aimarket/ui";
 import { modeTabs, placeholders, PRODUCTION_DOCK_PLACEHOLDER, toApiCreationMode } from "@/lib/modes";
 import {
-  fetchSession,
-  estimatePoints,
   getToken,
-  fetchModels,
-  getVideoAutoModelMeta,
-  getVideoModelRoutesMeta,
-  fetchReferences,
-  suggestModel,
   registerAssetFromUrl,
 } from "@/lib/api-client";
-import {
-  videoAutoPickerLabel,
-  type VideoAutoMeta,
-} from "@/lib/video-auto-model";
-import type { ImageModel, VideoModelRouteMeta } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 import {
   MentionPicker,
@@ -47,9 +35,8 @@ import {
   type CanvasMaskSelection,
   type PendingBatchLineage,
 } from "@/lib/canvas-tools";
-import type { SessionReference } from "@/lib/types";
-import { useRotatingPlaceholder } from "@/hooks/use-rotating-placeholder";
 import type { PendingAsset } from "@/lib/pending-assets";
+import { useRotatingPlaceholder } from "@/hooks/use-rotating-placeholder";
 import { CreationPanelPill } from "@/components/creation-panel-primitives";
 import { CreationPanelView } from "@/components/creation-panel-view";
 import { CreationPanelInspirationVars } from "@/components/creation-panel-inspiration-vars";
@@ -62,6 +49,10 @@ import { useCreationPanelVideo } from "@/hooks/use-creation-panel-video";
 import { useCreationPanelDock } from "@/hooks/use-creation-panel-dock";
 import { useCreationPanelOrchestration } from "@/hooks/use-creation-panel-orchestration";
 import {
+  useCreationPanelDataEffects,
+  useCreationPanelModels,
+} from "@/hooks/use-creation-panel-catalog";
+import {
   UploadPreviewStack,
   type UploadPreviewItem,
 } from "@/components/upload-preview-stack";
@@ -71,6 +62,7 @@ import {
   type AspectRatio,
 } from "@/components/generation-settings-popover";
 import { ModelPicker, AUTO_MODEL_ID } from "@/components/model-picker";
+import { videoAutoPickerLabel } from "@/lib/video-auto-model";
 import { CountPicker } from "@/components/count-picker";
 import type { StudioInspirationApply } from "@/lib/inspiration-studio";
 import { FocusEditChips } from "@/components/focus-edit-chips";
@@ -101,9 +93,6 @@ import {
   resolveCanvasItemForVideoPick,
 } from "@/lib/canvas-video-reference-bind";
 import { ReferenceChips } from "@/components/reference-chips";
-import {
-  hasReferenceImages,
-} from "@/lib/creation-lane-submit";
 import type { StudioDockMode } from "@/lib/studio-dock-state";
 import type {
   FocusEditIntent,
@@ -186,17 +175,10 @@ export function useCreationPanel(
   const market = "中国";
   const language = "中文";
   const designer = "Gloria";
-  const [models, setModels] = useState<ImageModel[]>([]);
-  const [videoAutoMeta, setVideoAutoMeta] = useState<VideoAutoMeta | null>(
-    null,
-  );
-  const [videoRoutes, setVideoRoutes] = useState<VideoModelRouteMeta[]>([]);
-  const [estimated, setEstimated] = useState<number | null>(null);
-  const [routeHint, setRouteHint] = useState<string | null>(null);
+  const { models, videoAutoMeta, videoRoutes } = useCreationPanelModels(user);
   const [inspirationVars, setInspirationVars] = useState<
     Record<string, string>
   >({});
-  const [references, setReferences] = useState<SessionReference[]>([]);
   const [mentionedMasks, setMentionedMasks] = useState<CanvasMaskSelection[]>(
     [],
   );
@@ -366,6 +348,35 @@ export function useCreationPanel(
   } = assets;
 
   const {
+    estimated,
+    routeHint,
+    setRouteHint,
+    references,
+    setReferences,
+  } = useCreationPanelDataEffects({
+    user,
+    mode,
+    effectiveMode,
+    sessionId,
+    initialPrompt,
+    prompt,
+    setPrompt,
+    modelId,
+    count,
+    resolution,
+    setResolution,
+    setCount,
+    buildReferenceSources,
+    canvasItems,
+    assetIds,
+    mentionedAssetIds,
+    selectedRefs,
+    selectedCanvasItem,
+    creationLane,
+    focusEditPointCount: focusEdit?.points.length ?? 0,
+  });
+
+  const {
     setDockExpanded,
     setDockFocused,
     handleCreationLaneChange,
@@ -495,109 +506,6 @@ export function useCreationPanel(
     modelId,
     aspectRatio,
   });
-
-  useEffect(() => {
-    if (!user) {
-      setModels([]);
-      return;
-    }
-    fetchModels()
-      .then((m) => {
-        setModels(m);
-        setVideoAutoMeta(getVideoAutoModelMeta());
-        setVideoRoutes(getVideoModelRoutesMeta());
-      })
-      .catch(() => {
-        setModels([]);
-        setVideoAutoMeta(null);
-        setVideoRoutes([]);
-      });
-  }, [user]);
-
-  useEffect(() => {
-    if (initialPrompt) setPrompt(initialPrompt);
-  }, [initialPrompt]);
-
-  useEffect(() => {
-    if (effectiveMode === "ecommerce") {
-      setResolution("2k");
-      setCount(4);
-    }
-  }, [mode]);
-
-  const canvasMentionSignature = useMemo(
-    () =>
-      canvasItems
-        .map((i) => `${i.id}:${i.outputId ?? ""}:${i.assetId ?? ""}`)
-        .join("|"),
-    [canvasItems],
-  );
-
-  useEffect(() => {
-    if (!user || !sessionId) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const existing = await fetchSession(sessionId).catch(() => null);
-        if (!existing || cancelled) return;
-        const refs = await fetchReferences(sessionId);
-        if (!cancelled) setReferences(refs);
-      } catch {
-        if (!cancelled) setReferences([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user, sessionId, canvasMentionSignature, mode]);
-
-  useEffect(() => {
-    if (!user || !getToken()) {
-      setEstimated(null);
-      return;
-    }
-    const effectiveCount = effectiveMode === "ecommerce" ? 4 : count;
-    const effectiveModel =
-      effectiveMode === "ecommerce"
-        ? "latest-v2-pro"
-        : modelId === AUTO_MODEL_ID
-          ? "omni-v2"
-          : modelId;
-    const effectiveRes = effectiveMode === "ecommerce" ? "2k" : resolution;
-    estimatePoints(effectiveModel, effectiveCount, effectiveRes)
-      .then(setEstimated)
-      .catch(() => setEstimated(null));
-  }, [user, modelId, count, resolution, mode]);
-
-  useEffect(() => {
-    if (!user || effectiveMode === "ecommerce") return;
-    const refsForSuggest = buildReferenceSources();
-    const hasRefsForSuggest = hasReferenceImages(refsForSuggest);
-    const t = setTimeout(() => {
-      suggestModel(mode, prompt, hasRefsForSuggest)
-        .then((s) => {
-          if (modelId === AUTO_MODEL_ID) {
-            setRouteHint(s.reason ? `Auto → ${s.reason}` : "Auto 路由");
-          } else {
-            setRouteHint(s.reason);
-          }
-        })
-        .catch(() => setRouteHint(null));
-    }, 400);
-    return () => clearTimeout(t);
-  }, [
-    user,
-    mode,
-    prompt,
-    modelId,
-    assetIds.length,
-    mentionedAssetIds.length,
-    selectedRefs.length,
-    selectedCanvasItem?.id,
-    creationLane,
-    focusEdit?.points.length,
-    effectiveMode,
-  ]);
 
   const { candidates: videoPickCandidates, loading: videoPickCandidatesLoading } =
     useVideoPickCandidates({
