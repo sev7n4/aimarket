@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button, GlassPanel } from "@aimarket/ui";
-import { confirmOrder, fetchOrder } from "@/lib/api-client";
+import { confirmOrder, fetchOrder } from "@/lib/api/billing";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
 

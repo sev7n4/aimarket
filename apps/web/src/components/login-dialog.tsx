@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Loader2, MessageCircle } from "lucide-react";
 import { Button, GlassPanel } from "@aimarket/ui";
-import { sendSmsCode } from "@/lib/api-client";
+import { sendSmsCode } from "@/lib/api/auth";
 import { useAuth } from "@/lib/auth-context";
 import { BrandLogo } from "@/components/brand-logo";
 
