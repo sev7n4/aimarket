@@ -6,7 +6,7 @@ import {
   fetchDramaPlanRun,
   refineDramaPlan,
   rerunDramaPlanRun,
-} from "@/lib/api-client";
+} from "@/lib/api/drama";
 import {
   pollDramaPlanRun,
   streamDramaPlanRun,
