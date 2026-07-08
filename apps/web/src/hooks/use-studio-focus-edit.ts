@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type { DesignCanvasHandle } from "@/components/design-canvas";
-import { assetUrl, recognizeFocusPoint, runTool, trackEvent } from "@/lib/api-client";
+import { assetUrl } from "@/lib/api/core";
+import { recognizeFocusPoint, runTool } from "@/lib/api/generation";
+import { trackEvent } from "@/lib/api/studio";
 import type { CanvasItem } from "@/lib/canvas-tools";
 import { pickLatestBatchFocusTarget } from "@/lib/canvas-tools";
 import {

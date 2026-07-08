@@ -11,7 +11,15 @@ import {
   type ReactNode,
 } from "react";
 import type { CreationMode } from "@aimarket/ui";
-import { analyzeDramaReplicate, duplicateDramaProject as duplicateDramaProjectApi, ensureSession, fetchAgentPlan, fetchDramaRun, fetchDramaSessionState, trackEvent } from "@/lib/api-client";
+import { fetchAgentPlan } from "@/lib/api/agent";
+import {
+  analyzeDramaReplicate,
+  duplicateDramaProject as duplicateDramaProjectApi,
+  fetchDramaRun,
+  fetchDramaSessionState,
+} from "@/lib/api/drama";
+import { ensureSession } from "@/lib/api/sessions";
+import { trackEvent } from "@/lib/api/studio";
 import type { DramaProject, DramaReplicateProfile } from "@/lib/types";
 import type { DramaProjectType } from "@/components/drama-production-dock-params";
 import type { DramaProductionMode } from "@/components/drama-replicate-dock-params";

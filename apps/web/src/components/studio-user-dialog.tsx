@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { LogOut, Coins, CalendarCheck, Gift, X } from "lucide-react";
 import { Button } from "@aimarket/ui";
 import { useAuth } from "@/lib/auth-context";
-import { fetchSignStatus, signIn } from "@/lib/api-client";
+import { fetchSignStatus, signIn } from "@/lib/api/billing";
 import type { ApiUser } from "@/lib/types";
 
 interface StudioUserDialogProps {

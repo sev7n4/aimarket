@@ -9,8 +9,8 @@ import {
   fetchModels,
   getVideoAutoModelMeta,
   getVideoModelRoutesMeta,
-  trackEvent,
-} from "@/lib/api-client";
+} from "@/lib/api/generation";
+import { trackEvent } from "@/lib/api/studio";
 import type { CanvasItem } from "@/lib/canvas-tools";
 import type { PendingBatchLineage } from "@/lib/canvas-tools";
 import type { ImageModel, VideoModelRouteMeta } from "@/lib/types";

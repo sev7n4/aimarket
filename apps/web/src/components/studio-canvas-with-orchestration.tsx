@@ -12,9 +12,13 @@ import { DramaTimelineEditor } from "@/components/drama-timeline-editor";
 import { DramaAgentPlanWorkspace } from "@/components/drama-agent-plan-workspace";
 import { DramaStudioPanel } from "@/components/drama-studio-panel";
 import { useStudioOrchestration } from "@/components/studio-orchestration-provider";
-import { updateDramaProjectApi } from "@/lib/api-client";
+import {
+  updateDramaProjectApi,
+  retryDramaShot,
+  pickDramaKeyframe,
+} from "@/lib/api/drama";
 import type { DramaNodeRerunPatch } from "@/components/drama-node-graph";
-import { retryDramaShot, pickDramaKeyframe, publishCanvasToInspiration, unpublishInspiration } from "@/lib/api-client";
+import { publishCanvasToInspiration, unpublishInspiration } from "@/lib/api/inspiration";
 import { buildDramaPublishPayload } from "@/lib/drama-publish";
 import type { DramaProjectPayload } from "@/lib/types";
 import { dramaPlanToCanvasNodes, applyDramaNodePositions } from "@/components/infinite-canvas/drama/drama-plan-to-nodes";

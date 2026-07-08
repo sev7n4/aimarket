@@ -17,7 +17,7 @@ import {
   fetchWorkspaceReviewComments,
   fetchWorkspaceReviews,
   patchWorkspaceReviewStatus,
-} from "@/lib/api-client";
+} from "@/lib/api/workspace";
 import type {
   WorkspaceReview,
   WorkspaceReviewComment,

@@ -1,16 +1,11 @@
 import { useCallback, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type { CreationMode } from "@aimarket/ui";
-import {
-  ensureSession,
-  exportSession,
-  runTool,
-  submitGeneration,
-  trackEvent,
-  uploadAsset,
-  requestVideoBgmMux,
-} from "@/lib/api-client";
-import { assetUrl } from "@/lib/api-client";
+import { assetUrl } from "@/lib/api/core";
+import { uploadAsset, requestVideoBgmMux } from "@/lib/api/assets";
+import { submitGeneration, runTool } from "@/lib/api/generation";
+import { ensureSession, exportSession } from "@/lib/api/sessions";
+import { trackEvent } from "@/lib/api/studio";
 import { resolveApiBase } from "@/lib/api-base";
 import type { CanvasItem } from "@/lib/canvas-tools";
 import {

@@ -38,10 +38,8 @@ import type { CanvasItem } from "@/lib/canvas-tools";
 import { StudioOrchestrationProvider } from "@/components/studio-orchestration-provider";
 import { StudioCanvasWithOrchestration } from "@/components/studio-canvas-with-orchestration";
 import { useAuth } from "@/lib/auth-context";
-import {
-  listSessions,
-  trackEvent,
-} from "@/lib/api-client";
+import { listSessions } from "@/lib/api/sessions";
+import { trackEvent } from "@/lib/api/studio";
 import {
   pickLatestBatchFocusTarget,
 } from "@/lib/canvas-tools";

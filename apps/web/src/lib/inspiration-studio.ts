@@ -2,7 +2,7 @@ import type { AspectRatio } from "@/components/generation-settings-popover";
 import type { CreationLane } from "@/lib/creation-dock-prefs";
 import { persistCreationLane } from "@/lib/creation-dock-prefs";
 import type { DramaTemplateMetadata, InspirationDetail } from "@/lib/types";
-import { registerAssetFromUrl } from "@/lib/api-client";
+import { registerAssetFromUrl } from "@/lib/api/assets";
 import { buildProductionStudioUrl, buildStudioUrl } from "@/lib/studio-navigation";
 import {
   createReferenceCanvasItem,
