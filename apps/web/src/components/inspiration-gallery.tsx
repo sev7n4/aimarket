@@ -9,8 +9,8 @@ import {
 import {
   fetchInspirationDetail,
   fetchInspirationPage,
-  trackEvent,
-} from "@/lib/api-client";
+} from "@/lib/api/inspiration";
+import { trackEvent } from "@/lib/api/studio";
 import type { InspirationDetail, InspirationListItem } from "@/lib/types";
 import { InspirationSlotSheet } from "@/components/inspiration-slot-sheet";
 import { InspirationCoverMedia } from "@/components/inspiration-cover-media";

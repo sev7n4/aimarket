@@ -7,7 +7,7 @@ import {
   createSkillRun,
   fetchAgentSkills,
   fetchSkillRun,
-} from "@/lib/api-client";
+} from "@/lib/api/agent";
 import type { AgentSkillPublic, SkillRun } from "@/lib/types";
 
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);

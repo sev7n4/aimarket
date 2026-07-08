@@ -4,14 +4,15 @@ import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import {
   createSkillRun,
-  ensureSession,
-  exportSession,
-  fetchProductSetInit,
   fetchSkillRun,
+} from "@/lib/api/agent";
+import {
+  fetchProductSetInit,
   submitVideoGeneration,
   submitEcommerceGenerate,
   submitEcommerceRerunSlide,
-} from "@/lib/api-client";
+} from "@/lib/api/generation";
+import { ensureSession, exportSession } from "@/lib/api/sessions";
 import type { SkillRun } from "@/lib/types";
 import { resolveApiBase } from "@/lib/api-base";
 import {

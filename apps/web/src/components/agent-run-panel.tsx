@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Check, Loader2, X } from "lucide-react";
 import type { AgentPlan, AgentRun, AgentRunStatus } from "@/lib/types";
-import { fetchAgentPlan } from "@/lib/api-client";
+import { fetchAgentPlan } from "@/lib/api/agent";
 
 const STATUS_LABEL: Record<AgentRunStatus, string> = {
   planning: "规划中",

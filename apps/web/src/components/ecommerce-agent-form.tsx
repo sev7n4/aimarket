@@ -1,7 +1,7 @@
 "use client";
 
 import { ImagePlus, Loader2, X } from "lucide-react";
-import { assetUrl } from "@/lib/api-client";
+import { assetUrl } from "@/lib/api/core";
 import type { ProductSetInit } from "@/lib/types";
 
 interface EcommerceAgentFormProps {

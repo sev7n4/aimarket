@@ -2,7 +2,7 @@
 
 import { Clapperboard, Play } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
-import { assetUrl } from "@/lib/api-client";
+import { assetUrl } from "@/lib/api/core";
 import { isVideoCoverUrl } from "@/lib/inspiration-studio";
 import Image from "next/image";
 
