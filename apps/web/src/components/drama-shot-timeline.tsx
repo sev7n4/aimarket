@@ -24,7 +24,7 @@ import {
   unbindDramaShotCommerceHero,
   type CommerceHeroCandidate,
   type CommerceHeroSource,
-} from "@/lib/api-client";
+} from "@/lib/api/commerce";
 
 interface DramaShotTimelineProps {
   project: DramaProjectPayload;

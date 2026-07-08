@@ -12,7 +12,7 @@ import {
   rerunDramaRunFromNode,
   startDramaProduction,
   updateDramaProjectApi,
-} from "@/lib/api-client";
+} from "@/lib/api/drama";
 import {
   pollDramaRunUpdates,
   streamDramaRun,

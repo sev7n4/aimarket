@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Loader2, Palette, Sparkles, Users } from "lucide-react";
 import type { DramaPlanStreamEvent } from "@/lib/drama-plan-stream";
 import type { DramaProjectPayload } from "@/lib/types";
-import { fetchDramaVoices } from "@/lib/api-client";
+import { fetchDramaVoices } from "@/lib/api/drama";
 import { allCharactersLockedForProduce } from "@/lib/drama-character-helpers";
 import { DramaScriptCard } from "@/components/drama/drama-script-card";
 import { DramaSceneCardView } from "@/components/drama/drama-scene-card";

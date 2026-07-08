@@ -12,7 +12,7 @@ import { DramaAssetRegenPopover } from "@/components/drama/drama-asset-regen-pop
 import {
   fetchDramaProject,
   generateDramaCharacterTurnaround,
-} from "@/lib/api-client";
+} from "@/lib/api/drama";
 import {
   CHARACTER_ANGLE_LABELS,
   characterRefImageUrl,

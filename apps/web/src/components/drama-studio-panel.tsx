@@ -10,7 +10,9 @@ import { DramaStoryboardGrid } from "@/components/drama-storyboard-grid";
 import { DramaVersionHistory } from "@/components/drama-version-history";
 import { DramaPlanThread } from "@/components/drama-plan-thread";
 import { StudioReviewSidebar } from "@/components/studio-review-sidebar";
-import { estimateDramaProjectPoints, fetchWorkspaceMembers, uploadAsset } from "@/lib/api-client";
+import { uploadAsset } from "@/lib/api/assets";
+import { estimateDramaProjectPoints } from "@/lib/api/drama";
+import { fetchWorkspaceMembers } from "@/lib/api/workspace";
 import { allCharactersLockedForProduce } from "@/lib/drama-character-helpers";
 import {
   activePipelineStep,

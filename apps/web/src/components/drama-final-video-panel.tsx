@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Download, Sparkles } from "lucide-react";
 import { CanvasVideoPlayer } from "@/components/canvas-video-player";
-import { assetUrl } from "@/lib/api-client";
+import { assetUrl } from "@/lib/api/core";
 import { buildDramaPublishPayload } from "@/lib/drama-publish";
 import type { DramaRun } from "@/lib/types";
 
