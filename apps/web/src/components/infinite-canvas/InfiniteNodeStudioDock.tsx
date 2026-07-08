@@ -77,7 +77,8 @@ export function InfiniteNodeStudioDock({
         },
         callbacks: {
           onAssistantMessage: (text) => setStatus(text.slice(0, 120)),
-          onToolCallPending: () => setStatus("正在执行节点操作…"),
+          onToolCallPending: (_toolCalls, _step, _messages) =>
+            setStatus("正在执行节点操作…"),
           onToolCallApproved: () => setStatus("节点已更新"),
           onToolCallRejected: () => setStatus("操作已取消"),
           onMaxStepsReached: () => setStatus("已达到最大步数"),

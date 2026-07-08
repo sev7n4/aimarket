@@ -162,5 +162,7 @@ export interface DesignCanvasProps {
       visualPrompt?: string;
     },
   ) => void;
+  /** NeoWOW 式 /workflow 壳：左画布 + 右 Agent 分栏 */
+  workflowShell?: boolean;
 }
 

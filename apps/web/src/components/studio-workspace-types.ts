@@ -10,4 +10,6 @@ export interface StudioWorkspaceProps {
   initialJobId?: string;
   initialToolId?: string;
   autoSubmitOnce?: boolean;
+  /** NeoWOW 式 /workflow 壳：左画布 + 右 Agent，隐藏底部 Dock */
+  workflowShell?: boolean;
 }

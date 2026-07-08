@@ -87,6 +87,10 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
     isDramaWorkflowInfiniteView,
     effectiveAssistantSnapshot,
     handleApplyAssistantOps,
+    workflowShell,
+    agentPanelWidth,
+    agentPanelDragging,
+    onAgentPanelResizeStart,
     templateSelectedNodes,
     templateSelectedConnections,
     sessionId,
@@ -328,8 +332,12 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
               showDramaPropertyPanel={!isDramaWorkflowInfiniteView}
               onCloseDramaPanel={() => setDramaPanelNodeId(null)}
               assistantSnapshot={effectiveAssistantSnapshot}
-              showAssistantPanel={!isDramaWorkflowInfiniteView}
+              showAssistantPanel={workflowShell || !isDramaWorkflowInfiniteView}
               onApplyAssistantOps={handleApplyAssistantOps}
+              workflowShell={workflowShell}
+              agentPanelWidth={agentPanelWidth}
+              agentPanelDragging={agentPanelDragging}
+              onAgentPanelResizeStart={onAgentPanelResizeStart}
               templateSelectedNodes={templateSelectedNodes}
               templateSelectedConnections={templateSelectedConnections}
               sessionId={sessionId}

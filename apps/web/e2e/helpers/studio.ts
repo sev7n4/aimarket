@@ -39,6 +39,19 @@ export async function gotoStudioAndWait(page: Page, url = "/studio") {
   });
 }
 
+/** NeoWOW 式 /workflow：无底部 Dock，等待画布 + Agent 面板就绪 */
+export async function gotoWorkflowAndWait(page: Page, url = "/workflow") {
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/sessionId=/, { timeout: 30_000 });
+  await expect(page.getByTestId("workflow-page")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("infinite-canvas-pane")).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByTestId("workflow-agent-panel")).toBeVisible({
+    timeout: 15_000,
+  });
+}
+
 /**
  * 统一默认 ScrollCanvas；点击「节点视图」切换进入 InfiniteCanvas。
  * 需 canvasFlow 开启（勿配合 skipStudioCoach，其会强制关闭节点画布）。
