@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { MessageCircle, Sparkles } from "lucide-react";
-import { listDramaPlanTurns } from "@/lib/api-client";
+import { listDramaPlanTurns } from "@/lib/api/drama";
 import type { DramaPlanTurn } from "@/lib/types";
 
 interface DramaPlanThreadProps {

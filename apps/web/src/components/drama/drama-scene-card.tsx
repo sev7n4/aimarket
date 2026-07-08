@@ -8,7 +8,7 @@ import {
   dramaSceneDisplayFromCard,
 } from "@/components/drama/drama-scene-card-shell";
 import { DramaAssetRegenPopover } from "@/components/drama/drama-asset-regen-popover";
-import { fetchDramaProject, generateDramaSceneRef } from "@/lib/api-client";
+import { fetchDramaProject, generateDramaSceneRef } from "@/lib/api/drama";
 import type { DramaProjectPayload, DramaSceneCard } from "@/lib/types";
 
 type DramaSceneCardViewProps = {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchDramaVoices } from "@/lib/api-client";
+import { fetchDramaVoices } from "@/lib/api/drama";
 import type { DramaVoiceOption } from "@/lib/types";
 
 interface DramaVoicePickerProps {

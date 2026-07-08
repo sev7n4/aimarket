@@ -7,7 +7,7 @@ import {
   fetchDramaProjectVersion,
   fetchDramaProjectVersions,
   restoreDramaProjectVersion,
-} from "@/lib/api-client";
+} from "@/lib/api/drama";
 import type {
   DramaProjectVersionDiff,
   DramaProjectVersionSummary,
