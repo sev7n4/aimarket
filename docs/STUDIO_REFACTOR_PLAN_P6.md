@@ -12,7 +12,7 @@
 |------|------|------|---------|
 | **P6-0** | 死代码与 deprecated 清理 | ✅ 完成 | #301 |
 | **P6-1** | 提交单源化 | ✅ 完成 | #302 / #307 |
-| **P6-2** | `use-creation-panel` 拆分 | 🔄 进行中 | #303–#305 / #310 / #312 / #314 |
+| **P6-2** | `use-creation-panel` 拆分 | 🔄 进行中 | #303–#305 / #310 / #312 / #314 / orch PR |
 | **P6-3** | 工具 UI meta 单源 | ✅ 完成 | #306 |
 | **P6-4** | Drama 卡片 panel/node 统一 | ✅ 完成 | #309 / #311 / #313 / shot PR |
 | **P6-5** | `api-client` 按域拆分 | ⬜ 未开始 | — |
@@ -70,7 +70,8 @@
 | P6-2-4 | Job 状态 / 灵感表单组件 | ✅ | `CreationPanelJobStatusBar` 等 | 纯展示拆分 |
 | P6-2-5 | 润色逻辑 hook | ✅ | `use-creation-panel-polish.ts` | typecheck 绿 |
 | P6-2-6 | 视频参考 hook | ✅ | `use-creation-panel-video.ts` | panel 1770→1705 行 |
-| P6-2-7 | Dock / lane hook | 🔄 | `use-creation-panel-dock.ts` | panel 1705→1538 行 |
+| P6-2-7 | Dock / lane hook | ✅ | `use-creation-panel-dock.ts` | panel 1705→1538 行 |
+| P6-2-8 | Orchestration / session hook | 🔄 | `use-creation-panel-orchestration.ts` | panel 1538→1418 行 |
 
 ---
 
@@ -123,7 +124,8 @@
 | PR-28 | P6-2-6 video hook | `enhancement/p6-creation-panel-video` | ✅ #312 |
 | PR-29 | P6-4-3 Character shell | `enhancement/p6-drama-character-card-shell` | ✅ #313 |
 | PR-30 | P6-2-7 dock hook | `enhancement/p6-creation-panel-dock` | ✅ #314 |
-| PR-31 | P6-4-4 Shot shell | `enhancement/p6-drama-shot-card-shell` | 🔄 进行中 |
+| PR-31 | P6-4-4 Shot shell | `enhancement/p6-drama-shot-card-shell` | ✅ #315 |
+| PR-32 | P6-2-8 orchestration hook | `enhancement/p6-creation-panel-orchestration` | 🔄 进行中 |
 
 ---
 

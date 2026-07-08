@@ -31,7 +31,6 @@ import {
   fetchReferences,
   suggestModel,
   registerAssetFromUrl,
-  trackEvent,
 } from "@/lib/api-client";
 import {
   videoAutoPickerLabel,
@@ -61,6 +60,7 @@ import { useCreationPanelSubmit } from "@/hooks/use-creation-panel-submit";
 import { useCreationPanelPolish } from "@/hooks/use-creation-panel-polish";
 import { useCreationPanelVideo } from "@/hooks/use-creation-panel-video";
 import { useCreationPanelDock } from "@/hooks/use-creation-panel-dock";
+import { useCreationPanelOrchestration } from "@/hooks/use-creation-panel-orchestration";
 import {
   UploadPreviewStack,
   type UploadPreviewItem,
@@ -77,9 +77,6 @@ import { FocusEditChips } from "@/components/focus-edit-chips";
 import { AgentRunPanel } from "@/components/agent-run-panel";
 import { SkillPackagePicker } from "@/components/skill-package-picker";
 import { SkillRunPanel } from "@/components/skill-run-panel";
-import { useAgentRun } from "@/hooks/use-agent-run";
-import { useSkillRun } from "@/hooks/use-skill-run";
-import type { AgentRunStatus, SkillRunStatus } from "@/lib/types";
 import { useStudioOrchestrationOptional } from "@/components/studio-orchestration-provider";
 import {
   CreationDockToolbar,
@@ -107,12 +104,6 @@ import { ReferenceChips } from "@/components/reference-chips";
 import {
   hasReferenceImages,
 } from "@/lib/creation-lane-submit";
-import {
-  isAgentAwaitingConfirm,
-  isAgentRunInFlight,
-  isSkillAwaitingConfirm,
-  isSkillRunInFlight,
-} from "@/lib/creation-orchestration-submit";
 import type { StudioDockMode } from "@/lib/studio-dock-state";
 import type {
   FocusEditIntent,
@@ -425,6 +416,54 @@ export function useCreationPanel(
   });
 
   const {
+    skillPackages,
+    skillRun,
+    skillBusy,
+    confirmSkillRunAction,
+    cancelSkillRunAction,
+    agentRun,
+    agentBusy,
+    confirmAgentRunAction,
+    cancelAgentRunAction,
+    startAgentRun,
+    startSkillRun,
+    selectedSkill,
+    orchSkillRun,
+    orchAgentRun,
+    orchSkillBusy,
+    orchAgentBusy,
+    skillAwaitingConfirm,
+    skillInFlight,
+    skillIdle,
+    agentAwaitingConfirm,
+    agentInFlight,
+    agentIdle,
+    submitAriaLabel,
+  } = useCreationPanelOrchestration({
+    sessionId,
+    effectiveMode,
+    skillsEnabled,
+    agentEnabled,
+    studioOrchestrationActive,
+    studioOrch: studioOrch ?? null,
+    dramaOrchestrationActive,
+    creationLane,
+    activeSkillId,
+    selectedSkillId,
+    prompt,
+    setPrompt,
+    focusEditActive,
+    sessionEnsuredRef,
+    clearAttachmentState,
+    setMentionedMasks,
+    setSelectedSkillId,
+    setDockSkillId,
+    refreshUser,
+    onJobStarted,
+    onAgentRunComplete,
+  });
+
+  const {
     polishBusy,
     polishHint,
     polishCandidates,
@@ -456,159 +495,6 @@ export function useCreationPanel(
     modelId,
     aspectRatio,
   });
-
-  const {
-    skills: skillPackages,
-    run: skillRun,
-    busy: skillBusy,
-    startRun: startSkillRun,
-    confirmRun: confirmSkillRunAction,
-    cancelRun: cancelSkillRunAction,
-    resetRun: resetSkillRun,
-  } = useSkillRun({
-    sessionId,
-    enabled: skillsEnabled && !studioOrchestrationActive,
-    onJobStarted,
-    onRunSettled: (run) => {
-      if (run.status === "completed") {
-        setPrompt("");
-        clearAttachmentState();
-        setMentionedMasks([]);
-        setSelectedSkillId(null);
-        setDockSkillId(null);
-        void refreshUser();
-        void trackEvent("skill_run_complete", {
-          sessionId: sessionId ?? "",
-          runId: run.id,
-          skillId: run.skillId,
-        });
-      } else if (run.status === "failed" && run.error) {
-        alert(run.error);
-      }
-      onAgentRunComplete?.();
-      resetSkillRun();
-    },
-  });
-
-  const selectedSkill =
-    (studioOrchestrationActive ? studioOrch!.skillPackages : skillPackages)
-      .find((s) => s.id === (activeSkillId ?? selectedSkillId)) ?? null;
-
-  const {
-    run: agentRun,
-    busy: agentBusy,
-    startRun: startAgentRun,
-    confirmRun: confirmAgentRunAction,
-    cancelRun: cancelAgentRunAction,
-    resetRun: resetAgentRun,
-  } = useAgentRun({
-    sessionId,
-    mode: effectiveMode,
-    enabled: agentEnabled && !studioOrchestrationActive,
-    onJobStarted,
-    onRunSettled: (run) => {
-      if (run.status === "completed") {
-        setPrompt("");
-        clearAttachmentState();
-        setMentionedMasks([]);
-        void refreshUser();
-        void trackEvent("agent_run_complete", {
-          sessionId: sessionId ?? "",
-          runId: run.id,
-        });
-      } else if (run.status === "failed" && run.error) {
-        alert(run.error);
-      }
-      onAgentRunComplete?.();
-      resetAgentRun();
-    },
-  });
-
-  const orchSkillRun = studioOrchestrationActive
-    ? studioOrch!.skillRun
-    : skillRun;
-  const orchAgentRun = studioOrchestrationActive
-    ? studioOrch!.agentRun
-    : agentRun;
-  const orchSkillBusy = studioOrchestrationActive
-    ? studioOrch!.skillBusy
-    : skillBusy;
-  const orchAgentBusy = studioOrchestrationActive
-    ? studioOrch!.agentBusy
-    : agentBusy;
-
-  const sessionResetKeyRef = useRef<string | null>(null);
-  useEffect(() => {
-    const resetKey = sessionId ?? "";
-    if (sessionResetKeyRef.current === resetKey) return;
-    sessionResetKeyRef.current = resetKey;
-    sessionEnsuredRef.current = false;
-    if (!studioOrchestrationActive) {
-      resetAgentRun();
-      resetSkillRun();
-    }
-    setPrompt("");
-    clearAttachmentState();
-    setMentionedMasks([]);
-    setSelectedSkillId(null);
-    setDockSkillId(null);
-  }, [sessionId, resetAgentRun, resetSkillRun, studioOrchestrationActive, setPrompt, clearAttachmentState]);
-
-  useEffect(() => {
-    if (!studioOrchestrationActive || !studioOrch) return;
-    studioOrch.setInput({
-      prompt,
-      creationLane,
-      activeSkillId,
-      effectiveMode,
-      focusEditActive: Boolean(focusEdit),
-    });
-  }, [
-    studioOrchestrationActive,
-    studioOrch,
-    prompt,
-    creationLane,
-    activeSkillId,
-    effectiveMode,
-    focusEdit,
-  ]);
-
-  const orchestrationResetTick = studioOrch?.orchestrationResetTick ?? 0;
-  const lastOrchestrationResetRef = useRef(0);
-  useEffect(() => {
-    if (!studioOrchestrationActive) return;
-    if (orchestrationResetTick <= lastOrchestrationResetRef.current) return;
-    lastOrchestrationResetRef.current = orchestrationResetTick;
-    setPrompt("");
-    clearAttachmentState();
-    setMentionedMasks([]);
-    setSelectedSkillId(null);
-    setDockSkillId(null);
-  }, [studioOrchestrationActive, orchestrationResetTick, setPrompt, clearAttachmentState]);
-
-  const skillAwaitingConfirm = isSkillAwaitingConfirm(orchSkillRun);
-  const skillInFlight = isSkillRunInFlight(orchSkillRun);
-  const skillIdle =
-    !orchSkillRun ||
-    (["completed", "failed", "cancelled"] as SkillRunStatus[]).includes(
-      orchSkillRun.status,
-    );
-
-  const agentAwaitingConfirm = isAgentAwaitingConfirm(orchAgentRun);
-  const agentInFlight = isAgentRunInFlight(orchAgentRun);
-  const submitAriaLabel = skillAwaitingConfirm
-    ? "确认执行套餐"
-    : agentAwaitingConfirm
-      ? "确认执行"
-      : creationLane === "agent"
-        ? dramaOrchestrationActive
-          ? "开始规划"
-          : "提交 Agent"
-        : activeSkillId === ECOMMERCE_SET_SKILL_ID
-          ? "开始电商套图"
-          : activeSkillId
-            ? "开始套餐"
-            : "开始生成";
 
   useEffect(() => {
     if (!user) {
@@ -787,12 +673,6 @@ export function useCreationPanel(
       (focusEdit?.points ?? []).some(
         (p) => (p.chipPrompt ?? "").trim().length > 0,
       ));
-
-  const agentIdle =
-    !orchAgentRun ||
-    (["completed", "failed", "cancelled"] as AgentRunStatus[]).includes(
-      orchAgentRun.status,
-    );
 
   const canSubmit =
     !readOnly &&
