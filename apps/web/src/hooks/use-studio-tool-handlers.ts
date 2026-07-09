@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import type { CreationMode } from "@aimarket/ui";
 
 import type {
   CanvasNodeHandlerContext,
@@ -14,11 +15,19 @@ import type {
 import { expandFromDirection } from "@/lib/expand-extend";
 import type { InfiniteNodeToolRequest } from "@/lib/infinite-node-tool-run";
 import {
+  isDramaShotNode,
   resolveNodeToolPrompt,
   resolveNodeToolReferences,
 } from "@/lib/infinite-node-tool-run";
-import { runTool } from "@/lib/api/generation";
+import { runTool, submitGeneration, submitVideoGeneration, getVideoAutoModelMeta } from "@/lib/api/generation";
 import { trackEvent } from "@/lib/api/studio";
+import {
+  type AgentRunGenerationRequest,
+  resolveAgentGenerationMode,
+} from "@/lib/agent-run-generation";
+import { resolveVideoSubmitModelId } from "@/lib/video-auto-model";
+import { AUTO_MODEL_ID } from "@/lib/creation-lane-drafts";
+import { coerceStudioAspectRatio, studioVideoSubmitAspectRatio } from "@/lib/studio-submit";
 import { hapticLight } from "@/lib/haptics";
 import { resolveToolResolution } from "@/lib/tool-resolution";
 import {
@@ -35,6 +44,7 @@ export function useStudioToolHandlers(
 ): UseStudioToolHandlersResult {
   const {
     sessionId,
+    mode,
     readOnly,
     user,
     tools,
@@ -206,6 +216,149 @@ export function useStudioToolHandlers(
     ],
   );
 
+  const runAgentGeneration = useCallback(
+    async (request: AgentRunGenerationRequest) => {
+      if (readOnly || !sessionId) return;
+      if (!user) {
+        onRequireLogin();
+        return;
+      }
+
+      const { node } = request;
+      const genMode = resolveAgentGenerationMode(node, request.mode);
+      const prompt =
+        request.prompt?.trim() ||
+        node.metadata?.prompt?.trim() ||
+        resolveNodeToolPrompt(node);
+
+      if (!prompt && genMode !== "text") {
+        setSelectSourceBanner("Agent 生成：缺少 prompt，请补充描述后重试");
+        return;
+      }
+
+      if (isDramaShotNode(node)) {
+        setSelectSourceBanner("短剧分镜请使用专用生成工具");
+        return;
+      }
+
+      if (genMode === "text" || genMode === "audio") {
+        setSelectSourceBanner(`暂不支持 Agent 直接生成 ${genMode} 内容`);
+        return;
+      }
+
+      const item = canvasItems.find((i) => i.id === node.id) ?? null;
+      const refs = resolveNodeToolReferences(node, item);
+
+      setPendingToolId("agent-generation");
+      try {
+        if (genMode === "video") {
+          const videoAutoMeta = getVideoAutoModelMeta();
+          const videoModelId = resolveVideoSubmitModelId(AUTO_MODEL_ID, [], videoAutoMeta);
+          const { jobId } = await submitVideoGeneration({
+            sessionId,
+            prompt,
+            modelId: videoModelId,
+            count: 1,
+            resolution: "1k",
+            aspectRatio: studioVideoSubmitAspectRatio("16:9"),
+            videoResolution: "720P",
+            durationSec: 5,
+            assetIds: refs.assetIds,
+            referenceOutputIds: refs.referenceOutputIds,
+            sourceLane: "video",
+          });
+          void trackEvent("generation_submit", {
+            mode: "video",
+            sessionId,
+            source: "agent_run_generation",
+          });
+          if (item) {
+            registerToolBatchLineage(jobId, item, "Agent 视频生成");
+          } else {
+            registerBatchLineage(jobId, {
+              sourceItemId: node.id,
+              toolName: "Agent 视频生成",
+            });
+          }
+          onJobStarted(jobId);
+          setPollingJobId(jobId);
+          setSelectSourceBanner(null);
+          return;
+        }
+
+        if (refs.referenceOutputIds?.length || refs.assetIds?.length) {
+          const { jobId } = await runTool("variation", {
+            sessionId,
+            prompt,
+            referenceOutputIds: refs.referenceOutputIds,
+            assetIds: refs.assetIds,
+            resolution: "1k",
+            count: 1,
+          });
+          void trackEvent("tool_run", {
+            tool_id: "variation",
+            job_id: jobId,
+            source: "agent_run_generation",
+          });
+          if (item) {
+            registerToolBatchLineage(jobId, item, "Agent 图片生成");
+          } else {
+            registerBatchLineage(jobId, {
+              sourceItemId: node.id,
+              toolName: "Agent 图片生成",
+            });
+          }
+          onJobStarted(jobId);
+          setPollingJobId(jobId);
+          setSelectSourceBanner(null);
+          return;
+        }
+
+        const { jobId } = await submitGeneration({
+          sessionId,
+          prompt,
+          count: 1,
+          resolution: "1k",
+          aspectRatio: coerceStudioAspectRatio("1:1"),
+          mode: mode === "ecommerce" ? "ecommerce" : "image",
+          autoRoute: true,
+          sourceLane: "image",
+        });
+        void trackEvent("generation_submit", {
+          mode,
+          sessionId,
+          source: "agent_run_generation",
+        });
+        registerBatchLineage(jobId, {
+          sourceItemId: node.id,
+          toolName: "Agent 图片生成",
+        });
+        onJobStarted(jobId);
+        setPollingJobId(jobId);
+        setSelectSourceBanner(null);
+      } catch (err) {
+        setSelectSourceBanner(
+          err instanceof Error ? err.message : "Agent 生成提交失败",
+        );
+      } finally {
+        setPendingToolId(null);
+      }
+    },
+    [
+      readOnly,
+      sessionId,
+      user,
+      mode,
+      canvasItems,
+      onRequireLogin,
+      registerToolBatchLineage,
+      registerBatchLineage,
+      onJobStarted,
+      setPollingJobId,
+      setSelectSourceBanner,
+    ],
+  );
+
   const runSelectionTool = useCallback(
     async (tool: StudioTool, item: CanvasItem) => {
       if (!user) {
@@ -346,6 +499,7 @@ export function useStudioToolHandlers(
     runSelectionTool,
     runQuickToolFromCanvas,
     runInfiniteNodeTool,
+    runAgentGeneration,
     executeDirectTool,
     confirmTool,
   };

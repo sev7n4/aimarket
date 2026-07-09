@@ -1,4 +1,5 @@
 import type { RefObject, Dispatch, SetStateAction } from "react";
+import type { CreationMode } from "@aimarket/ui";
 
 import type { DesignCanvasHandle } from "@/components/design-canvas";
 import type {
@@ -37,6 +38,7 @@ export type StudioMentionItemRequest = {
 /** Scroll / Infinite 画布节点工具 handler 共享依赖 */
 export type CanvasNodeHandlerContext = {
   sessionId: string;
+  mode: CreationMode;
   readOnly: boolean;
   user: unknown;
   tools: StudioTool[];
@@ -70,6 +72,9 @@ export type UseStudioToolHandlersResult = {
     toolId: "cutout" | "expand",
   ) => void;
   runInfiniteNodeTool: (request: InfiniteNodeToolRequest) => Promise<void>;
+  runAgentGeneration: (
+    request: import("@/lib/agent-run-generation").AgentRunGenerationRequest,
+  ) => Promise<void>;
   executeDirectTool: (
     tool: StudioTool,
     item: CanvasItem,
@@ -87,6 +92,9 @@ export type DesignCanvasNodeActions = {
   onShareItem?: (item: CanvasItem) => void;
   onPublishItem?: (item: CanvasItem) => void;
   onRunInfiniteNodeTool?: (request: InfiniteNodeToolRequest) => void;
+  onAgentRunGeneration?: (
+    request: import("@/lib/agent-run-generation").AgentRunGenerationRequest,
+  ) => void;
   batchTools?: {
     tools: StudioTool[];
     pendingToolId?: string | null;

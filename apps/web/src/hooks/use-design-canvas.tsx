@@ -46,6 +46,10 @@ import {
   type AgentExternalAction,
 } from "@/components/infinite-canvas/utils";
 import type { DesignCanvasHandle, DesignCanvasProps } from "@/components/design-canvas-types";
+import {
+  bindRunGenerationNodeIds,
+  collectRunGenerationRequests,
+} from "@/lib/agent-run-generation";
 
 export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasHandle>) {
   const {
@@ -128,6 +132,7 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     const onPublishItem = nodeActions?.onPublishItem;
     const batchTools = nodeActions?.batchTools;
     const onRunInfiniteNodeTool = nodeActions?.onRunInfiniteNodeTool;
+    const onAgentRunGeneration = nodeActions?.onAgentRunGeneration;
     const dramaNodeActions = nodeActions?.drama;
 
     const scrollCanvasRef = useRef<ProductGalleryHandle>(null);
@@ -364,6 +369,7 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
 
     // Handle assistant ops - applies CanvasAgentOps to the canvas
     const handleApplyAssistantOps = useCallback((ops: CanvasAgentOp[]): CanvasAgentSnapshot => {
+      const boundOps = bindRunGenerationNodeIds(ops);
       const currentNodes = [...canvasItemsToNodeData(items), ...dramaNodes];
       const currentConnections = canvasConnections;
       const snapshot: CanvasAgentSnapshot = {
@@ -375,8 +381,8 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
         viewport: infiniteViewport,
       };
 
-      const externalOps = ops.filter(isExternalAgentOp);
-      const canvasOps = ops.filter(isCanvasStateOp);
+      const externalOps = boundOps.filter(isExternalAgentOp);
+      const canvasOps = boundOps.filter(isCanvasStateOp);
 
       for (const op of externalOps) {
         onAgentExternalAction?.(op as AgentExternalAction);
@@ -423,6 +429,13 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
         applyingAssistantOpsRef.current = false;
       }, 0);
 
+      if (!readOnly && onAgentRunGeneration) {
+        const requests = collectRunGenerationRequests(newSnapshot.nodes, boundOps);
+        for (const req of requests) {
+          void onAgentRunGeneration(req);
+        }
+      }
+
       return newSnapshot;
     }, [
       items,
@@ -436,6 +449,8 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       onApplyAssistantOps,
       onAgentExternalAction,
       onInfiniteConnectionsChange,
+      onAgentRunGeneration,
+      readOnly,
       pushHistory,
       onSelect,
     ]);
