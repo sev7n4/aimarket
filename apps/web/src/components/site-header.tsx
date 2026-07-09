@@ -9,7 +9,8 @@ import { LoginDialog } from "@/components/login-dialog";
 import { CreditsDialog } from "@/components/credits-dialog";
 import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
 import { BrandLogo } from "@/components/brand-logo";
-import { fetchSignStatus, getToken, signIn } from "@/lib/api-client";
+import { getToken } from "@/lib/api/core";
+import { fetchSignStatus, signIn } from "@/lib/api/billing";
 
 export function SiteHeader() {
   const { user, logout, loading, refreshUser } = useAuth();

@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button, GlassPanel } from "@aimarket/ui";
-import { resendVerificationEmail, verifyEmail } from "@/lib/api-client";
+import { resendVerificationEmail, verifyEmail } from "@/lib/api/auth";
 import { useAuth } from "@/lib/auth-context";
 import { BrandLogo } from "@/components/brand-logo";
 

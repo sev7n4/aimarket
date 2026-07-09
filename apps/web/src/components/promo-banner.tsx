@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
-import { dismissNotice, fetchLatestNotice } from "@/lib/api-client";
+import { dismissNotice, fetchLatestNotice } from "@/lib/api/notices";
 import type { Notice } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Copy, Loader2, X } from "lucide-react";
 import { GlassPanel } from "@aimarket/ui";
-import { fetchInviteInfo } from "@/lib/api-client";
+import { fetchInviteInfo } from "@/lib/api/billing";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import type { InviteInfo } from "@/lib/types";
 

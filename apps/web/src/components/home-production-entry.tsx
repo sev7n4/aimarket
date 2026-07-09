@@ -6,7 +6,7 @@ import {
   buildProductionStudioUrl,
   buildStudioUrl,
 } from "@/lib/studio-navigation";
-import { trackEvent } from "@/lib/api-client";
+import { trackEvent } from "@/lib/api/studio";
 
 type EntrySource = "home_hero" | "home_hero_ecommerce" | "home_hero_canvas";
 

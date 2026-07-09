@@ -7,7 +7,7 @@ import {
   checkoutPackage,
   fetchPackages,
   fetchPaymentStatus,
-} from "@/lib/api-client";
+} from "@/lib/api/billing";
 import type { CreditPackage } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 
