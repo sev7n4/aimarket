@@ -203,6 +203,7 @@ export function InfiniteCanvasPane({
             initialCollapsed={!workflowShell}
             variant={workflowShell ? "docked" : "floating"}
             width={workflowShell ? agentPanelWidth : undefined}
+            confirmTools={workflowShell}
           />
         ) : null}
         {showTemplateManager ? (

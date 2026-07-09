@@ -36,6 +36,9 @@ export type CanvasNodeMetadata = {
   freeResize?: boolean;
   isBatchRoot?: boolean;
   batchRootId?: string;
+  /** Agent 语义分组（workflow 整理画布） */
+  agentGroupId?: string;
+  isAgentGroupLabel?: boolean;
   batchIndex?: number;
   batchChildIds?: string[];
   primaryImageId?: string;
