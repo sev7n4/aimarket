@@ -10,6 +10,7 @@ import {
   type CanvasLayoutDto,
 } from "@/lib/api-client";
 import type { CanvasConnection } from "@/components/infinite-canvas/types";
+import { bindAgentPlaceholderOutputs } from "@/lib/agent-placeholder-bind";
 import {
   applyPendingBatchLineage,
   buildCanvasItemsFromMessages,
@@ -146,7 +147,9 @@ export function useSessionCanvas(
   const activeSessionRef = useRef<string | null>(null);
 
   const withPendingLineage = useCallback((items: CanvasItem[]) => {
-    return applyPendingBatchLineage(items, pendingLineageRef.current);
+    return bindAgentPlaceholderOutputs(
+      applyPendingBatchLineage(items, pendingLineageRef.current),
+    );
   }, []);
 
   const registerBatchLineage = useCallback(

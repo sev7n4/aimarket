@@ -45,12 +45,16 @@ export function canvasItemToNodeData(item: CanvasItem): CanvasNodeData {
     width: item.width,
     height: item.height,
     metadata: {
-      content: assetUrl(item.url),
-      status: "idle",
+      content: item.url ? assetUrl(item.url) : "",
+      status:
+        item.infiniteNodeMeta?.status ??
+        (item.url?.trim() ? "idle" : item.infiniteNodeMeta?.pendingJobId ? "loading" : "idle"),
       naturalWidth: item.width,
       naturalHeight: item.height,
       batchRootId: item.batchId,
       primaryImageId: item.assetId,
+      prompt: item.infiniteNodeMeta?.prompt,
+      generationMode: item.infiniteNodeMeta?.generationMode,
     },
   };
 }
@@ -110,6 +114,14 @@ export function nodeDataToCanvasItem(node: CanvasNodeData): CanvasItem {
     label: node.title,
     batchId: node.metadata?.batchRootId,
     assetId: node.metadata?.primaryImageId,
+    infiniteNodeMeta:
+      node.metadata?.status || node.metadata?.prompt || node.metadata?.generationMode
+        ? {
+            status: node.metadata?.status,
+            prompt: node.metadata?.prompt,
+            generationMode: node.metadata?.generationMode,
+          }
+        : undefined,
   };
 }
 

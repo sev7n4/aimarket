@@ -185,6 +185,13 @@ export function mergeSnapshotToCanvasItems(
         width: node.width,
         height: node.height,
         label: node.title ?? item.label,
+        infiniteNodeMeta: {
+          ...item.infiniteNodeMeta,
+          status: node.metadata?.status ?? item.infiniteNodeMeta?.status,
+          prompt: node.metadata?.prompt ?? item.infiniteNodeMeta?.prompt,
+          generationMode:
+            node.metadata?.generationMode ?? item.infiniteNodeMeta?.generationMode,
+        },
       });
     }
     nodeById.delete(item.id);
