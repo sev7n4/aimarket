@@ -11,6 +11,7 @@ import type {
 } from "./types";
 import type { CanvasAgentOp, CanvasAgentSnapshot } from "../utils";
 import { bindRunGenerationNodeIds } from "@/lib/agent-run-generation";
+import { request } from "@/lib/api/core";
 import { describeSnapshotForAgent, onlineToolToOps } from "./agent-tools";
 
 export const CANVAS_AGENT_SYSTEM_PROMPT = `你是 AIMarket 画布助手。当前画布 JSON 会随用户消息提供。
@@ -58,9 +59,10 @@ async function callToolResponse(
   tools: OrchestratorToolDefinition[],
   toolChoice: OrchestratorToolChoice,
 ): Promise<{ content: string; toolCalls: OrchestratorToolCall[]; providerId: string }> {
-  const res = await fetch("/api/v1/agent/tool-response", {
+  const json = await request<{
+    data: { content: string; toolCalls: OrchestratorToolCall[]; providerId: string };
+  }>("/api/v1/agent/tool-response", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       messages,
       tools,
@@ -68,13 +70,6 @@ async function callToolResponse(
       maxTokens: 4096,
     }),
   });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`工具响应失败 ${res.status}: ${text}`);
-  }
-
-  const json = await res.json() as { data: { content: string; toolCalls: OrchestratorToolCall[]; providerId: string } };
   return json.data;
 }
 
