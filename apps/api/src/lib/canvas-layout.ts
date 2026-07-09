@@ -19,12 +19,18 @@ export const canvasItemSchema = z.object({
   batchSubtitle: z.string().max(120).optional(),
   parentBatchId: z.string().min(1).max(120).optional(),
   sourceItemId: z.string().min(1).max(120).optional(),
-  infiniteNodeType: z.enum(["text", "config"]).optional(),
+  infiniteNodeType: z.enum(["text", "config", "workflow"]).optional(),
   infiniteNodeMeta: z
     .object({
       content: z.string().max(8000).optional(),
       generationMode: z.enum(["text", "image", "video", "audio"]).optional(),
       prompt: z.string().max(4000).optional(),
+      workflowToolType: z.string().max(80).optional(),
+      workflowNodeKey: z.string().max(200).optional(),
+      workflowJobId: z.string().uuid().optional(),
+      connectedImageUrls: z.array(z.string().max(2000)).max(12).optional(),
+      connectedVideoUrls: z.array(z.string().max(2000)).max(6).optional(),
+      connectedAudioUrls: z.array(z.string().max(2000)).max(6).optional(),
     })
     .optional(),
 });

@@ -84,6 +84,14 @@ export type CanvasNodeMetadata = {
   era?: string;
   scenePromptAnchor?: string;
   sceneRefUrl?: string;
+  /** NeoWOW 式工作流工具节点类型（见 workflow-tool-registry） */
+  workflowToolType?: string;
+  /** story-canvas 任务关联键 */
+  workflowNodeKey?: string;
+  workflowJobId?: string;
+  connectedImageUrls?: string[];
+  connectedVideoUrls?: string[];
+  connectedAudioUrls?: string[];
 };
 
 export type CanvasNodeData = {

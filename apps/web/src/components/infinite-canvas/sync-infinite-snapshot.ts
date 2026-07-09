@@ -35,7 +35,69 @@ function manualNodeToCanvasItem(node: CanvasNodeData): CanvasItem {
   };
 }
 
+function workflowMetaFromNode(node: CanvasNodeData) {
+  return {
+    content: node.metadata?.content ?? "",
+    generationMode: node.metadata?.generationMode ?? "image",
+    prompt: node.metadata?.prompt ?? "",
+    workflowToolType: node.metadata?.workflowToolType,
+    workflowNodeKey: node.metadata?.workflowNodeKey,
+    workflowJobId: node.metadata?.workflowJobId,
+    connectedImageUrls: node.metadata?.connectedImageUrls,
+    connectedVideoUrls: node.metadata?.connectedVideoUrls,
+    connectedAudioUrls: node.metadata?.connectedAudioUrls,
+  };
+}
+
+function workflowNodeToCanvasItem(node: CanvasNodeData): CanvasItem {
+  const isVideo = node.type === CanvasNodeType.Video;
+  const isAudio = node.type === CanvasNodeType.Audio;
+  return {
+    id: node.id,
+    url: node.metadata?.content || "",
+    x: node.position.x,
+    y: node.position.y,
+    width: node.width,
+    height: node.height,
+    isVideo,
+    label: node.title,
+    infiniteNodeType: "workflow",
+    infiniteNodeMeta: {
+      ...workflowMetaFromNode(node),
+      generationMode: isVideo ? "video" : isAudio ? "audio" : "image",
+    },
+  };
+}
+
 function canvasItemToPersistedNode(item: CanvasItem): CanvasNodeData | null {
+  if (item.infiniteNodeType === "workflow") {
+    const meta = item.infiniteNodeMeta;
+    const mode = meta?.generationMode ?? "image";
+    const type =
+      mode === "video" ? CanvasNodeType.Video
+      : mode === "audio" ? CanvasNodeType.Audio
+      : CanvasNodeType.Image;
+    return {
+      id: item.id,
+      type,
+      title: item.label || "工作流节点",
+      position: { x: item.x, y: item.y },
+      width: item.width,
+      height: item.height,
+      metadata: {
+        content: item.url || meta?.content || "",
+        status: meta?.workflowJobId ? "loading" : "idle",
+        generationMode: mode,
+        prompt: meta?.prompt,
+        workflowToolType: meta?.workflowToolType,
+        workflowNodeKey: meta?.workflowNodeKey,
+        workflowJobId: meta?.workflowJobId,
+        connectedImageUrls: meta?.connectedImageUrls,
+        connectedVideoUrls: meta?.connectedVideoUrls,
+        connectedAudioUrls: meta?.connectedAudioUrls,
+      },
+    };
+  }
   if (item.infiniteNodeType === "text") {
     return {
       id: item.id,
@@ -101,6 +163,18 @@ export function mergeSnapshotToCanvasItems(
           generationMode:
             node.metadata?.generationMode ?? item.infiniteNodeMeta?.generationMode,
           prompt: node.metadata?.prompt ?? item.infiniteNodeMeta?.prompt,
+          workflowToolType:
+            node.metadata?.workflowToolType ?? item.infiniteNodeMeta?.workflowToolType,
+          workflowNodeKey:
+            node.metadata?.workflowNodeKey ?? item.infiniteNodeMeta?.workflowNodeKey,
+          workflowJobId:
+            node.metadata?.workflowJobId ?? item.infiniteNodeMeta?.workflowJobId,
+          connectedImageUrls:
+            node.metadata?.connectedImageUrls ?? item.infiniteNodeMeta?.connectedImageUrls,
+          connectedVideoUrls:
+            node.metadata?.connectedVideoUrls ?? item.infiniteNodeMeta?.connectedVideoUrls,
+          connectedAudioUrls:
+            node.metadata?.connectedAudioUrls ?? item.infiniteNodeMeta?.connectedAudioUrls,
         },
       });
     } else {
@@ -119,6 +193,13 @@ export function mergeSnapshotToCanvasItems(
   for (const node of nodeById.values()) {
     if (node.type === CanvasNodeType.Text || node.type === CanvasNodeType.Config) {
       kept.push(manualNodeToCanvasItem(node));
+    } else if (
+      node.metadata?.workflowToolType &&
+      (node.type === CanvasNodeType.Image ||
+        node.type === CanvasNodeType.Video ||
+        node.type === CanvasNodeType.Audio)
+    ) {
+      kept.push(workflowNodeToCanvasItem(node));
     } else if (node.type === CanvasNodeType.Image || node.type === CanvasNodeType.Video) {
       kept.push(nodeDataToCanvasItem(node));
     }

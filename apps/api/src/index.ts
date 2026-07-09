@@ -41,6 +41,7 @@ import { inspiration, keyword, inspirationAuthed } from "./routes/inspiration.js
 import { prompt } from "./routes/prompt.js";
 import { agent } from "./routes/agent.js";
 import { drama } from "./routes/drama.js";
+import { storyCanvas } from "./routes/story-canvas.js";
 import { skillInternal, skills as agentSkills } from "./routes/agent-skills.js";
 import { skillMarketplace } from "./routes/skills.js";
 import { image } from "./routes/image.js";
@@ -156,6 +157,7 @@ authed.route("/agent", agent);
 authed.route("/agent/skills", agentSkills);
 authed.route("/skills", skillMarketplace);
 authed.route("/drama", drama);
+authed.route("/story-canvas", storyCanvas);
 authed.route("/inspiration", inspirationAuthed);
 authed.route("/marketplace", marketplaceAuthed);
 authed.route("/image", image);

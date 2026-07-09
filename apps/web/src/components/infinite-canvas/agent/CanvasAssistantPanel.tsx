@@ -12,13 +12,13 @@ import {
   type ToolCallResult,
 } from "./online-agent-loop";
 import type { OrchestratorMessage, OrchestratorToolCall } from "./types";
-import { ALL_AGENT_TOOLS } from "./agent-tools";
+import { getAgentToolsForContext } from "./agent-tools";
 
 const WORKFLOW_QUICK_TAGS = [
-  "生成一张产品主图",
-  "把选中节点扩图",
-  "创建 3×3 分镜宫格",
-  "整理画布并分组",
+  "帮我加一个文生图节点",
+  "添加文生图节点并生成产品主图",
+  "连接选中节点并整理画布",
+  "列出可用的工作流工具",
 ] as const;
 
 type PanelTab = "chat" | "history" | "log";
@@ -49,6 +49,7 @@ type CanvasAssistantPanelProps = {
   confirmTools?: boolean;
   variant?: PanelVariant;
   width?: number;
+  workflowShell?: boolean;
 };
 
 function nanoid() {
@@ -133,8 +134,13 @@ export function CanvasAssistantPanel({
   confirmTools = false,
   variant = "floating",
   width = 520,
+  workflowShell = false,
 }: CanvasAssistantPanelProps) {
   const isDocked = variant === "docked";
+  const agentTools = React.useMemo(
+    () => getAgentToolsForContext({ workflowShell }),
+    [workflowShell],
+  );
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [tab, setTab] = useState<PanelTab>("chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -186,7 +192,7 @@ export function CanvasAssistantPanel({
           snapshot: snapshotRef.current,
           userMessage: text,
           historyMessages: historyMessagesRef.current,
-          tools: ALL_AGENT_TOOLS,
+          tools: agentTools,
           onApplyOps: (ops) => {
             const updated = onApplyOps(ops);
             snapshotRef.current = updated;
@@ -235,7 +241,7 @@ export function CanvasAssistantPanel({
         approvedToolCalls: pendingToolCalls.toolCalls,
         snapshot: snapshotRef.current,
         messages: pendingToolCalls.messages,
-        tools: ALL_AGENT_TOOLS,
+        tools: agentTools,
         step: pendingToolCalls.step,
         onApplyOps: (ops) => {
           const updated = onApplyOps(ops);

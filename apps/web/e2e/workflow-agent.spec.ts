@@ -26,6 +26,9 @@ test.describe("Workflow Shell", () => {
 
     await expect(page.getByTestId("workflow-agent-input")).toBeVisible();
 
+    await expect(page.getByTestId("workflow-tool-palette")).toBeVisible();
+    await expect(page.getByTestId("workflow-tool-TEXT_TO_IMAGE")).toBeVisible();
+
     const resizeHandle = page.getByTestId("workflow-agent-resize-handle");
     await expect(resizeHandle).toBeVisible();
 

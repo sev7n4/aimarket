@@ -6,6 +6,13 @@
 import type { CanvasAgentOp, CanvasAgentSnapshot } from "../utils";
 import { CanvasNodeType } from "../types";
 import type { OrchestratorToolDefinition } from "./types";
+import {
+  WORKFLOW_TOOL_IDS,
+  buildWorkflowToolNodeOp,
+  getWorkflowTool,
+  isWorkflowToolId,
+  listWorkflowTools,
+} from "@/lib/workflow-tool-registry";
 
 // ── Schema builders ──
 
@@ -329,10 +336,57 @@ export const DRAMA_TOOLS: OrchestratorToolDefinition[] = [
   tool("drama_run_production", "触发 Drama 制作流水线。", { projectPatch: { type: "object", additionalProperties: true } }, []),
 ];
 
+// ── Workflow shell tools（对标 NeoWOW story-canvas Agent）──
+
+export const WORKFLOW_AGENT_TOOLS: OrchestratorToolDefinition[] = [
+  tool(
+    "workflow_add_tool_node",
+    "在工作流画布添加工具节点（文生图/图生视频等）。",
+    {
+      toolType: { type: "string", enum: [...WORKFLOW_TOOL_IDS] },
+      x: { type: "number" },
+      y: { type: "number" },
+      prompt: { type: "string" },
+    },
+    ["toolType"],
+  ),
+  tool(
+    "workflow_connect_nodes",
+    "连接两个工作流节点，自动注入上游媒体 URL。",
+    { fromNodeId: { type: "string" }, toNodeId: { type: "string" } },
+    ["fromNodeId", "toNodeId"],
+  ),
+  tool(
+    "workflow_run_node",
+    "运行指定工作流工具节点（触发 story-canvas 生成）。",
+    { nodeId: { type: "string" }, prompt: { type: "string" } },
+    ["nodeId"],
+  ),
+  tool(
+    "workflow_query_status",
+    "查询工作流节点生成状态（读取画布 metadata）。",
+    { nodeIds: { type: "array", items: { type: "string" } } },
+    ["nodeIds"],
+  ),
+  tool(
+    "workflow_list_tools",
+    "列出当前支持的工作流工具类型。",
+    {},
+    [],
+  ),
+];
+
 export const ALL_AGENT_TOOLS: OrchestratorToolDefinition[] = [
   ...CANVAS_AGENT_TOOLS,
   ...DRAMA_TOOLS,
 ];
+
+export function getAgentToolsForContext(opts?: { workflowShell?: boolean }): OrchestratorToolDefinition[] {
+  if (opts?.workflowShell) {
+    return [...CANVAS_AGENT_TOOLS, ...WORKFLOW_AGENT_TOOLS];
+  }
+  return ALL_AGENT_TOOLS;
+}
 
 // ── Tool → CanvasAgentOp converter ──
 
@@ -344,6 +398,47 @@ function ensureNodeExists(snapshot: CanvasAgentSnapshot, nodeId: string): boolea
 
 function newCanvasNodeId(nodeType: CanvasNodeType, index = 0): string {
   return `${nodeType}-${Date.now()}-${index}`;
+}
+
+/** 只读工作流工具：从快照返回数据，不产生画布 Op */
+export function resolveWorkflowReadOnlyTool(
+  toolName: string,
+  args: ToolArgs,
+  snapshot: CanvasAgentSnapshot,
+): { ok: boolean; message: string; data?: Record<string, unknown> } | null {
+  if (toolName === "workflow_list_tools") {
+    const tools = listWorkflowTools().map((t) => ({
+      id: t.id,
+      label: t.label,
+      category: t.category,
+    }));
+    return { ok: true, message: `共 ${tools.length} 个工作流工具`, data: { tools } };
+  }
+
+  if (toolName === "workflow_query_status") {
+    const nodeIds = args.nodeIds as string[];
+    if (!Array.isArray(nodeIds) || nodeIds.length === 0) {
+      return { ok: false, message: "请提供 nodeIds" };
+    }
+    const statuses: Record<string, unknown> = {};
+    for (const nodeId of nodeIds) {
+      const node = snapshot.nodes.find((n) => n.id === nodeId);
+      if (!node) {
+        statuses[nodeId] = { status: "missing" };
+        continue;
+      }
+      statuses[nodeId] = {
+        status: node.metadata?.status ?? "idle",
+        workflowToolType: node.metadata?.workflowToolType,
+        workflowNodeKey: node.metadata?.workflowNodeKey,
+        outputUrl: node.metadata?.content,
+        error: node.metadata?.errorDetails,
+      };
+    }
+    return { ok: true, message: `已查询 ${nodeIds.length} 个节点状态`, data: { statuses } };
+  }
+
+  return null;
 }
 
 export function onlineToolToOps(
@@ -738,6 +833,54 @@ export function onlineToolToOps(
           projectPatch: args.projectPatch as Record<string, unknown> | undefined,
         },
       ];
+
+    case "workflow_add_tool_node": {
+      const toolType = args.toolType as string;
+      if (!isWorkflowToolId(toolType)) return [];
+      const tool = getWorkflowTool(toolType);
+      if (!tool) return [];
+      const op = buildWorkflowToolNodeOp(
+        tool,
+        (args.x as number) ?? 0,
+        (args.y as number) ?? 0,
+      );
+      if (args.prompt && op.type === "add_node") {
+        op.metadata = { ...op.metadata, prompt: args.prompt as string };
+      }
+      return [op];
+    }
+
+    case "workflow_connect_nodes": {
+      const fromNodeId = args.fromNodeId as string;
+      const toNodeId = args.toNodeId as string;
+      if (
+        !fromNodeId ||
+        !toNodeId ||
+        !ensureNodeExists(snapshot, fromNodeId) ||
+        !ensureNodeExists(snapshot, toNodeId)
+      ) {
+        return [];
+      }
+      return [{ type: "connect_nodes", fromNodeId, toNodeId }];
+    }
+
+    case "workflow_run_node": {
+      const nodeId = args.nodeId as string;
+      if (!nodeId || !ensureNodeExists(snapshot, nodeId)) return [];
+      const ops: CanvasAgentOp[] = [{ type: "run_workflow_node", nodeId }];
+      if (args.prompt) {
+        ops.unshift({
+          type: "update_node",
+          id: nodeId,
+          patch: { metadata: { prompt: args.prompt as string } },
+        });
+      }
+      return ops;
+    }
+
+    case "workflow_query_status":
+    case "workflow_list_tools":
+      return [];
 
     default:
       // Unknown tool — skip silently

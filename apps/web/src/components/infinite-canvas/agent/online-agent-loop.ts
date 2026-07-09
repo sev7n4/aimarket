@@ -12,7 +12,7 @@ import type {
 import type { CanvasAgentOp, CanvasAgentSnapshot } from "../utils";
 import { bindRunGenerationNodeIds } from "@/lib/agent-run-generation";
 import { request } from "@/lib/api/core";
-import { describeSnapshotForAgent, onlineToolToOps } from "./agent-tools";
+import { describeSnapshotForAgent, getAgentToolsForContext, onlineToolToOps, resolveWorkflowReadOnlyTool } from "./agent-tools";
 
 export const CANVAS_AGENT_SYSTEM_PROMPT = `你是 AIMarket 画布助手。当前画布 JSON 会随用户消息提供。
 
@@ -21,10 +21,13 @@ export const CANVAS_AGENT_SYSTEM_PROMPT = `你是 AIMarket 画布助手。当前
 - 需要改动画布时调用 canvas_apply_ops（支持 add_node / update_node / delete_node / connect_nodes / set_viewport / select_nodes / run_generation）
 - 需要生成内容时调用 canvas_generate_image / canvas_generate_video
 - Drama 创作时调用 drama_create_script / drama_create_character / drama_create_shot / drama_create_scene
+- 工作流模式（/workflow）时优先使用 workflow_add_tool_node / workflow_connect_nodes / workflow_run_node / workflow_query_status / workflow_list_tools
 
 工具参数涉及已有节点时必须使用画布 JSON 中真实存在的 id。
 缺少必要 id 或用户意图不明确时直接说明需要用户明确选择或说明，不要猜测。
 工具返回结果后，再根据真实结果回答用户。`;
+
+export { getAgentToolsForContext };
 
 const MAX_AGENT_STEPS = 6;
 
@@ -101,6 +104,17 @@ export function executeToolCallsLocally(
       const args = parseToolArguments(
         typeof tc.arguments === "string" ? tc.arguments : JSON.stringify(tc.arguments),
       );
+      const readOnly = resolveWorkflowReadOnlyTool(tc.name, args, snapshot);
+      if (readOnly) {
+        return {
+          toolCallId: tc.id,
+          name: tc.name,
+          ok: readOnly.ok,
+          message: readOnly.message,
+          data: readOnly.data,
+        };
+      }
+
       const ops = bindRunGenerationNodeIds(
         onlineToolToOps(tc.name, args, snapshot),
       );
@@ -127,6 +141,7 @@ export function executeToolCallsLocally(
             if (op.type === "set_viewport") return `已调整视口`;
             if (op.type === "select_nodes") return `已选中 ${(op.ids ?? []).length} 个节点`;
             if (op.type === "run_generation") return `已触发节点 ${op.nodeId} 生成`;
+            if (op.type === "run_workflow_node") return `已触发工作流节点 ${op.nodeId} 生成`;
             if (op.type === "plan_drama") return `已提交短剧规划: "${op.idea.slice(0, 40)}"`;
             if (op.type === "run_drama_production") return `已触发 Drama 制作流水线`;
             if (op.type === "generate_character_sheet") return `已请求生成角色三视图 ${op.characterNodeId}`;

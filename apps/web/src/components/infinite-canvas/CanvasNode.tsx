@@ -8,6 +8,7 @@ import { ScriptNodeContent } from "./drama/ScriptNodeContent";
 import { ShotNodeContent } from "./drama/ShotNodeContent";
 import { CharacterNodeContent } from "./drama/CharacterNodeContent";
 import { SceneNodeContent } from "./drama/SceneNodeContent";
+import { WorkflowToolNodeContent } from "@/components/workflows/WorkflowToolNodeContent";
 import { canvasTheme } from "./canvas-theme";
 import { cn } from "@aimarket/ui";
 import { CanvasNodeType, type CanvasNodeData, type Position } from "./types";
@@ -353,6 +354,17 @@ export const CanvasNode = React.memo(function CanvasNode({
 
 function NodeContent(props: NodeContentRendererProps) {
     if (props.node.type === CanvasNodeType.Config && props.renderNodeContent) return props.renderNodeContent(props.node);
+    if (props.node.metadata?.workflowToolType) {
+        if (props.node.metadata?.status === "loading") {
+            return <LoadingContent theme={props.theme} />;
+        }
+        if (props.node.metadata?.status === "error") {
+            return <ErrorContent node={props.node} theme={props.theme} onRetry={props.onRetry} />;
+        }
+        if (!props.node.metadata?.content?.trim()) {
+            return <WorkflowToolNodeContent node={props.node} />;
+        }
+    }
     if (props.isBatchRoot) return <ImageNodeContent {...props} />;
     if (props.node.metadata?.status === "loading") return <LoadingContent theme={props.theme} />;
     if (props.node.metadata?.status === "error") return <ErrorContent node={props.node} theme={props.theme} onRetry={props.onRetry} />;

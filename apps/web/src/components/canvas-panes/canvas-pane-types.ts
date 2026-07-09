@@ -83,6 +83,9 @@ export type InfiniteCanvasPaneProps = CanvasPaneBaseProps & {
   onApplyAssistantOps: (ops: CanvasAgentOp[]) => CanvasAgentSnapshot;
   /** NeoWOW workflow 壳：右栏 Agent 分栏 + 可拖拽调宽 */
   workflowShell?: boolean;
+  onAddWorkflowTool?: (
+    toolId: import("@/lib/workflow-tool-registry").WorkflowToolId,
+  ) => void;
   agentPanelWidth?: number;
   agentPanelDragging?: boolean;
   onAgentPanelResizeStart?: (event: React.MouseEvent) => void;
