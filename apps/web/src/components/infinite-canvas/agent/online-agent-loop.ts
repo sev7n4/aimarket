@@ -10,6 +10,7 @@ import type {
   OrchestratorToolDefinition,
 } from "./types";
 import type { CanvasAgentOp, CanvasAgentSnapshot } from "../utils";
+import { bindRunGenerationNodeIds } from "@/lib/agent-run-generation";
 import { describeSnapshotForAgent, onlineToolToOps } from "./agent-tools";
 
 export const CANVAS_AGENT_SYSTEM_PROMPT = `你是 AIMarket 画布助手。当前画布 JSON 会随用户消息提供。
@@ -105,7 +106,9 @@ export function executeToolCallsLocally(
       const args = parseToolArguments(
         typeof tc.arguments === "string" ? tc.arguments : JSON.stringify(tc.arguments),
       );
-      const ops = onlineToolToOps(tc.name, args, snapshot);
+      const ops = bindRunGenerationNodeIds(
+        onlineToolToOps(tc.name, args, snapshot),
+      );
 
       if (ops.length === 0) {
         return {

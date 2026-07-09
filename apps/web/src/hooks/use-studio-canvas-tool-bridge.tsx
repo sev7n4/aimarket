@@ -36,6 +36,9 @@ export interface UseStudioCanvasToolBridgeParams {
   runInfiniteNodeTool: (
     request: import("@/lib/infinite-node-tool-run").InfiniteNodeToolRequest,
   ) => Promise<void>;
+  runAgentGeneration: (
+    request: import("@/lib/agent-run-generation").AgentRunGenerationRequest,
+  ) => Promise<void>;
   executeDirectTool: (
     tool: StudioTool,
     item: CanvasItem,
@@ -67,6 +70,7 @@ export function useStudioCanvasToolBridge({
   runSelectionTool,
   runQuickToolFromCanvas,
   runInfiniteNodeTool,
+  runAgentGeneration,
   executeDirectTool,
   handleRerun,
   handleExtractVideoLastFrame,
@@ -81,6 +85,7 @@ export function useStudioCanvasToolBridge({
       onExpandItem: (item) => runQuickToolFromCanvas(item, "expand"),
       onRerun: (item) => void handleRerun(item),
       onRunInfiniteNodeTool: (req) => void runInfiniteNodeTool(req),
+      onAgentRunGeneration: (req) => void runAgentGeneration(req),
       batchTools: {
         tools,
         pendingToolId,
@@ -131,6 +136,7 @@ export function useStudioCanvasToolBridge({
       runQuickToolFromCanvas,
       handleRerun,
       runInfiniteNodeTool,
+      runAgentGeneration,
       runSelectionTool,
       handleExtractVideoLastFrame,
       handleAddVideoBgm,

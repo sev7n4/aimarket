@@ -330,6 +330,10 @@ function ensureNodeExists(snapshot: CanvasAgentSnapshot, nodeId: string): boolea
   return snapshot.nodes.some((n) => n.id === nodeId);
 }
 
+function newCanvasNodeId(nodeType: CanvasNodeType, index = 0): string {
+  return `${nodeType}-${Date.now()}-${index}`;
+}
+
 export function onlineToolToOps(
   toolName: string,
   args: ToolArgs,
@@ -402,16 +406,19 @@ export function onlineToolToOps(
         },
       ];
 
-    case "canvas_create_config_node":
+    case "canvas_create_config_node": {
+      const nodeId = newCanvasNodeId(CanvasNodeType.Config);
+      const mode = args.mode as "text" | "image" | "video" | "audio";
       return [
         {
           type: "add_node",
+          id: nodeId,
           nodeType: CanvasNodeType.Config,
           title: (args.title as string) || "配置",
           x: args.x as number,
           y: args.y as number,
           metadata: {
-            generationMode: args.mode as "text" | "image" | "video" | "audio",
+            generationMode: mode,
             prompt: args.prompt as string,
           },
         },
@@ -419,20 +426,23 @@ export function onlineToolToOps(
           ? [
               {
                 type: "run_generation" as const,
-                nodeId: "", // Will be set by the caller with the created node id
-                mode: args.mode as "text" | "image" | "video" | "audio",
+                nodeId,
+                mode,
                 prompt: args.prompt as string,
               },
             ]
           : []),
       ];
+    }
 
     case "canvas_generate_image": {
       const x = (args.x as number) ?? snapshot.nodes.length * 400;
       const y = (args.y as number) ?? 200;
+      const nodeId = newCanvasNodeId(CanvasNodeType.Image);
       return [
         {
           type: "add_node",
+          id: nodeId,
           nodeType: CanvasNodeType.Image,
           title: "图片",
           x,
@@ -441,7 +451,7 @@ export function onlineToolToOps(
         },
         {
           type: "run_generation",
-          nodeId: "", // filled by caller
+          nodeId,
           mode: "image",
           prompt: args.prompt as string,
         },
@@ -451,9 +461,11 @@ export function onlineToolToOps(
     case "canvas_generate_video": {
       const x = (args.x as number) ?? snapshot.nodes.length * 400;
       const y = (args.y as number) ?? 200;
+      const nodeId = newCanvasNodeId(CanvasNodeType.Video);
       return [
         {
           type: "add_node",
+          id: nodeId,
           nodeType: CanvasNodeType.Video,
           title: "视频",
           x,
@@ -462,7 +474,7 @@ export function onlineToolToOps(
         },
         {
           type: "run_generation",
-          nodeId: "",
+          nodeId,
           mode: "video",
           prompt: args.prompt as string,
         },
