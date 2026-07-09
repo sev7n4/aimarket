@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Bot, Loader2, PanelRightClose } from "lucide-react";
 
 import { canvasTheme } from "../canvas-theme";
@@ -13,6 +13,13 @@ import {
 } from "./online-agent-loop";
 import type { OrchestratorMessage, OrchestratorToolCall } from "./types";
 import { getAgentToolsForContext } from "./agent-tools";
+import {
+  appendWorkflowAgentMessage,
+  createWorkflowAgentConversation,
+  listWorkflowAgentConversations,
+  listWorkflowAgentMessages,
+  type WorkflowAgentConversation,
+} from "@/lib/api/workflow-agent";
 
 const WORKFLOW_QUICK_TAGS = [
   "帮我加一个文生图节点",
@@ -50,6 +57,7 @@ type CanvasAssistantPanelProps = {
   variant?: PanelVariant;
   width?: number;
   workflowShell?: boolean;
+  sessionId?: string;
 };
 
 function nanoid() {
@@ -135,12 +143,16 @@ export function CanvasAssistantPanel({
   variant = "floating",
   width = 520,
   workflowShell = false,
+  sessionId,
 }: CanvasAssistantPanelProps) {
   const isDocked = variant === "docked";
   const agentTools = React.useMemo(
     () => getAgentToolsForContext({ workflowShell }),
     [workflowShell],
   );
+  const [conversations, setConversations] = useState<WorkflowAgentConversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [tab, setTab] = useState<PanelTab>("chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -157,6 +169,56 @@ export function CanvasAssistantPanel({
   snapshotRef.current = snapshot;
 
   const historyMessagesRef = useRef<OrchestratorMessage[]>([]);
+  const conversationIdRef = useRef<string | null>(null);
+
+  const ensureConversation = useCallback(async () => {
+    if (!workflowShell || !sessionId) return null;
+    if (conversationIdRef.current) return conversationIdRef.current;
+    const conv = await createWorkflowAgentConversation({ sessionId });
+    conversationIdRef.current = conv.id;
+    setActiveConversationId(conv.id);
+    setConversations((prev) => [conv, ...prev]);
+    return conv.id;
+  }, [workflowShell, sessionId]);
+
+  const loadConversations = useCallback(async () => {
+    if (!workflowShell || !sessionId) return;
+    setHistoryLoading(true);
+    try {
+      const list = await listWorkflowAgentConversations(sessionId);
+      setConversations(list);
+      if (!conversationIdRef.current && list[0]) {
+        conversationIdRef.current = list[0].id;
+        setActiveConversationId(list[0].id);
+      }
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [workflowShell, sessionId]);
+
+  useEffect(() => {
+    if (tab === "history") void loadConversations();
+  }, [tab, loadConversations]);
+
+  const loadConversationMessages = useCallback(async (conversationId: string) => {
+    const rows = await listWorkflowAgentMessages(conversationId);
+    setMessages(
+      rows.map((row) => ({
+        id: row.id,
+        role: row.role === "user" ? "user" : row.role === "assistant" ? "assistant" : "tool",
+        text: row.content,
+      })),
+    );
+    historyMessagesRef.current = rows
+      .filter((row) => row.role === "user" || row.role === "assistant")
+      .map((row) => ({
+        role: row.role as "user" | "assistant",
+        content: row.content,
+      }));
+    conversationIdRef.current = conversationId;
+    setActiveConversationId(conversationId);
+    setTab("chat");
+  }, []);
 
   const addLog = useCallback((title: string, data?: unknown) => {
     setLogs((prev) =>
@@ -188,6 +250,11 @@ export function CanvasAssistantPanel({
       const userTurn: OrchestratorMessage = { role: "user", content: text };
 
       try {
+        const convId = await ensureConversation();
+        if (convId) {
+          await appendWorkflowAgentMessage(convId, { role: "user", content: text });
+        }
+
         await runCanvasAgentLoop({
           snapshot: snapshotRef.current,
           userMessage: text,
@@ -203,12 +270,18 @@ export function CanvasAssistantPanel({
             appendMessage,
             addLog,
             setPendingToolCalls,
-            onCompleteExtra: (finalText) => {
+            onCompleteExtra: async (finalText) => {
               historyMessagesRef.current = [
                 ...historyMessagesRef.current,
                 userTurn,
                 ...(finalText ? [{ role: "assistant" as const, content: finalText }] : []),
               ];
+              if (convId && finalText) {
+                await appendWorkflowAgentMessage(convId, {
+                  role: "assistant",
+                  content: finalText,
+                });
+              }
             },
           }),
         });
@@ -223,7 +296,7 @@ export function CanvasAssistantPanel({
         setIsRunning(false);
       }
     },
-    [isRunning, appendMessage, addLog, onApplyOps, confirmTools],
+    [isRunning, appendMessage, addLog, onApplyOps, confirmTools, ensureConversation],
   );
 
   const handleSend = useCallback(async () => {
@@ -385,8 +458,38 @@ export function CanvasAssistantPanel({
         )}
 
         {tab === "history" && (
-          <div className="p-3 text-center text-xs" style={{ color: canvasTheme.node.faint }}>
-            历史会话功能开发中
+          <div className="flex flex-col gap-2 p-3">
+            {historyLoading ? (
+              <p className="text-center text-xs" style={{ color: canvasTheme.node.faint }}>
+                加载中…
+              </p>
+            ) : conversations.length === 0 ? (
+              <p className="text-center text-xs" style={{ color: canvasTheme.node.faint }}>
+                暂无历史对话
+              </p>
+            ) : (
+              conversations.map((conv) => (
+                <button
+                  key={conv.id}
+                  type="button"
+                  onClick={() => void loadConversationMessages(conv.id)}
+                  className={cn(
+                    "rounded-lg border px-3 py-2 text-left text-xs transition hover:bg-white/5",
+                    activeConversationId === conv.id && "border-indigo-500/50",
+                  )}
+                  style={{
+                    borderColor: canvasTheme.node.stroke,
+                    color: canvasTheme.node.text,
+                  }}
+                  data-testid="workflow-agent-history-item"
+                >
+                  <div className="font-medium">{conv.title}</div>
+                  <div className="mt-0.5 text-[10px]" style={{ color: canvasTheme.node.faint }}>
+                    {new Date(conv.updatedAt).toLocaleString()}
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         )}
 
