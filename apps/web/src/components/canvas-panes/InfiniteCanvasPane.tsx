@@ -10,6 +10,7 @@ import { DramaPropertyPanel } from "@/components/infinite-canvas/drama/DramaProp
 import { CanvasAssistantPanel } from "@/components/infinite-canvas/agent/CanvasAssistantPanel";
 import { TemplateManager } from "@/components/infinite-canvas/TemplateManager";
 import { MusicGenPanel } from "@/components/music-gen-panel";
+import { WorkflowToolPalette } from "@/components/workflows/WorkflowToolPalette";
 import type { CanvasNodeMetadata, CanvasNodeData } from "@/components/infinite-canvas/types";
 
 import type { InfiniteCanvasPaneProps } from "./canvas-pane-types";
@@ -66,6 +67,7 @@ export function InfiniteCanvasPane({
   showAssistantPanel,
   onApplyAssistantOps,
   workflowShell = false,
+  onAddWorkflowTool,
   agentPanelWidth = 520,
   agentPanelDragging = false,
   onAgentPanelResizeStart,
@@ -94,7 +96,14 @@ export function InfiniteCanvasPane({
           workflowShell ? "flex-row" : "",
         )}
       >
-        <div className="relative min-h-0 flex-1">
+        <div className="relative min-h-0 flex-1 flex min-w-0">
+          {workflowShell && onAddWorkflowTool ? (
+            <WorkflowToolPalette
+              onAddTool={onAddWorkflowTool}
+              readOnly={readOnly}
+            />
+          ) : null}
+          <div className="relative min-h-0 min-w-0 flex-1">
           {jobOverlay.show || jobOverlay.failed ? (
             <CanvasJobOverlay
               status={jobOverlay.status}
@@ -178,6 +187,7 @@ export function InfiniteCanvasPane({
             <Music className="size-4" />
           </button>
         </div>
+        </div>
         {dramaPanelNode && showDramaPropertyPanel ? (
           <DramaPropertyPanel
             node={dramaPanelNode}
@@ -204,6 +214,7 @@ export function InfiniteCanvasPane({
             variant={workflowShell ? "docked" : "floating"}
             width={workflowShell ? agentPanelWidth : undefined}
             confirmTools={workflowShell}
+            workflowShell={workflowShell}
           />
         ) : null}
         {showTemplateManager ? (

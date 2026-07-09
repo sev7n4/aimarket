@@ -103,12 +103,18 @@ export interface CanvasItem {
     qualityTier?: "standard" | "pro";
     sourceLane?: "agent" | "image" | "video";
   };
-  /** InfiniteCanvas 手动节点：text / config（无 url 时持久化到 canvas_layout） */
-  infiniteNodeType?: "text" | "config";
+  /** InfiniteCanvas 手动节点：text / config / workflow（无 url 时持久化到 canvas_layout） */
+  infiniteNodeType?: "text" | "config" | "workflow";
   infiniteNodeMeta?: {
     content?: string;
     generationMode?: "text" | "image" | "video" | "audio";
     prompt?: string;
+    workflowToolType?: string;
+    workflowNodeKey?: string;
+    workflowJobId?: string;
+    connectedImageUrls?: string[];
+    connectedVideoUrls?: string[];
+    connectedAudioUrls?: string[];
   };
 }
 

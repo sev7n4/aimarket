@@ -25,7 +25,8 @@ export type CanvasAgentOp =
     | { type: "run_drama_production"; projectPatch?: Record<string, unknown> }
     | { type: "generate_character_sheet"; characterNodeId: string }
     | { type: "generate_shot_image"; shotNodeId: string }
-    | { type: "generate_shot_video"; shotNodeId: string };
+    | { type: "generate_shot_video"; shotNodeId: string }
+    | { type: "run_workflow_node"; nodeId: string };
 
 export type AgentExternalAction = Extract<
     CanvasAgentOp,
@@ -34,11 +35,12 @@ export type AgentExternalAction = Extract<
     | { type: "generate_character_sheet" }
     | { type: "generate_shot_image" }
     | { type: "generate_shot_video" }
+    | { type: "run_workflow_node" }
 >;
 
 /** 仅改动画布状态的 Op（可交给 applyCanvasAgentOps） */
 export function isCanvasStateOp(op: CanvasAgentOp): boolean {
-    return !["plan_drama", "run_drama_production", "generate_character_sheet", "generate_shot_image", "generate_shot_video"].includes(op.type);
+    return !["plan_drama", "run_drama_production", "generate_character_sheet", "generate_shot_image", "generate_shot_video", "run_workflow_node"].includes(op.type);
 }
 
 /** 需 Studio/API 回调的外部 Op */
@@ -235,6 +237,7 @@ function opLabel(type: string) {
     if (type === "generate_character_sheet") return "生成角色三视图";
     if (type === "generate_shot_image") return "生成分镜图";
     if (type === "generate_shot_video") return "生成分镜视频";
+    if (type === "run_workflow_node") return "运行工作流节点";
     if (type === "update_shot_status") return "更新分镜状态";
     if (type === "update_character_ref") return "更新角色参考";
     if (type === "update_scene_ref") return "更新场景参考";
