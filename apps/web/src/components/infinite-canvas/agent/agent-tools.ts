@@ -40,7 +40,7 @@ const CANVAS_OP_SCHEMA = {
       type: "string" as const,
       enum: [
         "add_node", "update_node", "delete_node", "delete_connections",
-        "connect_nodes", "set_viewport", "select_nodes", "run_generation",
+        "connect_nodes", "set_viewport", "select_nodes", "group_nodes", "run_generation",
         // Drama ops
         "update_shot_status", "update_character_ref", "update_scene_ref", "focus_drama_node",
       ],
@@ -277,6 +277,18 @@ export const CANVAS_AGENT_TOOLS: OrchestratorToolDefinition[] = [
     },
     ["nodeId"],
   ),
+  tool(
+    "canvas_group_nodes",
+    "将多个节点整理为网格布局并设置分组标识；可选创建分组标题文本节点。",
+    {
+      ids: { type: "array", items: { type: "string" } },
+      title: { type: "string" },
+      gap: { type: "number" },
+      columns: { type: "number" },
+      createLabel: { type: "boolean" },
+    },
+    ["ids"],
+  ),
 ];
 
 // ── Drama tools ──
@@ -373,6 +385,9 @@ export function onlineToolToOps(
             ...(op.nodeId != null ? { nodeId: op.nodeId as string } : {}),
             ...(op.mode != null ? { mode: op.mode as "text" | "image" | "video" | "audio" } : {}),
             ...(op.prompt != null ? { prompt: op.prompt as string } : {}),
+            ...(op.gap != null ? { gap: op.gap as number } : {}),
+            ...(op.columns != null ? { columns: op.columns as number } : {}),
+            ...(op.createLabel != null ? { createLabel: op.createLabel as boolean } : {}),
           } as CanvasAgentOp;
         })
         .filter((op): op is CanvasAgentOp => op !== null);
@@ -558,6 +573,23 @@ export function onlineToolToOps(
           nodeId,
           mode: args.mode as "text" | "image" | "video" | "audio" | undefined,
           prompt: args.prompt as string | undefined,
+        },
+      ];
+    }
+
+    case "canvas_group_nodes": {
+      const ids = args.ids as string[];
+      if (!Array.isArray(ids) || !ids.length) return [];
+      const existingIds = ids.filter((id) => ensureNodeExists(snapshot, id));
+      if (!existingIds.length) return [];
+      return [
+        {
+          type: "group_nodes",
+          ids: existingIds,
+          title: args.title as string | undefined,
+          gap: args.gap as number | undefined,
+          columns: args.columns as number | undefined,
+          createLabel: args.createLabel as boolean | undefined,
         },
       ];
     }

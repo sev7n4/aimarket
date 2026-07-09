@@ -13,6 +13,7 @@ export type CanvasAgentOp =
     | { type: "connect_nodes"; id?: string; fromNodeId: string; toNodeId: string }
     | { type: "set_viewport"; viewport: ViewportTransform }
     | { type: "select_nodes"; ids: string[] }
+    | { type: "group_nodes"; ids: string[]; title?: string; gap?: number; columns?: number; createLabel?: boolean }
     | { type: "run_generation"; nodeId: string; mode?: "text" | "image" | "video" | "audio"; prompt?: string }
     // ── Drama-specific Ops ──
     | { type: "update_shot_status"; shotNodeId: string; status: CanvasNodeMetadata["shotStatus"]; keyframeOutputId?: string; videoOutputId?: string }
@@ -110,6 +111,65 @@ export function applyCanvasAgentOps(snapshot: CanvasAgentSnapshot, ops?: CanvasA
         }
         if (op.type === "set_viewport" && op.viewport) viewport = op.viewport;
         if (op.type === "select_nodes") selectedNodeIds = (op.ids || []).filter((id) => nodes.some((node) => node.id === id));
+        if (op.type === "group_nodes") {
+            const memberIds = (op.ids || []).filter((id) => nodes.some((node) => node.id === id));
+            if (memberIds.length === 0) return;
+            const members = nodes.filter((node) => memberIds.includes(node.id));
+            const groupId = `grp-${Date.now()}-${index}`;
+            const gap = op.gap ?? 32;
+            const columns = op.columns ?? Math.min(4, Math.max(1, Math.ceil(Math.sqrt(members.length))));
+            const anchorX = Math.min(...members.map((n) => n.position.x));
+            const anchorY = Math.min(...members.map((n) => n.position.y));
+            const cellW = Math.max(...members.map((n) => n.width), 200);
+            const cellH = Math.max(...members.map((n) => n.height), 150);
+            const sorted = [...members].sort(
+                (a, b) => a.position.y - b.position.y || a.position.x - b.position.x || a.id.localeCompare(b.id),
+            );
+            const layoutPositions = new Map(
+                sorted.map((node, i) => {
+                    const col = i % columns;
+                    const row = Math.floor(i / columns);
+                    return [
+                        node.id,
+                        {
+                            x: anchorX + col * (cellW + gap),
+                            y: anchorY + row * (cellH + gap),
+                        },
+                    ] as const;
+                }),
+            );
+            nodes = nodes.map((node) => {
+                const nextPos = layoutPositions.get(node.id);
+                if (!nextPos) return node;
+                return {
+                    ...node,
+                    position: nextPos,
+                    metadata: { ...node.metadata, agentGroupId: groupId },
+                };
+            });
+            const shouldLabel = op.createLabel !== false && Boolean(op.title?.trim());
+            const labelOffset = 52;
+            const newSelectedIds = [...memberIds];
+            if (shouldLabel && op.title) {
+                const labelNode: CanvasNodeData = {
+                    id: `${groupId}-label`,
+                    type: CanvasNodeType.Text,
+                    title: op.title,
+                    position: { x: anchorX, y: anchorY - labelOffset },
+                    width: Math.min(480, columns * (cellW + gap) - gap),
+                    height: 40,
+                    metadata: {
+                        content: op.title,
+                        fontSize: 14,
+                        agentGroupId: groupId,
+                        isAgentGroupLabel: true,
+                    },
+                };
+                nodes = [...nodes, labelNode];
+                newSelectedIds.push(labelNode.id);
+            }
+            selectedNodeIds = newSelectedIds;
+        }
         if (op.type === "run_generation" && op.nodeId) {
             nodes = nodes.map((node) =>
                 node.id === op.nodeId
@@ -168,6 +228,7 @@ function opLabel(type: string) {
     if (type === "connect_nodes") return "连接";
     if (type === "set_viewport") return "调整视图";
     if (type === "select_nodes") return "选择节点";
+    if (type === "group_nodes") return "整理分组";
     if (type === "run_generation") return "触发生成";
     if (type === "plan_drama") return "规划短剧";
     if (type === "run_drama_production") return "触发制作";
