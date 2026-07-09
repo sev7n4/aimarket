@@ -9,6 +9,7 @@ import { InfiniteCanvasEmptyPrompt } from "@/components/infinite-canvas/Infinite
 import { DramaPropertyPanel } from "@/components/infinite-canvas/drama/DramaPropertyPanel";
 import { CanvasAssistantPanel } from "@/components/infinite-canvas/agent/CanvasAssistantPanel";
 import { TemplateManager } from "@/components/infinite-canvas/TemplateManager";
+import { WorkflowShareButton } from "@/components/workflows/WorkflowShareButton";
 import { MusicGenPanel } from "@/components/music-gen-panel";
 import { WorkflowToolPalette } from "@/components/workflows/WorkflowToolPalette";
 import type { CanvasNodeMetadata, CanvasNodeData } from "@/components/infinite-canvas/types";
@@ -186,6 +187,7 @@ export function InfiniteCanvasPane({
           >
             <Music className="size-4" />
           </button>
+          {workflowShell ? <WorkflowShareButton sessionId={sessionId} /> : null}
         </div>
         </div>
         {dramaPanelNode && showDramaPropertyPanel ? (
@@ -215,6 +217,7 @@ export function InfiniteCanvasPane({
             width={workflowShell ? agentPanelWidth : undefined}
             confirmTools={workflowShell}
             workflowShell={workflowShell}
+            sessionId={sessionId}
           />
         ) : null}
         {showTemplateManager ? (
@@ -222,7 +225,15 @@ export function InfiniteCanvasPane({
             selectedNodes={templateSelectedNodes}
             connections={templateSelectedConnections}
             sessionId={sessionId}
+            variant={workflowShell ? "workflow" : "drama"}
             onRunStarted={onTemplatePlanRunStarted}
+            onApplyTemplate={
+              workflowShell
+                ? (ops) => {
+                    onApplyAssistantOps(ops);
+                  }
+                : undefined
+            }
             onClose={onCloseTemplateManager}
           />
         ) : null}

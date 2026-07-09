@@ -785,3 +785,43 @@ database.exec(`
     ON drama_templates(is_preset, category);
 `);
 
+// Phase 3 — NeoWOW workflow templates & agent history
+database.exec(`
+  CREATE TABLE IF NOT EXISTS workflow_templates (
+    id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    description TEXT,
+    template_json TEXT NOT NULL,
+    is_preset INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_workflow_templates_user
+    ON workflow_templates(user_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_workflow_templates_preset
+    ON workflow_templates(is_preset);
+
+  CREATE TABLE IF NOT EXISTS workflow_agent_conversations (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES image_sessions(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL DEFAULT '新对话',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_workflow_agent_conv_session
+    ON workflow_agent_conversations(session_id, updated_at DESC);
+
+  CREATE TABLE IF NOT EXISTS workflow_agent_messages (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL REFERENCES workflow_agent_conversations(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL DEFAULT '',
+    tool_calls_json TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_workflow_agent_msg_conv
+    ON workflow_agent_messages(conversation_id, created_at ASC);
+`);
+

@@ -14,6 +14,7 @@ import {
 import { canvasTheme } from "./canvas-theme";
 import { cn } from "@aimarket/ui";
 import type { CanvasNodeData, CanvasConnection } from "./types";
+import type { CanvasAgentOp } from "./utils";
 import {
   deleteDramaTemplate,
   listDramaTemplates,
@@ -22,6 +23,16 @@ import {
   type DramaTemplateCategory,
   type DramaTemplateItem,
 } from "@/lib/api-client";
+import {
+  deleteWorkflowTemplate,
+  listWorkflowTemplates,
+  saveWorkflowTemplate,
+  type WorkflowTemplateItem,
+} from "@/lib/api/workflow-templates";
+import {
+  serializeWorkflowSelection,
+  workflowTemplateToOps,
+} from "@/lib/workflow-template-apply";
 
 // ── Serialization helpers ──
 
@@ -145,10 +156,14 @@ type TemplateManagerProps = {
   selectedNodes: CanvasNodeData[];
   /** 当前画布连线（仅保留选中节点之间的连线） */
   connections: CanvasConnection[];
-  /** 当前会话 ID（用于"一键重跑"） */
+  /** 当前会话 ID（用于"一键重跑" / 应用模板） */
   sessionId?: string;
+  /** drama | workflow 模板模式 */
+  variant?: "drama" | "workflow";
   /** 重跑已启动回调（plan run id + 模板 payload，用于布局还原） */
   onRunStarted?: (planRunId: string, template: Record<string, unknown>) => void;
+  /** workflow 模式：将模板反序列化为画布 Op */
+  onApplyTemplate?: (ops: CanvasAgentOp[]) => void;
   onClose?: () => void;
   initialCollapsed?: boolean;
 };
@@ -159,13 +174,17 @@ export function TemplateManager({
   selectedNodes,
   connections,
   sessionId,
+  variant = "drama",
   onRunStarted,
+  onApplyTemplate,
   onClose,
   initialCollapsed = false,
 }: TemplateManagerProps) {
+  const isWorkflow = variant === "workflow";
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [tab, setTab] = useState<PanelTab>("library");
   const [templates, setTemplates] = useState<DramaTemplateItem[]>([]);
+  const [workflowTemplates, setWorkflowTemplates] = useState<WorkflowTemplateItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [runningId, setRunningId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -188,14 +207,17 @@ export function TemplateManager({
     setLoading(true);
     setError(null);
     try {
-      const list = await listDramaTemplates();
-      setTemplates(list);
+      if (isWorkflow) {
+        setWorkflowTemplates(await listWorkflowTemplates());
+      } else {
+        setTemplates(await listDramaTemplates());
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "加载模板失败");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isWorkflow]);
 
   useEffect(() => {
     if (!collapsed) void refresh();
@@ -211,26 +233,39 @@ export function TemplateManager({
       setError("请先在画布上选中节点");
       return;
     }
-    if (userIdea.trim().length < 10) {
+    if (selectedNodes.length === 0) {
+      setError("请先在画布上选中节点");
+      return;
+    }
+    if (!isWorkflow && userIdea.trim().length < 10) {
       setError("创意描述至少 10 个字符");
       return;
     }
     setSaving(true);
     try {
-      const payload = serializeSelection(selectedNodes, connections, {
-        userIdea: userIdea.trim(),
-        projectType: category,
-        targetDurationSec: targetDurationSec
-          ? Number(targetDurationSec)
-          : undefined,
-        aspectRatio,
-      });
-      await saveDramaTemplate({
-        name: name.trim(),
-        category,
-        description: description.trim() || undefined,
-        template: payload as unknown as Record<string, unknown>,
-      });
+      if (isWorkflow) {
+        const payload = serializeWorkflowSelection(selectedNodes, connections);
+        await saveWorkflowTemplate({
+          name: name.trim(),
+          description: description.trim() || undefined,
+          template: payload,
+        });
+      } else {
+        const payload = serializeSelection(selectedNodes, connections, {
+          userIdea: userIdea.trim(),
+          projectType: category,
+          targetDurationSec: targetDurationSec
+            ? Number(targetDurationSec)
+            : undefined,
+          aspectRatio,
+        });
+        await saveDramaTemplate({
+          name: name.trim(),
+          category,
+          description: description.trim() || undefined,
+          template: payload as unknown as Record<string, unknown>,
+        });
+      }
       setName("");
       setDescription("");
       setUserIdea("");
@@ -251,7 +286,22 @@ export function TemplateManager({
     aspectRatio,
     description,
     refresh,
+    isWorkflow,
   ]);
+
+  const handleApplyWorkflow = useCallback(
+    (templateId: string) => {
+      if (!sessionId || !onApplyTemplate) {
+        setError("缺少会话或应用回调");
+        return;
+      }
+      const tpl = workflowTemplates.find((t) => t.id === templateId);
+      if (!tpl) return;
+      onApplyTemplate(workflowTemplateToOps(tpl.template, sessionId));
+      setError(null);
+    },
+    [sessionId, onApplyTemplate, workflowTemplates],
+  );
 
   const handleRun = useCallback(
     async (templateId: string) => {
@@ -287,13 +337,17 @@ export function TemplateManager({
     async (templateId: string) => {
       if (!confirm("确认删除该模板？")) return;
       try {
-        await deleteDramaTemplate(templateId);
+        if (isWorkflow) {
+          await deleteWorkflowTemplate(templateId);
+        } else {
+          await deleteDramaTemplate(templateId);
+        }
         await refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "删除失败");
       }
     },
-    [refresh],
+    [refresh, isWorkflow],
   );
 
   if (collapsed) {
@@ -423,13 +477,73 @@ export function TemplateManager({
 
         {tab === "library" ? (
           <div className="flex flex-col gap-2">
-            {loading && templates.length === 0 ? (
+            {loading && (isWorkflow ? workflowTemplates.length === 0 : templates.length === 0) ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2
                   className="size-4 animate-spin"
                   style={{ color: canvasTheme.node.faint }}
                 />
               </div>
+            ) : isWorkflow ? (
+              workflowTemplates.length === 0 ? (
+                <p
+                  className="py-8 text-center text-[11px]"
+                  style={{ color: canvasTheme.node.faint }}
+                >
+                  暂无工作流模板
+                </p>
+              ) : (
+                workflowTemplates.map((tpl) => (
+                  <div
+                    key={tpl.id}
+                    className="flex flex-col gap-1.5 rounded-lg border p-2.5"
+                    style={{
+                      borderColor: canvasTheme.node.stroke,
+                      background: canvasTheme.node.fill,
+                    }}
+                  >
+                    <span
+                      className="truncate text-xs font-semibold"
+                      style={{ color: canvasTheme.node.text }}
+                    >
+                      {tpl.name}
+                    </span>
+                    {tpl.description ? (
+                      <p
+                        className="line-clamp-2 text-[11px]"
+                        style={{ color: canvasTheme.node.muted }}
+                      >
+                        {tpl.description}
+                      </p>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={!sessionId}
+                      onClick={() => handleApplyWorkflow(tpl.id)}
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium"
+                      style={{
+                        background: canvasTheme.toolbar.activeBg,
+                        color: canvasTheme.toolbar.activeText,
+                      }}
+                      data-testid={`workflow-template-apply-${tpl.id}`}
+                    >
+                      <Play className="size-3" />
+                      使用模板
+                    </button>
+                    {!tpl.isPreset ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(tpl.id)}
+                        className="inline-flex items-center gap-1 self-start rounded-md px-1.5 py-1 text-[11px]"
+                        style={{ color: canvasTheme.node.faint }}
+                      >
+                        <Trash2 className="size-3" />
+                        删除
+                      </button>
+                    ) : null}
+                  </div>
+                ))
+              )
             ) : templates.length === 0 ? (
               <p
                 className="py-8 text-center text-[11px]"
@@ -564,7 +678,7 @@ export function TemplateManager({
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="例如：我的短剧模板"
+                placeholder={isWorkflow ? "例如：文生图+图生视频" : "例如：我的短剧模板"}
                 className="w-full rounded border bg-transparent px-2 py-1.5 text-xs outline-none focus:ring-1"
                 style={{
                   borderColor: canvasTheme.node.stroke,
@@ -573,6 +687,8 @@ export function TemplateManager({
               />
             </div>
 
+            {!isWorkflow ? (
+            <>
             <div className="flex flex-col gap-1">
               <label
                 className="text-[11px] font-medium"
@@ -597,6 +713,8 @@ export function TemplateManager({
                 <option value="custom">自定义</option>
               </select>
             </div>
+            </>
+            ) : null}
 
             <div className="flex flex-col gap-1">
               <label
@@ -618,6 +736,8 @@ export function TemplateManager({
               />
             </div>
 
+            {!isWorkflow ? (
+            <>
             <div className="flex flex-col gap-1">
               <label
                 className="text-[11px] font-medium"
@@ -682,6 +802,8 @@ export function TemplateManager({
                 </select>
               </div>
             </div>
+            </>
+            ) : null}
 
             <div
               className="rounded-md border px-2.5 py-1.5 text-[10px]"
