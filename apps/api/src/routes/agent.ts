@@ -342,4 +342,68 @@ agent.post("/tool-response", async (c) => {
   });
 });
 
+const STREAM_DELTA_CHUNK = 16;
+const STREAM_DELTA_DELAY_MS = 12;
+
+/** SSE 流式 tool-response：增量推送 assistant 文本 + tool_calls + done */
+agent.post("/tool-response/stream", async (c) => {
+  const body = toolResponseBody.parse(await c.req.json());
+
+  return streamSSE(c, async (stream) => {
+    try {
+      if (!isAgentLlmEnabled()) {
+        await stream.writeSSE({
+          event: "error",
+          data: JSON.stringify({ message: "Agent LLM 未配置" }),
+        });
+        return;
+      }
+
+      const result = await completeWithFallback({
+        messages: body.messages,
+        tools: body.tools as OrchestratorToolDefinition[],
+        toolChoice: body.toolChoice as OrchestratorToolChoice,
+        temperature: body.temperature ?? 0.2,
+        maxTokens: body.maxTokens ?? 4096,
+      });
+
+      const content = result.content ?? "";
+      for (let i = 0; i < content.length; i += STREAM_DELTA_CHUNK) {
+        await stream.writeSSE({
+          event: "delta",
+          data: JSON.stringify({ delta: content.slice(i, i + STREAM_DELTA_CHUNK) }),
+        });
+        if (i + STREAM_DELTA_CHUNK < content.length) {
+          await stream.sleep(STREAM_DELTA_DELAY_MS);
+        }
+      }
+
+      const toolCalls = result.toolCalls ?? [];
+      if (toolCalls.length > 0) {
+        await stream.writeSSE({
+          event: "tool_calls",
+          data: JSON.stringify({ toolCalls }),
+        });
+      }
+
+      await stream.writeSSE({
+        event: "done",
+        data: JSON.stringify({
+          content,
+          toolCalls,
+          providerId: result.providerId,
+          model: result.model,
+        }),
+      });
+    } catch (err) {
+      await stream.writeSSE({
+        event: "error",
+        data: JSON.stringify({
+          message: err instanceof Error ? err.message : "Agent 流式响应失败",
+        }),
+      });
+    }
+  });
+});
+
 export { agent };
