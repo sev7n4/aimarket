@@ -218,8 +218,8 @@ GET  /story-canvas/latest-generation?nodeKey=
 ## Phase 4 — 高级工具（按需）
 
 - [x] IMAGE_OUTPAINTING / IMAGE_UPSCALE / LIGHTING / MUSIC / AUDIO — story-canvas 路由 (#332+)
-- [ ] LIP_SYNC — 对接现有或新 provider
-- [ ] POSE_REFERENCE / MOTION_CONTROL
+- [x] LIP_SYNC — story-canvas `/lip-sync` + lipsync provider (#335+)
+- [x] POSE_REFERENCE / MOTION_CONTROL — story-canvas `/pose-reference` `/motion-control`
 - [ ] WORLD_MODEL — PlayCanvas 评估项，独立 spike
 
 ---
@@ -238,13 +238,13 @@ GET  /story-canvas/latest-generation?nodeKey=
 | /workflows 列表 | A | 1 | ✅ |
 | /workflow 左右分栏 | A | 1 | ✅ |
 | 工具调色板 | B | 2a | ✅ |
-| 工具节点 25+ | B | 2c–4 | 9/25（9 种可跑通） |
+| 工具节点 25+ | B | 2c–4 | 12/25（12 种可跑通） |
 | 连线输入注入 | B | 2b | ✅ |
 | nodeKey 异步生成 | B | 2c–2d | ✅ |
 | batch-query-status | B | 2d | ✅ |
 | GeminiChatAgent | C | 2e | △ tool-response |
 | Agent 历史 | C | 3 | ✅ |
-| 流式响应 | C | 3b | ❌ |
+| 流式响应 | C | 3b | ✅ |
 | 模板画廊 | A/B | 3 | ✅ |
 | 分享克隆 | A | 3 | ✅ |
 | 列表封面缩略图 | A | 4c | ✅ |

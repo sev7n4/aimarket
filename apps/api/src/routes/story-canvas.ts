@@ -9,13 +9,19 @@ import {
 import {
   runWorkflowAudio,
   runWorkflowLighting,
+  runWorkflowLipSync,
+  runWorkflowMotionControl,
   runWorkflowMusic,
   runWorkflowOutpainting,
+  runWorkflowPoseReference,
   runWorkflowUpscale,
   workflowAudioBody,
   workflowLightingBody,
+  workflowLipSyncBody,
+  workflowMotionBody,
   workflowMusicBody,
   workflowOutpaintingBody,
+  workflowRunBaseBody,
   workflowUpscaleBody,
 } from "../lib/story-canvas-tool-run.js";
 
@@ -67,6 +73,27 @@ storyCanvas.post("/generate-audio", async (c) => {
   const userId = c.get("userId");
   const body = workflowAudioBody.parse(await c.req.json());
   const data = runWorkflowAudio(userId, body);
+  return c.json({ data });
+});
+
+storyCanvas.post("/lip-sync", async (c) => {
+  const userId = c.get("userId");
+  const body = workflowLipSyncBody.parse(await c.req.json());
+  const data = runWorkflowLipSync(userId, body);
+  return c.json({ data });
+});
+
+storyCanvas.post("/pose-reference", async (c) => {
+  const userId = c.get("userId");
+  const body = workflowRunBaseBody.parse(await c.req.json());
+  const data = runWorkflowPoseReference(userId, body);
+  return c.json({ data });
+});
+
+storyCanvas.post("/motion-control", async (c) => {
+  const userId = c.get("userId");
+  const body = workflowMotionBody.parse(await c.req.json());
+  const data = runWorkflowMotionControl(userId, body);
   return c.json({ data });
 });
 

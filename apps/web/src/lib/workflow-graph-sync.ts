@@ -33,15 +33,21 @@ function toolAcceptsImages(toolType: WorkflowToolId | undefined): boolean {
     "IMAGE_OUTPAINTING",
     "IMAGE_UPSCALE",
     "LIGHTING_MODIFICATION",
+    "POSE_REFERENCE",
+    "MOTION_CONTROL",
   ].includes(toolType);
 }
 
 function toolAcceptsVideos(toolType: WorkflowToolId | undefined): boolean {
-  return toolType === "IMAGE_TO_VIDEO";
+  return toolType === "IMAGE_TO_VIDEO" || toolType === "LIP_SYNC" || toolType === "MOTION_CONTROL";
 }
 
 function toolAcceptsAudio(toolType: WorkflowToolId | undefined): boolean {
-  return toolType === "AUDIO_GENERATION" || toolType === "MUSIC_GENERATION";
+  return (
+    toolType === "AUDIO_GENERATION" ||
+    toolType === "MUSIC_GENERATION" ||
+    toolType === "LIP_SYNC"
+  );
 }
 
 function collectUpstreamUrls(

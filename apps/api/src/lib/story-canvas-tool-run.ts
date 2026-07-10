@@ -5,6 +5,10 @@ import { assertSessionWrite } from "./session-access.js";
 import { getTool } from "./tools.js";
 import { mergeExpandToolContext } from "./expand-run.js";
 import { expandExtendSchema } from "./expand-extend.js";
+import { encodeCameraPromptFromConfig } from "../providers/tools/lighting-camera-tool-provider.js";
+import {
+  runWorkflowImageGeneration,
+} from "./story-canvas-service.js";
 
 /** workflowToolType → Studio toolType */
 export const WORKFLOW_STUDIO_TOOL_MAP = {
@@ -66,6 +70,18 @@ export const workflowAudioBody = workflowRunBaseBody.extend({
   voiceId: z.string().max(100).optional(),
 });
 
+export const workflowLipSyncBody = workflowRunBaseBody.extend({
+  videoUrl: z.string().min(1).max(2000),
+  audioUrl: z.string().min(1).max(2000),
+});
+
+export const workflowMotionBody = workflowRunBaseBody.extend({
+  shotSize: z.string().max(100).optional(),
+  movement: z.string().max(100).optional(),
+  pitch: z.number().min(-90).max(90).optional(),
+  yaw: z.number().min(-180).max(180).optional(),
+});
+
 function assertReferenceUrls(
   workflowToolType: WorkflowStudioToolKey,
   referenceUrls: string[] | undefined,
@@ -92,6 +108,7 @@ function runWorkflowStudioImageTool(
     scale?: "2x" | "4x";
     extend?: z.infer<typeof expandExtendSchema>;
     lights?: z.infer<typeof workflowLightingBody>["lights"];
+    camera?: z.infer<typeof workflowMotionBody>;
   },
 ) {
   assertSessionWrite(userId, body.sessionId);
@@ -116,6 +133,17 @@ function runWorkflowStudioImageTool(
           toolId: mapping.toolId,
           masks: [],
           lights: extra.lights,
+        }
+      : extra?.camera ?
+        {
+          toolId: mapping.toolId,
+          masks: [],
+          camera: {
+            shotSize: extra.camera.shotSize,
+            movement: extra.camera.movement,
+            pitch: extra.camera.pitch,
+            yaw: extra.camera.yaw,
+          },
         }
       : undefined,
   });
@@ -226,6 +254,107 @@ export function runWorkflowAudio(
       workflowToolType: body.workflowToolType ?? "AUDIO_GENERATION",
       voiceStyle: body.voiceStyle,
       voiceId: body.voiceId,
+    },
+  });
+
+  return workflowJobResult(body.nodeKey, jobId, pointsCost);
+}
+
+export function runWorkflowPoseReference(
+  userId: string,
+  body: z.infer<typeof workflowRunBaseBody>,
+) {
+  assertSessionWrite(userId, body.sessionId);
+  if (!(body.referenceUrls?.length ?? 0)) {
+    throw new AppError(
+      400,
+      "SOURCE_REQUIRED",
+      "请连接上游姿势参考图节点",
+    );
+  }
+  return runWorkflowImageGeneration(userId, {
+    sessionId: body.sessionId,
+    nodeKey: body.nodeKey,
+    prompt:
+      body.prompt?.trim() || "按姿势参考图生成一致的角色姿态与构图",
+    workflowToolType: "POSE_REFERENCE",
+    referenceUrls: body.referenceUrls,
+  });
+}
+
+export function runWorkflowMotionControl(
+  userId: string,
+  body: z.infer<typeof workflowMotionBody>,
+) {
+  assertSessionWrite(userId, body.sessionId);
+  if (!(body.referenceUrls?.length ?? 0)) {
+    throw new AppError(
+      400,
+      "SOURCE_REQUIRED",
+      "请连接上游图片或视频节点作为运镜参考",
+    );
+  }
+  const cameraSuffix = encodeCameraPromptFromConfig({
+    camera: {
+      shotSize: body.shotSize,
+      movement: body.movement,
+      pitch: body.pitch,
+      yaw: body.yaw,
+    },
+  });
+  const basePrompt = body.prompt?.trim() || "按运镜参数生成视频";
+  const prompt = cameraSuffix ? `${basePrompt}（${cameraSuffix}）` : basePrompt;
+  const modelId = process.env.DEFAULT_VIDEO_MODEL ?? "wan2.6-t2v";
+  const { jobId, pointsCost } = createGenerationJob({
+    sessionId: body.sessionId,
+    userId,
+    prompt,
+    modelId,
+    mode: "video",
+    count: 1,
+    resolution: "720p",
+    aspectRatio: "16:9",
+    referenceUrls: body.referenceUrls,
+    sourceLane: "video",
+    toolContext: {
+      workflowNodeKey: body.nodeKey,
+      workflowToolType: body.workflowToolType ?? "MOTION_CONTROL",
+      camera: {
+        shotSize: body.shotSize,
+        movement: body.movement,
+        pitch: body.pitch,
+        yaw: body.yaw,
+      },
+    },
+  });
+  return workflowJobResult(body.nodeKey, jobId, pointsCost);
+}
+
+export function runWorkflowLipSync(
+  userId: string,
+  body: z.infer<typeof workflowLipSyncBody>,
+) {
+  assertSessionWrite(userId, body.sessionId);
+  const tool = getTool("lipsync");
+  if (!tool) {
+    throw new AppError(404, "NOT_FOUND", "口型同步工具不可用");
+  }
+
+  const { jobId, pointsCost } = createGenerationJob({
+    sessionId: body.sessionId,
+    userId,
+    prompt: body.prompt?.trim() || tool.defaultPrompt,
+    modelId: "omni-v2",
+    mode: "chat",
+    count: 1,
+    resolution: "1k",
+    toolType: "lipsync",
+    sourceLane: "video",
+    toolContext: {
+      videoUrl: body.videoUrl,
+      audioUrl: body.audioUrl,
+      workflowNodeKey: body.nodeKey,
+      workflowToolType: body.workflowToolType ?? "LIP_SYNC",
     },
   });
 

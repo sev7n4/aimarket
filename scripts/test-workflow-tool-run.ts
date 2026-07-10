@@ -6,6 +6,7 @@ import { CanvasNodeType } from "../apps/web/src/components/infinite-canvas/types
 import {
   resolveWorkflowRunEndpoint,
   workflowRunRequiresReference,
+  workflowRunRequiresLipSyncSources,
 } from "../apps/web/src/lib/workflow-tool-run.ts";
 
 const results: { name: string; pass: boolean }[] = [];
@@ -65,6 +66,27 @@ ok(
   }) === "generate-audio",
 );
 ok(
+  "LIP_SYNC → lip-sync",
+  resolveWorkflowRunEndpoint({
+    workflowToolType: "LIP_SYNC",
+    nodeType: CanvasNodeType.Video,
+  }) === "lip-sync",
+);
+ok(
+  "POSE_REFERENCE → pose-reference",
+  resolveWorkflowRunEndpoint({
+    workflowToolType: "POSE_REFERENCE",
+    nodeType: CanvasNodeType.Image,
+  }) === "pose-reference",
+);
+ok(
+  "MOTION_CONTROL → motion-control",
+  resolveWorkflowRunEndpoint({
+    workflowToolType: "MOTION_CONTROL",
+    nodeType: CanvasNodeType.Video,
+  }) === "motion-control",
+);
+ok(
   "video node fallback",
   resolveWorkflowRunEndpoint({
     nodeType: CanvasNodeType.Video,
@@ -77,6 +99,14 @@ ok(
 ok(
   "text to image no reference required",
   !workflowRunRequiresReference("TEXT_TO_IMAGE"),
+);
+ok(
+  "pose reference requires reference",
+  workflowRunRequiresReference("POSE_REFERENCE"),
+);
+ok(
+  "lip sync requires video+audio sources",
+  workflowRunRequiresLipSyncSources("LIP_SYNC"),
 );
 
 const failed = results.filter((r) => !r.pass);
