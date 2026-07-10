@@ -12,8 +12,11 @@ async function main() {
   const {
     isWorkflowStudioToolType,
     runWorkflowAudio,
+    runWorkflowLipSync,
+    runWorkflowMotionControl,
     runWorkflowMusic,
     runWorkflowOutpainting,
+    runWorkflowPoseReference,
     runWorkflowUpscale,
   } = await import("../apps/api/src/lib/story-canvas-tool-run.ts");
 
@@ -118,6 +121,57 @@ async function main() {
     .get(audioResult.jobId) as { tool_type: string; prompt: string };
   ok("audio tool_type tts", audioJob.tool_type === "tts");
   ok("audio prompt preserved", audioJob.prompt.includes("测试语音"));
+
+  let threwPoseRequired = false;
+  try {
+    runWorkflowPoseReference(userId, {
+      sessionId,
+      nodeKey: `${sessionId}:wf-pose`,
+    });
+  } catch (err) {
+    threwPoseRequired =
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as { code: string }).code === "SOURCE_REQUIRED";
+  }
+  ok("pose reference requires reference", threwPoseRequired);
+
+  const poseResult = runWorkflowPoseReference(userId, {
+    sessionId,
+    nodeKey: `${sessionId}:wf-pose`,
+    referenceUrls: ["https://example.com/pose.png"],
+    prompt: "姿势参考测试",
+  });
+  ok("pose reference creates job", Boolean(poseResult.jobId));
+
+  const motionResult = runWorkflowMotionControl(userId, {
+    sessionId,
+    nodeKey: `${sessionId}:wf-motion`,
+    referenceUrls: ["https://example.com/ref.png"],
+    movement: "推进",
+    shotSize: "中景",
+  });
+  const motionJob = db
+    .prepare("SELECT mode, tool_context FROM generation_jobs WHERE id = ?")
+    .get(motionResult.jobId) as { mode: string; tool_context: string };
+  ok("motion control video job", motionJob.mode === "video");
+  ok("motion control stores nodeKey", motionJob.tool_context.includes("wf-motion"));
+
+  const lipSyncResult = runWorkflowLipSync(userId, {
+    sessionId,
+    nodeKey: `${sessionId}:wf-lipsync`,
+    videoUrl: "https://example.com/video.mp4",
+    audioUrl: "https://example.com/audio.mp3",
+  });
+  const lipSyncJob = db
+    .prepare("SELECT tool_type, tool_context FROM generation_jobs WHERE id = ?")
+    .get(lipSyncResult.jobId) as { tool_type: string; tool_context: string };
+  ok("lip sync tool_type", lipSyncJob.tool_type === "lipsync");
+  ok(
+    "lip sync stores videoUrl",
+    lipSyncJob.tool_context.includes("video.mp4"),
+  );
 
   const failed = results.filter((r) => !r.pass);
   if (failed.length) {

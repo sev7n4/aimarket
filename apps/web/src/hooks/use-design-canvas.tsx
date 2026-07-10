@@ -52,6 +52,7 @@ import {
 import {
   resolveWorkflowRunEndpoint,
   workflowRunRequiresReference,
+  workflowRunRequiresLipSyncSources,
 } from "@/lib/workflow-tool-run";
 import {
   WORKFLOW_RUN_NODE_EVENT,
@@ -576,10 +577,33 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
           node.title?.trim() ||
           "根据工作流节点生成";
         const referenceUrls = node.metadata?.connectedImageUrls;
+        const videoUrl = node.metadata?.connectedVideoUrls?.[0];
+        const audioUrl = node.metadata?.connectedAudioUrls?.[0];
+
+        if (
+          workflowRunRequiresLipSyncSources(toolType) &&
+          (!videoUrl || !audioUrl)
+        ) {
+          commitCanvasOps([
+            {
+              type: "update_node",
+              id: node.id,
+              patch: {
+                metadata: {
+                  ...node.metadata,
+                  status: "error",
+                  errorDetails: "请先连接上游视频与音频节点",
+                },
+              },
+            },
+          ]);
+          return;
+        }
 
         if (
           workflowRunRequiresReference(toolType) &&
-          !(referenceUrls?.length ?? 0)
+          !(referenceUrls?.length ?? 0) &&
+          toolType !== "MOTION_CONTROL"
         ) {
           commitCanvasOps([
             {
@@ -590,6 +614,27 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
                   ...node.metadata,
                   status: "error",
                   errorDetails: "请先连接上游图片节点",
+                },
+              },
+            },
+          ]);
+          return;
+        }
+
+        if (
+          toolType === "MOTION_CONTROL" &&
+          !(referenceUrls?.length ?? 0) &&
+          !videoUrl
+        ) {
+          commitCanvasOps([
+            {
+              type: "update_node",
+              id: node.id,
+              patch: {
+                metadata: {
+                  ...node.metadata,
+                  status: "error",
+                  errorDetails: "请先连接上游图片或视频节点作为运镜参考",
                 },
               },
             },
@@ -621,7 +666,12 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
             nodeKey,
             prompt,
             workflowToolType: toolType,
-            referenceUrls,
+            referenceUrls:
+              toolType === "MOTION_CONTROL" && !referenceUrls?.length && videoUrl
+                ? [videoUrl]
+                : referenceUrls,
+            videoUrl,
+            audioUrl,
           });
           commitCanvasOps([
             {

@@ -11,6 +11,12 @@ export type WorkflowRunRequest = {
   prompt: string;
   workflowToolType?: string;
   referenceUrls?: string[];
+  videoUrl?: string;
+  audioUrl?: string;
+  shotSize?: string;
+  movement?: string;
+  pitch?: number;
+  yaw?: number;
 };
 
 async function postWorkflowRun(
@@ -47,6 +53,18 @@ export function storyCanvasRunAudio(body: WorkflowRunRequest) {
   return postWorkflowRun("generate-audio", body);
 }
 
+export function storyCanvasRunLipSync(body: WorkflowRunRequest) {
+  return postWorkflowRun("lip-sync", body);
+}
+
+export function storyCanvasRunPoseReference(body: WorkflowRunRequest) {
+  return postWorkflowRun("pose-reference", body);
+}
+
+export function storyCanvasRunMotionControl(body: WorkflowRunRequest) {
+  return postWorkflowRun("motion-control", body);
+}
+
 export async function storyCanvasRunByEndpoint(
   endpoint:
     | "generate-image"
@@ -54,6 +72,9 @@ export async function storyCanvasRunByEndpoint(
     | "outpainting"
     | "upscale-image"
     | "lighting"
+    | "lip-sync"
+    | "pose-reference"
+    | "motion-control"
     | "generate-music"
     | "generate-audio",
   body: WorkflowRunRequest,
@@ -63,6 +84,15 @@ export async function storyCanvasRunByEndpoint(
   }
   if (endpoint === "generate-image") {
     return storyCanvasGenerateImage(body);
+  }
+  if (endpoint === "lip-sync") {
+    return storyCanvasRunLipSync(body);
+  }
+  if (endpoint === "pose-reference") {
+    return storyCanvasRunPoseReference(body);
+  }
+  if (endpoint === "motion-control") {
+    return storyCanvasRunMotionControl(body);
   }
   return postWorkflowRun(endpoint, body);
 }
