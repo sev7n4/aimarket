@@ -38,6 +38,28 @@ ok(
   node.metadata?.workflowNodeKey === "sess:wf-text_to_image-abc",
 );
 
+const errorNode = canvasItemToNodeData({
+  id: "wf-outpaint-err",
+  url: "",
+  x: 0,
+  y: 0,
+  width: 280,
+  height: 200,
+  label: "扩图",
+  infiniteNodeType: "workflow",
+  infiniteNodeMeta: {
+    workflowToolType: "IMAGE_OUTPAINTING",
+    generationMode: "image",
+    status: "error",
+    errorDetails: "请先连接上游图片节点",
+  },
+});
+ok("error status preserved", errorNode.metadata?.status === "error");
+ok(
+  "errorDetails preserved",
+  errorNode.metadata?.errorDetails === "请先连接上游图片节点",
+);
+
 const failed = results.filter((r) => !r.pass);
 if (failed.length) {
   console.error("\nFailed:", failed.map((f) => f.name).join(", "));

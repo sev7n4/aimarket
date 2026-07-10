@@ -53,7 +53,7 @@ export function canvasItemToNodeData(item: CanvasItem): CanvasNodeData {
       height: item.height,
       metadata: {
         content: item.url ? assetUrl(item.url) : meta?.content ?? "",
-        status: meta?.workflowJobId ? "loading" : meta?.status ?? "idle",
+        status: meta?.status ?? (meta?.workflowJobId ? "loading" : "idle"),
         generationMode: mode,
         prompt: meta?.prompt,
         workflowToolType: meta?.workflowToolType,
@@ -62,6 +62,7 @@ export function canvasItemToNodeData(item: CanvasItem): CanvasNodeData {
         connectedImageUrls: meta?.connectedImageUrls,
         connectedVideoUrls: meta?.connectedVideoUrls,
         connectedAudioUrls: meta?.connectedAudioUrls,
+        errorDetails: meta?.errorDetails,
       },
     };
   }
