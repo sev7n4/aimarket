@@ -40,6 +40,7 @@ interface ChatMessage {
   toolCalls?: OrchestratorToolCall[];
   toolResults?: ToolCallResult[];
   pending?: boolean;
+  streaming?: boolean;
 }
 
 interface AgentLog {
@@ -66,11 +67,16 @@ function nanoid() {
 
 function buildAgentCallbacks({
   appendMessage,
+  updateMessage,
   addLog,
   setPendingToolCalls,
   onCompleteExtra,
+  streamResponses = false,
+  clearStreamingFlag,
 }: {
   appendMessage: (msg: ChatMessage) => void;
+  updateMessage: (id: string, updater: (msg: ChatMessage) => ChatMessage) => void;
+  clearStreamingFlag: () => void;
   addLog: (title: string, data?: unknown) => void;
   setPendingToolCalls: React.Dispatch<
     React.SetStateAction<{
@@ -80,8 +86,24 @@ function buildAgentCallbacks({
     } | null>
   >;
   onCompleteExtra?: (finalText: string) => void;
+  streamResponses?: boolean;
 }) {
   return {
+    onAssistantStreamStart: streamResponses
+      ? () => {
+          const id = nanoid();
+          appendMessage({ id, role: "assistant", text: "", streaming: true });
+          return id;
+        }
+      : undefined,
+    onAssistantDelta: streamResponses
+      ? (messageId: string, delta: string) => {
+          updateMessage(messageId, (msg) => ({
+            ...msg,
+            text: msg.text + delta,
+          }));
+        }
+      : undefined,
     onAssistantMessage: (assistantText: string) => {
       appendMessage({ id: nanoid(), role: "assistant", text: assistantText });
     },
@@ -127,8 +149,11 @@ function buildAgentCallbacks({
     },
     onComplete: (finalText: string) => {
       addLog("Agent 完成", finalText);
-      if (finalText) {
+      if (finalText && !streamResponses) {
         appendMessage({ id: nanoid(), role: "assistant", text: finalText });
+      }
+      if (streamResponses) {
+        clearStreamingFlag();
       }
       onCompleteExtra?.(finalText);
     },
@@ -233,6 +258,21 @@ export function CanvasAssistantPanel({
     setMessages((prev) => [...prev, msg]);
   }, []);
 
+  const updateMessage = useCallback(
+    (id: string, updater: (msg: ChatMessage) => ChatMessage) => {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === id ? updater(m) : m)),
+      );
+    },
+    [],
+  );
+
+  const clearStreamingFlag = useCallback(() => {
+    setMessages((prev) =>
+      prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)),
+    );
+  }, []);
+
   const runAgent = useCallback(
     async (text: string) => {
       if (!text || isRunning) return;
@@ -266,10 +306,14 @@ export function CanvasAssistantPanel({
             return updated;
           },
           confirmTools,
+          streamResponses: workflowShell,
           callbacks: buildAgentCallbacks({
             appendMessage,
+            updateMessage,
+            clearStreamingFlag,
             addLog,
             setPendingToolCalls,
+            streamResponses: workflowShell,
             onCompleteExtra: async (finalText) => {
               historyMessagesRef.current = [
                 ...historyMessagesRef.current,
@@ -296,7 +340,7 @@ export function CanvasAssistantPanel({
         setIsRunning(false);
       }
     },
-    [isRunning, appendMessage, addLog, onApplyOps, confirmTools, ensureConversation],
+    [isRunning, appendMessage, updateMessage, clearStreamingFlag, addLog, onApplyOps, confirmTools, ensureConversation, workflowShell, agentTools],
   );
 
   const handleSend = useCallback(async () => {
@@ -323,14 +367,18 @@ export function CanvasAssistantPanel({
         },
         callbacks: buildAgentCallbacks({
           appendMessage,
+          updateMessage,
+          clearStreamingFlag,
           addLog,
           setPendingToolCalls,
+          streamResponses: workflowShell,
         }),
+        streamResponses: workflowShell,
       });
     } finally {
       setIsRunning(false);
     }
-  }, [pendingToolCalls, isRunning, appendMessage, addLog, onApplyOps]);
+  }, [pendingToolCalls, isRunning, appendMessage, updateMessage, clearStreamingFlag, addLog, onApplyOps, workflowShell, agentTools]);
 
   const handleRejectPending = useCallback(() => {
     if (!pendingToolCalls) return;
@@ -627,7 +675,12 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
             {message.title}
           </div>
         )}
-        <p className="whitespace-pre-wrap">{message.text}</p>
+        <p className="whitespace-pre-wrap">
+          {message.text}
+          {message.streaming ? (
+            <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-current align-middle opacity-70" />
+          ) : null}
+        </p>
         {message.pending && <Loader2 className="mt-1 size-3 animate-spin" />}
       </div>
       {message.toolResults && message.toolResults.length > 0 && (

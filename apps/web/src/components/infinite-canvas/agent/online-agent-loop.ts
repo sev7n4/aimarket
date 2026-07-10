@@ -12,6 +12,7 @@ import type {
 import type { CanvasAgentOp, CanvasAgentSnapshot } from "../utils";
 import { bindRunGenerationNodeIds } from "@/lib/agent-run-generation";
 import { request } from "@/lib/api/core";
+import { streamToolResponse } from "@/lib/agent-tool-stream";
 import { describeSnapshotForAgent, getAgentToolsForContext, onlineToolToOps, resolveWorkflowReadOnlyTool } from "./agent-tools";
 
 export const CANVAS_AGENT_SYSTEM_PROMPT = `你是 AIMarket 画布助手。当前画布 JSON 会随用户消息提供。
@@ -45,6 +46,8 @@ export type ToolCallResult = {
 
 export type AgentLoopCallbacks = {
   onAssistantMessage: (text: string) => void;
+  onAssistantStreamStart?: () => string;
+  onAssistantDelta?: (messageId: string, delta: string) => void;
   onToolCallPending: (
     toolCalls: OrchestratorToolCall[],
     step: number,
@@ -61,7 +64,33 @@ async function callToolResponse(
   messages: OrchestratorMessage[],
   tools: OrchestratorToolDefinition[],
   toolChoice: OrchestratorToolChoice,
+  streamOptions?: {
+    onStreamStart?: () => string;
+    onDelta?: (messageId: string, delta: string) => void;
+  },
 ): Promise<{ content: string; toolCalls: OrchestratorToolCall[]; providerId: string }> {
+  if (streamOptions?.onStreamStart && streamOptions.onDelta) {
+    const messageId = streamOptions.onStreamStart();
+    const result = await streamToolResponse(
+      { messages, tools, toolChoice, maxTokens: 4096 },
+      {
+        onDelta: (delta) => streamOptions.onDelta!(messageId, delta),
+        onDone: () => {},
+        onError: (message) => {
+          throw new Error(message);
+        },
+      },
+    );
+    if (!result) {
+      throw new Error("Agent 流式响应未完成");
+    }
+    return {
+      content: result.content,
+      toolCalls: result.toolCalls,
+      providerId: result.providerId,
+    };
+  }
+
   const json = await request<{
     data: { content: string; toolCalls: OrchestratorToolCall[]; providerId: string };
   }>("/api/v1/agent/tool-response", {
@@ -185,6 +214,7 @@ export async function runCanvasAgentLoop({
   tools,
   onApplyOps,
   confirmTools = false,
+  streamResponses = false,
   callbacks,
 }: {
   snapshot: CanvasAgentSnapshot;
@@ -193,6 +223,7 @@ export async function runCanvasAgentLoop({
   tools: OrchestratorToolDefinition[];
   onApplyOps: (ops: CanvasAgentOp[]) => CanvasAgentSnapshot;
   confirmTools?: boolean;
+  streamResponses?: boolean;
   callbacks: AgentLoopCallbacks;
 }): Promise<void> {
   const messages: OrchestratorMessage[] = [
@@ -208,11 +239,22 @@ export async function runCanvasAgentLoop({
   while (step <= MAX_AGENT_STEPS) {
     try {
       const toolChoice: OrchestratorToolChoice = isFirstStep ? "required" : "auto";
-      const result = await callToolResponse(messages, tools, toolChoice);
+      const result = await callToolResponse(
+        messages,
+        tools,
+        toolChoice,
+        streamResponses && callbacks.onAssistantStreamStart && callbacks.onAssistantDelta
+          ? {
+              onStreamStart: callbacks.onAssistantStreamStart,
+              onDelta: callbacks.onAssistantDelta,
+            }
+          : undefined,
+      );
 
       if (result.toolCalls.length === 0) {
-        // 没有工具调用，直接返回文字回复
-        callbacks.onAssistantMessage(result.content || "没有回复内容");
+        if (!streamResponses) {
+          callbacks.onAssistantMessage(result.content || "没有回复内容");
+        }
         callbacks.onComplete(result.content || "");
         return;
       }
@@ -280,6 +322,7 @@ export async function continueAgentLoopAfterApproval({
   step,
   onApplyOps,
   callbacks,
+  streamResponses = false,
 }: {
   approvedToolCalls: OrchestratorToolCall[];
   snapshot: CanvasAgentSnapshot;
@@ -288,6 +331,7 @@ export async function continueAgentLoopAfterApproval({
   step: number;
   onApplyOps: (ops: CanvasAgentOp[]) => CanvasAgentSnapshot;
   callbacks: AgentLoopCallbacks;
+  streamResponses?: boolean;
 }): Promise<void> {
   const results = executeToolCallsLocally(approvedToolCalls, snapshot);
 
@@ -315,10 +359,22 @@ export async function continueAgentLoopAfterApproval({
 
   while (nextStep <= MAX_AGENT_STEPS) {
     try {
-      const result = await callToolResponse(messages, tools, "auto");
+      const result = await callToolResponse(
+        messages,
+        tools,
+        "auto",
+        streamResponses && callbacks.onAssistantStreamStart && callbacks.onAssistantDelta
+          ? {
+              onStreamStart: callbacks.onAssistantStreamStart,
+              onDelta: callbacks.onAssistantDelta,
+            }
+          : undefined,
+      );
 
       if (result.toolCalls.length === 0) {
-        callbacks.onAssistantMessage(result.content || "操作完成");
+        if (!streamResponses) {
+          callbacks.onAssistantMessage(result.content || "操作完成");
+        }
         callbacks.onComplete(result.content || "");
         return;
       }
