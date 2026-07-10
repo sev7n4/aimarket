@@ -37,6 +37,35 @@ export function canvasItemToNodeData(item: CanvasItem): CanvasNodeData {
       },
     };
   }
+  if (item.infiniteNodeType === "workflow") {
+    const meta = item.infiniteNodeMeta;
+    const mode = meta?.generationMode ?? "image";
+    const type =
+      mode === "video" ? CanvasNodeType.Video
+      : mode === "audio" ? CanvasNodeType.Audio
+      : CanvasNodeType.Image;
+    return {
+      id: item.id,
+      type,
+      title: item.label || "工作流节点",
+      position: { x: item.x, y: item.y },
+      width: item.width,
+      height: item.height,
+      metadata: {
+        content: item.url ? assetUrl(item.url) : meta?.content ?? "",
+        status: meta?.status ?? (meta?.workflowJobId ? "loading" : "idle"),
+        generationMode: mode,
+        prompt: meta?.prompt,
+        workflowToolType: meta?.workflowToolType,
+        workflowNodeKey: meta?.workflowNodeKey,
+        workflowJobId: meta?.workflowJobId,
+        connectedImageUrls: meta?.connectedImageUrls,
+        connectedVideoUrls: meta?.connectedVideoUrls,
+        connectedAudioUrls: meta?.connectedAudioUrls,
+        errorDetails: meta?.errorDetails,
+      },
+    };
+  }
   return {
     id: item.id,
     type: item.isVideo ? CanvasNodeType.Video : CanvasNodeType.Image,

@@ -60,6 +60,8 @@ export interface ImageSession {
   creator_email?: string | null;
   can_edit?: boolean;
   is_read_only?: boolean;
+  /** 列表封面：canvas_layout 首图 */
+  cover_url?: string | null;
 }
 
 export interface SessionAccessMeta {

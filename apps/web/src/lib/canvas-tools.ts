@@ -116,6 +116,7 @@ export interface CanvasItem {
     connectedVideoUrls?: string[];
     connectedAudioUrls?: string[];
     status?: "idle" | "loading" | "success" | "error";
+    errorDetails?: string;
     pendingJobId?: string;
   };
 }

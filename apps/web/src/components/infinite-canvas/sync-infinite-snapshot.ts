@@ -46,6 +46,8 @@ function workflowMetaFromNode(node: CanvasNodeData) {
     connectedImageUrls: node.metadata?.connectedImageUrls,
     connectedVideoUrls: node.metadata?.connectedVideoUrls,
     connectedAudioUrls: node.metadata?.connectedAudioUrls,
+    status: node.metadata?.status,
+    errorDetails: node.metadata?.errorDetails,
   };
 }
 
@@ -86,7 +88,7 @@ function canvasItemToPersistedNode(item: CanvasItem): CanvasNodeData | null {
       height: item.height,
       metadata: {
         content: item.url || meta?.content || "",
-        status: meta?.workflowJobId ? "loading" : "idle",
+        status: meta?.status ?? (meta?.workflowJobId ? "loading" : "idle"),
         generationMode: mode,
         prompt: meta?.prompt,
         workflowToolType: meta?.workflowToolType,
@@ -95,6 +97,7 @@ function canvasItemToPersistedNode(item: CanvasItem): CanvasNodeData | null {
         connectedImageUrls: meta?.connectedImageUrls,
         connectedVideoUrls: meta?.connectedVideoUrls,
         connectedAudioUrls: meta?.connectedAudioUrls,
+        errorDetails: meta?.errorDetails,
       },
     };
   }
@@ -175,6 +178,8 @@ export function mergeSnapshotToCanvasItems(
             node.metadata?.connectedVideoUrls ?? item.infiniteNodeMeta?.connectedVideoUrls,
           connectedAudioUrls:
             node.metadata?.connectedAudioUrls ?? item.infiniteNodeMeta?.connectedAudioUrls,
+          status: node.metadata?.status ?? item.infiniteNodeMeta?.status,
+          errorDetails: node.metadata?.errorDetails ?? item.infiniteNodeMeta?.errorDetails,
         },
       });
     } else {
