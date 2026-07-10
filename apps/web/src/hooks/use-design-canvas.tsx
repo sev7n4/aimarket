@@ -55,6 +55,12 @@ import {
   workflowRunRequiresLipSyncSources,
 } from "@/lib/workflow-tool-run";
 import {
+  pasteClipboard,
+  selectAllNodeIds,
+  serializeSelection,
+  type CanvasClipboardPayload,
+} from "@/lib/canvas-clipboard";
+import {
   WORKFLOW_RUN_NODE_EVENT,
 } from "@/components/workflows/WorkflowToolNodeContent";
 import {
@@ -776,6 +782,59 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       [readOnly, commitCanvasOps, selectedId, onSelect],
     );
 
+    const clipboardRef = useRef<CanvasClipboardPayload | null>(null);
+
+    const handleCopyInfiniteSelection = useCallback((nodeIds?: string[]) => {
+      if (!useInfiniteCanvas) return;
+      const ids = nodeIds?.length ? nodeIds : infiniteSelectedIds;
+      const payload = serializeSelection(
+        allCanvasNodesRef.current,
+        canvasConnections,
+        ids,
+      );
+      if (!payload) return;
+      clipboardRef.current = payload;
+    }, [useInfiniteCanvas, canvasConnections, infiniteSelectedIds]);
+
+    const handlePasteInfiniteClipboard = useCallback(() => {
+      if (readOnly || !useInfiniteCanvas || !clipboardRef.current) return;
+      const { nodes: pastedNodes, connections: pastedConns } = pasteClipboard(
+        clipboardRef.current,
+      );
+      if (pastedNodes.length === 0) return;
+      const ops = [
+        ...pastedNodes.map((node) => ({
+          type: "add_node" as const,
+          id: node.id,
+          nodeType: node.type,
+          title: node.title,
+          x: node.position.x,
+          y: node.position.y,
+          width: node.width,
+          height: node.height,
+          metadata: node.metadata,
+        })),
+        ...pastedConns.map((conn) => ({
+          type: "connect_nodes" as const,
+          id: conn.id,
+          fromNodeId: conn.fromNodeId,
+          toNodeId: conn.toNodeId,
+        })),
+        {
+          type: "select_nodes" as const,
+          ids: pastedNodes.map((n) => n.id),
+        },
+      ];
+      commitCanvasOps(ops);
+    }, [readOnly, useInfiniteCanvas, commitCanvasOps]);
+
+    const handleSelectAllInfinite = useCallback(() => {
+      if (!useInfiniteCanvas) return;
+      const ids = selectAllNodeIds(allCanvasNodesRef.current);
+      setInfiniteSelectedIds(ids);
+      if (ids.length === 1) onSelect(ids[0] ?? null);
+    }, [useInfiniteCanvas, onSelect]);
+
     const handleDeleteConnection = useCallback(
       (connectionId: string) => {
         if (readOnly) return;
@@ -1174,6 +1233,21 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
           }
           if (!selectedId) return;
           onDeleteSelected();
+        } else if ((e.metaKey || e.ctrlKey) && (e.key === "c" || e.key === "C")) {
+          if (inInput) return;
+          if (!useInfiniteCanvas) return;
+          e.preventDefault();
+          handleCopyInfiniteSelection();
+        } else if ((e.metaKey || e.ctrlKey) && (e.key === "v" || e.key === "V")) {
+          if (inInput) return;
+          if (readOnly || !useInfiniteCanvas) return;
+          e.preventDefault();
+          handlePasteInfiniteClipboard();
+        } else if ((e.metaKey || e.ctrlKey) && (e.key === "a" || e.key === "A")) {
+          if (inInput) return;
+          if (!useInfiniteCanvas) return;
+          e.preventDefault();
+          handleSelectAllInfinite();
         } else if ((e.metaKey || e.ctrlKey) && e.key === "z") {
           if (inInput) return;
           e.preventDefault();
@@ -1215,6 +1289,9 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       useInfiniteCanvas,
       infiniteSelectedIds,
       handleDeleteInfiniteNodes,
+      handleCopyInfiniteSelection,
+      handlePasteInfiniteClipboard,
+      handleSelectAllInfinite,
     ]);
 
     const batchSections = useMemo(() => {
@@ -1286,6 +1363,7 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
         onDownloadItem ??
         ((item: CanvasItem) => window.open(assetUrl(item.url), "_blank")),
       onDeleteNodes: handleDeleteInfiniteNodes,
+      onCopyNodes: handleCopyInfiniteSelection,
       onSelect,
       onOpenLightbox: (canvasItems, index) => setLightbox({ items: canvasItems, index }),
       onVideoInpaint: (node) => setShowVideoInpaint({ node }),

@@ -9,6 +9,9 @@ import { CanvasNode } from "./CanvasNode";
 import { ConnectionPath, ActiveConnectionPath } from "./CanvasConnections";
 import { CanvasMiniMap } from "./CanvasMiniMap";
 import { CanvasZoomControls } from "./CanvasZoomControls";
+import { CanvasGuideCapsule } from "./CanvasGuideCapsule";
+import { applyDragDelta, DEFAULT_GRID_SIZE } from "@/lib/canvas-interaction";
+import { computeFitViewport } from "@/lib/canvas-viewport";
 import type {
   CanvasNodeData,
   CanvasConnection,
@@ -47,6 +50,8 @@ export type InfiniteCanvasContainerProps = {
   showZoomControls?: boolean;
   /** 左下角控件需额外抬高的像素（避开 StudioDock） */
   overlayBottomInsetPx?: number;
+  /** workflow 壳：默认开启网格吸附 + 显示使用指南胶囊 */
+  workflowShell?: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -94,6 +99,7 @@ export function InfiniteCanvasContainer({
   showMiniMap: showMiniMapProp,
   showZoomControls: showZoomControlsProp,
   overlayBottomInsetPx = 0,
+  workflowShell = false,
 }: InfiniteCanvasContainerProps) {
   // ---- local state ----
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -110,6 +116,7 @@ export function InfiniteCanvasContainer({
   const [localContextMenu, setLocalContextMenu] =
     useState<ContextMenuState | null>(null);
   const [isMiniMapOpen, setIsMiniMapOpen] = useState(true);
+  const [snapToGridEnabled, setSnapToGridEnabled] = useState(workflowShell);
 
   // ---- refs (high-frequency / global handler state) ----
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -134,6 +141,7 @@ export function InfiniteCanvasContainer({
   });
 
   const selectionBoxRef = useRef<SelectionBox | null>(null);
+  const snapToGridRef = useRef(snapToGridEnabled);
 
   const rafRef = useRef<number | null>(null);
   const nextNodesRef = useRef<CanvasNodeData[] | null>(null);
@@ -145,6 +153,9 @@ export function InfiniteCanvasContainer({
   useEffect(() => {
     viewportRef.current = viewport;
   }, [viewport]);
+  useEffect(() => {
+    snapToGridRef.current = snapToGridEnabled;
+  }, [snapToGridEnabled]);
   useEffect(() => {
     selectedNodeIdsRef.current = selectedNodeIds;
   }, [selectedNodeIds]);
@@ -180,6 +191,17 @@ export function InfiniteCanvasContainer({
       y: rect.height / 2,
       k: 1,
     });
+  }, [onViewportChange]);
+
+  const fitViewport = useCallback(() => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    onViewportChange(
+      computeFitViewport(nodesRef.current, {
+        width: rect.width,
+        height: rect.height,
+      }),
+    );
   }, [onViewportChange]);
 
   const setZoomScale = useCallback(
@@ -394,12 +416,12 @@ export function InfiniteCanvasContainer({
 
       // --- node drag ---
       if (dragRef.current.isDraggingNode) {
-        const dx = (event.clientX - dragRef.current.startX) / vp.k;
-        const dy = (event.clientY - dragRef.current.startY) / vp.k;
+        const rawDx = (event.clientX - dragRef.current.startX) / vp.k;
+        const rawDy = (event.clientY - dragRef.current.startY) / vp.k;
 
         if (
-          Math.abs(dx) > 2 / vp.k ||
-          Math.abs(dy) > 2 / vp.k
+          Math.abs(rawDx) > 2 / vp.k ||
+          Math.abs(rawDy) > 2 / vp.k
         ) {
           dragRef.current.hasMoved = true;
         }
@@ -409,9 +431,14 @@ export function InfiniteCanvasContainer({
             (p) => p.id === n.id,
           );
           if (!initial) return n;
+          const next = applyDragDelta(initial, rawDx, rawDy, {
+            lockAxis: event.shiftKey,
+            snapGrid: snapToGridRef.current,
+            gridSize: DEFAULT_GRID_SIZE,
+          });
           return {
             ...n,
-            position: { x: initial.x + dx, y: initial.y + dy },
+            position: next,
           };
         });
 
@@ -574,9 +601,13 @@ export function InfiniteCanvasContainer({
     connectionTargetNodeId,
   ]);
 
-  // ---- Escape key ----
+  // ---- Escape / fit / snap keys ----
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      const tag = (event.target as HTMLElement).tagName;
+      const inInput =
+        tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+
       if (event.key === "Escape") {
         setConnectingParams(null);
         connectingParamsRef.current = null;
@@ -584,11 +615,29 @@ export function InfiniteCanvasContainer({
         setSelectionBox(null);
         selectionBoxRef.current = null;
         setLocalContextMenu(null);
+        return;
+      }
+
+      if (inInput) return;
+
+      if (event.key === "l" || event.key === "L") {
+        event.preventDefault();
+        setSnapToGridEnabled((v) => !v);
+        return;
+      }
+
+      if (
+        event.key === "f" ||
+        event.key === "F" ||
+        ((event.metaKey || event.ctrlKey) && event.key === "0")
+      ) {
+        event.preventDefault();
+        fitViewport();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [fitViewport]);
 
   // ---- notify context menu changes to parent ----
   useEffect(() => {
@@ -760,15 +809,23 @@ export function InfiniteCanvasContainer({
         />
       )}
 
+      {/* Guide capsule (workflow shell) */}
+      <CanvasGuideCapsule
+        bottomInsetPx={overlayBottomInsetPx}
+        visible={workflowShell}
+      />
+
       {/* Zoom controls */}
       {showZoomControlsProp !== false && (
         <CanvasZoomControls
           scale={viewport.k}
           onScaleChange={setZoomScale}
           onReset={resetViewport}
+          onFit={fitViewport}
           isMiniMapOpen={isMiniMapOpen}
           onToggleMiniMap={() => setIsMiniMapOpen((v) => !v)}
           bottomInsetPx={overlayBottomInsetPx}
+          showShortcutsButton={!workflowShell}
         />
       )}
 

@@ -7,6 +7,7 @@ import {
   Grid3x3,
   Image as ImageIcon,
   Lightbulb,
+  Copy,
   Music,
   Pencil,
   RefreshCw,
@@ -44,6 +45,7 @@ export type InfiniteNodeMenuHandlers = {
   onRerun?: () => void;
   onDownload?: () => void;
   onDelete?: () => void;
+  onCopy?: () => void;
   onRecompose?: () => void;
   onVideoInpaint?: () => void;
   onMusicGen?: () => void;
@@ -117,6 +119,9 @@ export function buildInfiniteNodeMenuGroups(
             separatorAfter: true,
           }),
           menuAction("download", "下载", Download, wrap(handlers.onDownload), {
+            separatorAfter: true,
+          }),
+          menuAction("copy", "复制", Copy, wrap(handlers.onCopy), {
             separatorAfter: true,
           }),
           menuAction("delete", "删除", Trash2, wrap(handlers.onDelete), { danger: true }),
@@ -246,6 +251,9 @@ export function buildInfiniteNodeMenuGroups(
           separatorAfter: true,
         }),
         menuAction("download", "下载", Download, wrap(handlers.onDownload), {
+          separatorAfter: true,
+        }),
+        menuAction("copy", "复制", Copy, wrap(handlers.onCopy), {
           separatorAfter: true,
         }),
         menuAction("delete", "删除", Trash2, wrap(handlers.onDelete), { danger: true }),

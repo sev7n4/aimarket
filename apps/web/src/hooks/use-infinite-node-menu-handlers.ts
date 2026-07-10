@@ -14,6 +14,7 @@ export type InfiniteNodeMenuHandlerContext = {
   onRerun?: (item: CanvasItem) => void;
   onDownloadItem?: (item: CanvasItem) => void;
   onDeleteNodes: (nodeIds: string[]) => void;
+  onCopyNodes?: (nodeIds: string[]) => void;
   onSelect: (id: string | null) => void;
   onOpenLightbox: (items: CanvasItem[], index: number) => void;
   onVideoInpaint: (node: CanvasNodeData) => void;
@@ -53,6 +54,7 @@ export function buildInfiniteNodeMenuHandlers(
     onRerun,
     onDownloadItem,
     onDeleteNodes,
+    onCopyNodes,
     onSelect,
     onOpenLightbox,
     onVideoInpaint,
@@ -81,6 +83,7 @@ export function buildInfiniteNodeMenuHandlers(
       else openAssetUrl(node.metadata?.content ?? "");
     },
     onDelete: () => onDeleteNodes([node.id]),
+    onCopy: onCopyNodes ? () => onCopyNodes([node.id]) : undefined,
     onRecompose: item
       ? () => {
           const idx = items.findIndex((i) => i.id === item.id);
@@ -129,6 +132,7 @@ export function useInfiniteNodeMenuHandlers(ctx: InfiniteNodeMenuHandlerContext)
       ctx.onRerun,
       ctx.onDownloadItem,
       ctx.onDeleteNodes,
+      ctx.onCopyNodes,
       ctx.onSelect,
       ctx.onOpenLightbox,
       ctx.onVideoInpaint,

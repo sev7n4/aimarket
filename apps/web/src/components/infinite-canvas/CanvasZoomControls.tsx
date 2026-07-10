@@ -1,6 +1,6 @@
 "use client";
 
-import { Compass, Focus, HelpCircle } from "lucide-react";
+import { Compass, Focus, HelpCircle, Maximize2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { canvasTheme } from "./canvas-theme";
@@ -10,12 +10,23 @@ type CanvasZoomControlsProps = {
     scale: number;
     onScaleChange: (scale: number) => void;
     onReset: () => void;
+    onFit?: () => void;
     isMiniMapOpen: boolean;
     onToggleMiniMap: () => void;
     bottomInsetPx?: number;
+    showShortcutsButton?: boolean;
 };
 
-export function CanvasZoomControls({ scale, onScaleChange, onReset, isMiniMapOpen, onToggleMiniMap, bottomInsetPx = 0 }: CanvasZoomControlsProps) {
+export function CanvasZoomControls({
+    scale,
+    onScaleChange,
+    onReset,
+    onFit,
+    isMiniMapOpen,
+    onToggleMiniMap,
+    bottomInsetPx = 0,
+    showShortcutsButton = true,
+}: CanvasZoomControlsProps) {
     const [shortcutsOpen, setShortcutsOpen] = useState(false);
     const dialogRef = useRef<HTMLDialogElement>(null);
     const dockStyle = { background: canvasTheme.toolbar.panel, borderColor: canvasTheme.toolbar.border, color: canvasTheme.toolbar.item, boxShadow: "0 12px 32px rgba(0,0,0,.28)" };
@@ -70,6 +81,19 @@ export function CanvasZoomControls({ scale, onScaleChange, onReset, isMiniMapOpe
                 >
                     <Focus className="size-3.5" />
                 </button>
+                {onFit ? (
+                    <button
+                        type="button"
+                        data-testid="canvas-fit-view"
+                        className="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:opacity-80"
+                        style={{ color: canvasTheme.toolbar.item }}
+                        onClick={onFit}
+                        title="适应视图 (F)"
+                        aria-label="适应视图"
+                    >
+                        <Maximize2 className="size-3.5" />
+                    </button>
+                ) : null}
                 <span title="放大/缩小画布" className="flex items-center">
                     <input
                         type="range"
@@ -86,16 +110,18 @@ export function CanvasZoomControls({ scale, onScaleChange, onReset, isMiniMapOpe
                 <span className="w-8 text-right text-[10px] tabular-nums" style={{ color: canvasTheme.node.muted }}>
                     {Math.round(scale * 100)}%
                 </span>
-                <button
-                    type="button"
-                    className="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:opacity-80"
-                    style={shortcutsOpen ? activeStyle : { color: canvasTheme.toolbar.item }}
-                    onClick={openShortcuts}
-                    title="快捷键"
-                    aria-label="快捷键"
-                >
-                    <HelpCircle className="size-3.5" />
-                </button>
+                {showShortcutsButton ? (
+                    <button
+                        type="button"
+                        className="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:opacity-80"
+                        style={shortcutsOpen ? activeStyle : { color: canvasTheme.toolbar.item }}
+                        onClick={openShortcuts}
+                        title="快捷键"
+                        aria-label="快捷键"
+                    >
+                        <HelpCircle className="size-3.5" />
+                    </button>
+                ) : null}
             </div>
             <dialog
                 ref={dialogRef}
@@ -109,9 +135,12 @@ export function CanvasZoomControls({ scale, onScaleChange, onReset, isMiniMapOpe
                 <div className="space-y-3 border-t px-6 pb-5 pt-4 text-sm" style={{ borderColor: canvasTheme.node.stroke }}>
                     <Shortcut label="拖动画布" value="平移视图" />
                     <Shortcut label="滚轮" value="缩放画布" />
+                    <Shortcut label="F / Ctrl+0" value="适应视图" />
                     <Shortcut label="Ctrl / Cmd + 拖动" value="框选多个节点" />
                     <Shortcut label="Shift / Ctrl / Cmd + 点击" value="追加选择节点" />
-                    <Shortcut label="Ctrl / Cmd + C / V" value="复制 / 粘贴节点" />
+                    <Shortcut label="Shift + 拖拽节点" value="轴向约束" />
+                    <Shortcut label="L" value="网格吸附开关" />
+                    <Shortcut label="Ctrl / Cmd + C / V / A" value="复制 / 粘贴 / 全选" />
                     <Shortcut label="Delete / Backspace" value="删除选中" />
                 </div>
                 <div className="flex justify-end border-t px-6 py-3" style={{ borderColor: canvasTheme.node.stroke }}>
