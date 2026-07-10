@@ -47,9 +47,12 @@ import {
   pollWorkflowGenerationStatuses,
 } from "@/lib/workflow-generation-poller";
 import {
-  storyCanvasGenerateImage,
-  storyCanvasGenerateVideo,
-} from "@/lib/api/story-canvas";
+  storyCanvasRunByEndpoint,
+} from "@/lib/api/story-canvas-run";
+import {
+  resolveWorkflowRunEndpoint,
+  workflowRunRequiresReference,
+} from "@/lib/workflow-tool-run";
 import {
   WORKFLOW_RUN_NODE_EVENT,
 } from "@/components/workflows/WorkflowToolNodeContent";
@@ -574,6 +577,26 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
           "根据工作流节点生成";
         const referenceUrls = node.metadata?.connectedImageUrls;
 
+        if (
+          workflowRunRequiresReference(toolType) &&
+          !(referenceUrls?.length ?? 0)
+        ) {
+          commitCanvasOps([
+            {
+              type: "update_node",
+              id: node.id,
+              patch: {
+                metadata: {
+                  ...node.metadata,
+                  status: "error",
+                  errorDetails: "请先连接上游图片节点",
+                },
+              },
+            },
+          ]);
+          return;
+        }
+
         commitCanvasOps([
           {
             type: "update_node",
@@ -589,25 +612,17 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
         ]);
 
         try {
-          const isVideo =
-            node.type === CanvasNodeType.Video ||
-            toolType === "TEXT_TO_VIDEO" ||
-            toolType === "IMAGE_TO_VIDEO";
-          const result = isVideo
-            ? await storyCanvasGenerateVideo({
-                sessionId,
-                nodeKey,
-                prompt,
-                workflowToolType: toolType,
-                referenceUrls,
-              })
-            : await storyCanvasGenerateImage({
-                sessionId,
-                nodeKey,
-                prompt,
-                workflowToolType: toolType,
-                referenceUrls,
-              });
+          const endpoint = resolveWorkflowRunEndpoint({
+            workflowToolType: toolType,
+            nodeType: node.type,
+          });
+          const result = await storyCanvasRunByEndpoint(endpoint, {
+            sessionId,
+            nodeKey,
+            prompt,
+            workflowToolType: toolType,
+            referenceUrls,
+          });
           commitCanvasOps([
             {
               type: "update_node",

@@ -69,3 +69,22 @@ export function parseCanvasLayout(raw: string | null | undefined): CanvasLayout 
 export function serializeCanvasLayout(layout: CanvasLayout): string {
   return JSON.stringify(canvasLayoutSchema.parse(layout));
 }
+
+const COVER_URL_PATTERN = /^https?:\/\/|^\//;
+
+/** 从 canvas_layout 提取首图 URL，供工作流列表封面 */
+export function extractCanvasCoverUrl(
+  raw: string | null | undefined,
+): string | null {
+  const layout = parseCanvasLayout(raw);
+  if (!layout) return null;
+
+  for (const item of layout.items) {
+    if (item.isVideo) continue;
+    const url = item.url?.trim();
+    if (url && COVER_URL_PATTERN.test(url)) return url;
+    const metaUrl = item.infiniteNodeMeta?.content?.trim();
+    if (metaUrl && COVER_URL_PATTERN.test(metaUrl)) return metaUrl;
+  }
+  return null;
+}
