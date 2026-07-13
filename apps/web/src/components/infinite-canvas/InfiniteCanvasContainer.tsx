@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
-import { panDeltaFromKey, zoomFactorFromKey } from "@/lib/canvas-nav";
+import { isEditableTarget, panDeltaFromKey, zoomFactorFromKey } from "@/lib/canvas-nav";
 import {
   filterMediaFiles,
 } from "@/lib/canvas-media-drop";
@@ -103,14 +103,6 @@ const SNAP_GRID = 48;
 
 function snapToGrid(value: number, grid: number = SNAP_GRID): number {
   return Math.round(value / grid) * grid;
-}
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
-    return true;
-  }
-  return target.isContentEditable;
 }
 
 function generateConnectionId(): string {
