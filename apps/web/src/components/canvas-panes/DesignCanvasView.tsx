@@ -148,6 +148,9 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
     handleCreateDownstreamNode,
     connectionContextMenu,
     handleDeleteConnection,
+    selectedConnectionId,
+    setSelectedConnectionId,
+    handleNodeTitleChange,
     showVideoInpaint,
     setShowVideoInpaint,
     videoInpaintSubmitting,
@@ -210,6 +213,10 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
               connections={canvasConnections}
               viewport={infiniteViewport}
               selectedNodeIds={infiniteSelectedIds}
+              selectedConnectionId={selectedConnectionId}
+              onSelectedConnectionChange={setSelectedConnectionId}
+              onDeleteConnection={handleDeleteConnection}
+              onTitleChange={handleNodeTitleChange}
               overlayBottomInsetPx={overlayBottomInsetPx}
               jobOverlay={{
                 show: showInfiniteJobOverlay,
