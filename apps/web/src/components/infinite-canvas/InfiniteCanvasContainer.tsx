@@ -5,6 +5,9 @@ import type { ReactNode } from "react";
 
 import { panDeltaFromKey, zoomFactorFromKey } from "@/lib/canvas-nav";
 import { canvasTheme, type CanvasBackgroundMode } from "./canvas-theme";
+import { CanvasChromeBar } from "./CanvasChromeBar";
+import { CanvasGuideCapsule } from "./CanvasGuideCapsule";
+import { infiniteLeftChromeBottom } from "./infinite-canvas-layout";
 import { InfiniteCanvas } from "./InfiniteCanvas";
 import { CanvasNode } from "./CanvasNode";
 import { ConnectionPath, ActiveConnectionPath } from "./CanvasConnections";
@@ -53,6 +56,12 @@ export type InfiniteCanvasContainerProps = {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+const SNAP_GRID = 48;
+
+function snapToGrid(value: number, grid: number = SNAP_GRID): number {
+  return Math.round(value / grid) * grid;
+}
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -119,6 +128,10 @@ export function InfiniteCanvasContainer({
   const [localContextMenu, setLocalContextMenu] =
     useState<ContextMenuState | null>(null);
   const [isMiniMapOpen, setIsMiniMapOpen] = useState(true);
+  const [gridOn, setGridOn] = useState(true);
+  const [snapOn, setSnapOn] = useState(false);
+  const [edgeAnimOn, setEdgeAnimOn] = useState(true);
+  const [viewLocked, setViewLocked] = useState(false);
 
   // ---- refs (high-frequency / global handler state) ----
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -143,6 +156,8 @@ export function InfiniteCanvasContainer({
   });
 
   const selectionBoxRef = useRef<SelectionBox | null>(null);
+  const snapOnRef = useRef(snapOn);
+  const viewLockedRef = useRef(viewLocked);
 
   const rafRef = useRef<number | null>(null);
   const nextNodesRef = useRef<CanvasNodeData[] | null>(null);
@@ -163,6 +178,20 @@ export function InfiniteCanvasContainer({
   useEffect(() => {
     connectionsRef.current = connections;
   }, [connections]);
+  useEffect(() => {
+    snapOnRef.current = snapOn;
+  }, [snapOn]);
+  useEffect(() => {
+    viewLockedRef.current = viewLocked;
+  }, [viewLocked]);
+
+  const guardedViewportChange = useCallback(
+    (next: ViewportTransform) => {
+      if (viewLockedRef.current) return;
+      onViewportChange(next);
+    },
+    [onViewportChange],
+  );
 
   // ---- derived ----
   const showMiniMap = showMiniMapProp !== false && isMiniMapOpen;
@@ -184,12 +213,12 @@ export function InfiniteCanvasContainer({
   const resetViewport = useCallback(() => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    onViewportChange({
+    guardedViewportChange({
       x: rect.width / 2,
       y: rect.height / 2,
       k: 1,
     });
-  }, [onViewportChange]);
+  }, [guardedViewportChange]);
 
   const setZoomScale = useCallback(
     (scale: number) => {
@@ -200,13 +229,13 @@ export function InfiniteCanvasContainer({
       const vp = viewportRef.current;
       const worldX = (centerX - vp.x) / vp.k;
       const worldY = (centerY - vp.y) / vp.k;
-      onViewportChange({
+      guardedViewportChange({
         x: centerX - worldX * scale,
         y: centerY - worldY * scale,
         k: scale,
       });
     },
-    [onViewportChange],
+    [guardedViewportChange],
   );
 
   const zoomByFactor = useCallback(
@@ -427,9 +456,15 @@ export function InfiniteCanvasContainer({
             (p) => p.id === n.id,
           );
           if (!initial) return n;
+          let x = initial.x + dx;
+          let y = initial.y + dy;
+          if (snapOnRef.current) {
+            x = snapToGrid(x);
+            y = snapToGrid(y);
+          }
           return {
             ...n,
-            position: { x: initial.x + dx, y: initial.y + dy },
+            position: { x, y },
           };
         });
 
@@ -564,6 +599,13 @@ export function InfiniteCanvasContainer({
 
       // --- end selection box ---
       if (selectionBoxRef.current) {
+        const box = selectionBoxRef.current;
+        const vp = viewportRef.current;
+        const width = Math.abs(box.currentWorldX - box.startWorldX);
+        const height = Math.abs(box.currentWorldY - box.startWorldY);
+        if (width * vp.k < 2 && height * vp.k < 2) {
+          deselectAll();
+        }
         setSelectionBox(null);
         selectionBoxRef.current = null;
       }
@@ -590,6 +632,7 @@ export function InfiniteCanvasContainer({
     onConnectionsChange,
     onSelectionChange,
     connectionTargetNodeId,
+    deselectAll,
   ]);
 
   // ---- keyboard: Escape + WASD pan + E/Q zoom ----
@@ -607,11 +650,19 @@ export function InfiniteCanvasContainer({
         return;
       }
 
+      if (event.code === "KeyL" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        setSnapOn((v) => !v);
+        return;
+      }
+
+      if (viewLockedRef.current) return;
+
       const delta = panDeltaFromKey(event.key, event.shiftKey);
       if (delta) {
         event.preventDefault();
         const vp = viewportRef.current;
-        onViewportChange({
+        guardedViewportChange({
           ...vp,
           x: vp.x - delta.dx * vp.k,
           y: vp.y - delta.dy * vp.k,
@@ -627,7 +678,7 @@ export function InfiniteCanvasContainer({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onViewportChange, zoomByFactor]);
+  }, [guardedViewportChange, zoomByFactor]);
 
   // ---- notify context menu changes to parent ----
   useEffect(() => {
@@ -715,7 +766,9 @@ export function InfiniteCanvasContainer({
         containerRef={containerRef}
         viewport={viewport}
         backgroundMode={backgroundMode}
-        onViewportChange={onViewportChange}
+        gridVisible={gridOn}
+        viewLocked={viewLocked}
+        onViewportChange={guardedViewportChange}
         onCanvasMouseDown={handleCanvasMouseDown}
         onCanvasDoubleClick={handleCanvasDoubleClick}
         onCanvasDeselect={deselectAll}
@@ -734,6 +787,7 @@ export function InfiniteCanvasContainer({
                 from={fromNode}
                 to={toNode}
                 active={selectedConnectionId === conn.id}
+                animated={edgeAnimOn}
                 onSelect={() => setSelectedConnectionId(conn.id)}
                 onContextMenu={(e) =>
                   handleConnectionContextMenu(e, conn.id)
@@ -747,6 +801,7 @@ export function InfiniteCanvasContainer({
               handle={connectingParams}
               mouseWorld={mouseWorld}
               target={connectionTargetNode}
+              animated={edgeAnimOn}
             />
           )}
         </CanvasConnections>
@@ -794,10 +849,31 @@ export function InfiniteCanvasContainer({
             width: containerRef.current?.clientWidth ?? 800,
             height: containerRef.current?.clientHeight ?? 600,
           }}
-          onViewportChange={onViewportChange}
+          onViewportChange={guardedViewportChange}
           bottomInsetPx={overlayBottomInsetPx}
         />
       )}
+
+      {/* Left-bottom guide + chrome toggles */}
+      <div
+        className="absolute left-4 z-50 flex items-end gap-2"
+        style={{ bottom: infiniteLeftChromeBottom(overlayBottomInsetPx) }}
+        data-canvas-no-zoom
+        onMouseDown={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <CanvasGuideCapsule />
+        <CanvasChromeBar
+          gridOn={gridOn}
+          snapOn={snapOn}
+          edgeAnimOn={edgeAnimOn}
+          viewLocked={viewLocked}
+          onGridChange={setGridOn}
+          onSnapChange={setSnapOn}
+          onEdgeAnimChange={setEdgeAnimOn}
+          onViewLockedChange={setViewLocked}
+        />
+      </div>
 
       {/* Zoom controls */}
       {showZoomControlsProp !== false && (

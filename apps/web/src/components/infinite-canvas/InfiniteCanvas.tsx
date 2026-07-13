@@ -14,6 +14,8 @@ type InfiniteCanvasProps = {
     containerRef: React.RefObject<HTMLDivElement | null>;
     viewport: ViewportTransform;
     backgroundMode?: CanvasBackgroundMode;
+    gridVisible?: boolean;
+    viewLocked?: boolean;
     onViewportChange: (viewport: ViewportTransform) => void;
     onCanvasMouseDown?: (event: React.PointerEvent<HTMLDivElement>) => void;
     onCanvasDoubleClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
@@ -23,7 +25,7 @@ type InfiniteCanvasProps = {
     children: React.ReactNode;
 };
 
-export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines", onViewportChange, onCanvasMouseDown, onCanvasDoubleClick, onCanvasDeselect, onContextMenu, onDrop, children }: InfiniteCanvasProps) {
+export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines", gridVisible = true, viewLocked = false, onViewportChange, onCanvasMouseDown, onCanvasDoubleClick, onCanvasDeselect, onContextMenu, onDrop, children }: InfiniteCanvasProps) {
     const panState = useRef({
         isPanning: false,
         startX: 0,
@@ -78,6 +80,7 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
     }, []);
 
     const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+        if (viewLocked) return;
         const target = event.target instanceof Element ? event.target : null;
         if (target?.closest("[data-canvas-no-zoom],[data-dialog],[data-popover]")) return;
 
@@ -114,6 +117,7 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
     };
 
     const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (viewLocked) return;
         const target = event.target instanceof Element ? event.target : null;
         if (target?.closest("[data-canvas-no-zoom]")) return;
         if (target?.closest("[data-connection-create-menu]")) return;
@@ -151,6 +155,7 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
 
     useEffect(() => {
         const handlePointerMove = (event: PointerEvent) => {
+            if (viewLocked) return;
             if (rightDragRef.current.isActive && !panState.current.isPanning) {
                 const dx = event.clientX - rightDragRef.current.startX;
                 const dy = event.clientY - rightDragRef.current.startY;
@@ -220,7 +225,7 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
             window.removeEventListener("pointermove", handlePointerMove);
             window.removeEventListener("pointerup", handlePointerUp);
         };
-    }, [onCanvasDeselect, onViewportChange]);
+    }, [onCanvasDeselect, onViewportChange, viewLocked]);
 
     useEffect(() => {
         const container = containerRef.current;
@@ -258,7 +263,7 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
             onDragOver={(event) => event.preventDefault()}
             onDrop={onDrop}
         >
-            <CanvasGrid viewport={viewport} mode={backgroundMode} />
+            <CanvasGrid viewport={viewport} mode={gridVisible ? backgroundMode : "blank"} />
             <div
                 className="absolute origin-top-left"
                 style={{
