@@ -93,6 +93,8 @@ export function InfiniteCanvasPane({
   orchestrationExtra,
   onMediaUploadAt,
   onAssetDropAt,
+  multiSelectActions,
+  multiSelectNotice,
 }: InfiniteCanvasPaneProps) {
   return (
     <div
@@ -154,6 +156,8 @@ export function InfiniteCanvasPane({
             readOnly={readOnly}
             onMediaUploadAt={onMediaUploadAt}
             onAssetDropAt={onAssetDropAt}
+            multiSelectActions={multiSelectActions}
+            multiSelectNotice={multiSelectNotice}
           />
           {showEmptyPrompt && emptyCreation ? (
             <InfiniteCanvasEmptyPrompt

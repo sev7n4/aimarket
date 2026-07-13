@@ -15,6 +15,7 @@ import {
   connectionDropIntent,
   resolveConnectionEndpoints,
   validateConnectionEndpoints,
+  canConnectNodes,
 } from "@/lib/canvas-connection-ux";
 import { canvasTheme, type CanvasBackgroundMode } from "./canvas-theme";
 import { CanvasChromeBar } from "./CanvasChromeBar";
@@ -26,6 +27,7 @@ import { ConnectionPath, ActiveConnectionPath, getConnectionPathGeometry } from 
 import { ConnectionScissors } from "./ConnectionScissors";
 import { CanvasMiniMap } from "./CanvasMiniMap";
 import { CanvasZoomControls } from "./CanvasZoomControls";
+import { MultiSelectToolbar } from "./MultiSelectToolbar";
 import type {
   CanvasNodeData,
   CanvasConnection,
@@ -83,6 +85,14 @@ export type InfiniteCanvasContainerProps = {
   onMediaUploadAt?: (files: File[], world: Position) => void;
   /** 从资产面板拖入会话资产时在落点克隆节点 */
   onAssetDropAt?: (itemId: string, world: Position) => void;
+  multiSelectActions?: {
+    onGroup: () => void;
+    onLayout: () => void;
+    onDownload: () => void;
+    onDelete: () => void;
+    onBatchConnect: (targetNodeId: string) => void;
+  };
+  multiSelectNotice?: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -153,6 +163,8 @@ export function InfiniteCanvasContainer({
   readOnly = false,
   onMediaUploadAt,
   onAssetDropAt,
+  multiSelectActions,
+  multiSelectNotice,
 }: InfiniteCanvasContainerProps) {
   // ---- local state ----
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -194,6 +206,8 @@ export function InfiniteCanvasContainer({
   const [snapOn, setSnapOn] = useState(false);
   const [edgeAnimOn, setEdgeAnimOn] = useState(true);
   const [viewLocked, setViewLocked] = useState(false);
+  const [batchConnecting, setBatchConnecting] = useState(false);
+  const batchConnectingRef = useRef(false);
 
   // ---- refs (high-frequency / global handler state) ----
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -246,6 +260,9 @@ export function InfiniteCanvasContainer({
   useEffect(() => {
     viewLockedRef.current = viewLocked;
   }, [viewLocked]);
+  useEffect(() => {
+    batchConnectingRef.current = batchConnecting;
+  }, [batchConnecting]);
 
   const guardedViewportChange = useCallback(
     (next: ViewportTransform) => {
@@ -398,6 +415,36 @@ export function InfiniteCanvasContainer({
     [],
   );
 
+  const findBatchDropTargetAtWorld = useCallback(
+    (worldX: number, worldY: number, excludeIds: Set<string>) => {
+      for (const node of nodesRef.current) {
+        if (excludeIds.has(node.id)) continue;
+        if (isPointNearNode(worldX, worldY, node)) {
+          return node;
+        }
+      }
+      return null;
+    },
+    [],
+  );
+
+  const evaluateBatchConnectionTarget = useCallback(
+    (sourceIds: string[], targetNode: CanvasNodeData): { ok: boolean; reason?: string } => {
+      const sources = sourceIds
+        .map((id) => nodesRef.current.find((n) => n.id === id))
+        .filter(Boolean) as CanvasNodeData[];
+      if (sources.length === 0) return { ok: false, reason: "无有效源节点" };
+      const anyValid = sources.some(
+        (source) => canConnectNodes(source, targetNode).ok,
+      );
+      if (!anyValid) {
+        return { ok: false, reason: "选中节点均无法连入目标" };
+      }
+      return { ok: true };
+    },
+    [],
+  );
+
   const evaluateConnectionTarget = useCallback(
     (
       params: ConnectionHandle,
@@ -426,6 +473,7 @@ export function InfiniteCanvasContainer({
       const params: ConnectionHandle = { nodeId, handleType };
       setConnectingParams(params);
       connectingParamsRef.current = params;
+      setConnectionTargetNodeId(null);
       setConnectionTargetRejected(false);
       clearConnectionRejectFeedback();
 
@@ -433,6 +481,24 @@ export function InfiniteCanvasContainer({
       setMouseWorld(world);
     },
     [screenToCanvas, clearConnectionRejectFeedback],
+  );
+
+  const handleBatchConnectStart = useCallback(
+    (event: React.MouseEvent) => {
+      if (readOnly || selectedNodeIdsRef.current.length < 2) return;
+      event.stopPropagation();
+      event.preventDefault();
+      setBatchConnecting(true);
+      batchConnectingRef.current = true;
+      setConnectingParams(null);
+      connectingParamsRef.current = null;
+      setConnectionTargetNodeId(null);
+      setConnectionTargetRejected(false);
+      clearConnectionRejectFeedback();
+      const world = screenToCanvas(event.clientX, event.clientY);
+      setMouseWorld(world);
+    },
+    [readOnly, screenToCanvas, clearConnectionRejectFeedback],
   );
 
   // ---- node context menu ----
@@ -533,6 +599,39 @@ export function InfiniteCanvasContainer({
     const handleMouseMove = (event: MouseEvent) => {
       const rect = containerRef.current?.getBoundingClientRect();
       const vp = viewportRef.current;
+
+      // --- batch connection drag ---
+      if (batchConnectingRef.current) {
+        let worldX: number;
+        let worldY: number;
+        if (rect) {
+          worldX = (event.clientX - rect.left - vp.x) / vp.k;
+          worldY = (event.clientY - rect.top - vp.y) / vp.k;
+        } else {
+          worldX = 0;
+          worldY = 0;
+        }
+        setMouseWorld({ x: worldX, y: worldY });
+
+        const excludeIds = new Set(selectedNodeIdsRef.current);
+        const targetNode = findBatchDropTargetAtWorld(worldX, worldY, excludeIds);
+        if (targetNode) {
+          const validation = evaluateBatchConnectionTarget(
+            selectedNodeIdsRef.current,
+            targetNode,
+          );
+          setConnectionTargetNodeId(targetNode.id);
+          setConnectionTargetRejected(!validation.ok);
+          if (!validation.ok && validation.reason) {
+            showRejectReason(validation.reason);
+          }
+        } else {
+          setConnectionTargetNodeId(null);
+          setConnectionTargetRejected(false);
+          lastHoverRejectReasonRef.current = null;
+        }
+        return;
+      }
 
       // --- connection creation drag ---
       if (connectingParamsRef.current) {
@@ -676,6 +775,38 @@ export function InfiniteCanvasContainer({
         dragRef.current.hasMoved = false;
       }
 
+      // --- end batch connection ---
+      if (batchConnectingRef.current) {
+        const rect = containerRef.current?.getBoundingClientRect();
+        const vp = viewportRef.current;
+        let worldX = 0;
+        let worldY = 0;
+        if (rect) {
+          worldX = (event.clientX - rect.left - vp.x) / vp.k;
+          worldY = (event.clientY - rect.top - vp.y) / vp.k;
+        }
+
+        const excludeIds = new Set(selectedNodeIdsRef.current);
+        const dropTarget = findBatchDropTargetAtWorld(worldX, worldY, excludeIds);
+        if (dropTarget) {
+          const validation = evaluateBatchConnectionTarget(
+            selectedNodeIdsRef.current,
+            dropTarget,
+          );
+          if (validation.ok) {
+            multiSelectActions?.onBatchConnect(dropTarget.id);
+          } else if (validation.reason) {
+            showRejectReason(validation.reason);
+          }
+        }
+
+        setBatchConnecting(false);
+        batchConnectingRef.current = false;
+        setConnectionTargetNodeId(null);
+        setConnectionTargetRejected(false);
+        clearConnectionRejectFeedback();
+      }
+
       // --- end connection creation ---
       if (connectingParamsRef.current) {
         const params = connectingParamsRef.current;
@@ -776,7 +907,10 @@ export function InfiniteCanvasContainer({
     onConnectionDropAtEmpty,
     deselectAll,
     findDropTargetAtWorld,
+    findBatchDropTargetAtWorld,
     evaluateConnectionTarget,
+    evaluateBatchConnectionTarget,
+    multiSelectActions,
     showRejectReason,
     clearConnectionRejectFeedback,
   ]);
@@ -797,6 +931,8 @@ export function InfiniteCanvasContainer({
       if (event.key === "Escape") {
         setConnectingParams(null);
         connectingParamsRef.current = null;
+        setBatchConnecting(false);
+        batchConnectingRef.current = false;
         setConnectionTargetNodeId(null);
         setConnectionTargetRejected(false);
         clearConnectionRejectFeedback();
@@ -974,6 +1110,21 @@ export function InfiniteCanvasContainer({
       })()
     : null;
 
+  const multiSelectToolbarScreen = (() => {
+    if (selectedNodeIds.length < 2 || !multiSelectActions) return null;
+    const selected = nodes.filter((n) => selectedNodeIds.includes(n.id));
+    if (selected.length < 2) return null;
+    const vp = viewport;
+    const minX = Math.min(...selected.map((n) => n.position.x));
+    const minY = Math.min(...selected.map((n) => n.position.y));
+    const maxX = Math.max(...selected.map((n) => n.position.x + n.width));
+    const centerX = (minX + maxX) / 2;
+    return {
+      left: centerX * vp.k + vp.x,
+      top: minY * vp.k + vp.y - 12,
+    };
+  })();
+
   // ---- the connecting node data ----
   const connectingNode = connectingParams
     ? nodeMap.current.get(connectingParams.nodeId)
@@ -1043,6 +1194,22 @@ export function InfiniteCanvasContainer({
               animated={edgeAnimOn}
             />
           )}
+          {batchConnecting &&
+            selectedNodeIds.map((nodeId) => {
+              const node = nodeMap.current.get(nodeId);
+              if (!node) return null;
+              return (
+                <ActiveConnectionPath
+                  key={`batch-${nodeId}`}
+                  node={node}
+                  handle={{ nodeId, handleType: "source" }}
+                  mouseWorld={mouseWorld}
+                  target={connectionTargetNode}
+                  rejected={connectionTargetRejected}
+                  animated={edgeAnimOn}
+                />
+              );
+            })}
         </CanvasConnections>
 
         {selectedConnectionMidpoint && onDeleteConnection ? (
@@ -1062,11 +1229,14 @@ export function InfiniteCanvasContainer({
             isSelected={selectedNodeIds.includes(node.id)}
             isRelated={hoveredNodeId === node.id}
             isFocusRelated={false}
-            isConnectionTarget={connectionTargetNodeId === node.id}
+            isConnectionTarget={
+              connectionTargetNodeId === node.id ||
+              (batchConnecting && connectionTargetNodeId === node.id)
+            }
             isConnectionTargetRejected={
               connectionTargetNodeId === node.id && connectionTargetRejected
             }
-            isConnecting={Boolean(connectingParams)}
+            isConnecting={Boolean(connectingParams) || batchConnecting}
             showPanel={
               Boolean(renderPanel) &&
               selectedNodeIds.length === 1 &&
@@ -1155,6 +1325,20 @@ export function InfiniteCanvasContainer({
         />
       )}
 
+      {multiSelectToolbarScreen && multiSelectActions ? (
+        <MultiSelectToolbar
+          left={multiSelectToolbarScreen.left}
+          top={multiSelectToolbarScreen.top}
+          count={selectedNodeIds.length}
+          readOnly={readOnly}
+          onGroup={multiSelectActions.onGroup}
+          onLayout={multiSelectActions.onLayout}
+          onDownload={multiSelectActions.onDownload}
+          onDelete={multiSelectActions.onDelete}
+          onConnectHandleMouseDown={handleBatchConnectStart}
+        />
+      ) : null}
+
       {connectionRejectMessage ? (
         <div
           className="pointer-events-none absolute bottom-6 left-1/2 z-[70] max-w-sm -translate-x-1/2 rounded-lg border px-3 py-2 text-xs text-red-100 shadow-lg backdrop-blur-md"
@@ -1166,6 +1350,20 @@ export function InfiniteCanvasContainer({
           role="status"
         >
           {connectionRejectMessage}
+        </div>
+      ) : null}
+
+      {multiSelectNotice ? (
+        <div
+          className="pointer-events-none absolute bottom-14 left-1/2 z-[70] max-w-sm -translate-x-1/2 rounded-lg border px-3 py-2 text-xs text-emerald-100 shadow-lg backdrop-blur-md"
+          style={{
+            borderColor: "rgba(52,211,153,0.45)",
+            background: "rgba(6,78,59,0.85)",
+          }}
+          data-testid="multi-select-notice"
+          role="status"
+        >
+          {multiSelectNotice}
         </div>
       ) : null}
     </div>

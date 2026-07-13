@@ -52,6 +52,8 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
     infiniteViewport,
     setInfiniteViewport,
     infiniteSelectedIds,
+    multiSelectActions,
+    multiSelectNotice,
     overlayBottomInsetPx,
     showInfiniteJobOverlay,
     jobFailed,
@@ -399,6 +401,8 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
               onMediaUploadAt={
                 readOnly ? undefined : handleUploadMediaAt
               }
+              multiSelectActions={multiSelectActions}
+              multiSelectNotice={multiSelectNotice}
             />
             <input
               ref={mediaUploadInputRef}

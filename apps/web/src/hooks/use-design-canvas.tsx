@@ -25,6 +25,7 @@ import {
 import { buildAssetCloneOp } from "@/lib/canvas-asset-drag";
 import type { InfiniteNodeToolRequest } from "@/lib/infinite-node-tool-run";
 import { resolveNodeImageUrl, resolveNodeToolPrompt } from "@/lib/infinite-node-tool-run";
+import { canConnectNodes } from "@/lib/canvas-connection-ux";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { InfiniteNodeStudioDock } from "@/components/infinite-canvas/InfiniteNodeStudioDock";
 import { buildCanvasNodeToolbarActions } from "@/lib/canvas-node-toolbar-actions";
@@ -193,6 +194,7 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     const [dramaPanelNodeId, setDramaPanelNodeId] = useState<string | null>(null);
     const [showTemplateManager, setShowTemplateManager] = useState(false);
     const [showMusicGenPanel, setShowMusicGenPanel] = useState(false);
+    const [multiSelectNotice, setMultiSelectNotice] = useState<string | null>(null);
     // Phase 4 Task 4.1/4.2：无限画布节点右键菜单
     const [infiniteContextMenu, setInfiniteContextMenu] = useState<{
       node: CanvasNodeData;
@@ -921,6 +923,105 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       },
       [readOnly, commitCanvasOps, selectedId, onSelect],
     );
+
+    const showMultiSelectNotice = useCallback((message: string) => {
+      setMultiSelectNotice(message);
+      window.setTimeout(() => setMultiSelectNotice(null), 2200);
+    }, []);
+
+    const multiSelectActions = useMemo(() => {
+      if (!useInfiniteCanvas || readOnly) return undefined;
+      return {
+        onGroup: () => {
+          if (infiniteSelectedIds.length < 2) return;
+          commitCanvasOps([
+            {
+              type: "group_nodes",
+              ids: infiniteSelectedIds,
+              title: "分组",
+            },
+          ]);
+          hapticLight();
+        },
+        onLayout: () => {
+          if (infiniteSelectedIds.length < 2) return;
+          commitCanvasOps([
+            {
+              type: "group_nodes",
+              ids: infiniteSelectedIds,
+              createLabel: false,
+            },
+          ]);
+          hapticLight();
+        },
+        onDownload: () => {
+          if (infiniteSelectedIds.length < 2) return;
+          const selected = allCanvasNodesRef.current.filter((n) =>
+            infiniteSelectedIds.includes(n.id),
+          );
+          const urls = selected
+            .map(
+              (n) =>
+                n.metadata?.content ||
+                n.metadata?.refUrl ||
+                n.metadata?.sceneRefUrl,
+            )
+            .filter((u): u is string => Boolean(u));
+          if (urls.length === 0) {
+            showMultiSelectNotice("选中节点暂无可下载内容");
+            return;
+          }
+          urls.forEach((url, i) => {
+            window.setTimeout(
+              () => window.open(assetUrl(url), "_blank"),
+              i * 250,
+            );
+          });
+          showMultiSelectNotice(`已开始下载 ${urls.length} 项`);
+          hapticLight();
+        },
+        onDelete: () => {
+          handleDeleteInfiniteNodes(infiniteSelectedIds);
+        },
+        onBatchConnect: (targetNodeId: string) => {
+          const target = allCanvasNodesRef.current.find(
+            (n) => n.id === targetNodeId,
+          );
+          if (!target) return;
+          const ops: CanvasAgentOp[] = [];
+          for (const sourceId of infiniteSelectedIds) {
+            if (sourceId === targetNodeId) continue;
+            const source = allCanvasNodesRef.current.find(
+              (n) => n.id === sourceId,
+            );
+            if (!source || !canConnectNodes(source, target).ok) continue;
+            const exists = infiniteConnections.some(
+              (c) =>
+                c.fromNodeId === sourceId && c.toNodeId === targetNodeId,
+            );
+            if (!exists) {
+              ops.push({
+                type: "connect_nodes",
+                fromNodeId: sourceId,
+                toNodeId: targetNodeId,
+              });
+            }
+          }
+          if (ops.length > 0) {
+            commitCanvasOps(ops);
+            hapticLight();
+          }
+        },
+      };
+    }, [
+      useInfiniteCanvas,
+      readOnly,
+      infiniteSelectedIds,
+      commitCanvasOps,
+      showMultiSelectNotice,
+      handleDeleteInfiniteNodes,
+      infiniteConnections,
+    ]);
 
     const handleDeleteConnection = useCallback(
       (connectionId: string) => {
@@ -1654,6 +1755,8 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     infiniteViewport,
     setInfiniteViewport,
     infiniteSelectedIds,
+    multiSelectActions,
+    multiSelectNotice,
     overlayBottomInsetPx,
     showInfiniteJobOverlay,
     jobFailed,
