@@ -144,6 +144,8 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
     allowDramaNodeCreate,
     handleCreateNodeAt,
     handleAddWorkflowTool,
+    handleApplyAsset,
+    handleAssetDropAt,
     handleUploadMediaAt,
     mediaUploadInputRef,
     onMediaFileInputChange,
@@ -377,6 +379,8 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
               onApplyAssistantOps={handleApplyAssistantOps}
               workflowShell={workflowShell}
               onAddWorkflowTool={handleAddWorkflowTool}
+              onApplyAsset={handleApplyAsset}
+              onAssetDropAt={handleAssetDropAt}
               agentPanelWidth={agentPanelWidth}
               agentPanelDragging={agentPanelDragging}
               onAgentPanelResizeStart={onAgentPanelResizeStart}

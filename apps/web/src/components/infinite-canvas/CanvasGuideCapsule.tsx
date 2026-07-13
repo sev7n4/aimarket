@@ -44,7 +44,21 @@ const GUIDE_SECTIONS: GuideSection[] = [
   },
 ];
 
-export function CanvasGuideCapsule() {
+const WORKFLOW_ASSET_SECTION: GuideSection = {
+  title: "四、资产管理",
+  items: [
+    "左侧「资产」Tab：列出本会话已生成的图片与视频",
+    "拖拽资产到画布：在落点创建副本节点（新 ID）",
+    "点击「应用」：在视口中心添加资产副本",
+    "资产面板可收起，与工具节点 Tab 切换",
+  ],
+};
+
+export function CanvasGuideCapsule({
+  workflowShell = false,
+}: {
+  workflowShell?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -67,6 +81,10 @@ export function CanvasGuideCapsule() {
     color: canvasTheme.toolbar.item,
     boxShadow: "0 12px 32px rgba(0,0,0,.28)",
   };
+
+  const sections = workflowShell
+    ? [...GUIDE_SECTIONS, WORKFLOW_ASSET_SECTION]
+    : GUIDE_SECTIONS;
 
   return (
     <div ref={panelRef} className="relative" data-testid="canvas-guide-capsule">
@@ -99,7 +117,7 @@ export function CanvasGuideCapsule() {
         >
           <div className="mb-2 text-sm font-semibold">画布使用指南</div>
           <div className="space-y-3 text-xs leading-relaxed">
-            {GUIDE_SECTIONS.map((section) => (
+            {sections.map((section) => (
               <section key={section.title}>
                 <h3 className="mb-1 font-medium" style={{ color: canvasTheme.node.label }}>
                   {section.title}

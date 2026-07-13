@@ -11,7 +11,7 @@ import { CanvasAssistantPanel } from "@/components/infinite-canvas/agent/CanvasA
 import { TemplateManager } from "@/components/infinite-canvas/TemplateManager";
 import { WorkflowShareButton } from "@/components/workflows/WorkflowShareButton";
 import { MusicGenPanel } from "@/components/music-gen-panel";
-import { WorkflowToolPalette } from "@/components/workflows/WorkflowToolPalette";
+import { WorkflowLeftPanel } from "@/components/workflows/WorkflowLeftPanel";
 import type { CanvasNodeMetadata, CanvasNodeData } from "@/components/infinite-canvas/types";
 
 import type { InfiniteCanvasPaneProps } from "./canvas-pane-types";
@@ -37,6 +37,7 @@ function enrichNodesWithBatchIndex(nodes: CanvasNodeData[]): CanvasNodeData[] {
 
 export function InfiniteCanvasPane({
   areaRef,
+  items,
   nodes,
   connections,
   viewport,
@@ -74,6 +75,7 @@ export function InfiniteCanvasPane({
   onApplyAssistantOps,
   workflowShell = false,
   onAddWorkflowTool,
+  onApplyAsset,
   agentPanelWidth = 520,
   agentPanelDragging = false,
   onAgentPanelResizeStart,
@@ -90,6 +92,7 @@ export function InfiniteCanvasPane({
   orchestrationActions,
   orchestrationExtra,
   onMediaUploadAt,
+  onAssetDropAt,
 }: InfiniteCanvasPaneProps) {
   return (
     <div
@@ -104,9 +107,11 @@ export function InfiniteCanvasPane({
         )}
       >
         <div className="relative min-h-0 flex-1 flex min-w-0">
-          {workflowShell && onAddWorkflowTool ? (
-            <WorkflowToolPalette
+          {workflowShell && onAddWorkflowTool && onApplyAsset ? (
+            <WorkflowLeftPanel
+              items={items}
               onAddTool={onAddWorkflowTool}
+              onApplyAsset={onApplyAsset}
               readOnly={readOnly}
             />
           ) : null}
@@ -148,6 +153,7 @@ export function InfiniteCanvasPane({
             onContextMenu={onContextMenu}
             readOnly={readOnly}
             onMediaUploadAt={onMediaUploadAt}
+            onAssetDropAt={onAssetDropAt}
           />
           {showEmptyPrompt && emptyCreation ? (
             <InfiniteCanvasEmptyPrompt

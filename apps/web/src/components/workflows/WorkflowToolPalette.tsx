@@ -11,26 +11,20 @@ import {
 type WorkflowToolPaletteProps = {
   onAddTool: (toolId: WorkflowToolId) => void;
   readOnly?: boolean;
+  /** 嵌入 WorkflowLeftPanel 时不渲染外层 aside/标题 */
+  embedded?: boolean;
 };
 
 export function WorkflowToolPalette({
   onAddTool,
   readOnly = false,
+  embedded = false,
 }: WorkflowToolPaletteProps) {
   const groups = listWorkflowToolsByCategory();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  return (
-    <aside
-      data-testid="workflow-tool-palette"
-      className="z-20 flex w-52 shrink-0 flex-col border-r border-white/10 bg-[#0a0a0a]/95 backdrop-blur-sm"
-      aria-label="工作流工具"
-    >
-      <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2.5">
-        <Wrench className="size-4 text-violet-400" />
-        <span className="text-xs font-semibold text-zinc-200">工具节点</span>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+  const content = (
+    <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {groups.map((group) => {
           const isCollapsed = collapsed[group.category] ?? false;
           return (
@@ -83,7 +77,28 @@ export function WorkflowToolPalette({
             </div>
           );
         })}
+    </div>
+  );
+
+  if (embedded) {
+    return (
+      <div data-testid="workflow-tool-palette" className="flex min-h-0 flex-1 flex-col">
+        {content}
       </div>
+    );
+  }
+
+  return (
+    <aside
+      data-testid="workflow-tool-palette"
+      className="z-20 flex w-52 shrink-0 flex-col border-r border-white/10 bg-[#0a0a0a]/95 backdrop-blur-sm"
+      aria-label="工作流工具"
+    >
+      <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2.5">
+        <Wrench className="size-4 text-violet-400" />
+        <span className="text-xs font-semibold text-zinc-200">工具节点</span>
+      </div>
+      {content}
     </aside>
   );
 }

@@ -8,6 +8,10 @@ import {
   filterMediaFiles,
 } from "@/lib/canvas-media-drop";
 import {
+  isSessionAssetDrag,
+  readSessionAssetId,
+} from "@/lib/canvas-asset-drag";
+import {
   connectionDropIntent,
   resolveConnectionEndpoints,
   validateConnectionEndpoints,
@@ -77,6 +81,8 @@ export type InfiniteCanvasContainerProps = {
   readOnly?: boolean;
   /** 拖入/粘贴媒体文件时在落点上传并创建节点 */
   onMediaUploadAt?: (files: File[], world: Position) => void;
+  /** 从资产面板拖入会话资产时在落点克隆节点 */
+  onAssetDropAt?: (itemId: string, world: Position) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -146,6 +152,7 @@ export function InfiniteCanvasContainer({
   workflowShell = false,
   readOnly = false,
   onMediaUploadAt,
+  onAssetDropAt,
 }: InfiniteCanvasContainerProps) {
   // ---- local state ----
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -883,19 +890,36 @@ export function InfiniteCanvasContainer({
 
   const handleCanvasDragOver = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
-      if (readOnly || !onMediaUploadAt) return;
+      if (readOnly) return;
+      if (onAssetDropAt && isSessionAssetDrag(event.dataTransfer)) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        return;
+      }
+      if (!onMediaUploadAt) return;
       const hasFiles =
         event.dataTransfer.types.includes("Files") ||
         event.dataTransfer.files.length > 0;
       if (!hasFiles) return;
+      event.preventDefault();
       event.dataTransfer.dropEffect = "copy";
     },
-    [readOnly, onMediaUploadAt],
+    [readOnly, onMediaUploadAt, onAssetDropAt],
   );
 
   const handleCanvasDrop = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
-      if (readOnly || !onMediaUploadAt) return;
+      if (readOnly) return;
+      if (onAssetDropAt && isSessionAssetDrag(event.dataTransfer)) {
+        event.preventDefault();
+        event.stopPropagation();
+        const itemId = readSessionAssetId(event.dataTransfer);
+        if (!itemId) return;
+        const world = screenToCanvas(event.clientX, event.clientY);
+        onAssetDropAt(itemId, world);
+        return;
+      }
+      if (!onMediaUploadAt) return;
       event.preventDefault();
       event.stopPropagation();
       const mediaFiles = filterMediaFiles(Array.from(event.dataTransfer.files ?? []));
@@ -903,7 +927,7 @@ export function InfiniteCanvasContainer({
       const world = screenToCanvas(event.clientX, event.clientY);
       onMediaUploadAt(mediaFiles, world);
     },
-    [readOnly, onMediaUploadAt, screenToCanvas],
+    [readOnly, onMediaUploadAt, onAssetDropAt, screenToCanvas],
   );
 
   useEffect(() => {
@@ -1090,7 +1114,7 @@ export function InfiniteCanvasContainer({
           onMouseDown={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
         >
-          <CanvasGuideCapsule />
+          <CanvasGuideCapsule workflowShell={workflowShell} />
           <CanvasChromeBar
             gridOn={gridOn}
             snapOn={snapOn}

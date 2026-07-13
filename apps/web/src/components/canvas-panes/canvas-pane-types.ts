@@ -96,6 +96,8 @@ export type InfiniteCanvasPaneProps = CanvasPaneBaseProps & {
   onAddWorkflowTool?: (
     toolId: import("@/lib/workflow-tool-registry").WorkflowToolId,
   ) => void;
+  onApplyAsset?: (itemId: string) => void;
+  onAssetDropAt?: (itemId: string, world: { x: number; y: number }) => void;
   agentPanelWidth?: number;
   agentPanelDragging?: boolean;
   onAgentPanelResizeStart?: (event: React.MouseEvent) => void;

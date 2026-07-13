@@ -22,6 +22,7 @@ import {
   filterMediaFiles,
   mediaDropPositions,
 } from "@/lib/canvas-media-drop";
+import { buildAssetCloneOp } from "@/lib/canvas-asset-drag";
 import type { InfiniteNodeToolRequest } from "@/lib/infinite-node-tool-run";
 import { resolveNodeImageUrl, resolveNodeToolPrompt } from "@/lib/infinite-node-tool-run";
 import { useIsMobile } from "@/hooks/use-is-mobile";
@@ -646,6 +647,49 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
         allCanvasNodes.length,
         commitCanvasOps,
       ],
+    );
+
+    const resolveViewportCenterWorld = useCallback(() => {
+      const area = infiniteCanvasAreaRef.current;
+      const cx = area ? area.clientWidth / 2 : 400;
+      const cy = area ? area.clientHeight / 2 : 300;
+      return {
+        x: (-infiniteViewport.x + cx) / Math.max(infiniteViewport.k, 0.05),
+        y: (-infiniteViewport.y + cy) / Math.max(infiniteViewport.k, 0.05),
+      };
+    }, [infiniteCanvasAreaRef, infiniteViewport]);
+
+    const handleApplyAsset = useCallback(
+      (itemId: string) => {
+        if (readOnly || !useInfiniteCanvas) return;
+        const item = items.find((i) => i.id === itemId);
+        if (!item?.url?.trim()) return;
+        const center = resolveViewportCenterWorld();
+        const offset = allCanvasNodes.length * 28;
+        commitCanvasOps([
+          buildAssetCloneOp(item, center.x + offset, center.y + offset),
+        ]);
+        hapticLight();
+      },
+      [
+        readOnly,
+        useInfiniteCanvas,
+        items,
+        resolveViewportCenterWorld,
+        allCanvasNodes.length,
+        commitCanvasOps,
+      ],
+    );
+
+    const handleAssetDropAt = useCallback(
+      (itemId: string, world: { x: number; y: number }) => {
+        if (readOnly || !useInfiniteCanvas) return;
+        const item = items.find((i) => i.id === itemId);
+        if (!item?.url?.trim()) return;
+        commitCanvasOps([buildAssetCloneOp(item, world.x, world.y)]);
+        hapticLight();
+      },
+      [readOnly, useInfiniteCanvas, items, commitCanvasOps],
     );
 
     const handleRunWorkflowNode = useCallback(
@@ -1698,6 +1742,8 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     allowDramaNodeCreate,
     handleCreateNodeAt,
     handleAddWorkflowTool,
+    handleApplyAsset,
+    handleAssetDropAt,
     handleUploadMediaAt,
     mediaUploadInputRef,
     onMediaFileInputChange,
