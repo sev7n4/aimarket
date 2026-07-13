@@ -71,7 +71,9 @@ test.describe("Workflow tools (Phase 4)", () => {
       { timeout: 30_000 },
     );
 
-    await runBtn.click();
+    // WorkflowTopBar shortens the canvas; Playwright scroll-into-view can land
+    // the run button under the fixed minimap overlay.
+    await runBtn.click({ force: true });
     const res = await generatePromise;
     expect(res.ok(), `generate-image failed: ${await res.text()}`).toBeTruthy();
   });
@@ -82,7 +84,7 @@ test.describe("Workflow tools (Phase 4)", () => {
     await page.getByTestId("workflow-tool-IMAGE_OUTPAINTING").click();
     const runBtn = page.locator('[data-testid^="workflow-node-run-"]').first();
     await expect(runBtn).toBeVisible({ timeout: 15_000 });
-    await runBtn.click();
+    await runBtn.click({ force: true });
 
     await expect(page.getByText("请先连接上游图片节点")).toBeVisible({
       timeout: 15_000,
