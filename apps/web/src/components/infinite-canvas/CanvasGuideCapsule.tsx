@@ -26,9 +26,12 @@ const GUIDE_SECTIONS: GuideSection[] = [
     title: "二、基础操作",
     items: [
       "空白双击或右键：添加节点",
-      "从节点连接点拖线：创建连线",
+      "从输出点拖线到空白：创建节点并自动连线",
+      "从节点连接点拖线到节点：创建连线",
+      "双击节点标题：重命名",
+      "单击连线选中，点击中点剪刀：删除连线",
+      "Delete / Backspace：删除选中连线或节点",
       "Shift / Ctrl / Cmd + 点击：追加选择",
-      "Delete / Backspace：删除选中节点",
     ],
   },
   {

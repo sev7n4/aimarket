@@ -211,6 +211,7 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       worldY?: number;
       connectAs?: "downstream" | "upstream";
     } | null>(null);
+    const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
     const infiniteCanvasAreaRef = useRef<HTMLDivElement>(null);
     // 视频精准编辑 / 灯光 / 摄像机 浮层（用于右侧打开）
     const [showVideoInpaint, setShowVideoInpaint] = useState<{
@@ -816,6 +817,7 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
           commitCanvasOps(ops);
         }
         setConnectionContextMenu(null);
+        setSelectedConnectionId(null);
       },
       [
         readOnly,
@@ -826,6 +828,20 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
         onItemsChange,
         commitCanvasOps,
       ],
+    );
+
+    const handleNodeTitleChange = useCallback(
+      (nodeId: string, title: string) => {
+        if (readOnly) return;
+        commitCanvasOps([
+          {
+            type: "update_node",
+            id: nodeId,
+            patch: { title },
+          },
+        ]);
+      },
+      [readOnly, commitCanvasOps],
     );
 
     useEffect(() => {
@@ -1191,6 +1207,10 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
           if (inInput) return;
           if (readOnly) return;
           e.preventDefault();
+          if (useInfiniteCanvas && selectedConnectionId) {
+            handleDeleteConnection(selectedConnectionId);
+            return;
+          }
           if (useInfiniteCanvas && infiniteSelectedIds.length > 0) {
             handleDeleteInfiniteNodes(infiniteSelectedIds);
             return;
@@ -1238,6 +1258,8 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       useInfiniteCanvas,
       infiniteSelectedIds,
       handleDeleteInfiniteNodes,
+      selectedConnectionId,
+      handleDeleteConnection,
     ]);
 
     const batchSections = useMemo(() => {
@@ -1330,6 +1352,9 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     const handleInfiniteSelectionChange = useCallback(
       (ids: string[]) => {
         setInfiniteSelectedIds(ids);
+        if (ids.length > 0) {
+          setSelectedConnectionId(null);
+        }
         if (ids.length === 1) {
           onSelect(ids[0] ?? null);
         } else if (ids.length === 0) {
@@ -1599,6 +1624,9 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     handleCreateDownstreamNode,
     connectionContextMenu,
     handleDeleteConnection,
+    selectedConnectionId,
+    setSelectedConnectionId,
+    handleNodeTitleChange,
     showVideoInpaint,
     setShowVideoInpaint,
     videoInpaintSubmitting,

@@ -53,6 +53,10 @@ export type InfiniteCanvasPaneProps = CanvasPaneBaseProps & {
   connections: CanvasConnection[];
   viewport: ViewportTransform;
   selectedNodeIds: string[];
+  selectedConnectionId?: string | null;
+  onSelectedConnectionChange?: (connectionId: string | null) => void;
+  onDeleteConnection?: (connectionId: string) => void;
+  onTitleChange?: (nodeId: string, title: string) => void;
   overlayBottomInsetPx: number;
   jobOverlay: InfiniteCanvasJobOverlayProps;
   renderNodeStudioPanel?: (node: CanvasNodeData) => ReactNode;

@@ -15,7 +15,8 @@ import { CanvasGuideCapsule } from "./CanvasGuideCapsule";
 import { infiniteLeftChromeBottom } from "./infinite-canvas-layout";
 import { InfiniteCanvas } from "./InfiniteCanvas";
 import { CanvasNode } from "./CanvasNode";
-import { ConnectionPath, ActiveConnectionPath } from "./CanvasConnections";
+import { ConnectionPath, ActiveConnectionPath, getConnectionPathGeometry } from "./CanvasConnections";
+import { ConnectionScissors } from "./ConnectionScissors";
 import { CanvasMiniMap } from "./CanvasMiniMap";
 import { CanvasZoomControls } from "./CanvasZoomControls";
 import type {
@@ -37,6 +38,10 @@ export type InfiniteCanvasContainerProps = {
   connections: CanvasConnection[];
   viewport: ViewportTransform;
   selectedNodeIds: string[];
+  selectedConnectionId?: string | null;
+  onSelectedConnectionChange?: (connectionId: string | null) => void;
+  onDeleteConnection?: (connectionId: string) => void;
+  onTitleChange?: (nodeId: string, title: string) => void;
   onNodesChange: (nodes: CanvasNodeData[]) => void;
   onConnectionsChange: (connections: CanvasConnection[]) => void;
   onViewportChange: (viewport: ViewportTransform) => void;
@@ -113,6 +118,10 @@ export function InfiniteCanvasContainer({
   connections,
   viewport,
   selectedNodeIds,
+  selectedConnectionId: selectedConnectionIdProp = null,
+  onSelectedConnectionChange,
+  onDeleteConnection,
+  onTitleChange,
   onNodesChange,
   onConnectionsChange,
   onViewportChange,
@@ -132,9 +141,23 @@ export function InfiniteCanvasContainer({
 }: InfiniteCanvasContainerProps) {
   // ---- local state ----
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-  const [selectedConnectionId, setSelectedConnectionId] = useState<
+  const [selectedConnectionIdLocal, setSelectedConnectionIdLocal] = useState<
     string | null
   >(null);
+  const selectedConnectionId =
+    onSelectedConnectionChange !== undefined
+      ? (selectedConnectionIdProp ?? null)
+      : selectedConnectionIdLocal;
+  const setSelectedConnectionId = useCallback(
+    (connectionId: string | null) => {
+      if (onSelectedConnectionChange) {
+        onSelectedConnectionChange(connectionId);
+      } else {
+        setSelectedConnectionIdLocal(connectionId);
+      }
+    },
+    [onSelectedConnectionChange],
+  );
   const [connectingParams, setConnectingParams] =
     useState<ConnectionHandle | null>(null);
   const [connectionTargetNodeId, setConnectionTargetNodeId] = useState<
@@ -276,12 +299,14 @@ export function InfiniteCanvasContainer({
     onSelectionChange([]);
     setSelectedConnectionId(null);
     setLocalContextMenu(null);
-  }, [onSelectionChange]);
+  }, [onSelectionChange, setSelectedConnectionId]);
 
   // ---- node mouse down (drag + selection) ----
   const handleNodeMouseDown = useCallback(
     (event: React.MouseEvent, nodeId: string) => {
       event.stopPropagation();
+
+      setSelectedConnectionId(null);
 
       // Update selection
       const isAdditive = event.shiftKey || event.ctrlKey || event.metaKey;
@@ -320,7 +345,7 @@ export function InfiniteCanvasContainer({
           .filter(Boolean) as { id: string; x: number; y: number }[],
       };
     },
-    [onSelectionChange],
+    [onSelectionChange, setSelectedConnectionId],
   );
 
   const showRejectReason = useCallback((reason: string) => {
@@ -620,6 +645,9 @@ export function InfiniteCanvasContainer({
         } else {
           onSelectionChange(insideIds);
         }
+        if (insideIds.length > 0) {
+          setSelectedConnectionId(null);
+        }
       }
     };
 
@@ -760,6 +788,7 @@ export function InfiniteCanvasContainer({
         setSelectionBox(null);
         selectionBoxRef.current = null;
         setLocalContextMenu(null);
+        setSelectedConnectionId(null);
         return;
       }
 
@@ -873,6 +902,17 @@ export function InfiniteCanvasContainer({
     ? nodeMap.current.get(connectionTargetNodeId)
     : undefined;
 
+  const selectedConnection = selectedConnectionId
+    ? connections.find((conn) => conn.id === selectedConnectionId)
+    : null;
+  const selectedConnectionMidpoint = (() => {
+    if (!selectedConnection) return null;
+    const fromNode = nodeMap.current.get(selectedConnection.fromNodeId);
+    const toNode = nodeMap.current.get(selectedConnection.toNodeId);
+    if (!fromNode || !toNode) return null;
+    return getConnectionPathGeometry(fromNode, toNode).midpoint;
+  })();
+
   return (
     <div className="relative h-full w-full">
       <InfiniteCanvas
@@ -901,7 +941,10 @@ export function InfiniteCanvasContainer({
                 to={toNode}
                 active={selectedConnectionId === conn.id}
                 animated={edgeAnimOn}
-                onSelect={() => setSelectedConnectionId(conn.id)}
+                onSelect={() => {
+                  setSelectedConnectionId(conn.id);
+                  onSelectionChange([]);
+                }}
                 onContextMenu={(e) =>
                   handleConnectionContextMenu(e, conn.id)
                 }
@@ -919,6 +962,14 @@ export function InfiniteCanvasContainer({
             />
           )}
         </CanvasConnections>
+
+        {selectedConnectionMidpoint && onDeleteConnection ? (
+          <ConnectionScissors
+            x={selectedConnectionMidpoint.x}
+            y={selectedConnectionMidpoint.y}
+            onDelete={() => onDeleteConnection(selectedConnectionId!)}
+          />
+        ) : null}
 
         {/* Node layer */}
         {nodes.map((node) => (
@@ -952,6 +1003,7 @@ export function InfiniteCanvasContainer({
             onContentChange={handleContentChange}
             onContextMenu={handleNodeContextMenu}
             onNodeDoubleClick={onNodeDoubleClick}
+            onTitleChange={onTitleChange}
             renderNodeContent={renderNodeContent}
           />
         ))}
