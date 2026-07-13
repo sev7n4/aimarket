@@ -144,6 +144,10 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
     allowDramaNodeCreate,
     handleCreateNodeAt,
     handleAddWorkflowTool,
+    handleUploadMediaAt,
+    mediaUploadInputRef,
+    onMediaFileInputChange,
+    handlePaneUploadMedia,
     connectionCreateMenu,
     handleCreateDownstreamNode,
     connectionContextMenu,
@@ -203,6 +207,7 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
           />
 
           {useInfiniteCanvas ? (
+            <>
             <InfiniteCanvasPane
               items={items}
               selectedId={selectedId}
@@ -387,7 +392,20 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
               orchestrationEvent={orchestrationEvent}
               orchestrationActions={orchestrationActions}
               orchestrationExtra={orchestrationExtra}
+              onMediaUploadAt={
+                readOnly ? undefined : handleUploadMediaAt
+              }
             />
+            <input
+              ref={mediaUploadInputRef}
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              className="hidden"
+              data-testid="canvas-media-upload-input"
+              onChange={onMediaFileInputChange}
+            />
+            </>
           ) : alternateCanvasContent ? (
             <ScrollAlternateOrchestrationPane
               alternateCanvasContent={alternateCanvasContent}
@@ -477,6 +495,7 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
           onClosePaneCreateMenu={() => setPaneCreateMenu(null)}
           allowDramaNodeCreate={allowDramaNodeCreate}
           onCreateNodeAt={handleCreateNodeAt}
+          onUploadMedia={readOnly ? undefined : handlePaneUploadMedia}
           connectionCreateMenu={connectionCreateMenu}
           onCloseConnectionCreateMenu={() => setConnectionCreateMenu(null)}
           onCreateDownstreamNode={handleCreateDownstreamNode}

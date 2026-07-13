@@ -5,6 +5,9 @@ import type { ReactNode } from "react";
 
 import { panDeltaFromKey, zoomFactorFromKey } from "@/lib/canvas-nav";
 import {
+  filterMediaFiles,
+} from "@/lib/canvas-media-drop";
+import {
   connectionDropIntent,
   resolveConnectionEndpoints,
   validateConnectionEndpoints,
@@ -71,6 +74,9 @@ export type InfiniteCanvasContainerProps = {
   overlayBottomInsetPx?: number;
   /** 工作流壳层：为 true 时显示左下 guide + chrome */
   workflowShell?: boolean;
+  readOnly?: boolean;
+  /** 拖入/粘贴媒体文件时在落点上传并创建节点 */
+  onMediaUploadAt?: (files: File[], world: Position) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -138,6 +144,8 @@ export function InfiniteCanvasContainer({
   showZoomControls: showZoomControlsProp,
   overlayBottomInsetPx = 0,
   workflowShell = false,
+  readOnly = false,
+  onMediaUploadAt,
 }: InfiniteCanvasContainerProps) {
   // ---- local state ----
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -873,6 +881,54 @@ export function InfiniteCanvasContainer({
     [onContextMenuProp, screenToCanvas],
   );
 
+  const handleCanvasDragOver = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      if (readOnly || !onMediaUploadAt) return;
+      const hasFiles =
+        event.dataTransfer.types.includes("Files") ||
+        event.dataTransfer.files.length > 0;
+      if (!hasFiles) return;
+      event.dataTransfer.dropEffect = "copy";
+    },
+    [readOnly, onMediaUploadAt],
+  );
+
+  const handleCanvasDrop = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      if (readOnly || !onMediaUploadAt) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const mediaFiles = filterMediaFiles(Array.from(event.dataTransfer.files ?? []));
+      if (mediaFiles.length === 0) return;
+      const world = screenToCanvas(event.clientX, event.clientY);
+      onMediaUploadAt(mediaFiles, world);
+    },
+    [readOnly, onMediaUploadAt, screenToCanvas],
+  );
+
+  useEffect(() => {
+    if (readOnly || !onMediaUploadAt) return;
+    const handlePaste = (event: ClipboardEvent) => {
+      if (isEditableTarget(event.target)) return;
+      const mediaFiles = filterMediaFiles(
+        Array.from(event.clipboardData?.files ?? []),
+      );
+      if (mediaFiles.length === 0) return;
+      event.preventDefault();
+      const rect = containerRef.current?.getBoundingClientRect();
+      const vp = viewportRef.current;
+      const world = rect
+        ? {
+            x: (-vp.x + rect.width / 2) / vp.k,
+            y: (-vp.y + rect.height / 2) / vp.k,
+          }
+        : { x: 0, y: 0 };
+      onMediaUploadAt(mediaFiles, world);
+    };
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [readOnly, onMediaUploadAt]);
+
   // ---- build a lookup for node data (used in connection rendering) ----
   const nodeMap = useRef<Map<string, CanvasNodeData>>(new Map());
   nodeMap.current = new Map(nodes.map((n) => [n.id, n]));
@@ -926,6 +982,8 @@ export function InfiniteCanvasContainer({
         onCanvasDoubleClick={handleCanvasDoubleClick}
         onCanvasDeselect={deselectAll}
         onContextMenu={handleCanvasContextMenu}
+        onDragOver={handleCanvasDragOver}
+        onDrop={handleCanvasDrop}
       >
         {/* Connection layer */}
         <CanvasConnections>

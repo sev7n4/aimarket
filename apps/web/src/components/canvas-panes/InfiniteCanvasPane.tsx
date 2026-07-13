@@ -89,6 +89,7 @@ export function InfiniteCanvasPane({
   orchestrationEvent,
   orchestrationActions,
   orchestrationExtra,
+  onMediaUploadAt,
 }: InfiniteCanvasPaneProps) {
   return (
     <div
@@ -145,6 +146,8 @@ export function InfiniteCanvasPane({
             onConnectionDropAtEmpty={onConnectionDropAtEmpty}
             onCanvasDoubleClick={onCanvasDoubleClick}
             onContextMenu={onContextMenu}
+            readOnly={readOnly}
+            onMediaUploadAt={onMediaUploadAt}
           />
           {showEmptyPrompt && emptyCreation ? (
             <InfiniteCanvasEmptyPrompt

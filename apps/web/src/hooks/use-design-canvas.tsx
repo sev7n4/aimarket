@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import type { Ref } from "react";
+import type { ChangeEvent, Ref } from "react";
 import type { CanvasItem, CanvasToolId, CanvasLayoutMode } from "@/lib/canvas-tools";
 import {
   canShowRefineCompare,
@@ -16,6 +16,12 @@ import type { FreeCanvasHandle } from "@/components/free-canvas";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { hapticLight } from "@/lib/haptics";
 import { assetUrl } from "@/lib/api-client";
+import { uploadAsset } from "@/lib/api/assets";
+import { randomUUID } from "@/lib/uuid";
+import {
+  filterMediaFiles,
+  mediaDropPositions,
+} from "@/lib/canvas-media-drop";
 import type { InfiniteNodeToolRequest } from "@/lib/infinite-node-tool-run";
 import { resolveNodeImageUrl, resolveNodeToolPrompt } from "@/lib/infinite-node-tool-run";
 import { useIsMobile } from "@/hooks/use-is-mobile";
@@ -213,6 +219,8 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     } | null>(null);
     const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
     const infiniteCanvasAreaRef = useRef<HTMLDivElement>(null);
+    const mediaUploadInputRef = useRef<HTMLInputElement | null>(null);
+    const pendingMediaOriginRef = useRef<{ x: number; y: number }>({ x: 120, y: 120 });
     // 视频精准编辑 / 灯光 / 摄像机 浮层（用于右侧打开）
     const [showVideoInpaint, setShowVideoInpaint] = useState<{
       node: CanvasNodeData;
@@ -538,6 +546,76 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       },
       [commitCanvasOps],
     );
+
+    const handleUploadMediaAt = useCallback(
+      async (files: File[], origin: { x: number; y: number }) => {
+        if (readOnly || !useInfiniteCanvas) return;
+        const mediaFiles = filterMediaFiles(files);
+        if (mediaFiles.length === 0) return;
+        const positions = mediaDropPositions(mediaFiles.length, origin);
+        try {
+          const ops: CanvasAgentOp[] = [];
+          for (let i = 0; i < mediaFiles.length; i++) {
+            const file = mediaFiles[i]!;
+            const isVideo = /^video\//i.test(file.type);
+            const { id, url } = await uploadAsset(
+              file,
+              sessionId,
+              isVideo ? { lane: "video" } : undefined,
+            );
+            const nodeType = isVideo ? CanvasNodeType.Video : CanvasNodeType.Image;
+            const pos = positions[i] ?? origin;
+            ops.push({
+              type: "add_node",
+              id: `${nodeType}-${randomUUID()}`,
+              nodeType,
+              title:
+                file.name.replace(/\.[^.]+$/, "") ||
+                (isVideo ? "Video" : "图片"),
+              x: pos.x,
+              y: pos.y,
+              metadata: {
+                content: assetUrl(url),
+                status: "idle",
+                primaryImageId: id,
+              },
+            });
+          }
+          commitCanvasOps(ops);
+          hapticLight();
+        } catch (err) {
+          console.error("[canvas-media-upload]", err);
+        }
+      },
+      [readOnly, useInfiniteCanvas, sessionId, commitCanvasOps],
+    );
+
+    const openMediaUploadPicker = useCallback(
+      (origin: { x: number; y: number }) => {
+        if (readOnly || !useInfiniteCanvas) return;
+        pendingMediaOriginRef.current = origin;
+        mediaUploadInputRef.current?.click();
+      },
+      [readOnly, useInfiniteCanvas],
+    );
+
+    const onMediaFileInputChange = useCallback(
+      (event: ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(event.target.files ?? []);
+        event.target.value = "";
+        if (files.length === 0) return;
+        void handleUploadMediaAt(files, pendingMediaOriginRef.current);
+      },
+      [handleUploadMediaAt],
+    );
+
+    const handlePaneUploadMedia = useCallback(() => {
+      if (!paneCreateMenu) return;
+      openMediaUploadPicker({
+        x: paneCreateMenu.worldX,
+        y: paneCreateMenu.worldY,
+      });
+    }, [paneCreateMenu, openMediaUploadPicker]);
 
     const handleAddWorkflowTool = useCallback(
       (toolId: WorkflowToolId) => {
@@ -1620,6 +1698,11 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     allowDramaNodeCreate,
     handleCreateNodeAt,
     handleAddWorkflowTool,
+    handleUploadMediaAt,
+    mediaUploadInputRef,
+    onMediaFileInputChange,
+    handlePaneUploadMedia,
+    openMediaUploadPicker,
     connectionCreateMenu,
     handleCreateDownstreamNode,
     connectionContextMenu,

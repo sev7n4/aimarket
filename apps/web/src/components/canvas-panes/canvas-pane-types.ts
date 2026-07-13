@@ -114,6 +114,7 @@ export type InfiniteCanvasPaneProps = CanvasPaneBaseProps & {
   orchestrationEvent?: OrchestrationTimelineEvent | null;
   orchestrationActions?: OrchestrationTimelineActions;
   orchestrationExtra?: ReactNode;
+  onMediaUploadAt?: (files: File[], world: { x: number; y: number }) => void;
 };
 
 /** Scroll 画布 Pane（P3-3）— 见 ScrollCanvasPane.tsx */

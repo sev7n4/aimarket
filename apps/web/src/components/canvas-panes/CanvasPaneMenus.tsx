@@ -25,6 +25,7 @@ export type CanvasPaneMenusProps = {
   onClosePaneCreateMenu: () => void;
   allowDramaNodeCreate: boolean;
   onCreateNodeAt: (type: CanvasNodeType, worldX: number, worldY: number) => void;
+  onUploadMedia?: () => void;
   connectionCreateMenu: {
     sourceNodeId: string;
     x: number;
@@ -63,6 +64,7 @@ export function CanvasPaneMenus({
   onClosePaneCreateMenu,
   allowDramaNodeCreate,
   onCreateNodeAt,
+  onUploadMedia,
   connectionCreateMenu,
   onCloseConnectionCreateMenu,
   onCreateDownstreamNode,
@@ -127,6 +129,7 @@ export function CanvasPaneMenus({
           onSelect={(type) =>
             onCreateNodeAt(type, paneCreateMenu.worldX, paneCreateMenu.worldY)
           }
+          onUploadMedia={onUploadMedia}
           onClose={onClosePaneCreateMenu}
         />
       ) : null}
