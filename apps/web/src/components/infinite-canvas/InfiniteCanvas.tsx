@@ -21,11 +21,12 @@ type InfiniteCanvasProps = {
     onCanvasDoubleClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
     onCanvasDeselect?: () => void;
     onContextMenu?: (event: React.MouseEvent) => void;
+    onDragOver?: (event: React.DragEvent<HTMLDivElement>) => void;
     onDrop?: (event: React.DragEvent<HTMLDivElement>) => void;
     children: React.ReactNode;
 };
 
-export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines", gridVisible = true, viewLocked = false, onViewportChange, onCanvasMouseDown, onCanvasDoubleClick, onCanvasDeselect, onContextMenu, onDrop, children }: InfiniteCanvasProps) {
+export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines", gridVisible = true, viewLocked = false, onViewportChange, onCanvasMouseDown, onCanvasDoubleClick, onCanvasDeselect, onContextMenu, onDragOver, onDrop, children }: InfiniteCanvasProps) {
     const panState = useRef({
         isPanning: false,
         startX: 0,
@@ -261,7 +262,10 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
             }}
             onWheel={handleWheel}
             onContextMenu={handleContextMenu}
-            onDragOver={(event) => event.preventDefault()}
+            onDragOver={(event) => {
+                event.preventDefault();
+                onDragOver?.(event);
+            }}
             onDrop={onDrop}
         >
             <CanvasGrid viewport={viewport} mode={gridVisible ? backgroundMode : "blank"} />

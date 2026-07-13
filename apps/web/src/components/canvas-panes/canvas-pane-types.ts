@@ -96,6 +96,8 @@ export type InfiniteCanvasPaneProps = CanvasPaneBaseProps & {
   onAddWorkflowTool?: (
     toolId: import("@/lib/workflow-tool-registry").WorkflowToolId,
   ) => void;
+  onApplyAsset?: (itemId: string) => void;
+  onAssetDropAt?: (itemId: string, world: { x: number; y: number }) => void;
   agentPanelWidth?: number;
   agentPanelDragging?: boolean;
   onAgentPanelResizeStart?: (event: React.MouseEvent) => void;
@@ -114,6 +116,7 @@ export type InfiniteCanvasPaneProps = CanvasPaneBaseProps & {
   orchestrationEvent?: OrchestrationTimelineEvent | null;
   orchestrationActions?: OrchestrationTimelineActions;
   orchestrationExtra?: ReactNode;
+  onMediaUploadAt?: (files: File[], world: { x: number; y: number }) => void;
 };
 
 /** Scroll 画布 Pane（P3-3）— 见 ScrollCanvasPane.tsx */

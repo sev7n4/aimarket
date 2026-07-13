@@ -6,6 +6,7 @@ import {
   FileText,
   Image,
   Settings2,
+  Upload,
   User,
   MapPin,
 } from "lucide-react";
@@ -64,6 +65,7 @@ interface NodeCreateMenuProps {
   y: number;
   showDramaTypes?: boolean;
   onSelect: (type: CanvasNodeType) => void;
+  onUploadMedia?: () => void;
   onClose: () => void;
 }
 
@@ -72,6 +74,7 @@ export function NodeCreateMenu({
   y,
   showDramaTypes = false,
   onSelect,
+  onUploadMedia,
   onClose,
 }: NodeCreateMenuProps) {
   const options = useMemo(
@@ -114,6 +117,30 @@ export function NodeCreateMenu({
           添加节点
         </div>
         <ul className="py-1">
+          {onUploadMedia ? (
+            <li>
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-start gap-2.5 px-3 py-2 text-left transition hover:bg-white/5"
+                data-testid="node-create-upload-media"
+                onClick={() => {
+                  onUploadMedia();
+                  onClose();
+                }}
+              >
+                <Upload className="mt-0.5 size-4 shrink-0 text-orange-400/90" />
+                <span className="min-w-0">
+                  <span className="block text-xs font-medium text-zinc-100">
+                    上传图片/视频
+                  </span>
+                  <span className="block text-[10px] text-zinc-500">
+                    从本机选择媒体文件
+                  </span>
+                </span>
+              </button>
+            </li>
+          ) : null}
           {options.map((opt) => {
             const Icon = opt.icon;
             return (
@@ -145,6 +172,11 @@ export function NodeCreateMenu({
         {showDramaTypes ? (
           <div className="border-t px-3 py-1.5 text-[10px] text-zinc-600">
             制片模式：角色/场景/分镜将写入短剧草稿
+          </div>
+        ) : onUploadMedia ? (
+          <div className="flex items-center gap-1.5 border-t px-3 py-1.5 text-[10px] text-zinc-600">
+            <Image className="size-3 opacity-60" />
+            也可拖入画布或粘贴媒体文件
           </div>
         ) : (
           <div className="flex items-center gap-1.5 border-t px-3 py-1.5 text-[10px] text-zinc-600">

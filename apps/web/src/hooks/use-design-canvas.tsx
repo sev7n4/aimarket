@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import type { Ref } from "react";
+import type { ChangeEvent, Ref } from "react";
 import type { CanvasItem, CanvasToolId, CanvasLayoutMode } from "@/lib/canvas-tools";
 import {
   canShowRefineCompare,
@@ -16,6 +16,13 @@ import type { FreeCanvasHandle } from "@/components/free-canvas";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import { hapticLight } from "@/lib/haptics";
 import { assetUrl } from "@/lib/api-client";
+import { uploadAsset } from "@/lib/api/assets";
+import { randomUUID } from "@/lib/uuid";
+import {
+  filterMediaFiles,
+  mediaDropPositions,
+} from "@/lib/canvas-media-drop";
+import { buildAssetCloneOp } from "@/lib/canvas-asset-drag";
 import type { InfiniteNodeToolRequest } from "@/lib/infinite-node-tool-run";
 import { resolveNodeImageUrl, resolveNodeToolPrompt } from "@/lib/infinite-node-tool-run";
 import { useIsMobile } from "@/hooks/use-is-mobile";
@@ -213,6 +220,8 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     } | null>(null);
     const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
     const infiniteCanvasAreaRef = useRef<HTMLDivElement>(null);
+    const mediaUploadInputRef = useRef<HTMLInputElement | null>(null);
+    const pendingMediaOriginRef = useRef<{ x: number; y: number }>({ x: 120, y: 120 });
     // 视频精准编辑 / 灯光 / 摄像机 浮层（用于右侧打开）
     const [showVideoInpaint, setShowVideoInpaint] = useState<{
       node: CanvasNodeData;
@@ -539,6 +548,76 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       [commitCanvasOps],
     );
 
+    const handleUploadMediaAt = useCallback(
+      async (files: File[], origin: { x: number; y: number }) => {
+        if (readOnly || !useInfiniteCanvas) return;
+        const mediaFiles = filterMediaFiles(files);
+        if (mediaFiles.length === 0) return;
+        const positions = mediaDropPositions(mediaFiles.length, origin);
+        try {
+          const ops: CanvasAgentOp[] = [];
+          for (let i = 0; i < mediaFiles.length; i++) {
+            const file = mediaFiles[i]!;
+            const isVideo = /^video\//i.test(file.type);
+            const { id, url } = await uploadAsset(
+              file,
+              sessionId,
+              isVideo ? { lane: "video" } : undefined,
+            );
+            const nodeType = isVideo ? CanvasNodeType.Video : CanvasNodeType.Image;
+            const pos = positions[i] ?? origin;
+            ops.push({
+              type: "add_node",
+              id: `${nodeType}-${randomUUID()}`,
+              nodeType,
+              title:
+                file.name.replace(/\.[^.]+$/, "") ||
+                (isVideo ? "Video" : "图片"),
+              x: pos.x,
+              y: pos.y,
+              metadata: {
+                content: assetUrl(url),
+                status: "idle",
+                primaryImageId: id,
+              },
+            });
+          }
+          commitCanvasOps(ops);
+          hapticLight();
+        } catch (err) {
+          console.error("[canvas-media-upload]", err);
+        }
+      },
+      [readOnly, useInfiniteCanvas, sessionId, commitCanvasOps],
+    );
+
+    const openMediaUploadPicker = useCallback(
+      (origin: { x: number; y: number }) => {
+        if (readOnly || !useInfiniteCanvas) return;
+        pendingMediaOriginRef.current = origin;
+        mediaUploadInputRef.current?.click();
+      },
+      [readOnly, useInfiniteCanvas],
+    );
+
+    const onMediaFileInputChange = useCallback(
+      (event: ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(event.target.files ?? []);
+        event.target.value = "";
+        if (files.length === 0) return;
+        void handleUploadMediaAt(files, pendingMediaOriginRef.current);
+      },
+      [handleUploadMediaAt],
+    );
+
+    const handlePaneUploadMedia = useCallback(() => {
+      if (!paneCreateMenu) return;
+      openMediaUploadPicker({
+        x: paneCreateMenu.worldX,
+        y: paneCreateMenu.worldY,
+      });
+    }, [paneCreateMenu, openMediaUploadPicker]);
+
     const handleAddWorkflowTool = useCallback(
       (toolId: WorkflowToolId) => {
         const tool = getWorkflowTool(toolId);
@@ -568,6 +647,49 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
         allCanvasNodes.length,
         commitCanvasOps,
       ],
+    );
+
+    const resolveViewportCenterWorld = useCallback(() => {
+      const area = infiniteCanvasAreaRef.current;
+      const cx = area ? area.clientWidth / 2 : 400;
+      const cy = area ? area.clientHeight / 2 : 300;
+      return {
+        x: (-infiniteViewport.x + cx) / Math.max(infiniteViewport.k, 0.05),
+        y: (-infiniteViewport.y + cy) / Math.max(infiniteViewport.k, 0.05),
+      };
+    }, [infiniteCanvasAreaRef, infiniteViewport]);
+
+    const handleApplyAsset = useCallback(
+      (itemId: string) => {
+        if (readOnly || !useInfiniteCanvas) return;
+        const item = items.find((i) => i.id === itemId);
+        if (!item?.url?.trim()) return;
+        const center = resolveViewportCenterWorld();
+        const offset = allCanvasNodes.length * 28;
+        commitCanvasOps([
+          buildAssetCloneOp(item, center.x + offset, center.y + offset),
+        ]);
+        hapticLight();
+      },
+      [
+        readOnly,
+        useInfiniteCanvas,
+        items,
+        resolveViewportCenterWorld,
+        allCanvasNodes.length,
+        commitCanvasOps,
+      ],
+    );
+
+    const handleAssetDropAt = useCallback(
+      (itemId: string, world: { x: number; y: number }) => {
+        if (readOnly || !useInfiniteCanvas) return;
+        const item = items.find((i) => i.id === itemId);
+        if (!item?.url?.trim()) return;
+        commitCanvasOps([buildAssetCloneOp(item, world.x, world.y)]);
+        hapticLight();
+      },
+      [readOnly, useInfiniteCanvas, items, commitCanvasOps],
     );
 
     const handleRunWorkflowNode = useCallback(
@@ -1620,6 +1742,13 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     allowDramaNodeCreate,
     handleCreateNodeAt,
     handleAddWorkflowTool,
+    handleApplyAsset,
+    handleAssetDropAt,
+    handleUploadMediaAt,
+    mediaUploadInputRef,
+    onMediaFileInputChange,
+    handlePaneUploadMedia,
+    openMediaUploadPicker,
     connectionCreateMenu,
     handleCreateDownstreamNode,
     connectionContextMenu,
