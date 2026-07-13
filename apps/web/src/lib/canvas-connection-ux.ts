@@ -87,3 +87,24 @@ export function connectionDropIntent(
   }
   return "create-at-drop";
 }
+
+export type ConnectionHandleSide = "source" | "target";
+
+/** Resolve from/to node ids for a drag between handle and another node. */
+export function resolveConnectionEndpoints(
+  nodeId: string,
+  handleType: ConnectionHandleSide,
+  otherNodeId: string,
+): { fromNodeId: string; toNodeId: string } {
+  if (handleType === "source") {
+    return { fromNodeId: nodeId, toNodeId: otherNodeId };
+  }
+  return { fromNodeId: otherNodeId, toNodeId: nodeId };
+}
+
+export function validateConnectionEndpoints(
+  source: CanvasNodeData,
+  target: CanvasNodeData,
+): { ok: boolean; reason?: string } {
+  return canConnectNodes(source, target);
+}

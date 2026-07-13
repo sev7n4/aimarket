@@ -51,6 +51,7 @@ export function InfiniteCanvasPane({
   onSelectionChange,
   onNodeDoubleClick,
   onConnectionCreateClick,
+  onConnectionDropAtEmpty,
   onCanvasDoubleClick,
   onContextMenu,
   showEmptyPrompt,
@@ -133,6 +134,7 @@ export function InfiniteCanvasPane({
             onSelectionChange={onSelectionChange}
             onNodeDoubleClick={onNodeDoubleClick}
             onConnectionCreateClick={onConnectionCreateClick}
+            onConnectionDropAtEmpty={onConnectionDropAtEmpty}
             onCanvasDoubleClick={onCanvasDoubleClick}
             onContextMenu={onContextMenu}
           />

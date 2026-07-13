@@ -283,6 +283,18 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
                   sourceNodeId: nodeId,
                   x: event.clientX,
                   y: event.clientY,
+                  connectAs: "downstream",
+                });
+              }}
+              onConnectionDropAtEmpty={({ fromNodeId, handleType, world, client }) => {
+                if (readOnly) return;
+                setConnectionCreateMenu({
+                  sourceNodeId: fromNodeId,
+                  x: client.x,
+                  y: client.y,
+                  worldX: world.x,
+                  worldY: world.y,
+                  connectAs: handleType === "source" ? "downstream" : "upstream",
                 });
               }}
               onCanvasDoubleClick={(world, client) => {

@@ -62,6 +62,12 @@ export type InfiniteCanvasPaneProps = CanvasPaneBaseProps & {
   onSelectionChange: (ids: string[]) => void;
   onNodeDoubleClick: (nodeId: string) => void;
   onConnectionCreateClick: (event: React.MouseEvent, nodeId: string) => void;
+  onConnectionDropAtEmpty?: (params: {
+    fromNodeId: string;
+    handleType: "source" | "target";
+    world: { x: number; y: number };
+    client: { x: number; y: number };
+  }) => void;
   onCanvasDoubleClick: (
     world: { x: number; y: number },
     client: { x: number; y: number },
