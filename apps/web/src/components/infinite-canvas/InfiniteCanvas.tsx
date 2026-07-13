@@ -117,7 +117,6 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
     };
 
     const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-        if (viewLocked) return;
         const target = event.target instanceof Element ? event.target : null;
         if (target?.closest("[data-canvas-no-zoom]")) return;
         if (target?.closest("[data-connection-create-menu]")) return;
@@ -129,6 +128,8 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
             onCanvasMouseDown?.(event);
             return;
         }
+
+        if (viewLocked) return;
 
         if (
             shouldStartPan({

@@ -51,6 +51,8 @@ export type InfiniteCanvasContainerProps = {
   showZoomControls?: boolean;
   /** 左下角控件需额外抬高的像素（避开 StudioDock） */
   overlayBottomInsetPx?: number;
+  /** 工作流壳层：为 true 时显示左下 guide + chrome */
+  workflowShell?: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -112,6 +114,7 @@ export function InfiniteCanvasContainer({
   showMiniMap: showMiniMapProp,
   showZoomControls: showZoomControlsProp,
   overlayBottomInsetPx = 0,
+  workflowShell = false,
 }: InfiniteCanvasContainerProps) {
   // ---- local state ----
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -854,26 +857,28 @@ export function InfiniteCanvasContainer({
         />
       )}
 
-      {/* Left-bottom guide + chrome toggles */}
-      <div
-        className="absolute left-4 z-50 flex items-end gap-2"
-        style={{ bottom: infiniteLeftChromeBottom(overlayBottomInsetPx) }}
-        data-canvas-no-zoom
-        onMouseDown={(event) => event.stopPropagation()}
-        onPointerDown={(event) => event.stopPropagation()}
-      >
-        <CanvasGuideCapsule />
-        <CanvasChromeBar
-          gridOn={gridOn}
-          snapOn={snapOn}
-          edgeAnimOn={edgeAnimOn}
-          viewLocked={viewLocked}
-          onGridChange={setGridOn}
-          onSnapChange={setSnapOn}
-          onEdgeAnimChange={setEdgeAnimOn}
-          onViewLockedChange={setViewLocked}
-        />
-      </div>
+      {/* Left-bottom guide + chrome toggles (workflow shell only) */}
+      {workflowShell ? (
+        <div
+          className="absolute left-4 z-50 flex items-end gap-2"
+          style={{ bottom: infiniteLeftChromeBottom(overlayBottomInsetPx) }}
+          data-canvas-no-zoom
+          onMouseDown={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <CanvasGuideCapsule />
+          <CanvasChromeBar
+            gridOn={gridOn}
+            snapOn={snapOn}
+            edgeAnimOn={edgeAnimOn}
+            viewLocked={viewLocked}
+            onGridChange={setGridOn}
+            onSnapChange={setSnapOn}
+            onEdgeAnimChange={setEdgeAnimOn}
+            onViewLockedChange={setViewLocked}
+          />
+        </div>
+      ) : null}
 
       {/* Zoom controls */}
       {showZoomControlsProp !== false && (
