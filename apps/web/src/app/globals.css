@@ -37,6 +37,16 @@
   }
 }
 
+@keyframes canvas-connection-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.canvas-connection-flow {
+  animation: canvas-connection-flow 0.8s linear infinite;
+}
+
 .brand-slogan-heading {
   font-family: var(--font-display);
   font-feature-settings: "kern" 1, "liga" 1;

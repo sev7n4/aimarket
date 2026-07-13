@@ -125,6 +125,7 @@ export function InfiniteCanvasPane({
             viewport={viewport}
             selectedNodeIds={selectedNodeIds}
             overlayBottomInsetPx={overlayBottomInsetPx}
+            workflowShell={workflowShell}
             renderPanel={renderNodeStudioPanel}
             onNodesChange={onNodesChange}
             onConnectionsChange={onConnectionsChange}

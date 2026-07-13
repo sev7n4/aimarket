@@ -8,6 +8,7 @@ export function ConnectionPath({
     from,
     to,
     active,
+    animated = false,
     onSelect,
     onContextMenu,
 }: {
@@ -15,6 +16,7 @@ export function ConnectionPath({
     from: CanvasNodeData;
     to: CanvasNodeData;
     active: boolean;
+    animated?: boolean;
     onSelect: () => void;
     onContextMenu?: (event: ReactMouseEvent<SVGPathElement>) => void;
 }) {
@@ -51,13 +53,15 @@ export function ConnectionPath({
                 strokeWidth={active ? 3 : 2}
                 strokeOpacity={active ? 1 : 0.82}
                 fill="none"
+                strokeDasharray={animated ? "6 6" : undefined}
+                className={animated ? "canvas-connection-flow" : undefined}
                 style={{ filter: active ? `drop-shadow(0 0 8px ${canvasTheme.node.activeStroke}66)` : undefined, pointerEvents: "none" }}
             />
         </g>
     );
 }
 
-export function ActiveConnectionPath({ node, handle, mouseWorld, target }: { node?: CanvasNodeData; handle: ConnectionHandle; mouseWorld: Position; target?: CanvasNodeData }) {
+export function ActiveConnectionPath({ node, handle, mouseWorld, target, animated = false }: { node?: CanvasNodeData; handle: ConnectionHandle; mouseWorld: Position; target?: CanvasNodeData; animated?: boolean }) {
     if (!node) return null;
 
     const startX = handle.handleType === "source" ? node.position.x + node.width : mouseWorld.x;
@@ -71,5 +75,14 @@ export function ActiveConnectionPath({ node, handle, mouseWorld, target }: { nod
     const distance = Math.abs(snappedEndX - snappedStartX);
     const pathD = `M ${snappedStartX} ${snappedStartY} C ${snappedStartX + distance * 0.5} ${snappedStartY}, ${snappedEndX - distance * 0.5} ${snappedEndY}, ${snappedEndX} ${snappedEndY}`;
 
-    return <path d={pathD} stroke={canvasTheme.node.activeStroke} strokeWidth="2" fill="none" strokeDasharray="5,5" />;
+    return (
+        <path
+            d={pathD}
+            stroke={canvasTheme.node.activeStroke}
+            strokeWidth="2"
+            fill="none"
+            strokeDasharray="5,5"
+            className={animated ? "canvas-connection-flow" : undefined}
+        />
+    );
 }

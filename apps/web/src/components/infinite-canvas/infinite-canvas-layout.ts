@@ -18,3 +18,8 @@ export function infiniteZoomControlsBottom(insetPx = 0): number {
 export function infiniteMiniMapBottom(insetPx = 0): number {
   return INFINITE_MINIMAP_BOTTOM_OFFSET + insetPx;
 }
+
+/** 左下角指南 / 开关条距底边（与缩放条对齐） */
+export function infiniteLeftChromeBottom(insetPx = 0): number {
+  return INFINITE_CANVAS_CONTROL_BOTTOM + insetPx;
+}
