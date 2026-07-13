@@ -143,6 +143,8 @@ export function useSessionCanvas(
   const [canEdit, setCanEdit] = useState(true);
   const persistReady = useRef(false);
   const skipNextSave = useRef(true);
+  const [layoutSaving, setLayoutSaving] = useState(false);
+  const [layoutDirty, setLayoutDirty] = useState(false);
   const pendingLineageRef = useRef(new Map<string, PendingBatchLineage>());
   const activeSessionRef = useRef<string | null>(null);
 
@@ -245,13 +247,19 @@ export function useSessionCanvas(
       skipNextSave.current = false;
       return;
     }
+    setLayoutDirty(true);
     const timer = setTimeout(() => {
+      setLayoutSaving(true);
       void saveCanvasLayout(
         sessionId,
         toLayoutDto(items, infiniteConnections, dramaNodePositions),
       )
         .then(() => invalidateSessionCanvasBundle(sessionId))
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => {
+          setLayoutSaving(false);
+          setLayoutDirty(false);
+        });
     }, 700);
     return () => clearTimeout(timer);
   }, [items, infiniteConnections, dramaNodePositions, sessionId, enabled, canEdit]);
@@ -304,5 +312,6 @@ export function useSessionCanvas(
     registerBatchLineage,
     canEdit,
     setCanEdit,
+    layoutSaving: layoutSaving || layoutDirty,
   };
 }

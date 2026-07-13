@@ -9,9 +9,13 @@ import {
 
 type WorkflowShareButtonProps = {
   sessionId?: string;
+  variant?: "overlay" | "toolbar";
 };
 
-export function WorkflowShareButton({ sessionId }: WorkflowShareButtonProps) {
+export function WorkflowShareButton({
+  sessionId,
+  variant = "overlay",
+}: WorkflowShareButtonProps) {
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -50,15 +54,25 @@ export function WorkflowShareButton({ sessionId }: WorkflowShareButtonProps) {
 
   if (!sessionId) return null;
 
+  const toolbar = variant === "toolbar";
+
   return (
     <button
       type="button"
       onClick={() => void handleToggle()}
       disabled={loading}
-      className={`absolute right-3 top-[9.75rem] z-20 inline-flex size-8 items-center justify-center rounded-md border transition ${
-        active ? "bg-emerald-500/20 text-emerald-300" : "bg-black/40 text-zinc-300 hover:bg-black/60"
-      }`}
-      style={{ borderColor: "rgba(255,255,255,0.15)" }}
+      className={
+        toolbar
+          ? `inline-flex size-8 items-center justify-center rounded-md border transition ${
+              active
+                ? "border-emerald-500/30 bg-emerald-500/20 text-emerald-300"
+                : "border-white/15 bg-black/40 text-zinc-300 hover:bg-black/60"
+            }`
+          : `absolute right-3 top-[9.75rem] z-20 inline-flex size-8 items-center justify-center rounded-md border transition ${
+              active ? "bg-emerald-500/20 text-emerald-300" : "bg-black/40 text-zinc-300 hover:bg-black/60"
+            }`
+      }
+      style={toolbar ? undefined : { borderColor: "rgba(255,255,255,0.15)" }}
       aria-label="分享工作流"
       title={active ? (shareUrl ? "已复制分享链接" : "分享已开启") : "开启分享"}
       data-testid="workflow-share-toggle"

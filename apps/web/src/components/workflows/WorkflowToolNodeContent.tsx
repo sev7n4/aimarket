@@ -5,10 +5,33 @@ import { getWorkflowTool, isWorkflowToolId } from "@/lib/workflow-tool-registry"
 import type { CanvasNodeData } from "@/components/infinite-canvas/types";
 
 export const WORKFLOW_RUN_NODE_EVENT = "aimarket:workflow-run-node";
+export const WORKFLOW_RUN_ALL_EVENT = "aimarket:workflow-run-all";
+export const WORKFLOW_RUN_ALL_PROGRESS_EVENT = "aimarket:workflow-run-all-progress";
+export const WORKFLOW_TOAST_EVENT = "aimarket:workflow-toast";
+
+export type WorkflowRunAllProgress = { current: number; total: number };
 
 export function dispatchWorkflowRunNode(node: CanvasNodeData) {
   document.dispatchEvent(
     new CustomEvent(WORKFLOW_RUN_NODE_EVENT, { detail: { node } }),
+  );
+}
+
+export function dispatchWorkflowRunAll() {
+  document.dispatchEvent(new CustomEvent(WORKFLOW_RUN_ALL_EVENT));
+}
+
+export function dispatchWorkflowRunAllProgress(
+  progress: WorkflowRunAllProgress | null,
+) {
+  document.dispatchEvent(
+    new CustomEvent(WORKFLOW_RUN_ALL_PROGRESS_EVENT, { detail: { progress } }),
+  );
+}
+
+export function dispatchWorkflowToast(message: string) {
+  document.dispatchEvent(
+    new CustomEvent(WORKFLOW_TOAST_EVENT, { detail: { message } }),
   );
 }
 

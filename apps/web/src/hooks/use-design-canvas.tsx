@@ -53,7 +53,9 @@ import {
 import { buildWorkflowNodeKey, buildWorkflowConnectionSyncOps } from "@/lib/workflow-graph-sync";
 import {
   pollWorkflowGenerationStatuses,
+  isWorkflowGenerationToolNode,
 } from "@/lib/workflow-generation-poller";
+import { topoSortWorkflowNodes } from "@/lib/workflow-topo-sort";
 import {
   storyCanvasRunByEndpoint,
 } from "@/lib/api/story-canvas-run";
@@ -64,6 +66,9 @@ import {
 } from "@/lib/workflow-tool-run";
 import {
   WORKFLOW_RUN_NODE_EVENT,
+  WORKFLOW_RUN_ALL_EVENT,
+  dispatchWorkflowRunAllProgress,
+  dispatchWorkflowToast,
 } from "@/components/workflows/WorkflowToolNodeContent";
 import {
   applyCanvasAgentOps,
@@ -260,9 +265,13 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       [items, infiniteConnections, dramaConnections],
     );
     const allCanvasNodesRef = useRef<CanvasNodeData[]>(allCanvasNodes);
+    const canvasConnectionsRef = useRef<CanvasConnection[]>(canvasConnections);
     useEffect(() => {
       allCanvasNodesRef.current = allCanvasNodes;
     }, [allCanvasNodes]);
+    useEffect(() => {
+      canvasConnectionsRef.current = canvasConnections;
+    }, [canvasConnections]);
 
     // Compute the Drama node data for the right-side property panel
     // (must look in all canvas nodes — including dramaNodes — since drama
@@ -835,15 +844,100 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       [readOnly, sessionId, commitCanvasOps],
     );
 
+    const waitForWorkflowNodeSettled = useCallback(
+      async (nodeId: string) => {
+        if (!sessionId) return;
+        const deadline = Date.now() + 30 * 60 * 1000;
+        while (Date.now() < deadline) {
+          const node = allCanvasNodesRef.current.find((n) => n.id === nodeId);
+          const status = node?.metadata?.status;
+          if (status === "success" || status === "error") return;
+
+          const patches = await pollWorkflowGenerationStatuses(
+            sessionId,
+            allCanvasNodesRef.current,
+          );
+          if (patches.length > 0) {
+            handleApplyAssistantOps(
+              patches.map(({ nodeId: patchNodeId, patch }) => ({
+                type: "update_node" as const,
+                id: patchNodeId,
+                patch: { metadata: patch },
+              })),
+            );
+          }
+
+          const updated = allCanvasNodesRef.current.find((n) => n.id === nodeId);
+          const nextStatus = updated?.metadata?.status;
+          if (nextStatus === "success" || nextStatus === "error") return;
+
+          await new Promise((resolve) => window.setTimeout(resolve, 1500));
+        }
+      },
+      [sessionId, handleApplyAssistantOps],
+    );
+
+    const runAllWorkflowNodes = useCallback(async () => {
+      if (readOnly || !sessionId || !workflowShell) return;
+      const nodes = allCanvasNodesRef.current;
+      const edges = canvasConnectionsRef.current;
+      const { order, cycle } = topoSortWorkflowNodes(nodes, edges);
+      if (cycle) {
+        dispatchWorkflowToast("工作流存在循环依赖，无法全部运行");
+        return;
+      }
+
+      const nodeById = new Map(nodes.map((n) => [n.id, n]));
+      const toolNodes = order
+        .map((id) => nodeById.get(id))
+        .filter(
+          (node): node is CanvasNodeData =>
+            Boolean(node && isWorkflowGenerationToolNode(node)),
+        );
+
+      if (toolNodes.length === 0) {
+        dispatchWorkflowToast("没有可运行的工具节点");
+        return;
+      }
+
+      dispatchWorkflowRunAllProgress({ current: 0, total: toolNodes.length });
+      try {
+        for (let i = 0; i < toolNodes.length; i++) {
+          const node = toolNodes[i]!;
+          dispatchWorkflowRunAllProgress({
+            current: i + 1,
+            total: toolNodes.length,
+          });
+          await handleRunWorkflowNode(node);
+          await waitForWorkflowNodeSettled(node.id);
+        }
+      } finally {
+        dispatchWorkflowRunAllProgress(null);
+      }
+    }, [
+      readOnly,
+      sessionId,
+      workflowShell,
+      handleRunWorkflowNode,
+      waitForWorkflowNodeSettled,
+    ]);
+
     useEffect(() => {
       if (!workflowShell) return;
       const onRun = (event: Event) => {
         const detail = (event as CustomEvent<{ node?: CanvasNodeData }>).detail;
         if (detail?.node) void handleRunWorkflowNode(detail.node);
       };
+      const onRunAll = () => {
+        void runAllWorkflowNodes();
+      };
       document.addEventListener(WORKFLOW_RUN_NODE_EVENT, onRun);
-      return () => document.removeEventListener(WORKFLOW_RUN_NODE_EVENT, onRun);
-    }, [workflowShell, handleRunWorkflowNode]);
+      document.addEventListener(WORKFLOW_RUN_ALL_EVENT, onRunAll);
+      return () => {
+        document.removeEventListener(WORKFLOW_RUN_NODE_EVENT, onRun);
+        document.removeEventListener(WORKFLOW_RUN_ALL_EVENT, onRunAll);
+      };
+    }, [workflowShell, handleRunWorkflowNode, runAllWorkflowNodes]);
 
     useEffect(() => {
       if (!workflowShell || !sessionId || readOnly) return;

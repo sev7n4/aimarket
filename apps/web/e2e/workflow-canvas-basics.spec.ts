@@ -59,4 +59,12 @@ test.describe("Workflow canvas basics (C1 chrome)", () => {
     await page.keyboard.press("KeyL");
     await expect(snapToggle).toHaveAttribute("aria-pressed", "false");
   });
+
+  test("顶栏可见且全部运行按钮存在", async ({ page, request }) => {
+    await prepareWorkflowSession(page, request);
+
+    await expect(page.getByTestId("workflow-top-bar")).toBeVisible();
+    await expect(page.getByTestId("workflow-run-all")).toBeVisible();
+    await expect(page.getByTestId("workflow-back")).toBeVisible();
+  });
 });
