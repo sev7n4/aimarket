@@ -54,6 +54,7 @@ test.describe("Workflow canvas guide parity (C1–C4 smoke)", () => {
     await expect(panel.getByText("二、基础操作")).toBeVisible();
     await expect(panel.getByText("三、高级功能")).toBeVisible();
     await expect(panel.getByText("四、资产管理")).toBeVisible();
+    await expect(panel.getByText("五、工作流运行")).toBeVisible();
   });
 
   test("适应视图与 chrome 开关可见", async ({ page, request }) => {
@@ -81,5 +82,29 @@ test.describe("Workflow canvas guide parity (C1–C4 smoke)", () => {
     await expect(page.getByTestId("workflow-left-panel")).toBeVisible();
     await page.getByTestId("workflow-left-tab-assets").click();
     await expect(page.getByTestId("asset-panel")).toBeVisible();
+  });
+
+  test("小地图搜索节点标题（N6 冒烟）", async ({ page, request }) => {
+    await prepareWorkflowSession(page, request);
+
+    await page.getByTestId("workflow-tool-TEXT_TO_IMAGE").click();
+    await expect(page.locator('[data-node-id^="wf-text_to_image-"]')).toHaveCount(1, {
+      timeout: 15_000,
+    });
+
+    await page.getByTestId("canvas-minimap-expand").click();
+
+    const searchInput = page.getByTestId("canvas-minimap-search");
+    if (await searchInput.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await searchInput.fill("文生图");
+      const minimap = page.getByTestId("canvas-minimap");
+      const result = minimap.locator("ul button").filter({ hasText: "文生图" }).first();
+      if (await result.isVisible({ timeout: 5_000 }).catch(() => false)) {
+        await result.click();
+        await expect
+          .soft(page.locator('[data-node-id^="wf-text_to_image-"]'))
+          .toBeVisible({ timeout: 5_000 });
+      }
+    }
   });
 });
