@@ -25,6 +25,8 @@ export type WorkflowToolId = (typeof WORKFLOW_TOOL_IDS)[number];
 
 export type WorkflowToolCategory = "generate" | "edit" | "audio";
 
+export type WorkflowMediaKind = "image" | "video" | "audio" | "text";
+
 export type WorkflowToolDefinition = {
   id: WorkflowToolId;
   label: string;
@@ -32,6 +34,10 @@ export type WorkflowToolDefinition = {
   category: WorkflowToolCategory;
   canvasNodeType: CanvasNodeType;
   generationMode?: CanvasNodeMetadata["generationMode"];
+  /** 节点产出的媒体类型（连线 source 侧） */
+  outputKind?: WorkflowMediaKind;
+  /** 可接受的输入媒体类型（连线 target 侧） */
+  inputKinds?: WorkflowMediaKind[];
   /** 映射到现有 Studio /tools API（如有） */
   studioToolId?: string;
 };
@@ -51,6 +57,8 @@ const WORKFLOW_TOOLS: WorkflowToolDefinition[] = [
     category: "generate",
     canvasNodeType: CanvasNodeType.Image,
     generationMode: "image",
+    outputKind: "image",
+    inputKinds: ["text"],
   },
   {
     id: "IMAGE_TO_IMAGE",
@@ -59,6 +67,8 @@ const WORKFLOW_TOOLS: WorkflowToolDefinition[] = [
     category: "generate",
     canvasNodeType: CanvasNodeType.Image,
     generationMode: "image",
+    outputKind: "image",
+    inputKinds: ["image"],
   },
   {
     id: "TEXT_TO_VIDEO",
@@ -67,6 +77,8 @@ const WORKFLOW_TOOLS: WorkflowToolDefinition[] = [
     category: "generate",
     canvasNodeType: CanvasNodeType.Video,
     generationMode: "video",
+    outputKind: "video",
+    inputKinds: ["text"],
   },
   {
     id: "IMAGE_TO_VIDEO",
@@ -75,6 +87,8 @@ const WORKFLOW_TOOLS: WorkflowToolDefinition[] = [
     category: "generate",
     canvasNodeType: CanvasNodeType.Video,
     generationMode: "video",
+    outputKind: "video",
+    inputKinds: ["image"],
   },
   {
     id: "IMAGE_OUTPAINTING",
@@ -83,6 +97,8 @@ const WORKFLOW_TOOLS: WorkflowToolDefinition[] = [
     category: "edit",
     canvasNodeType: CanvasNodeType.Image,
     generationMode: "image",
+    outputKind: "image",
+    inputKinds: ["image"],
     studioToolId: "expand",
   },
   {
@@ -92,6 +108,8 @@ const WORKFLOW_TOOLS: WorkflowToolDefinition[] = [
     category: "edit",
     canvasNodeType: CanvasNodeType.Image,
     generationMode: "image",
+    outputKind: "image",
+    inputKinds: ["image"],
   },
   {
     id: "LIGHTING_MODIFICATION",
@@ -100,6 +118,8 @@ const WORKFLOW_TOOLS: WorkflowToolDefinition[] = [
     category: "edit",
     canvasNodeType: CanvasNodeType.Image,
     generationMode: "image",
+    outputKind: "image",
+    inputKinds: ["image"],
   },
   {
     id: "POSE_REFERENCE",
@@ -108,6 +128,8 @@ const WORKFLOW_TOOLS: WorkflowToolDefinition[] = [
     category: "edit",
     canvasNodeType: CanvasNodeType.Image,
     generationMode: "image",
+    outputKind: "image",
+    inputKinds: ["image"],
   },
   {
     id: "MOTION_CONTROL",
@@ -116,6 +138,8 @@ const WORKFLOW_TOOLS: WorkflowToolDefinition[] = [
     category: "edit",
     canvasNodeType: CanvasNodeType.Video,
     generationMode: "video",
+    outputKind: "video",
+    inputKinds: ["image", "video"],
     studioToolId: "camera-control",
   },
   {
@@ -125,6 +149,8 @@ const WORKFLOW_TOOLS: WorkflowToolDefinition[] = [
     category: "edit",
     canvasNodeType: CanvasNodeType.Video,
     generationMode: "video",
+    outputKind: "video",
+    inputKinds: ["video", "audio"],
     studioToolId: "lipsync",
   },
   {
@@ -134,6 +160,8 @@ const WORKFLOW_TOOLS: WorkflowToolDefinition[] = [
     category: "audio",
     canvasNodeType: CanvasNodeType.Audio,
     generationMode: "audio",
+    outputKind: "audio",
+    inputKinds: ["text"],
   },
   {
     id: "AUDIO_GENERATION",
@@ -142,6 +170,8 @@ const WORKFLOW_TOOLS: WorkflowToolDefinition[] = [
     category: "audio",
     canvasNodeType: CanvasNodeType.Audio,
     generationMode: "audio",
+    outputKind: "audio",
+    inputKinds: ["text"],
   },
 ];
 
