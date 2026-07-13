@@ -3,6 +3,36 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 import type { CanvasConnection, CanvasNodeData, ConnectionHandle, Position } from "./types";
 import { canvasTheme } from "./canvas-theme";
 
+export function getConnectionPathGeometry(from: CanvasNodeData, to: CanvasNodeData): {
+    pathD: string;
+    midpoint: Position;
+} {
+    const startX = from.position.x + from.width;
+    const startY = from.position.y + from.height / 2;
+    const endX = to.position.x;
+    const endY = to.position.y + to.height / 2;
+    const dx = Math.abs(endX - startX);
+    const curvature = Math.max(dx * 0.5, 50);
+    const pathD = `M ${startX} ${startY} C ${startX + curvature} ${startY}, ${endX - curvature} ${endY}, ${endX} ${endY}`;
+
+    const t = 0.5;
+    const u = 1 - t;
+    const midpoint = {
+        x:
+            u * u * u * startX +
+            3 * u * u * t * (startX + curvature) +
+            3 * u * t * t * (endX - curvature) +
+            t * t * t * endX,
+        y:
+            u * u * u * startY +
+            3 * u * u * t * startY +
+            3 * u * t * t * endY +
+            t * t * t * endY,
+    };
+
+    return { pathD, midpoint };
+}
+
 export function ConnectionPath({
     connection,
     from,
@@ -20,13 +50,7 @@ export function ConnectionPath({
     onSelect: () => void;
     onContextMenu?: (event: ReactMouseEvent<SVGPathElement>) => void;
 }) {
-    const startX = from.position.x + from.width;
-    const startY = from.position.y + from.height / 2;
-    const endX = to.position.x;
-    const endY = to.position.y + to.height / 2;
-    const dx = Math.abs(endX - startX);
-    const curvature = Math.max(dx * 0.5, 50);
-    const pathD = `M ${startX} ${startY} C ${startX + curvature} ${startY}, ${endX - curvature} ${endY}, ${endX} ${endY}`;
+    const { pathD } = getConnectionPathGeometry(from, to);
 
     return (
         <g>
@@ -61,7 +85,9 @@ export function ConnectionPath({
     );
 }
 
-export function ActiveConnectionPath({ node, handle, mouseWorld, target, animated = false }: { node?: CanvasNodeData; handle: ConnectionHandle; mouseWorld: Position; target?: CanvasNodeData; animated?: boolean }) {
+const CONNECTION_REJECT_STROKE = "#ef4444";
+
+export function ActiveConnectionPath({ node, handle, mouseWorld, target, rejected = false, animated = false }: { node?: CanvasNodeData; handle: ConnectionHandle; mouseWorld: Position; target?: CanvasNodeData; rejected?: boolean; animated?: boolean }) {
     if (!node) return null;
 
     const startX = handle.handleType === "source" ? node.position.x + node.width : mouseWorld.x;
@@ -78,7 +104,7 @@ export function ActiveConnectionPath({ node, handle, mouseWorld, target, animate
     return (
         <path
             d={pathD}
-            stroke={canvasTheme.node.activeStroke}
+            stroke={rejected ? CONNECTION_REJECT_STROKE : canvasTheme.node.activeStroke}
             strokeWidth="2"
             fill="none"
             strokeDasharray="5,5"

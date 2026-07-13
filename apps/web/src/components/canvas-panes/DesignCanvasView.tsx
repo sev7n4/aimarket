@@ -148,6 +148,9 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
     handleCreateDownstreamNode,
     connectionContextMenu,
     handleDeleteConnection,
+    selectedConnectionId,
+    setSelectedConnectionId,
+    handleNodeTitleChange,
     showVideoInpaint,
     setShowVideoInpaint,
     videoInpaintSubmitting,
@@ -210,6 +213,10 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
               connections={canvasConnections}
               viewport={infiniteViewport}
               selectedNodeIds={infiniteSelectedIds}
+              selectedConnectionId={selectedConnectionId}
+              onSelectedConnectionChange={setSelectedConnectionId}
+              onDeleteConnection={handleDeleteConnection}
+              onTitleChange={handleNodeTitleChange}
               overlayBottomInsetPx={overlayBottomInsetPx}
               jobOverlay={{
                 show: showInfiniteJobOverlay,
@@ -283,6 +290,18 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
                   sourceNodeId: nodeId,
                   x: event.clientX,
                   y: event.clientY,
+                  connectAs: "downstream",
+                });
+              }}
+              onConnectionDropAtEmpty={({ fromNodeId, handleType, world, client }) => {
+                if (readOnly) return;
+                setConnectionCreateMenu({
+                  sourceNodeId: fromNodeId,
+                  x: client.x,
+                  y: client.y,
+                  worldX: world.x,
+                  worldY: world.y,
+                  connectAs: handleType === "source" ? "downstream" : "upstream",
                 });
               }}
               onCanvasDoubleClick={(world, client) => {

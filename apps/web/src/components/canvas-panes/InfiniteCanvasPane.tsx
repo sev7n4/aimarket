@@ -41,6 +41,10 @@ export function InfiniteCanvasPane({
   connections,
   viewport,
   selectedNodeIds,
+  selectedConnectionId,
+  onSelectedConnectionChange,
+  onDeleteConnection,
+  onTitleChange,
   overlayBottomInsetPx,
   readOnly = false,
   jobOverlay,
@@ -51,6 +55,7 @@ export function InfiniteCanvasPane({
   onSelectionChange,
   onNodeDoubleClick,
   onConnectionCreateClick,
+  onConnectionDropAtEmpty,
   onCanvasDoubleClick,
   onContextMenu,
   showEmptyPrompt,
@@ -124,6 +129,10 @@ export function InfiniteCanvasPane({
             connections={connections}
             viewport={viewport}
             selectedNodeIds={selectedNodeIds}
+            selectedConnectionId={selectedConnectionId}
+            onSelectedConnectionChange={onSelectedConnectionChange}
+            onDeleteConnection={onDeleteConnection}
+            onTitleChange={onTitleChange}
             overlayBottomInsetPx={overlayBottomInsetPx}
             workflowShell={workflowShell}
             renderPanel={renderNodeStudioPanel}
@@ -133,6 +142,7 @@ export function InfiniteCanvasPane({
             onSelectionChange={onSelectionChange}
             onNodeDoubleClick={onNodeDoubleClick}
             onConnectionCreateClick={onConnectionCreateClick}
+            onConnectionDropAtEmpty={onConnectionDropAtEmpty}
             onCanvasDoubleClick={onCanvasDoubleClick}
             onContextMenu={onContextMenu}
           />

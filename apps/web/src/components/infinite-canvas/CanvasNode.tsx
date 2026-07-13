@@ -23,6 +23,7 @@ type CanvasNodeProps = {
     isRelated: boolean;
     isFocusRelated: boolean;
     isConnectionTarget: boolean;
+    isConnectionTargetRejected?: boolean;
     isConnecting: boolean;
     editRequestNonce?: number;
     showPanel: boolean;
@@ -49,6 +50,7 @@ type CanvasNodeProps = {
     onViewImage?: (node: CanvasNodeData) => void;
     onContextMenu: (event: React.MouseEvent, nodeId: string) => void;
     onNodeDoubleClick?: (nodeId: string) => void;
+    onTitleChange?: (nodeId: string, title: string) => void;
 };
 
 type NodeContentRendererProps = {
@@ -77,6 +79,7 @@ export const CanvasNode = React.memo(function CanvasNode({
     isRelated,
     isFocusRelated,
     isConnectionTarget,
+    isConnectionTargetRejected = false,
     isConnecting,
     editRequestNonce = 0,
     showPanel,
@@ -103,17 +106,27 @@ export const CanvasNode = React.memo(function CanvasNode({
     onViewImage,
     onContextMenu,
     onNodeDoubleClick,
+    onTitleChange,
 }: CanvasNodeProps) {
     const theme = canvasTheme;
     const [hovered, setHovered] = useState(false);
     const [isEditingContent, setIsEditingContent] = useState(false);
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const [draftTitle, setDraftTitle] = useState(data.title);
+    const titleInputRef = useRef<HTMLInputElement>(null);
     const hasImageContent = data.type === CanvasNodeType.Image && Boolean(data.metadata?.content);
     const hasVideoContent = data.type === CanvasNodeType.Video && Boolean(data.metadata?.content);
     const hasAudioContent = data.type === CanvasNodeType.Audio && Boolean(data.metadata?.content);
     const isBatchRoot = data.type === CanvasNodeType.Image && Boolean(data.metadata?.isBatchRoot) && batchCount > 1;
     const isBatchChild = data.type === CanvasNodeType.Image && Boolean(data.metadata?.batchRootId);
     const isActive = isConnectionTarget || isSelected || isFocusRelated;
-    const imageBorderColor = isActive ? selectionBlue : isRelated && !isBatchChild ? theme.node.muted : "transparent";
+    const imageBorderColor = isConnectionTargetRejected
+        ? "#ef4444"
+        : isActive
+          ? selectionBlue
+          : isRelated && !isBatchChild
+            ? theme.node.muted
+            : "transparent";
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const resizeRef = useRef({
         isResizing: false,
@@ -127,6 +140,29 @@ export const CanvasNode = React.memo(function CanvasNode({
         keepRatio: false,
         ratio: 1,
     });
+
+    useEffect(() => {
+        if (!isEditingTitle) {
+            setDraftTitle(data.title);
+        }
+    }, [data.title, isEditingTitle]);
+
+    useEffect(() => {
+        if (!isEditingTitle) return;
+        const input = titleInputRef.current;
+        input?.focus();
+        input?.select();
+    }, [isEditingTitle]);
+
+    const commitTitleEdit = useCallback(() => {
+        const nextTitle = draftTitle.trim();
+        setIsEditingTitle(false);
+        if (nextTitle && nextTitle !== data.title) {
+            onTitleChange?.(data.id, nextTitle);
+        } else {
+            setDraftTitle(data.title);
+        }
+    }, [data.id, data.title, draftTitle, onTitleChange]);
 
     useEffect(() => {
         const textarea = textareaRef.current;
@@ -291,8 +327,22 @@ export const CanvasNode = React.memo(function CanvasNode({
                     setIsEditingContent(true);
                 }}
             >
+                <NodeTitleHeader
+                    title={data.title}
+                    isEditing={isEditingTitle}
+                    draftTitle={draftTitle}
+                    inputRef={titleInputRef}
+                    theme={theme}
+                    onDraftChange={setDraftTitle}
+                    onStartEdit={() => setIsEditingTitle(true)}
+                    onCommit={commitTitleEdit}
+                    onCancel={() => {
+                        setDraftTitle(data.title);
+                        setIsEditingTitle(false);
+                    }}
+                />
                 <div
-                    className={cn("relative flex h-full w-full items-center justify-center rounded-[inherit]", isBatchRoot ? "overflow-visible" : "overflow-hidden")}
+                    className={cn("relative flex h-full w-full items-center justify-center rounded-[inherit] pt-8", isBatchRoot ? "overflow-visible" : "overflow-hidden")}
                     style={
                         {
                             background: hasImageContent || hasVideoContent ? "transparent" : theme.node.fill,
@@ -334,10 +384,16 @@ export const CanvasNode = React.memo(function CanvasNode({
                 <ResizeHandle corner="bottom-right" onMouseDown={handleResizeMouseDown} />
             </div>
 
-            <ConnectionHandleDot side="left" visible={hovered || isSelected || isConnecting} onMouseDown={(event) => onConnectStart(event, data.id, "target")} />
+            <ConnectionHandleDot
+                side="left"
+                visible={hovered || isSelected || isConnecting}
+                rejected={isConnectionTarget && isConnectionTargetRejected}
+                onMouseDown={(event) => onConnectStart(event, data.id, "target")}
+            />
             <ConnectionHandleDot
                 side="right"
                 visible={data.type !== CanvasNodeType.Config && (hovered || isSelected || isConnecting)}
+                rejected={false}
                 onMouseDown={(event) => onConnectStart(event, data.id, "source")}
                 showCreatePlus={Boolean(onConnectionCreateClick) && data.type !== CanvasNodeType.Config}
                 onCreateClick={
@@ -428,7 +484,7 @@ function TextContent({ node, theme, isEditingContent, textareaRef, onContentChan
     const textStyle = { fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.65)}px`, color: theme.node.text, boxSizing: "border-box" } as React.CSSProperties;
 
     return (
-        <div className="flex h-full w-full flex-col overflow-hidden pt-8">
+        <div className="flex h-full w-full flex-col overflow-hidden">
             <button
                 type="button"
                 className="absolute right-3 top-3 z-20 inline-flex h-8 items-center gap-1 rounded-full border px-2.5 text-xs font-medium opacity-85 backdrop-blur-md transition hover:scale-[1.02] hover:opacity-100"
@@ -673,6 +729,74 @@ function BatchFrame({ batchCount, batchExpanded, batchOpening, batchRecovering, 
     );
 }
 
+function NodeTitleHeader({
+    title,
+    isEditing,
+    draftTitle,
+    inputRef,
+    theme,
+    onDraftChange,
+    onStartEdit,
+    onCommit,
+    onCancel,
+}: {
+    title: string;
+    isEditing: boolean;
+    draftTitle: string;
+    inputRef: React.RefObject<HTMLInputElement | null>;
+    theme: typeof canvasTheme;
+    onDraftChange: (value: string) => void;
+    onStartEdit: () => void;
+    onCommit: () => void;
+    onCancel: () => void;
+}) {
+    return (
+        <div
+            className="absolute inset-x-0 top-0 z-20 flex h-8 items-center px-3"
+            style={{
+                background: `${theme.toolbar.panel}e6`,
+                borderBottom: `1px solid ${theme.node.stroke}`,
+                color: theme.node.text,
+            }}
+            data-testid="canvas-node-title-header"
+            onMouseDown={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+            onDoubleClick={(event) => {
+                event.stopPropagation();
+                if (!isEditing) onStartEdit();
+            }}
+        >
+            {isEditing ? (
+                <input
+                    ref={inputRef}
+                    data-testid="canvas-node-title-input"
+                    className="w-full bg-transparent text-xs font-medium outline-none select-text"
+                    style={{ color: theme.node.text }}
+                    value={draftTitle}
+                    onChange={(event) => onDraftChange(event.target.value)}
+                    onBlur={onCommit}
+                    onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                            event.preventDefault();
+                            onCommit();
+                        }
+                        if (event.key === "Escape") {
+                            event.preventDefault();
+                            onCancel();
+                        }
+                    }}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onPointerDown={(event) => event.stopPropagation()}
+                />
+            ) : (
+                <span className="truncate text-xs font-medium" title={title}>
+                    {title || "未命名节点"}
+                </span>
+            )}
+        </div>
+    );
+}
+
 function ResizeHandle({ corner, onMouseDown }: { corner: ResizeCorner; onMouseDown: (event: React.MouseEvent, corner: ResizeCorner) => void }) {
     const positionClass = {
         "top-left": "-left-[14px] -top-[14px] cursor-nwse-resize",
@@ -687,12 +811,14 @@ function ResizeHandle({ corner, onMouseDown }: { corner: ResizeCorner; onMouseDo
 function ConnectionHandleDot({
     side,
     visible,
+    rejected = false,
     onMouseDown,
     showCreatePlus,
     onCreateClick,
 }: {
     side: "left" | "right";
     visible: boolean;
+    rejected?: boolean;
     onMouseDown: (event: React.MouseEvent) => void;
     showCreatePlus?: boolean;
     onCreateClick?: (event: React.MouseEvent) => void;
@@ -735,7 +861,11 @@ function ConnectionHandleDot({
             >
                 <div
                     className="size-3 rounded-full border-2 transition-all hover:scale-125"
-                    style={{ background: theme.node.panel, borderColor: theme.node.muted }}
+                    style={{
+                        background: theme.node.panel,
+                        borderColor: rejected ? "#ef4444" : theme.node.muted,
+                        boxShadow: rejected ? "0 0 8px rgba(239,68,68,0.55)" : undefined,
+                    }}
                 />
             </div>
         </div>
