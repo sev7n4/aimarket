@@ -1,5 +1,6 @@
 const BASE_STEP = 40;
 const SHIFT_MULT = 2.5;
+export const RIGHT_PAN_MOVE_THRESHOLD_PX = 4;
 
 export function panDeltaFromKey(
   key: string,
@@ -33,6 +34,37 @@ export function shouldStartPan(input: {
   return false;
 }
 
-export function isContextMenuClick(movedPx: number, threshold = 4): boolean {
+export function isContextMenuClick(
+  movedPx: number,
+  threshold = RIGHT_PAN_MOVE_THRESHOLD_PX,
+): boolean {
   return movedPx < threshold;
+}
+
+/** Right-button background drag may become pan — capture so move events stay reliable. */
+export function shouldCapturePointerForRightPanCandidate(
+  button: number,
+  isBackground: boolean,
+): boolean {
+  return button === 2 && isBackground;
+}
+
+type EditableLike = {
+  tagName?: string;
+  isContentEditable?: boolean;
+};
+
+/** Shared for Space/WASD shortcuts — skip when focus is in an editable field. */
+export function isEditableTarget(
+  target: EventTarget | EditableLike | null,
+): boolean {
+  if (!target || typeof target !== "object") return false;
+  const tag =
+    "tagName" in target && typeof target.tagName === "string"
+      ? target.tagName.toUpperCase()
+      : "";
+  if (tag === "INPUT" || tag === "TEXTAREA") return true;
+  return Boolean(
+    "isContentEditable" in target && target.isContentEditable,
+  );
 }

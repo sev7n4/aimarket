@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 
-import { isContextMenuClick, shouldStartPan } from "@/lib/canvas-nav";
+import {
+    isContextMenuClick,
+    isEditableTarget,
+    RIGHT_PAN_MOVE_THRESHOLD_PX,
+    shouldCapturePointerForRightPanCandidate,
+    shouldStartPan,
+} from "@/lib/canvas-nav";
 import { canvasTheme, type CanvasBackgroundMode } from "./canvas-theme";
 import type { ViewportTransform } from "./types";
-
-function isEditableTarget(target: EventTarget | null): boolean {
-    if (!(target instanceof HTMLElement)) return false;
-    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return true;
-    return target.isContentEditable;
-}
 
 type InfiniteCanvasProps = {
     containerRef: React.RefObject<HTMLDivElement | null>;
@@ -144,7 +144,9 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
             return;
         }
 
-        if (event.button === 2 && isBackgroundClick) {
+        if (shouldCapturePointerForRightPanCandidate(event.button, isBackgroundClick)) {
+            event.preventDefault();
+            event.currentTarget.setPointerCapture(event.pointerId);
             rightDragRef.current = {
                 isActive: true,
                 startX: event.clientX,
@@ -168,7 +170,7 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
                     shouldStartPan({
                         spacePressed: false,
                         button: 2,
-                        rightDragMoved: movedPx >= 4,
+                        rightDragMoved: movedPx >= RIGHT_PAN_MOVE_THRESHOLD_PX,
                     })
                 ) {
                     rightDragRef.current.suppressMenu = true;
