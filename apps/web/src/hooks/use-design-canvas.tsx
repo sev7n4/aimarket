@@ -25,6 +25,7 @@ import {
 import { buildAssetCloneOp } from "@/lib/canvas-asset-drag";
 import type { InfiniteNodeToolRequest } from "@/lib/infinite-node-tool-run";
 import { resolveNodeImageUrl, resolveNodeToolPrompt } from "@/lib/infinite-node-tool-run";
+import { canConnectNodes } from "@/lib/canvas-connection-ux";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { InfiniteNodeStudioDock } from "@/components/infinite-canvas/InfiniteNodeStudioDock";
 import { buildCanvasNodeToolbarActions } from "@/lib/canvas-node-toolbar-actions";
@@ -52,7 +53,9 @@ import {
 import { buildWorkflowNodeKey, buildWorkflowConnectionSyncOps } from "@/lib/workflow-graph-sync";
 import {
   pollWorkflowGenerationStatuses,
+  isWorkflowGenerationToolNode,
 } from "@/lib/workflow-generation-poller";
+import { topoSortWorkflowNodes } from "@/lib/workflow-topo-sort";
 import {
   storyCanvasRunByEndpoint,
 } from "@/lib/api/story-canvas-run";
@@ -63,6 +66,9 @@ import {
 } from "@/lib/workflow-tool-run";
 import {
   WORKFLOW_RUN_NODE_EVENT,
+  WORKFLOW_RUN_ALL_EVENT,
+  dispatchWorkflowRunAllProgress,
+  dispatchWorkflowToast,
 } from "@/components/workflows/WorkflowToolNodeContent";
 import {
   applyCanvasAgentOps,
@@ -193,6 +199,7 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     const [dramaPanelNodeId, setDramaPanelNodeId] = useState<string | null>(null);
     const [showTemplateManager, setShowTemplateManager] = useState(false);
     const [showMusicGenPanel, setShowMusicGenPanel] = useState(false);
+    const [multiSelectNotice, setMultiSelectNotice] = useState<string | null>(null);
     // Phase 4 Task 4.1/4.2：无限画布节点右键菜单
     const [infiniteContextMenu, setInfiniteContextMenu] = useState<{
       node: CanvasNodeData;
@@ -258,9 +265,13 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       [items, infiniteConnections, dramaConnections],
     );
     const allCanvasNodesRef = useRef<CanvasNodeData[]>(allCanvasNodes);
+    const canvasConnectionsRef = useRef<CanvasConnection[]>(canvasConnections);
     useEffect(() => {
       allCanvasNodesRef.current = allCanvasNodes;
     }, [allCanvasNodes]);
+    useEffect(() => {
+      canvasConnectionsRef.current = canvasConnections;
+    }, [canvasConnections]);
 
     // Compute the Drama node data for the right-side property panel
     // (must look in all canvas nodes — including dramaNodes — since drama
@@ -833,15 +844,100 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       [readOnly, sessionId, commitCanvasOps],
     );
 
+    const waitForWorkflowNodeSettled = useCallback(
+      async (nodeId: string) => {
+        if (!sessionId) return;
+        const deadline = Date.now() + 30 * 60 * 1000;
+        while (Date.now() < deadline) {
+          const node = allCanvasNodesRef.current.find((n) => n.id === nodeId);
+          const status = node?.metadata?.status;
+          if (status === "success" || status === "error") return;
+
+          const patches = await pollWorkflowGenerationStatuses(
+            sessionId,
+            allCanvasNodesRef.current,
+          );
+          if (patches.length > 0) {
+            handleApplyAssistantOps(
+              patches.map(({ nodeId: patchNodeId, patch }) => ({
+                type: "update_node" as const,
+                id: patchNodeId,
+                patch: { metadata: patch },
+              })),
+            );
+          }
+
+          const updated = allCanvasNodesRef.current.find((n) => n.id === nodeId);
+          const nextStatus = updated?.metadata?.status;
+          if (nextStatus === "success" || nextStatus === "error") return;
+
+          await new Promise((resolve) => window.setTimeout(resolve, 1500));
+        }
+      },
+      [sessionId, handleApplyAssistantOps],
+    );
+
+    const runAllWorkflowNodes = useCallback(async () => {
+      if (readOnly || !sessionId || !workflowShell) return;
+      const nodes = allCanvasNodesRef.current;
+      const edges = canvasConnectionsRef.current;
+      const { order, cycle } = topoSortWorkflowNodes(nodes, edges);
+      if (cycle) {
+        dispatchWorkflowToast("工作流存在循环依赖，无法全部运行");
+        return;
+      }
+
+      const nodeById = new Map(nodes.map((n) => [n.id, n]));
+      const toolNodes = order
+        .map((id) => nodeById.get(id))
+        .filter(
+          (node): node is CanvasNodeData =>
+            Boolean(node && isWorkflowGenerationToolNode(node)),
+        );
+
+      if (toolNodes.length === 0) {
+        dispatchWorkflowToast("没有可运行的工具节点");
+        return;
+      }
+
+      dispatchWorkflowRunAllProgress({ current: 0, total: toolNodes.length });
+      try {
+        for (let i = 0; i < toolNodes.length; i++) {
+          const node = toolNodes[i]!;
+          dispatchWorkflowRunAllProgress({
+            current: i + 1,
+            total: toolNodes.length,
+          });
+          await handleRunWorkflowNode(node);
+          await waitForWorkflowNodeSettled(node.id);
+        }
+      } finally {
+        dispatchWorkflowRunAllProgress(null);
+      }
+    }, [
+      readOnly,
+      sessionId,
+      workflowShell,
+      handleRunWorkflowNode,
+      waitForWorkflowNodeSettled,
+    ]);
+
     useEffect(() => {
       if (!workflowShell) return;
       const onRun = (event: Event) => {
         const detail = (event as CustomEvent<{ node?: CanvasNodeData }>).detail;
         if (detail?.node) void handleRunWorkflowNode(detail.node);
       };
+      const onRunAll = () => {
+        void runAllWorkflowNodes();
+      };
       document.addEventListener(WORKFLOW_RUN_NODE_EVENT, onRun);
-      return () => document.removeEventListener(WORKFLOW_RUN_NODE_EVENT, onRun);
-    }, [workflowShell, handleRunWorkflowNode]);
+      document.addEventListener(WORKFLOW_RUN_ALL_EVENT, onRunAll);
+      return () => {
+        document.removeEventListener(WORKFLOW_RUN_NODE_EVENT, onRun);
+        document.removeEventListener(WORKFLOW_RUN_ALL_EVENT, onRunAll);
+      };
+    }, [workflowShell, handleRunWorkflowNode, runAllWorkflowNodes]);
 
     useEffect(() => {
       if (!workflowShell || !sessionId || readOnly) return;
@@ -921,6 +1017,105 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       },
       [readOnly, commitCanvasOps, selectedId, onSelect],
     );
+
+    const showMultiSelectNotice = useCallback((message: string) => {
+      setMultiSelectNotice(message);
+      window.setTimeout(() => setMultiSelectNotice(null), 2200);
+    }, []);
+
+    const multiSelectActions = useMemo(() => {
+      if (!useInfiniteCanvas || readOnly) return undefined;
+      return {
+        onGroup: () => {
+          if (infiniteSelectedIds.length < 2) return;
+          commitCanvasOps([
+            {
+              type: "group_nodes",
+              ids: infiniteSelectedIds,
+              title: "分组",
+            },
+          ]);
+          hapticLight();
+        },
+        onLayout: () => {
+          if (infiniteSelectedIds.length < 2) return;
+          commitCanvasOps([
+            {
+              type: "group_nodes",
+              ids: infiniteSelectedIds,
+              createLabel: false,
+            },
+          ]);
+          hapticLight();
+        },
+        onDownload: () => {
+          if (infiniteSelectedIds.length < 2) return;
+          const selected = allCanvasNodesRef.current.filter((n) =>
+            infiniteSelectedIds.includes(n.id),
+          );
+          const urls = selected
+            .map(
+              (n) =>
+                n.metadata?.content ||
+                n.metadata?.refUrl ||
+                n.metadata?.sceneRefUrl,
+            )
+            .filter((u): u is string => Boolean(u));
+          if (urls.length === 0) {
+            showMultiSelectNotice("选中节点暂无可下载内容");
+            return;
+          }
+          urls.forEach((url, i) => {
+            window.setTimeout(
+              () => window.open(assetUrl(url), "_blank"),
+              i * 250,
+            );
+          });
+          showMultiSelectNotice(`已开始下载 ${urls.length} 项`);
+          hapticLight();
+        },
+        onDelete: () => {
+          handleDeleteInfiniteNodes(infiniteSelectedIds);
+        },
+        onBatchConnect: (targetNodeId: string) => {
+          const target = allCanvasNodesRef.current.find(
+            (n) => n.id === targetNodeId,
+          );
+          if (!target) return;
+          const ops: CanvasAgentOp[] = [];
+          for (const sourceId of infiniteSelectedIds) {
+            if (sourceId === targetNodeId) continue;
+            const source = allCanvasNodesRef.current.find(
+              (n) => n.id === sourceId,
+            );
+            if (!source || !canConnectNodes(source, target).ok) continue;
+            const exists = infiniteConnections.some(
+              (c) =>
+                c.fromNodeId === sourceId && c.toNodeId === targetNodeId,
+            );
+            if (!exists) {
+              ops.push({
+                type: "connect_nodes",
+                fromNodeId: sourceId,
+                toNodeId: targetNodeId,
+              });
+            }
+          }
+          if (ops.length > 0) {
+            commitCanvasOps(ops);
+            hapticLight();
+          }
+        },
+      };
+    }, [
+      useInfiniteCanvas,
+      readOnly,
+      infiniteSelectedIds,
+      commitCanvasOps,
+      showMultiSelectNotice,
+      handleDeleteInfiniteNodes,
+      infiniteConnections,
+    ]);
 
     const handleDeleteConnection = useCallback(
       (connectionId: string) => {
@@ -1654,6 +1849,8 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     infiniteViewport,
     setInfiniteViewport,
     infiniteSelectedIds,
+    multiSelectActions,
+    multiSelectNotice,
     overlayBottomInsetPx,
     showInfiniteJobOverlay,
     jobFailed,

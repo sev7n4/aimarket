@@ -11,6 +11,7 @@ import { StudioToolHandlersProvider } from "@/components/studio-tool-handlers-pr
 import { StudioDock, studioDockOverlayInsetPx, studioDockScrollInset } from "@/components/studio-dock";
 import { StudioCoach } from "@/components/studio-coach";
 import { StudioHeader } from "@/components/studio-header";
+import { WorkflowTopBar } from "@/components/workflows/WorkflowTopBar";
 import {
   APP_LEFT_RAIL_PAD_CLASS,
   AppLeftRail,
@@ -171,6 +172,7 @@ export function StudioWorkspace({
     registerBatchLineage,
     canEdit: canvasCanEdit,
     setCanEdit,
+    layoutSaving,
   } = useSessionCanvas(sessionId, Boolean(user), { autoLoad: false });
   loadCanvasRef.current = loadCanvas;
   canvasItemsRef.current = canvasItems;
@@ -583,7 +585,15 @@ export function StudioWorkspace({
         />
       ) : null}
 
-      {showTopBar ? (
+      {workflowShell ? (
+        <WorkflowTopBar
+          sessionId={user ? sessionId : undefined}
+          sessionTitle={sessionTitle}
+          readOnly={readOnly}
+          layoutSaving={layoutSaving}
+          onTitleSaved={handleTitleSaved}
+        />
+      ) : showTopBar ? (
         <StudioHeader
           sessionId={user ? sessionId : undefined}
           sessionTitle={sessionTitle}

@@ -9,7 +9,6 @@ import { InfiniteCanvasEmptyPrompt } from "@/components/infinite-canvas/Infinite
 import { DramaPropertyPanel } from "@/components/infinite-canvas/drama/DramaPropertyPanel";
 import { CanvasAssistantPanel } from "@/components/infinite-canvas/agent/CanvasAssistantPanel";
 import { TemplateManager } from "@/components/infinite-canvas/TemplateManager";
-import { WorkflowShareButton } from "@/components/workflows/WorkflowShareButton";
 import { MusicGenPanel } from "@/components/music-gen-panel";
 import { WorkflowLeftPanel } from "@/components/workflows/WorkflowLeftPanel";
 import type { CanvasNodeMetadata, CanvasNodeData } from "@/components/infinite-canvas/types";
@@ -93,6 +92,8 @@ export function InfiniteCanvasPane({
   orchestrationExtra,
   onMediaUploadAt,
   onAssetDropAt,
+  multiSelectActions,
+  multiSelectNotice,
 }: InfiniteCanvasPaneProps) {
   return (
     <div
@@ -154,6 +155,8 @@ export function InfiniteCanvasPane({
             readOnly={readOnly}
             onMediaUploadAt={onMediaUploadAt}
             onAssetDropAt={onAssetDropAt}
+            multiSelectActions={multiSelectActions}
+            multiSelectNotice={multiSelectNotice}
           />
           {showEmptyPrompt && emptyCreation ? (
             <InfiniteCanvasEmptyPrompt
@@ -207,7 +210,6 @@ export function InfiniteCanvasPane({
           >
             <Music className="size-4" />
           </button>
-          {workflowShell ? <WorkflowShareButton sessionId={sessionId} /> : null}
         </div>
         </div>
         {dramaPanelNode && showDramaPropertyPanel ? (
