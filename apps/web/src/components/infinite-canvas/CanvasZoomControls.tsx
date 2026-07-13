@@ -67,6 +67,7 @@ export function CanvasZoomControls({ scale, onScaleChange, onReset, isMiniMapOpe
                     onClick={onReset}
                     title="重置视图"
                     aria-label="重置视图"
+                    data-testid="canvas-reset-view"
                 >
                     <Focus className="size-3.5" />
                 </button>

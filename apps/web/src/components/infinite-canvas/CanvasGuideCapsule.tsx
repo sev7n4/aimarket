@@ -18,8 +18,10 @@ const GUIDE_SECTIONS: GuideSection[] = [
       "W / A / S / D：键盘平移（Shift 加速）",
       "E / Q：以视口中心放大 / 缩小",
       "滚轮：缩放；右下角滑条可微调缩放",
+      "焦点按钮：重置视图缩放至 100%",
       "空白处左键拖：框选多个节点",
       "左下角开关条：网格 / 吸附 / 连线动画 / 锁定视角",
+      "右下角指南针：开关小地图；展开后可搜索节点标题并跳转",
     ],
   },
   {
@@ -32,13 +34,15 @@ const GUIDE_SECTIONS: GuideSection[] = [
       "单击连线选中，点击中点剪刀：删除连线",
       "Delete / Backspace：删除选中连线或节点",
       "Shift / Ctrl / Cmd + 点击：追加选择",
+      "拖入图片/视频、粘贴或右键「上传图片/视频」：添加媒体节点",
     ],
   },
   {
     title: "三、高级功能",
     items: [
       "Ctrl / Cmd + C / V：复制 / 粘贴节点",
-      "右下角指南针：小地图与视图重置",
+      "框选多节点后出现工具栏：分组 / 布局 / 打包下载 / 删除",
+      "工具栏连线手柄拖到目标节点：批量连线",
       "L：切换网格吸附",
     ],
   },
@@ -51,6 +55,14 @@ const WORKFLOW_ASSET_SECTION: GuideSection = {
     "拖拽资产到画布：在落点创建副本节点（新 ID）",
     "点击「应用」：在视口中心添加资产副本",
     "资产面板可收起，与工具节点 Tab 切换",
+  ],
+};
+
+const WORKFLOW_RUN_SECTION: GuideSection = {
+  title: "五、工作流运行",
+  items: [
+    "顶栏「全部运行」：按依赖顺序依次执行各工具节点",
+    "检测到循环依赖时会提示并中止",
   ],
 };
 
@@ -83,7 +95,7 @@ export function CanvasGuideCapsule({
   };
 
   const sections = workflowShell
-    ? [...GUIDE_SECTIONS, WORKFLOW_ASSET_SECTION]
+    ? [...GUIDE_SECTIONS, WORKFLOW_ASSET_SECTION, WORKFLOW_RUN_SECTION]
     : GUIDE_SECTIONS;
 
   return (
