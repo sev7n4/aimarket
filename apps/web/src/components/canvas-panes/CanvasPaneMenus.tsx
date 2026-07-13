@@ -25,9 +25,24 @@ export type CanvasPaneMenusProps = {
   onClosePaneCreateMenu: () => void;
   allowDramaNodeCreate: boolean;
   onCreateNodeAt: (type: CanvasNodeType, worldX: number, worldY: number) => void;
-  connectionCreateMenu: { sourceNodeId: string; x: number; y: number } | null;
+  connectionCreateMenu: {
+    sourceNodeId: string;
+    x: number;
+    y: number;
+    worldX?: number;
+    worldY?: number;
+    connectAs?: "downstream" | "upstream";
+  } | null;
   onCloseConnectionCreateMenu: () => void;
-  onCreateDownstreamNode: (sourceNodeId: string, type: CanvasNodeType) => void;
+  onCreateDownstreamNode: (
+    sourceNodeId: string,
+    type: CanvasNodeType,
+    options?: {
+      worldX?: number;
+      worldY?: number;
+      connectAs?: "downstream" | "upstream";
+    },
+  ) => void;
   connectionContextMenu: { connectionId: string; x: number; y: number } | null;
   onCloseConnectionContextMenu: () => void;
   onDeleteConnection: (connectionId: string) => void;
@@ -121,7 +136,11 @@ export function CanvasPaneMenus({
           x={connectionCreateMenu.x}
           y={connectionCreateMenu.y + 4}
           onSelect={(type) =>
-            onCreateDownstreamNode(connectionCreateMenu.sourceNodeId, type)
+            onCreateDownstreamNode(connectionCreateMenu.sourceNodeId, type, {
+              worldX: connectionCreateMenu.worldX,
+              worldY: connectionCreateMenu.worldY,
+              connectAs: connectionCreateMenu.connectAs,
+            })
           }
           onClose={onCloseConnectionCreateMenu}
         />

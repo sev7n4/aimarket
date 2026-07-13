@@ -4,6 +4,11 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import { panDeltaFromKey, zoomFactorFromKey } from "@/lib/canvas-nav";
+import {
+  connectionDropIntent,
+  resolveConnectionEndpoints,
+  validateConnectionEndpoints,
+} from "@/lib/canvas-connection-ux";
 import { canvasTheme, type CanvasBackgroundMode } from "./canvas-theme";
 import { CanvasChromeBar } from "./CanvasChromeBar";
 import { CanvasGuideCapsule } from "./CanvasGuideCapsule";
@@ -41,6 +46,14 @@ export type InfiniteCanvasContainerProps = {
     event: React.MouseEvent,
     nodeId: string,
     world: Position,
+  ) => void;
+  onConnectionDropAtEmpty?: (
+    params: {
+      fromNodeId: string;
+      handleType: "source" | "target";
+      world: Position;
+      client: { x: number; y: number };
+    },
   ) => void;
   onCanvasDoubleClick?: (world: Position, client: { x: number; y: number }) => void;
   onContextMenu?: (state: ContextMenuState | null) => void;
@@ -106,6 +119,7 @@ export function InfiniteCanvasContainer({
   onSelectionChange,
   onNodeDoubleClick,
   onConnectionCreateClick,
+  onConnectionDropAtEmpty,
   onCanvasDoubleClick,
   onContextMenu: onContextMenuProp,
   renderNodeContent,
@@ -126,6 +140,13 @@ export function InfiniteCanvasContainer({
   const [connectionTargetNodeId, setConnectionTargetNodeId] = useState<
     string | null
   >(null);
+  const [connectionTargetRejected, setConnectionTargetRejected] =
+    useState(false);
+  const [connectionRejectMessage, setConnectionRejectMessage] = useState<
+    string | null
+  >(null);
+  const connectionRejectTimerRef = useRef<number | null>(null);
+  const lastHoverRejectReasonRef = useRef<string | null>(null);
   const [mouseWorld, setMouseWorld] = useState<Position>({ x: 0, y: 0 });
   const [selectionBox, setSelectionBox] = useState<SelectionBox | null>(null);
   const [localContextMenu, setLocalContextMenu] =
@@ -302,6 +323,61 @@ export function InfiniteCanvasContainer({
     [onSelectionChange],
   );
 
+  const showRejectReason = useCallback((reason: string) => {
+    if (lastHoverRejectReasonRef.current === reason) return;
+    lastHoverRejectReasonRef.current = reason;
+    setConnectionRejectMessage(reason);
+    if (connectionRejectTimerRef.current !== null) {
+      window.clearTimeout(connectionRejectTimerRef.current);
+    }
+    connectionRejectTimerRef.current = window.setTimeout(() => {
+      setConnectionRejectMessage(null);
+      connectionRejectTimerRef.current = null;
+    }, 2200);
+  }, []);
+
+  const clearConnectionRejectFeedback = useCallback(() => {
+    lastHoverRejectReasonRef.current = null;
+    setConnectionRejectMessage(null);
+    if (connectionRejectTimerRef.current !== null) {
+      window.clearTimeout(connectionRejectTimerRef.current);
+      connectionRejectTimerRef.current = null;
+    }
+  }, []);
+
+  const findDropTargetAtWorld = useCallback(
+    (worldX: number, worldY: number, excludeNodeId: string) => {
+      for (const node of nodesRef.current) {
+        if (node.id === excludeNodeId) continue;
+        if (isPointNearNode(worldX, worldY, node)) {
+          return node;
+        }
+      }
+      return null;
+    },
+    [],
+  );
+
+  const evaluateConnectionTarget = useCallback(
+    (
+      params: ConnectionHandle,
+      targetNode: CanvasNodeData,
+    ): { ok: boolean; reason?: string } => {
+      const originNode = nodesRef.current.find((n) => n.id === params.nodeId);
+      if (!originNode) return { ok: false, reason: "源节点不存在" };
+      const { fromNodeId, toNodeId } = resolveConnectionEndpoints(
+        params.nodeId,
+        params.handleType,
+        targetNode.id,
+      );
+      const fromNode =
+        fromNodeId === originNode.id ? originNode : targetNode;
+      const toNode = toNodeId === originNode.id ? originNode : targetNode;
+      return validateConnectionEndpoints(fromNode, toNode);
+    },
+    [],
+  );
+
   // ---- connection start ----
   const handleConnectStart = useCallback(
     (event: React.MouseEvent, nodeId: string, handleType: "source" | "target") => {
@@ -310,11 +386,13 @@ export function InfiniteCanvasContainer({
       const params: ConnectionHandle = { nodeId, handleType };
       setConnectingParams(params);
       connectingParamsRef.current = params;
+      setConnectionTargetRejected(false);
+      clearConnectionRejectFeedback();
 
       const world = screenToCanvas(event.clientX, event.clientY);
       setMouseWorld(world);
     },
-    [screenToCanvas],
+    [screenToCanvas, clearConnectionRejectFeedback],
   );
 
   // ---- node context menu ----
@@ -431,14 +509,25 @@ export function InfiniteCanvasContainer({
 
         // Detect drop target
         let targetId: string | null = null;
-        for (const node of nodesRef.current) {
-          if (node.id === connectingParamsRef.current!.nodeId) continue;
-          if (isPointNearNode(worldX, worldY, node)) {
-            targetId = node.id;
-            break;
+        let rejected = false;
+        const params = connectingParamsRef.current!;
+        const targetNode = findDropTargetAtWorld(
+          worldX,
+          worldY,
+          params.nodeId,
+        );
+        if (targetNode) {
+          targetId = targetNode.id;
+          const validation = evaluateConnectionTarget(params, targetNode);
+          rejected = !validation.ok;
+          if (rejected && validation.reason) {
+            showRejectReason(validation.reason);
           }
+        } else {
+          lastHoverRejectReasonRef.current = null;
         }
         setConnectionTargetNodeId(targetId);
+        setConnectionTargetRejected(rejected);
         return;
       }
 
@@ -534,7 +623,7 @@ export function InfiniteCanvasContainer({
       }
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (event: MouseEvent) => {
       // --- end node drag ---
       if (dragRef.current.isDraggingNode) {
         if (!dragRef.current.hasMoved) {
@@ -547,57 +636,64 @@ export function InfiniteCanvasContainer({
       // --- end connection creation ---
       if (connectingParamsRef.current) {
         const params = connectingParamsRef.current;
-        const targetId = connectionTargetNodeId; // read from state is fine on mouseup
 
-        // We need to read the latest target from ref approach
-        // Since connectionTargetNodeId is state, we check via the event position
         const rect = containerRef.current?.getBoundingClientRect();
         const vp = viewportRef.current;
         let worldX = 0;
         let worldY = 0;
-        if (rect && event instanceof MouseEvent) {
+        if (rect) {
           worldX = (event.clientX - rect.left - vp.x) / vp.k;
           worldY = (event.clientY - rect.top - vp.y) / vp.k;
         }
 
-        let dropTargetId: string | null = null;
-        for (const node of nodesRef.current) {
-          if (node.id === params.nodeId) continue;
-          if (isPointNearNode(worldX, worldY, node)) {
-            dropTargetId = node.id;
-            break;
-          }
-        }
+        const dropTarget = findDropTargetAtWorld(
+          worldX,
+          worldY,
+          params.nodeId,
+        );
+        const dropTargetId = dropTarget?.id ?? null;
+        const intent = connectionDropIntent(dropTargetId, {
+          x: worldX,
+          y: worldY,
+        });
 
-        if (dropTargetId) {
-          // Normalize: source → target
-          let fromNodeId: string;
-          let toNodeId: string;
-          if (params.handleType === "source") {
-            fromNodeId = params.nodeId;
-            toNodeId = dropTargetId;
-          } else {
-            fromNodeId = dropTargetId;
-            toNodeId = params.nodeId;
-          }
+        if (intent === "connect" && dropTarget) {
+          const validation = evaluateConnectionTarget(params, dropTarget);
+          if (validation.ok) {
+            const { fromNodeId, toNodeId } = resolveConnectionEndpoints(
+              params.nodeId,
+              params.handleType,
+              dropTarget.id,
+            );
 
-          // Prevent duplicate connections
-          const exists = connectionsRef.current.some(
-            (c) => c.fromNodeId === fromNodeId && c.toNodeId === toNodeId,
-          );
-          if (!exists && fromNodeId !== toNodeId) {
-            const newConn: CanvasConnection = {
-              id: generateConnectionId(),
-              fromNodeId,
-              toNodeId,
-            };
-            onConnectionsChange([...connectionsRef.current, newConn]);
+            const exists = connectionsRef.current.some(
+              (c) => c.fromNodeId === fromNodeId && c.toNodeId === toNodeId,
+            );
+            if (!exists && fromNodeId !== toNodeId) {
+              const newConn: CanvasConnection = {
+                id: generateConnectionId(),
+                fromNodeId,
+                toNodeId,
+              };
+              onConnectionsChange([...connectionsRef.current, newConn]);
+            }
+          } else if (validation.reason) {
+            showRejectReason(validation.reason);
           }
+        } else if (intent === "create-at-drop" && onConnectionDropAtEmpty) {
+          onConnectionDropAtEmpty({
+            fromNodeId: params.nodeId,
+            handleType: params.handleType,
+            world: { x: worldX, y: worldY },
+            client: { x: event.clientX, y: event.clientY },
+          });
         }
 
         setConnectingParams(null);
         connectingParamsRef.current = null;
         setConnectionTargetNodeId(null);
+        setConnectionTargetRejected(false);
+        clearConnectionRejectFeedback();
       }
 
       // --- end selection box ---
@@ -634,9 +730,21 @@ export function InfiniteCanvasContainer({
     onNodesChange,
     onConnectionsChange,
     onSelectionChange,
-    connectionTargetNodeId,
+    onConnectionDropAtEmpty,
     deselectAll,
+    findDropTargetAtWorld,
+    evaluateConnectionTarget,
+    showRejectReason,
+    clearConnectionRejectFeedback,
   ]);
+
+  useEffect(() => {
+    return () => {
+      if (connectionRejectTimerRef.current !== null) {
+        window.clearTimeout(connectionRejectTimerRef.current);
+      }
+    };
+  }, []);
 
   // ---- keyboard: Escape + WASD pan + E/Q zoom ----
   useEffect(() => {
@@ -647,6 +755,8 @@ export function InfiniteCanvasContainer({
         setConnectingParams(null);
         connectingParamsRef.current = null;
         setConnectionTargetNodeId(null);
+        setConnectionTargetRejected(false);
+        clearConnectionRejectFeedback();
         setSelectionBox(null);
         selectionBoxRef.current = null;
         setLocalContextMenu(null);
@@ -804,6 +914,7 @@ export function InfiniteCanvasContainer({
               handle={connectingParams}
               mouseWorld={mouseWorld}
               target={connectionTargetNode}
+              rejected={connectionTargetRejected}
               animated={edgeAnimOn}
             />
           )}
@@ -819,6 +930,9 @@ export function InfiniteCanvasContainer({
             isRelated={hoveredNodeId === node.id}
             isFocusRelated={false}
             isConnectionTarget={connectionTargetNodeId === node.id}
+            isConnectionTargetRejected={
+              connectionTargetNodeId === node.id && connectionTargetRejected
+            }
             isConnecting={Boolean(connectingParams)}
             showPanel={
               Boolean(renderPanel) &&
@@ -906,6 +1020,20 @@ export function InfiniteCanvasContainer({
           }}
         />
       )}
+
+      {connectionRejectMessage ? (
+        <div
+          className="pointer-events-none absolute bottom-6 left-1/2 z-[70] max-w-sm -translate-x-1/2 rounded-lg border px-3 py-2 text-xs text-red-100 shadow-lg backdrop-blur-md"
+          style={{
+            borderColor: "rgba(239,68,68,0.45)",
+            background: "rgba(127,29,29,0.85)",
+          }}
+          data-testid="connection-reject-toast"
+          role="status"
+        >
+          {connectionRejectMessage}
+        </div>
+      ) : null}
     </div>
   );
 }

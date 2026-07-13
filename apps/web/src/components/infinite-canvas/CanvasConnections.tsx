@@ -61,7 +61,9 @@ export function ConnectionPath({
     );
 }
 
-export function ActiveConnectionPath({ node, handle, mouseWorld, target, animated = false }: { node?: CanvasNodeData; handle: ConnectionHandle; mouseWorld: Position; target?: CanvasNodeData; animated?: boolean }) {
+const CONNECTION_REJECT_STROKE = "#ef4444";
+
+export function ActiveConnectionPath({ node, handle, mouseWorld, target, rejected = false, animated = false }: { node?: CanvasNodeData; handle: ConnectionHandle; mouseWorld: Position; target?: CanvasNodeData; rejected?: boolean; animated?: boolean }) {
     if (!node) return null;
 
     const startX = handle.handleType === "source" ? node.position.x + node.width : mouseWorld.x;
@@ -78,7 +80,7 @@ export function ActiveConnectionPath({ node, handle, mouseWorld, target, animate
     return (
         <path
             d={pathD}
-            stroke={canvasTheme.node.activeStroke}
+            stroke={rejected ? CONNECTION_REJECT_STROKE : canvasTheme.node.activeStroke}
             strokeWidth="2"
             fill="none"
             strokeDasharray="5,5"

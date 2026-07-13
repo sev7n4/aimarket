@@ -23,6 +23,7 @@ type CanvasNodeProps = {
     isRelated: boolean;
     isFocusRelated: boolean;
     isConnectionTarget: boolean;
+    isConnectionTargetRejected?: boolean;
     isConnecting: boolean;
     editRequestNonce?: number;
     showPanel: boolean;
@@ -77,6 +78,7 @@ export const CanvasNode = React.memo(function CanvasNode({
     isRelated,
     isFocusRelated,
     isConnectionTarget,
+    isConnectionTargetRejected = false,
     isConnecting,
     editRequestNonce = 0,
     showPanel,
@@ -113,7 +115,13 @@ export const CanvasNode = React.memo(function CanvasNode({
     const isBatchRoot = data.type === CanvasNodeType.Image && Boolean(data.metadata?.isBatchRoot) && batchCount > 1;
     const isBatchChild = data.type === CanvasNodeType.Image && Boolean(data.metadata?.batchRootId);
     const isActive = isConnectionTarget || isSelected || isFocusRelated;
-    const imageBorderColor = isActive ? selectionBlue : isRelated && !isBatchChild ? theme.node.muted : "transparent";
+    const imageBorderColor = isConnectionTargetRejected
+        ? "#ef4444"
+        : isActive
+          ? selectionBlue
+          : isRelated && !isBatchChild
+            ? theme.node.muted
+            : "transparent";
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const resizeRef = useRef({
         isResizing: false,
@@ -334,10 +342,16 @@ export const CanvasNode = React.memo(function CanvasNode({
                 <ResizeHandle corner="bottom-right" onMouseDown={handleResizeMouseDown} />
             </div>
 
-            <ConnectionHandleDot side="left" visible={hovered || isSelected || isConnecting} onMouseDown={(event) => onConnectStart(event, data.id, "target")} />
+            <ConnectionHandleDot
+                side="left"
+                visible={hovered || isSelected || isConnecting}
+                rejected={isConnectionTarget && isConnectionTargetRejected}
+                onMouseDown={(event) => onConnectStart(event, data.id, "target")}
+            />
             <ConnectionHandleDot
                 side="right"
                 visible={data.type !== CanvasNodeType.Config && (hovered || isSelected || isConnecting)}
+                rejected={false}
                 onMouseDown={(event) => onConnectStart(event, data.id, "source")}
                 showCreatePlus={Boolean(onConnectionCreateClick) && data.type !== CanvasNodeType.Config}
                 onCreateClick={
@@ -687,12 +701,14 @@ function ResizeHandle({ corner, onMouseDown }: { corner: ResizeCorner; onMouseDo
 function ConnectionHandleDot({
     side,
     visible,
+    rejected = false,
     onMouseDown,
     showCreatePlus,
     onCreateClick,
 }: {
     side: "left" | "right";
     visible: boolean;
+    rejected?: boolean;
     onMouseDown: (event: React.MouseEvent) => void;
     showCreatePlus?: boolean;
     onCreateClick?: (event: React.MouseEvent) => void;
@@ -735,7 +751,11 @@ function ConnectionHandleDot({
             >
                 <div
                     className="size-3 rounded-full border-2 transition-all hover:scale-125"
-                    style={{ background: theme.node.panel, borderColor: theme.node.muted }}
+                    style={{
+                        background: theme.node.panel,
+                        borderColor: rejected ? "#ef4444" : theme.node.muted,
+                        boxShadow: rejected ? "0 0 8px rgba(239,68,68,0.55)" : undefined,
+                    }}
                 />
             </div>
         </div>
