@@ -42,6 +42,17 @@ async function prepareWorkflowSession(
   return { sessionId, token: token! };
 }
 
+/** Avoid fixed minimap intercepting node chrome clicks after scroll-into-view. */
+async function clickWorkflowNodeRun(
+  page: import("@playwright/test").Page,
+  runBtn: import("@playwright/test").Locator,
+) {
+  await page.getByTestId("canvas-minimap").evaluate((el) => {
+    (el as HTMLElement).style.pointerEvents = "none";
+  });
+  await runBtn.evaluate((el) => (el as HTMLButtonElement).click());
+}
+
 test.describe("Workflow tools (Phase 4)", () => {
   test.setTimeout(120_000);
 
@@ -71,9 +82,7 @@ test.describe("Workflow tools (Phase 4)", () => {
       { timeout: 30_000 },
     );
 
-    // WorkflowTopBar shortens the canvas; Playwright scroll-into-view can land
-    // the run button under the fixed minimap overlay.
-    await runBtn.click({ force: true });
+    await clickWorkflowNodeRun(page, runBtn);
     const res = await generatePromise;
     expect(res.ok(), `generate-image failed: ${await res.text()}`).toBeTruthy();
   });
@@ -84,7 +93,7 @@ test.describe("Workflow tools (Phase 4)", () => {
     await page.getByTestId("workflow-tool-IMAGE_OUTPAINTING").click();
     const runBtn = page.locator('[data-testid^="workflow-node-run-"]').first();
     await expect(runBtn).toBeVisible({ timeout: 15_000 });
-    await runBtn.click({ force: true });
+    await clickWorkflowNodeRun(page, runBtn);
 
     await expect(page.getByText("请先连接上游图片节点")).toBeVisible({
       timeout: 15_000,
