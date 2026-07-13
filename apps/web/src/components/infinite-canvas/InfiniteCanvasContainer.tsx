@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
+import { panDeltaFromKey, zoomFactorFromKey } from "@/lib/canvas-nav";
 import { canvasTheme, type CanvasBackgroundMode } from "./canvas-theme";
 import { InfiniteCanvas } from "./InfiniteCanvas";
 import { CanvasNode } from "./CanvasNode";
@@ -52,6 +53,14 @@ export type InfiniteCanvasContainerProps = {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+    return true;
+  }
+  return target.isContentEditable;
+}
 
 function generateConnectionId(): string {
   return Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
@@ -198,6 +207,15 @@ export function InfiniteCanvasContainer({
       });
     },
     [onViewportChange],
+  );
+
+  const zoomByFactor = useCallback(
+    (factor: number) => {
+      const vp = viewportRef.current;
+      const nextScale = Math.min(Math.max(vp.k * factor, 0.05), 5);
+      setZoomScale(nextScale);
+    },
+    [setZoomScale],
   );
 
   // ---- deselect all ----
@@ -574,9 +592,11 @@ export function InfiniteCanvasContainer({
     connectionTargetNodeId,
   ]);
 
-  // ---- Escape key ----
+  // ---- keyboard: Escape + WASD pan + E/Q zoom ----
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) return;
+
       if (event.key === "Escape") {
         setConnectingParams(null);
         connectingParamsRef.current = null;
@@ -584,11 +604,30 @@ export function InfiniteCanvasContainer({
         setSelectionBox(null);
         selectionBoxRef.current = null;
         setLocalContextMenu(null);
+        return;
+      }
+
+      const delta = panDeltaFromKey(event.key, event.shiftKey);
+      if (delta) {
+        event.preventDefault();
+        const vp = viewportRef.current;
+        onViewportChange({
+          ...vp,
+          x: vp.x - delta.dx * vp.k,
+          y: vp.y - delta.dy * vp.k,
+        });
+        return;
+      }
+
+      const zoomFactor = zoomFactorFromKey(event.key);
+      if (zoomFactor) {
+        event.preventDefault();
+        zoomByFactor(zoomFactor);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [onViewportChange, zoomByFactor]);
 
   // ---- notify context menu changes to parent ----
   useEffect(() => {

@@ -1,7 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 
+import { isContextMenuClick, shouldStartPan } from "@/lib/canvas-nav";
 import { canvasTheme, type CanvasBackgroundMode } from "./canvas-theme";
 import type { ViewportTransform } from "./types";
+
+function isEditableTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false;
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return true;
+    return target.isContentEditable;
+}
 
 type InfiniteCanvasProps = {
     containerRef: React.RefObject<HTMLDivElement | null>;
@@ -25,14 +32,23 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
         initialY: 0,
         hasMoved: false,
     });
+    const rightDragRef = useRef({
+        isActive: false,
+        startX: 0,
+        startY: 0,
+        movedPx: 0,
+        suppressMenu: false,
+    });
     const scaleRef = useRef(viewport.k);
+    const viewportRef = useRef(viewport);
     const frameRef = useRef<number | null>(null);
     const nextViewportRef = useRef<ViewportTransform | null>(null);
     const [isSpacePressed, setIsSpacePressed] = useState(false);
 
     useEffect(() => {
         scaleRef.current = viewport.k;
-    }, [viewport.k]);
+        viewportRef.current = viewport;
+    }, [viewport.k, viewport.x, viewport.y]);
 
     useEffect(
         () => () => {
@@ -44,7 +60,8 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.code !== "Space") return;
-            if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+            if (isEditableTarget(event.target)) return;
+            event.preventDefault();
             setIsSpacePressed(true);
         };
 
@@ -82,41 +99,84 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
         });
     };
 
+    const startPan = (event: React.PointerEvent<HTMLDivElement>, clientX: number, clientY: number) => {
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        panState.current = {
+            isPanning: true,
+            startX: clientX,
+            startY: clientY,
+            initialX: viewport.x,
+            initialY: viewport.y,
+            hasMoved: false,
+        };
+        document.body.style.cursor = "grabbing";
+    };
+
     const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
         const target = event.target instanceof Element ? event.target : null;
         if (target?.closest("[data-canvas-no-zoom]")) return;
         if (target?.closest("[data-connection-create-menu]")) return;
         const isBackgroundClick = !target?.closest("[data-node-id],[data-connection-id]");
 
-        if (event.button === 0 && (event.ctrlKey || event.metaKey) && isBackgroundClick) {
+        if (event.button === 0 && isBackgroundClick && !isSpacePressed) {
             event.preventDefault();
             event.currentTarget.setPointerCapture(event.pointerId);
             onCanvasMouseDown?.(event);
             return;
         }
 
-        if (event.button === 1 || (event.button === 0 && !isSpacePressed && isBackgroundClick)) {
-            event.preventDefault();
-            event.currentTarget.setPointerCapture(event.pointerId);
-            panState.current = {
-                isPanning: true,
-                startX: event.clientX,
-                startY: event.clientY,
-                initialX: viewport.x,
-                initialY: viewport.y,
-                hasMoved: false,
-            };
-            document.body.style.cursor = "grabbing";
+        if (
+            shouldStartPan({
+                spacePressed: isSpacePressed,
+                button: event.button,
+                rightDragMoved: false,
+            }) &&
+            (event.button === 1 || isBackgroundClick)
+        ) {
+            startPan(event, event.clientX, event.clientY);
             return;
         }
 
-        if (event.button === 0 && isSpacePressed && isBackgroundClick) {
-            event.preventDefault();
+        if (event.button === 2 && isBackgroundClick) {
+            rightDragRef.current = {
+                isActive: true,
+                startX: event.clientX,
+                startY: event.clientY,
+                movedPx: 0,
+                suppressMenu: false,
+            };
         }
     };
 
     useEffect(() => {
         const handlePointerMove = (event: PointerEvent) => {
+            if (rightDragRef.current.isActive && !panState.current.isPanning) {
+                const dx = event.clientX - rightDragRef.current.startX;
+                const dy = event.clientY - rightDragRef.current.startY;
+                const movedPx = Math.max(Math.abs(dx), Math.abs(dy));
+                rightDragRef.current.movedPx = movedPx;
+
+                if (
+                    shouldStartPan({
+                        spacePressed: false,
+                        button: 2,
+                        rightDragMoved: movedPx >= 4,
+                    })
+                ) {
+                    rightDragRef.current.suppressMenu = true;
+                    panState.current = {
+                        isPanning: true,
+                        startX: event.clientX,
+                        startY: event.clientY,
+                        initialX: viewportRef.current.x,
+                        initialY: viewportRef.current.y,
+                        hasMoved: true,
+                    };
+                    document.body.style.cursor = "grabbing";
+                }
+            }
+
             if (!panState.current.isPanning) return;
 
             const dx = event.clientX - panState.current.startX;
@@ -138,6 +198,13 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
         };
 
         const handlePointerUp = () => {
+            if (rightDragRef.current.isActive) {
+                if (!isContextMenuClick(rightDragRef.current.movedPx)) {
+                    rightDragRef.current.suppressMenu = true;
+                }
+                rightDragRef.current.isActive = false;
+            }
+
             if (!panState.current.isPanning) return;
 
             if (!panState.current.hasMoved) {
@@ -164,6 +231,15 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
         return () => container.removeEventListener("wheel", preventWheelScroll);
     }, [containerRef]);
 
+    const handleContextMenu = (event: React.MouseEvent) => {
+        if (rightDragRef.current.suppressMenu) {
+            event.preventDefault();
+            rightDragRef.current.suppressMenu = false;
+            return;
+        }
+        onContextMenu?.(event);
+    };
+
     return (
         <div
             ref={containerRef}
@@ -178,7 +254,7 @@ export function InfiniteCanvas({ containerRef, viewport, backgroundMode = "lines
                 onCanvasDoubleClick?.(event);
             }}
             onWheel={handleWheel}
-            onContextMenu={onContextMenu}
+            onContextMenu={handleContextMenu}
             onDragOver={(event) => event.preventDefault()}
             onDrop={onDrop}
         >
