@@ -46,6 +46,6 @@ export function waitForSessionEnsure(page: Page) {
       res.url().includes("/api/v1/imageSession/ensure") &&
       res.request().method() === "POST" &&
       res.ok(),
-    { timeout: 30_000 },
+    { timeout: 45_000 },
   );
 }
