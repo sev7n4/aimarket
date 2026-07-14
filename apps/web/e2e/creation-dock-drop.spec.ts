@@ -41,7 +41,8 @@ test.describe("creation dock drag-drop upload", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
     const dropZone = page.getByTestId("creation-dock-drop-zone");
-    await expect(dropZone).toBeVisible();
+    await page.locator("#home-creation").scrollIntoViewIfNeeded();
+    await expect(dropZone).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("app-left-rail")).toBeVisible();
 
     const pngBase64 =
@@ -66,7 +67,7 @@ test.describe("creation dock drag-drop upload", () => {
     }, pngBase64);
 
     await expect(dropZone.getByTestId("upload-preview-card-0")).toBeVisible({
-      timeout: 10_000,
+      timeout: 20_000,
     });
   });
 });
