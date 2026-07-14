@@ -3,6 +3,20 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   transpilePackages: ["@aimarket/ui"],
+  async redirects() {
+    return [
+      {
+        source: "/workflow",
+        destination: "/studio",
+        permanent: true,
+      },
+      {
+        source: "/workflows",
+        destination: "/studio",
+        permanent: true,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "picsum.photos" },

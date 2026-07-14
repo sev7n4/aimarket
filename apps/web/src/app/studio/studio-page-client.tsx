@@ -14,10 +14,22 @@ import {
 const modes: CreationMode[] = ["chat", "image", "ecommerce", "production"];
 
 function parseMode(value: string | null): CreationMode {
+  if (value === "production" || value === "ecommerce") {
+    return "image";
+  }
   if (value && modes.includes(value as CreationMode)) {
     return value as CreationMode;
   }
   return "image";
+}
+
+function normalizeDeprecatedModes(searchParams: URLSearchParams): boolean {
+  const mode = searchParams.get("mode");
+  if (mode !== "production" && mode !== "ecommerce") {
+    return false;
+  }
+  searchParams.set("mode", "image");
+  return true;
 }
 
 export function StudioPageClient() {
@@ -40,6 +52,12 @@ export function StudioPageClient() {
     window.history.replaceState(null, "", url.toString());
     writeDraftSessionId(sessionId, wsId);
   }, [sessionId, sessionIdFromUrl]);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!normalizeDeprecatedModes(url.searchParams)) return;
+    window.history.replaceState(null, "", url.toString());
+  }, [searchParams]);
 
   useEffect(() => {
     if (searchParams.get("submit") !== "1") return;

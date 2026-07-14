@@ -326,7 +326,7 @@ test.describe("studio session switch", () => {
       );
   });
 
-  test("制片模式侧栏新建保留 production", async ({ page }) => {
+  test("deprecated production mode 侧栏新建规范为 image", async ({ page }) => {
     await mockStudioSessionSwitch(page);
     await page.goto(
       `/studio?sessionId=${encodeURIComponent(SESSION_A.id)}&mode=production`,
@@ -334,16 +334,17 @@ test.describe("studio session switch", () => {
     );
 
     await waitForSidebarSessions(page);
+    await expect(page).toHaveURL(/mode=image/, { timeout: 15_000 });
+    await expect(page).not.toHaveURL(/mode=production/);
+
     await page.getByTestId("studio-workspace-new").click();
 
-    await expect(page).toHaveURL(/mode=production/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/mode=image/, { timeout: 15_000 });
     await expect(page).not.toHaveURL(
       new RegExp(`sessionId=${SESSION_A.id.replace(/-/g, "\\-")}`),
     );
-    await expect(page.locator("textarea").first()).toHaveAttribute(
-      "placeholder",
-      /短剧创意|至少 10 字|都市|甜宠|仙侠|悬疑/,
-      { timeout: 15_000 },
-    );
+    await expect(page.locator("textarea").first()).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });

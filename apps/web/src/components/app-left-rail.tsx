@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Clock, Compass, Layers, PanelLeft, Plus, Workflow } from "lucide-react";
+import { Clock, Compass, Layers, PanelLeft, Plus } from "lucide-react";
 import { BrandMarkIcon } from "@/components/brand-mark-icon";
 import { LoginDialog } from "@/components/login-dialog";
 import { RecentSessionsList } from "@/components/recent-sessions-list";
@@ -241,17 +241,6 @@ export function AppLeftRail({
             </div>
           ) : null}
         </div>
-
-        <RailItem
-          label="工作流"
-          href="/workflows"
-          active={pathname === "/workflows" || pathname.startsWith("/workflow")}
-          testId="nav-workflows"
-        >
-          <span className="flex size-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03]">
-            <Workflow className="size-4" />
-          </span>
-        </RailItem>
 
         <RailItem
           label="灵感发现"

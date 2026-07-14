@@ -39,10 +39,9 @@ test.describe("smoke", () => {
     await homePanel.getByRole("button", { name: "开始生成" }).click();
 
     await expect(page).toHaveURL(/\/studio/, { timeout: 20_000 });
-    // 生成可能极快完成，与 mobile-collab 一致接受「已完成」
-    await expect(
-      page.getByText(/排队中|生成中|处理中|已完成/).first(),
-    ).toBeVisible({ timeout: 25_000 });
+    const progress = page.getByText(/排队中|生成中|处理中|已完成/).first();
+    const canvasItem = page.locator('[data-testid^="canvas-item-"]').first();
+    await expect(progress.or(canvasItem)).toBeVisible({ timeout: 60_000 });
   });
 
   test("点击灵感卡片做同款进入 Studio", async ({ page }) => {

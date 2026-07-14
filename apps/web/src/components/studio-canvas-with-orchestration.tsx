@@ -33,7 +33,6 @@ import type { CanvasNodeData } from "@/components/infinite-canvas/types";
 import type { DramaStudioViewPhase } from "@/lib/drama-studio-view";
 import { isCanvasFlowMode } from "@/lib/modes";
 import {
-  resolveCanvasViewToggleEnabled,
   resolveDramaPhaseSplitEnabled,
   resolveUseInfiniteCanvas,
 } from "@/lib/studio-canvas-view";
@@ -146,17 +145,11 @@ export const StudioCanvasWithOrchestration = forwardRef<
     }
   }, [dramaDraftProject?.id, dramaDraftProject?.project]);
 
-  // Phase 5.1 + 阶段分离：默认 ScrollCanvas（Agent 车道）；仅用户手动点「节点视图」才进 InfiniteCanvas。
-  // E2E 可通过 localStorage["aimarket_canvas_flow"]="0" 或 ?canvasFlow=0 全程 ScrollCanvas。
+  // Studio 固定 ScrollCanvas；节点视图切换已下线。
   const [canvasFlowEnabled, setCanvasFlowEnabled] = useState(true);
   useEffect(() => {
     setCanvasFlowEnabled(isCanvasFlowMode());
   }, []);
-
-  /** 「节点视图 ↔ 滚动视图」切换开关：三车道一致，随 canvasFlow 开放 */
-  const canvasViewToggleEnabled = workflowShell
-    ? false
-    : resolveCanvasViewToggleEnabled({ canvasFlowEnabled });
 
   /** Infinite 下是否叠加短剧节点面板：仅 Agent 车道 + 制片模式 */
   const dramaPhaseSplitEnabled = workflowShell
@@ -167,25 +160,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
         canvasFlowEnabled,
       });
 
-  const derivedViewPhase: DramaStudioViewPhase = workflowShell ? "workflow" : "agent";
-
-  /** 用户手动切换节点/对话视图；新一轮规划开始后清除，回到对话视图 */
-  const [manualViewPhase, setManualViewPhase] =
-    useState<DramaStudioViewPhase | null>(null);
-  useEffect(() => {
-    if (isDramaPlanning) setManualViewPhase(null);
-  }, [isDramaPlanning, dramaPlanRun?.id]);
-
-  /** E2E / 深链：?dramaView=workflow|agent 强制画布阶段（不替代用户手动切换） */
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const forced = new URLSearchParams(window.location.search).get("dramaView");
-    if (forced === "workflow" || forced === "agent") {
-      setManualViewPhase(forced);
-    }
-  }, [sessionId]);
-
-  const viewPhase = manualViewPhase ?? derivedViewPhase;
+  const viewPhase: DramaStudioViewPhase = workflowShell ? "workflow" : "agent";
 
   const isDramaPlanActive =
     dramaLaneActive &&
@@ -664,12 +639,8 @@ export const StudioCanvasWithOrchestration = forwardRef<
       nodeActions={mergedNodeActions}
       useInfiniteCanvas={useInfiniteCanvas}
       conversationPaneEnabled={workflowShell ? false : dramaLaneActive}
-      canvasViewEnabled={canvasViewToggleEnabled}
+      canvasViewEnabled={false}
       dramaPhaseSplitEnabled={dramaPhaseSplitEnabled}
-      dramaViewPhase={canvasViewToggleEnabled ? viewPhase : undefined}
-      onDramaViewPhaseChange={
-        canvasViewToggleEnabled ? setManualViewPhase : undefined
-      }
       onInfiniteCanvasActiveChange={props.onInfiniteCanvasActiveChange}
       orchestrationEvent={scrollOrchestrationEvent}
       orchestrationActions={timelineActions ?? undefined}

@@ -5,20 +5,6 @@ import {
 
 export type StudioKind = "canvas" | "project";
 
-/** 制片模式 Studio 入口（PROD-A01） */
-export function buildProductionStudioUrl(
-  options?: Omit<
-    NonNullable<Parameters<typeof buildStudioUrl>[1]>,
-    "mode"
-  > & { title?: string },
-): string {
-  return buildStudioUrl("canvas", {
-    ...options,
-    mode: "production",
-    title: options?.title ?? "未命名制片",
-  });
-}
-
 /** 统一新建画布 / 新建项目的跳转参数（与左侧栏、顶栏一致） */
 export function buildStudioUrl(
   kind: StudioKind,
@@ -63,35 +49,14 @@ export function studioUrlForSession(session: {
   mode: string;
   kind?: string;
 }): string {
+  const normalizedMode =
+    session.mode === "production" || session.mode === "ecommerce"
+      ? "image"
+      : session.mode;
   const params = new URLSearchParams({
     sessionId: session.id,
-    mode: session.mode,
+    mode: normalizedMode,
     kind: session.kind === "project" ? "project" : "canvas",
   });
   return `/studio?${params.toString()}`;
-}
-
-/** NeoWOW 式工作流入口（左画布 + 右 Agent） */
-export function buildWorkflowUrl(options?: {
-  sessionId?: string;
-  title?: string;
-  prompt?: string;
-  workspaceId?: string | null;
-  newDraft?: boolean;
-}): string {
-  const sessionId =
-    options?.sessionId ??
-    (options?.newDraft === false
-      ? getOrCreateDraftSessionId(options?.workspaceId)
-      : allocateDraftSessionId(options?.workspaceId));
-  const params = new URLSearchParams({
-    sessionId,
-    title: options?.title ?? "未命名工作流",
-  });
-  if (options?.prompt) params.set("q", options.prompt);
-  return `/workflow?${params.toString()}`;
-}
-
-export function workflowUrlForSession(session: { id: string }): string {
-  return `/workflow?sessionId=${encodeURIComponent(session.id)}`;
 }
