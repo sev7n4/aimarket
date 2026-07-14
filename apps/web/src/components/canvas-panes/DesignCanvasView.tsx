@@ -202,9 +202,6 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
             compareAvailable={compareAvailable}
             compareMode={compareMode}
             onToggleCompareMode={() => setCompareMode((v) => !v)}
-            canvasViewEnabled={canvasViewEnabled}
-            dramaViewPhase={dramaViewPhase}
-            onDramaViewPhaseChange={onDramaViewPhaseChange}
             focusClickActive={focusClickActive}
             focusClickRequest={focusClickRequest}
             onFocusClickCancel={onFocusClickCancel}

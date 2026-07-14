@@ -1,10 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { ArrowLeft, Columns2, MessageCircle, Network } from "lucide-react";
+import { ArrowLeft, Columns2 } from "lucide-react";
 
-import type { DramaStudioViewPhase } from "@/lib/drama-studio-view";
-import { toggleDramaStudioViewPhase } from "@/lib/drama-studio-view";
 import { TOOL_DISPLAY_NAMES } from "@/lib/studio-tool-meta";
 
 export type DesignCanvasChromeProps = {
@@ -17,9 +14,6 @@ export type DesignCanvasChromeProps = {
   compareAvailable: boolean;
   compareMode: boolean;
   onToggleCompareMode: () => void;
-  canvasViewEnabled?: boolean;
-  dramaViewPhase?: DramaStudioViewPhase;
-  onDramaViewPhaseChange?: (phase: DramaStudioViewPhase) => void;
   focusClickActive: boolean;
   focusClickRequest: { toolName: string } | null;
   onFocusClickCancel?: () => void;
@@ -35,9 +29,6 @@ export function DesignCanvasChrome({
   compareAvailable,
   compareMode,
   onToggleCompareMode,
-  canvasViewEnabled,
-  dramaViewPhase = "agent",
-  onDramaViewPhaseChange,
   focusClickActive,
   focusClickRequest,
   onFocusClickCancel,
@@ -98,28 +89,6 @@ export function DesignCanvasChrome({
           >
             <Columns2 className="size-3.5" />
             <span>{compareMode ? "退出对比" : "Before/After"}</span>
-          </button>
-        ) : null}
-        {canvasViewEnabled && onDramaViewPhaseChange ? (
-          <button
-            type="button"
-            data-testid="drama-view-phase-toggle"
-            onClick={() =>
-              onDramaViewPhaseChange(toggleDramaStudioViewPhase(dramaViewPhase))
-            }
-            className="flex items-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs text-violet-200 transition hover:bg-violet-500/20"
-          >
-            {dramaViewPhase === "agent" ? (
-              <>
-                <Network className="size-3.5" />
-                <span>节点视图</span>
-              </>
-            ) : (
-              <>
-                <MessageCircle className="size-3.5" />
-                <span>滚动视图</span>
-              </>
-            )}
           </button>
         ) : null}
       </div>

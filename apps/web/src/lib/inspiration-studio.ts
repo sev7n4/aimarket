@@ -3,7 +3,7 @@ import type { CreationLane } from "@/lib/creation-dock-prefs";
 import { persistCreationLane } from "@/lib/creation-dock-prefs";
 import type { DramaTemplateMetadata, InspirationDetail } from "@/lib/types";
 import { registerAssetFromUrl } from "@/lib/api/assets";
-import { buildProductionStudioUrl, buildStudioUrl } from "@/lib/studio-navigation";
+import { buildStudioUrl } from "@/lib/studio-navigation";
 import {
   createReferenceCanvasItem,
   type CanvasItem,
@@ -175,12 +175,13 @@ export function applyDramaTemplateToStudio(
   }
   clientNavigate(
     router,
-    buildProductionStudioUrl({
+    buildStudioUrl("canvas", {
       sessionId: opts.sessionId,
       title: detail.title,
       prompt: opts.dramaTemplate.userIdea,
       inspirationId: detail.id,
       newDraft: false,
+      mode: "image",
     }),
   );
   return opts.sessionId;
