@@ -3,6 +3,7 @@
 import { AtSign, Loader2 } from "lucide-react";
 import type { CanvasItem } from "@/lib/canvas-tools";
 import { studioToolIcon } from "@/lib/studio-tool-icons";
+import { OFFLINE_CANVAS_TOOLS } from "@/lib/studio-tool-interaction";
 import { toolShortLabel } from "@/lib/studio-tool-meta";
 import type { StudioTool } from "@/lib/types";
 
@@ -29,7 +30,9 @@ export function CanvasSelectionToolbar({
   const hasSource = Boolean(selectedItem.outputId || selectedItem.assetId);
   if (!hasSource) return null;
 
-  const visibleTools = tools.filter((t) => !t.clientOnly);
+  const visibleTools = tools.filter(
+    (t) => !t.clientOnly && !OFFLINE_CANVAS_TOOLS.has(t.id),
+  );
 
   if (visibleTools.length === 0 && !onMentionItem) return null;
 

@@ -1,33 +1,18 @@
+"use client";
+
 import { useCallback, useState } from "react";
-import type { CreationMode } from "@aimarket/ui";
 
 import type {
   CanvasNodeHandlerContext,
-  StudioBrushRequest,
-  StudioExpandRequest,
   UseStudioToolHandlersResult,
-} from "@/lib/canvas-node-handlers";
+} from "@/lib/studio-tool-handler-types";
 import type { CanvasItem } from "@/lib/canvas-tools";
 import type {
   ToolConfirmOptions,
   ToolConfirmRequest,
 } from "@/components/tool-confirm-dialog";
-import { expandFromDirection } from "@/lib/expand-extend";
-import type { InfiniteNodeToolRequest } from "@/lib/infinite-node-tool-run";
-import {
-  isDramaShotNode,
-  resolveNodeToolPrompt,
-  resolveNodeToolReferences,
-} from "@/lib/infinite-node-tool-run";
-import { runTool, submitGeneration, submitVideoGeneration, getVideoAutoModelMeta } from "@/lib/api/generation";
+import { runTool } from "@/lib/api/generation";
 import { trackEvent } from "@/lib/api/studio";
-import {
-  type AgentRunGenerationRequest,
-  resolveAgentGenerationMode,
-} from "@/lib/agent-run-generation";
-import { resolveVideoSubmitModelId } from "@/lib/video-auto-model";
-import { AUTO_MODEL_ID } from "@/lib/creation-lane-drafts";
-import { coerceStudioAspectRatio, studioVideoSubmitAspectRatio } from "@/lib/studio-submit";
 import { hapticLight } from "@/lib/haptics";
 import { resolveToolResolution } from "@/lib/tool-resolution";
 import {
@@ -36,22 +21,19 @@ import {
 } from "@/lib/studio-tool-interaction";
 import type { StudioTool } from "@/lib/types";
 
-export type { UseStudioToolHandlersResult } from "@/lib/canvas-node-handlers";
+export type { UseStudioToolHandlersResult } from "@/lib/studio-tool-handler-types";
 
-/** Studio 画布工具执行：选中工具栏 / Infinite 节点菜单 / 确认弹窗 */
+/** Studio 画布工具执行：选中工具栏 / 确认弹窗 */
 export function useStudioToolHandlers(
   ctx: CanvasNodeHandlerContext,
 ): UseStudioToolHandlersResult {
   const {
     sessionId,
-    mode,
     readOnly,
     user,
     tools,
-    canvasItems,
     canvasRef,
     registerBatchLineage,
-    onJobStarted,
     setPollingJobId,
     setSelectedCanvasId,
     onRequireLogin,
@@ -63,12 +45,6 @@ export function useStudioToolHandlers(
   const [pendingToolId, setPendingToolId] = useState<string | null>(null);
   const [toolConfirm, setToolConfirm] = useState<ToolConfirmRequest | null>(null);
   const [toolConfirmPending, setToolConfirmPending] = useState(false);
-  const [brushRequest, setBrushRequest] = useState<StudioBrushRequest | null>(
-    null,
-  );
-  const [expandRequest, setExpandRequest] = useState<StudioExpandRequest | null>(
-    null,
-  );
 
   const registerToolBatchLineage = useCallback(
     (jobId: string, item: CanvasItem, toolName?: string) => {
@@ -97,17 +73,9 @@ export function useStudioToolHandlers(
           referenceOutputIds,
           assetIds,
           resolution: resolveToolResolution(tool.id),
-          aspectRatio: tool.id === "expand" ? "auto" : undefined,
           count: tool.id === "variation" ? opts.count : 1,
           ...(tool.id === "upscale"
             ? { scale: opts.scale ?? ("2x" as const) }
-            : {}),
-          ...(tool.id === "expand"
-            ? {
-                extend:
-                  opts.expandExtend ??
-                  expandFromDirection(opts.expandDirection),
-              }
             : {}),
         });
         void trackEvent("tool_run", {
@@ -131,226 +99,6 @@ export function useStudioToolHandlers(
       sessionId,
       registerToolBatchLineage,
       canvasRef,
-      setPollingJobId,
-      setSelectSourceBanner,
-    ],
-  );
-
-  const runInfiniteNodeTool = useCallback(
-    async (request: InfiniteNodeToolRequest) => {
-      if (readOnly || !sessionId) return;
-      const tool =
-        tools.find((t) => t.id === request.toolId) ??
-        ({
-          id: request.toolId,
-          name: request.toolId,
-          description: "",
-          defaultPrompt: "",
-        } satisfies StudioTool);
-      const item =
-        canvasItems.find((i) => i.id === request.node.id) ?? null;
-      const refs = resolveNodeToolReferences(request.node, item);
-      const prompt =
-        request.prompt?.trim() ||
-        resolveNodeToolPrompt(request.node, tool.defaultPrompt);
-
-      if (
-        tool.requiresSource &&
-        !refs.referenceOutputIds?.length &&
-        !refs.assetIds?.length
-      ) {
-        setSelectSourceBanner(
-          `${tool.name}：请先生成分镜图或选择带参考图的节点`,
-        );
-        return;
-      }
-
-      setPendingToolId(tool.id);
-      try {
-        const { jobId } = await runTool(tool.id, {
-          sessionId,
-          prompt,
-          referenceOutputIds: refs.referenceOutputIds,
-          assetIds: refs.assetIds,
-          resolution: resolveToolResolution(tool.id),
-          aspectRatio: tool.id === "expand" ? "auto" : undefined,
-          toolContext: request.toolContext
-            ? {
-                toolId: request.toolId,
-                ...request.toolContext,
-              }
-            : undefined,
-        });
-        void trackEvent("tool_run", {
-          tool_id: tool.id,
-          job_id: jobId,
-          has_reference: Boolean(
-            refs.referenceOutputIds?.length || refs.assetIds?.length,
-          ),
-          source: "infinite_context_menu",
-        });
-        if (item) {
-          registerToolBatchLineage(jobId, item, tool.name);
-        }
-        onJobStarted(jobId);
-        setSelectSourceBanner(null);
-      } catch (err) {
-        setSelectSourceBanner(
-          err instanceof Error ? err.message : "工具执行失败",
-        );
-      } finally {
-        setPendingToolId(null);
-      }
-    },
-    [
-      readOnly,
-      sessionId,
-      tools,
-      canvasItems,
-      registerToolBatchLineage,
-      onJobStarted,
-      setSelectSourceBanner,
-    ],
-  );
-
-  const runAgentGeneration = useCallback(
-    async (request: AgentRunGenerationRequest) => {
-      if (readOnly || !sessionId) return;
-      if (!user) {
-        onRequireLogin();
-        return;
-      }
-
-      const { node } = request;
-      const genMode = resolveAgentGenerationMode(node, request.mode);
-      const prompt =
-        request.prompt?.trim() ||
-        node.metadata?.prompt?.trim() ||
-        resolveNodeToolPrompt(node);
-
-      if (!prompt && genMode !== "text") {
-        setSelectSourceBanner("Agent 生成：缺少 prompt，请补充描述后重试");
-        return;
-      }
-
-      if (isDramaShotNode(node)) {
-        setSelectSourceBanner("短剧分镜请使用专用生成工具");
-        return;
-      }
-
-      if (genMode === "text" || genMode === "audio") {
-        setSelectSourceBanner(`暂不支持 Agent 直接生成 ${genMode} 内容`);
-        return;
-      }
-
-      const item = canvasItems.find((i) => i.id === node.id) ?? null;
-      const refs = resolveNodeToolReferences(node, item);
-
-      setPendingToolId("agent-generation");
-      try {
-        if (genMode === "video") {
-          const videoAutoMeta = getVideoAutoModelMeta();
-          const videoModelId = resolveVideoSubmitModelId(AUTO_MODEL_ID, [], videoAutoMeta);
-          const { jobId } = await submitVideoGeneration({
-            sessionId,
-            prompt,
-            modelId: videoModelId,
-            count: 1,
-            resolution: "1k",
-            aspectRatio: studioVideoSubmitAspectRatio("16:9"),
-            videoResolution: "720P",
-            durationSec: 5,
-            assetIds: refs.assetIds,
-            referenceOutputIds: refs.referenceOutputIds,
-            sourceLane: "video",
-          });
-          void trackEvent("generation_submit", {
-            mode: "video",
-            sessionId,
-            source: "agent_run_generation",
-          });
-          if (item) {
-            registerToolBatchLineage(jobId, item, "Agent 视频生成");
-          } else {
-            registerBatchLineage(jobId, {
-              sourceItemId: node.id,
-              toolName: "Agent 视频生成",
-            });
-          }
-          onJobStarted(jobId);
-          setPollingJobId(jobId);
-          setSelectSourceBanner(null);
-          return;
-        }
-
-        if (refs.referenceOutputIds?.length || refs.assetIds?.length) {
-          const { jobId } = await runTool("variation", {
-            sessionId,
-            prompt,
-            referenceOutputIds: refs.referenceOutputIds,
-            assetIds: refs.assetIds,
-            resolution: "1k",
-            count: 1,
-          });
-          void trackEvent("tool_run", {
-            tool_id: "variation",
-            job_id: jobId,
-            source: "agent_run_generation",
-          });
-          if (item) {
-            registerToolBatchLineage(jobId, item, "Agent 图片生成");
-          } else {
-            registerBatchLineage(jobId, {
-              sourceItemId: node.id,
-              toolName: "Agent 图片生成",
-            });
-          }
-          onJobStarted(jobId);
-          setPollingJobId(jobId);
-          setSelectSourceBanner(null);
-          return;
-        }
-
-        const { jobId } = await submitGeneration({
-          sessionId,
-          prompt,
-          count: 1,
-          resolution: "1k",
-          aspectRatio: coerceStudioAspectRatio("1:1"),
-          mode: "image",
-          autoRoute: true,
-          sourceLane: "image",
-        });
-        void trackEvent("generation_submit", {
-          mode,
-          sessionId,
-          source: "agent_run_generation",
-        });
-        registerBatchLineage(jobId, {
-          sourceItemId: node.id,
-          toolName: "Agent 图片生成",
-        });
-        onJobStarted(jobId);
-        setPollingJobId(jobId);
-        setSelectSourceBanner(null);
-      } catch (err) {
-        setSelectSourceBanner(
-          err instanceof Error ? err.message : "Agent 生成提交失败",
-        );
-      } finally {
-        setPendingToolId(null);
-      }
-    },
-    [
-      readOnly,
-      sessionId,
-      user,
-      mode,
-      canvasItems,
-      onRequireLogin,
-      registerToolBatchLineage,
-      registerBatchLineage,
-      onJobStarted,
       setPollingJobId,
       setSelectSourceBanner,
     ],
@@ -385,7 +133,7 @@ export function useStudioToolHandlers(
   );
 
   const runQuickToolFromCanvas = useCallback(
-    (item: CanvasItem, toolId: "cutout" | "expand") => {
+    (item: CanvasItem, toolId: "cutout") => {
       const tool = tools.find((t) => t.id === toolId);
       if (!tool) return;
       void runSelectionTool(tool, item);
@@ -398,43 +146,6 @@ export function useStudioToolHandlers(
       if (!toolConfirm) return;
       const { tool, item } = toolConfirm;
       const interaction = getToolInteraction(tool.id);
-
-      if (interaction === "brush") {
-        setToolConfirm(null);
-        setExpandRequest(null);
-        setBrushRequest({
-          key: Date.now(),
-          itemId: item.id,
-          toolId: tool.id,
-          toolName: tool.name,
-          promptExtra:
-            tool.id === "erase" ? opts.prompt?.trim() || undefined : undefined,
-        });
-        setSelectSourceBanner(
-          tool.id === "inpaint"
-            ? `${tool.name}：请先用画笔圈选区域，完成后再在工作台填写修改提示词。`
-            : `${tool.name}：请在图片上涂抹要处理的区域（可调节画笔粗细）。`,
-        );
-        hapticLight();
-        return;
-      }
-
-      if (interaction === "expand-frame") {
-        setToolConfirm(null);
-        setBrushRequest(null);
-        setExpandRequest({
-          key: Date.now(),
-          itemId: item.id,
-          toolName: tool.name,
-          promptExtra: opts.prompt?.trim() || undefined,
-          aspectPreset: opts.expandAspectPreset,
-        });
-        setSelectSourceBanner(
-          `${tool.name}：拖拽外框四角或四边调整扩图范围，可选比例后确认。`,
-        );
-        hapticLight();
-        return;
-      }
 
       if (interaction === "click") {
         setToolConfirm(null);
@@ -489,14 +200,8 @@ export function useStudioToolHandlers(
     toolConfirm,
     toolConfirmPending,
     setToolConfirm,
-    brushRequest,
-    setBrushRequest,
-    expandRequest,
-    setExpandRequest,
     runSelectionTool,
     runQuickToolFromCanvas,
-    runInfiniteNodeTool,
-    runAgentGeneration,
     executeDirectTool,
     confirmTool,
   };

@@ -36,9 +36,9 @@
 |-------|------|------|---------------|------|
 | **A** | 入口清零 | ✅ 完成 | `enhancement/canvas-subtraction-a` | 2–3 天 |
 | **B** | Workflow 产品线下线 | ✅ 完成 | `enhancement/canvas-subtraction-b` | 3–5 天 |
-| **C** | Drama/Production 产品线下线 | ⬜ 待开始 | `enhancement/canvas-subtraction-c` | 5–7 天 |
+| **C** | Drama/Production 产品线下线 | ✅ 完成 | `enhancement/canvas-subtraction-c` | 5–7 天 |
 | **D** | 引擎与数据收尾 | ✅ 完成 | `enhancement/canvas-subtraction-d` | 3–5 天 |
-| **E** | Infinite 引擎去留（可选） | ⬜ 待定 | `enhancement/canvas-subtraction-e` | 2–3 天 |
+| **E** | Infinite 引擎去留（可选） | ✅ 完成 | `enhancement/canvas-subtraction-e` | 2–3 天 |
 
 **Phase 完成标准（全局）**
 
@@ -214,17 +214,20 @@ enhancement/canvas-subtraction-b   # Phase B
 
 | 选项 | 动作 | 删码 |
 |------|------|------|
-| **E1 删除（推荐）** | 删除 `infinite-canvas/` 目录（~42 文件）、`migration.ts`、`sync-infinite-snapshot.ts`、相关单测 | ~5,000 行 |
+| **E1 删除（推荐）** | 删除 `infinite-canvas/` 目录（~42 文件）、相关单测、圈选/扩图 Web UI | ~5,000 行 |
 | **E2 维持不挂载** | 保留代码，无路由引用；每季度评估 | 0 |
+
+> **决策（2026-07-16）**：采用 **E1 删除**。
 
 ### E1 任务表（若选删除）
 
 | ID | 任务 | 状态 | 涉及文件 | 验证 |
 |----|------|------|----------|------|
-| E-1 | 删除 `components/infinite-canvas/*` | ⬜ | 整个目录 | 目录不存在 |
-| E-2 | 删除 canvas 节点单测 | ⬜ | `scripts/test-infinite-*.ts`, `scripts/test-canvas-snapshot-sync.ts` | 文件不存在 |
-| E-3 | 清理 `canvas-layout.ts` infinite 字段 | ⬜ | `infiniteConnections`, `dramaNodePositions` 标记 deprecated | API 仍向后兼容读取 |
-| E-4 | 删除 `canvas-node-*.ts` 工具链 | ⬜ | `lib/canvas-node-handlers.ts` 等（若仅服务 Infinite） | 评估后删除 |
+| E-1 | 删除 `components/infinite-canvas/*` | ✅ | 整个目录 | 目录不存在 |
+| E-2 | 删除 canvas 节点单测 | ✅ | `scripts/test-infinite-*.ts`, `scripts/test-canvas-snapshot-sync.ts` 等 | 文件不存在 |
+| E-3 | 清理 `canvas-layout.ts` infinite 字段 | ✅ | `infiniteConnections`, `dramaNodePositions` 标记 deprecated | API 仍向后兼容读取 |
+| E-4 | 删除 `canvas-node-*.ts` 工具链 | ✅ | Infinite 专用 lib/hooks 删除；Scroll 右键菜单简化 | 零 infinite 引用 |
+| E-5 | 下线圈选/扩图 Web UI | ✅ | `expand-frame-overlay`, `mask-brush`, `use-mask-brush` 等 | 工具条不展示 expand/inpaint/erase |
 
 ---
 
@@ -356,11 +359,13 @@ enhancement/canvas-subtraction-b   # Phase B
 
 ### Phase E — Infinite 去留（可选）
 
-- [ ] E0 Phase D 后 Review 决策 E1 / E2
-- [ ] E-1 删除 `infinite-canvas/`（若 E1）
-- [ ] E-2 删除相关单测（若 E1）
-- [ ] E-3 清理 layout infinite 字段（若 E1）
-- [ ] E-4 清理 canvas-node 工具链（若 E1）
+- [x] E0 Phase D 后 Review 决策 E1 / E2 → **E1**
+- [x] E-1 删除 `infinite-canvas/`
+- [x] E-2 删除相关单测
+- [x] E-3 清理 layout infinite 字段（deprecated 读-only）
+- [x] E-4 清理 canvas-node 工具链
+- [x] E-5 下线圈选/扩图 Web UI
+- [x] **Phase E 验证**：typecheck 绿；`test-studio-canvas-view` + `test-dead-code-removed` 绿
 
 ### 最终上线
 
@@ -407,6 +412,7 @@ enhancement/canvas-subtraction-b   # Phase B
 |------|-----|------|
 | 2026-07-14 | — | 创建计划文档；方案评审通过 |
 | 2026-07-16 | enhancement/canvas-subtraction-d | Phase D 引擎与数据收尾：Scroll-only、FreeCanvas 删除、canvas_flow 写废弃 |
+| 2026-07-16 | enhancement/canvas-subtraction-e | Phase E：删除 Infinite 引擎；下线圈选/扩图 Web UI |
 
 ---
 

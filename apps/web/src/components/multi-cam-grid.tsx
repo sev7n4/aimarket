@@ -4,8 +4,15 @@ import { useState, useCallback } from "react";
 import { Download, ImagePlus, Maximize2, Star, X } from "lucide-react";
 import Image from "next/image";
 
-import { canvasTheme } from "@/components/infinite-canvas/canvas-theme";
 import { cn } from "@aimarket/ui";
+
+const panelTheme = {
+  node: {
+    stroke: "var(--am-border, rgba(255,255,255,0.1))",
+    panel: "var(--am-surface-strong, rgba(255,255,255,0.08))",
+    faint: "#78716c",
+  },
+} as const;
 
 /** 宫格模式：单格图片数据 */
 export interface MultiCamCell {
@@ -222,8 +229,8 @@ function MultiCamCanvasCell({
     <div
       className="group relative aspect-[9/16] cursor-pointer overflow-hidden rounded-xl border-2 transition-all duration-150"
       style={{
-        borderColor: isHero ? "#f59e0b" : hovered ? canvasTheme.node.stroke : "transparent",
-        background: canvasTheme.node.panel,
+        borderColor: isHero ? "#f59e0b" : hovered ? panelTheme.node.stroke : "transparent",
+        background: panelTheme.node.panel,
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -245,7 +252,7 @@ function MultiCamCanvasCell({
       ) : (
         <div
           className="flex h-full w-full items-center justify-center"
-          style={{ color: canvasTheme.node.faint }}
+          style={{ color: panelTheme.node.faint }}
         >
           <span className="text-[10px]">{label.split(" ")[0]}</span>
         </div>
@@ -379,9 +386,9 @@ function MultiCamCanvasGrid({
             ) : (
               <div
                 className="flex h-64 w-32 items-center justify-center rounded-xl"
-                style={{ background: canvasTheme.node.panel }}
+                style={{ background: panelTheme.node.panel }}
               >
-                <span style={{ color: canvasTheme.node.faint }}>
+                <span style={{ color: panelTheme.node.faint }}>
                   {expandedVariant.label}
                 </span>
               </div>

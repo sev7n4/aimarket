@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
-import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
-import type { DesignCanvasNodeActions } from "@/lib/canvas-node-handlers";
-import type { CanvasConnection } from "@/components/infinite-canvas/types";
+import type { CanvasItem } from "@/lib/canvas-tools";
+import type { DesignCanvasNodeActions } from "@/lib/studio-tool-handler-types";
 
 export interface DesignCanvasHandle {
   fitToItem: (itemId: string) => void;
@@ -13,9 +12,6 @@ export interface DesignCanvasHandle {
 
 export interface DesignCanvasProps {
   items: CanvasItem[];
-  /** 手动连线（持久化到 canvas_layout.infiniteConnections，向后兼容读取） */
-  infiniteConnections?: CanvasConnection[];
-  onInfiniteConnectionsChange?: (connections: CanvasConnection[]) => void;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onItemsChange: (items: CanvasItem[]) => void;
@@ -36,25 +32,6 @@ export interface DesignCanvasProps {
   onDismissJobFailure?: () => void;
   /** 节点右键 / 工具链工厂 */
   nodeActions?: DesignCanvasNodeActions;
-  brushRequest?: {
-    key: number;
-    itemId: string;
-    toolId: string;
-    toolName: string;
-  } | null;
-  onBrushComplete?: (selection: CanvasMaskSelection) => void;
-  onBrushCancel?: () => void;
-  expandRequest?: {
-    key: number;
-    itemId: string;
-    toolName: string;
-    aspectPreset?: import("@/lib/expand-frame").ExpandAspectPreset;
-  } | null;
-  onExpandComplete?: (
-    padding: import("@/lib/expand-frame").ExpandFramePadding,
-    aspect: import("@/lib/expand-frame").ExpandAspectPreset,
-  ) => void;
-  onExpandCancel?: () => void;
   focusClickRequest?: {
     key: number;
     itemId: string;

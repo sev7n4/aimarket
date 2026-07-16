@@ -27,17 +27,10 @@ export const placeholders: Record<CreationMode, string> = {
   image: "试试输入：生成淘宝主图比例的商品特写",
 };
 
-/** 节点式画布（InfiniteCanvas）模式：默认开启，可通过 localStorage 或 URL 参数关闭。 */
+/** @deprecated InfiniteCanvas 已下线（Phase E）；恒为 false */
 export function isCanvasFlowMode(): boolean {
-  if (typeof window === "undefined") return true;
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("canvasFlow") === "1") return true;
-  if (params.get("canvasFlow") === "0") return false;
-  return localStorage.getItem("aimarket_canvas_flow") !== "0";
+  return false;
 }
 
-/** 切换节点式画布模式 */
-export function setCanvasFlowMode(enabled: boolean): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("aimarket_canvas_flow", enabled ? "1" : "0");
-}
+/** @deprecated InfiniteCanvas 已下线（Phase E）；无操作 */
+export function setCanvasFlowMode(_enabled: boolean): void {}

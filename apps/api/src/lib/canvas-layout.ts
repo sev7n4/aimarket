@@ -44,9 +44,9 @@ export const canvasConnectionSchema = z.object({
 export const canvasLayoutSchema = z.object({
   version: z.literal(1).default(1),
   items: z.array(canvasItemSchema).max(80),
-  /** InfiniteCanvas 手动连线（不含 sourceItemId 血缘与 Drama 规划连线） */
+  /** @deprecated Phase E：InfiniteCanvas 已删除，仅向后兼容读取 legacy 数据 */
   infiniteConnections: z.array(canvasConnectionSchema).max(200).optional(),
-  /** Drama 节点手动拖拽坐标（nodeId → position） */
+  /** @deprecated Phase E：Drama 已下线，仅向后兼容读取 legacy 数据 */
   dramaNodePositions: z
     .record(
       z.string().min(1).max(120),
