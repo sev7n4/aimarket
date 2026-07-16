@@ -10,6 +10,11 @@ const BANNED = [
   "WorkbenchPanel",
   "use-creation-lane-state",
   "useCreationLaneState",
+  "free-canvas",
+  "FreeCanvas",
+  "FreeCanvasPane",
+  "isRefineMode",
+  "showFreeCanvas",
 ] as const;
 
 const results: { name: string; pass: boolean; detail?: string }[] = [];

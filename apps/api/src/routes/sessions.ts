@@ -734,16 +734,18 @@ sessions.get("/:sessionId/canvas-flow/version", (c) => {
   return c.json({ data: { version: row?.updated_at ?? null } });
 });
 
-/** PUT /sessions/:id/canvas-flow — 整体覆盖画布流 */
-sessions.put("/:sessionId/canvas-flow", async (c) => {
-  const userId = c.get("userId");
-  const sessionId = c.req.param("sessionId");
-  assertSessionWrite(userId, sessionId);
-
-  const body = canvasFlowSchema.parse(await c.req.json());
-  saveCanvasFlow(sessionId, body);
-
-  return c.json({ data: body });
+/** PUT /sessions/:id/canvas-flow — 已废弃，请使用 canvas-layout */
+sessions.put("/:sessionId/canvas-flow", (c) => {
+  return c.json(
+    {
+      error: {
+        code: "GONE",
+        message:
+          "canvas_flow writes are deprecated; use PUT /sessions/:id/canvas (canvas_layout) instead",
+      },
+    },
+    410,
+  );
 });
 
 // ─── 12.2 画布模板 CRUD API ─────────────────────────────

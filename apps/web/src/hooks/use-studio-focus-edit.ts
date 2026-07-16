@@ -350,9 +350,6 @@ export function useStudioFocusEdit({
       });
       registerToolBatchLineage(jobId, item, "焦点编辑");
       exitFocusEditMode();
-      if (canvasRef.current?.isInRefineMode()) {
-        canvasRef.current.beginRefineJob();
-      }
       setPollingJobId(jobId);
       return jobId;
     },

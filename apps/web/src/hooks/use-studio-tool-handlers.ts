@@ -117,9 +117,6 @@ export function useStudioToolHandlers(
           count: tool.id === "variation" ? opts.count : 1,
         });
         registerToolBatchLineage(jobId, item, tool.name);
-        if (canvasRef.current?.isInRefineMode()) {
-          canvasRef.current.beginRefineJob();
-        }
         setPollingJobId(jobId);
         setSelectSourceBanner(null);
       } catch (err) {

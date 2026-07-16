@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Studio 画布模式决策纯函数单测（纯逻辑，无需 API）
+ * Studio 画布引擎决策纯函数单测（纯逻辑，无需 API）
  * pnpm exec tsx scripts/test-studio-canvas-view.ts
  *
- * Phase C：固定 ScrollCanvas，节点视图切换与 Drama phase split 已下线。
+ * Phase D：固定 ScrollCanvas 单引擎。
  */
 import {
+  resolveCanvasEngine,
   resolveCanvasViewToggleEnabled,
-  resolveUseInfiniteCanvas,
 } from "../apps/web/src/lib/studio-canvas-view.ts";
 
 const results: { name: string; pass: boolean; detail?: string }[] = [];
@@ -21,26 +21,8 @@ function assertEq<T>(name: string, actual: T, expected: T) {
   );
 }
 
-assertEq(
-  "always scroll (flow on)",
-  resolveUseInfiniteCanvas({ canvasFlowEnabled: true }),
-  false,
-);
-assertEq(
-  "always scroll (flow off)",
-  resolveUseInfiniteCanvas({ canvasFlowEnabled: false }),
-  false,
-);
-assertEq(
-  "view toggle disabled (flow on)",
-  resolveCanvasViewToggleEnabled({ canvasFlowEnabled: true }),
-  false,
-);
-assertEq(
-  "view toggle disabled (flow off)",
-  resolveCanvasViewToggleEnabled({ canvasFlowEnabled: false }),
-  false,
-);
+assertEq("resolveCanvasEngine", resolveCanvasEngine(), "scroll");
+assertEq("view toggle disabled", resolveCanvasViewToggleEnabled(), false);
 
 const failed = results.filter((r) => !r.pass);
 if (failed.length > 0) {

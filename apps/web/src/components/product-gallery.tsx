@@ -16,7 +16,6 @@ import { CanvasGeneratingTimelineCard } from "@/components/canvas-generating-tim
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
 import { CanvasVideoPlayer } from "@/components/canvas-video-player";
 import { ScrollCanvasItemChrome } from "@/components/scroll-canvas-item-chrome";
-import { RefineSelectedCta } from "@/components/refine-selected-cta";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
 import {
@@ -74,7 +73,6 @@ interface ProductGalleryProps {
   readOnly: boolean;
   emptyHint: string;
   pulseId: string | null;
-  onEnterRefineMode: (itemId: string) => void;
   onSetLightbox: (lb: { items: CanvasItem[]; index: number } | null) => void;
   onDeleteSelected: () => void;
   onRerun: (item: CanvasItem) => void;
@@ -130,7 +128,6 @@ export const ProductGallery = forwardRef<
     readOnly,
     emptyHint,
     pulseId,
-    onEnterRefineMode,
     onSetLightbox,
     onDeleteSelected,
     onRerun,
@@ -613,7 +610,6 @@ export const ProductGallery = forwardRef<
                                     ),
                                   });
                                 }}
-                                onRefine={() => onEnterRefineMode(item.id)}
                                 onRerun={() => onRerun(item)}
                                 onDelete={() => {
                                   onSelect(item.id);
@@ -642,15 +638,6 @@ export const ProductGallery = forwardRef<
                                 }
                                 onAddVideoBgm={batchTools?.onAddVideoBgm}
                                 videoActionBusy={batchTools?.videoActionBusy}
-                              />
-                            ) : null}
-                            {!readOnly &&
-                            !item.isVideo &&
-                            selectedId === item.id &&
-                            (item.outputId || item.assetId) &&
-                            !(focusClickActive && focusItem?.id === item.id) ? (
-                              <RefineSelectedCta
-                                onRefine={() => onEnterRefineMode(item.id)}
                               />
                             ) : null}
                             {item.isVideo ? (

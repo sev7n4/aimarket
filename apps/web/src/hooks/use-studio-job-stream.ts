@@ -118,8 +118,7 @@ export function useStudioJobStream({
             }
             if (
               job.tool_type &&
-              job.status === "succeeded" &&
-              !canvasRef.current?.isInRefineMode()
+              job.status === "succeeded"
             ) {
               const provider = formatToolProviderLabel(job.image_provider);
               if (provider) {
@@ -187,16 +186,8 @@ export function useStudioJobStream({
         router.replace(
           `/studio?sessionId=${encodeURIComponent(sessionId)}&mode=${mode}`,
         );
-        if (canvasRef.current?.isInRefineMode()) {
-          if (jobStatus === "succeeded") {
-            canvasRef.current.completeRefineJob({ toolName: toolType });
-          } else {
-            canvasRef.current.cancelRefineJob();
-          }
-        } else {
-          setSelectedCanvasId(null);
-          window.requestAnimationFrame(() => scrollToLatestCanvasBatch());
-        }
+        setSelectedCanvasId(null);
+        window.requestAnimationFrame(() => scrollToLatestCanvasBatch());
       } finally {
         if (completedJobId && completingJobIdRef.current === completedJobId) {
           completingJobIdRef.current = null;
@@ -224,14 +215,10 @@ export function useStudioJobStream({
   const handleJobStarted = useCallback(
     (jobId: string, lineage?: PendingBatchLineage) => {
       if (lineage) registerBatchLineage(jobId, lineage);
-      if (canvasRef.current?.isInRefineMode()) {
-        canvasRef.current.beginRefineJob();
-      } else {
-        setSelectedCanvasId(null);
-        window.requestAnimationFrame(() => {
-          canvasRef.current?.scrollToGenerating();
-        });
-      }
+      setSelectedCanvasId(null);
+      window.requestAnimationFrame(() => {
+        canvasRef.current?.scrollToGenerating();
+      });
       setActiveJobPrompt(studioPrompt.trim() || null);
       setPollingJobId(jobId);
       void listSessions(
@@ -428,11 +415,6 @@ export function useStudioJobStream({
   const jobElapsedMs =
     jobStartedAt != null ? Date.now() - jobStartedAt : undefined;
 
-  const infiniteEmptySubmitting =
-    Boolean(jobStreamStatus) &&
-    jobStreamStatus !== "succeeded" &&
-    jobStreamStatus !== "failed";
-
   return {
     pollingJobId,
     setPollingJobId,
@@ -445,7 +427,6 @@ export function useStudioJobStream({
     jobError,
     jobFailedToolType,
     jobElapsedMs,
-    infiniteEmptySubmitting,
     jobStartedAt,
     dismissJobFailure,
     handleJobStarted,
