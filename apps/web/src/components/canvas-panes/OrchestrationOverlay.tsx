@@ -16,14 +16,12 @@ export type OrchestrationOverlayProps = {
   orchestrationEvent?: OrchestrationTimelineEvent | null;
   orchestrationActions?: OrchestrationTimelineActions;
   orchestrationExtra?: ReactNode;
-  alternateCanvasContent?: ReactNode;
 };
 
-/** Infinite 画布底部编排 Dock（P3-6 统一三路径） */
+/** Infinite 画布底部编排 Dock（Agent / Skill 时间线） */
 export function InfiniteOrchestrationDock({
   infiniteOrchestrationDock,
   legacyInfiniteOrchestrationDock,
-  alternateCanvasContent,
   orchestrationEvent,
   orchestrationActions,
   orchestrationExtra,
@@ -37,12 +35,10 @@ export function InfiniteOrchestrationDock({
     <div
       className="shrink-0 overflow-y-auto border-t border-white/10 p-2 sm:p-3"
       style={{ maxHeight: "42vh" }}
-      data-testid="drama-canvas-overlay"
+      data-testid="canvas-orchestration-overlay"
     >
-      {alternateCanvasContent}
       {legacyInfiniteOrchestrationDock ? (
         <ScrollOrchestrationSections
-          alternateCanvasContent={alternateCanvasContent}
           orchestrationEvent={orchestrationEvent}
           orchestrationActions={orchestrationActions}
           orchestrationExtra={orchestrationExtra}
@@ -52,33 +48,27 @@ export function InfiniteOrchestrationDock({
   );
 }
 
-/** Scroll 模式替换主区 + 底部 extra */
-export function ScrollAlternateOrchestrationPane({
-  alternateCanvasContent,
+export function ScrollOrchestrationSections({
+  orchestrationEvent,
+  orchestrationActions,
   orchestrationExtra,
-  scrollBottomInset,
-}: {
-  alternateCanvasContent: ReactNode;
-  orchestrationExtra?: ReactNode;
-  scrollBottomInset: string;
-}) {
+}: OrchestrationOverlayProps) {
   return (
-    <div
-      className="absolute inset-0 flex min-h-0 flex-col overflow-hidden"
-      style={{ paddingBottom: scrollBottomInset }}
-    >
-      <div className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-3">
-        {alternateCanvasContent}
-      </div>
+    <>
+      {orchestrationEvent ? (
+        <section data-testid="orchestration-timeline-section">
+          <ScrollCanvasOrchestrationCard
+            event={orchestrationEvent}
+            actions={orchestrationActions}
+          />
+        </section>
+      ) : null}
       {orchestrationExtra ? (
-        <div
-          className="shrink-0 border-t border-white/5 p-2 sm:p-3"
-          data-testid="orchestration-extra-section"
-        >
+        <div data-testid="orchestration-extra-section" className="mt-3">
           {orchestrationExtra}
         </div>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -107,38 +97,5 @@ export function ConversationOrchestrationPane({
       scrollBottomInset={scrollBottomInset}
       width={width}
     />
-  );
-}
-
-function ScrollOrchestrationSections({
-  alternateCanvasContent,
-  orchestrationEvent,
-  orchestrationActions,
-  orchestrationExtra,
-}: OrchestrationOverlayProps) {
-  return (
-    <>
-      {orchestrationEvent ? (
-        <section
-          data-testid="orchestration-timeline-section"
-          className={alternateCanvasContent ? "mt-3" : undefined}
-        >
-          <ScrollCanvasOrchestrationCard
-            event={orchestrationEvent}
-            actions={orchestrationActions}
-          />
-        </section>
-      ) : null}
-      {orchestrationExtra ? (
-        <div
-          data-testid="orchestration-extra-section"
-          className={
-            alternateCanvasContent || orchestrationEvent ? "mt-3" : undefined
-          }
-        >
-          {orchestrationExtra}
-        </div>
-      ) : null}
-    </>
   );
 }

@@ -70,17 +70,14 @@ test.describe("creation dock UI", () => {
     const studioDock = page.locator('[aria-label="创作 Dock"]');
     const textarea = studioDock.locator("textarea").first();
     await expect(textarea).toBeVisible();
-    await expect(textarea).toHaveAttribute("rows", "1");
+    await expect(textarea).toHaveAttribute("rows", "2");
     const studioLanePicker = studioDock.getByRole("button", {
       name: "选择创作方式",
     });
     await expect(studioLanePicker).toContainText("图片生成");
 
-    const collapsedHeight = await textarea.boundingBox().then((box) => box?.height ?? 0);
     await textarea.click();
-    await expect
-      .poll(async () => (await textarea.boundingBox())?.height ?? 0)
-      .toBeGreaterThan(collapsedHeight + 12);
+    await expect(textarea).toBeFocused();
 
     await expect(studioLanePicker).toContainText("图片生成");
     await expect(

@@ -25,7 +25,6 @@ export type IntentSignal =
   | "video-edit"           // 视频编辑
   | "agent-plan"           // Agent 规划执行
   | "skill-pipeline"       // Skill 流水线
-  | "drama-plan"           // 短剧规划
   | "composite"            // 跨模态复合意图
   | "unknown";
 
@@ -57,16 +56,12 @@ export interface IntentRouterInput {
   submitVideo: boolean;
   hasReferenceImages: boolean;
   hasSelectedCanvasItem: boolean;
-  dramaSkillActive: boolean;
-  /** Studio 编排是否激活 */
-  studioOrchestrationActive: boolean;
   /** Skills 是否启用 */
   skillsEnabled: boolean;
   /** Agent 是否启用 */
   agentEnabled: boolean;
   /** 是否 Dock 模式 */
   isDock: boolean;
-  submitEcommerce: boolean;
 }
 
 // ─── 关键词映射表 ────────────────────────────────────────────────────────────
@@ -123,11 +118,6 @@ const KEYWORD_SIGNAL_MAP: Array<{ patterns: RegExp; signal: IntentSignal }> = [
     patterns: /(?:变体|类似|风格一样|相似|variation|similar\s+style|same\s+style)/i,
     signal: "image-variation",
   },
-  // 短剧规划
-  {
-    patterns: /(?:短剧|剧情|剧本|分镜|drama|script|storyboard)/i,
-    signal: "drama-plan",
-  },
   // Agent 规划
   {
     patterns: /(?:帮我|自动|一键|help\s+me|auto|one.?click)/i,
@@ -182,11 +172,6 @@ function refineSignalsWithContext(
   // 激活 Skill → 追加 skill-pipeline
   if (input.activeSkillId && !refined.includes("skill-pipeline")) {
     refined.push("skill-pipeline");
-  }
-
-  // 短剧 Skill 激活 → 追加 drama-plan
-  if (input.dramaSkillActive && !refined.includes("drama-plan")) {
-    refined.push("drama-plan");
   }
 
   // 选中画布元素 + 替换类关键词 → image-edit
@@ -260,23 +245,12 @@ function determineRecommendedPath(
     return "image-or-video";
   }
 
-  // drama-plan / skill-pipeline / agent-plan + 编排激活 → orchestration
-  if (
-    (primary === "drama-plan" ||
-      primary === "skill-pipeline" ||
-      primary === "agent-plan") &&
-    input.studioOrchestrationActive
-  ) {
-    return "orchestration";
-  }
-
-  // skill-pipeline + 无编排 → skill
-  if (primary === "skill-pipeline" && !input.studioOrchestrationActive) {
+  // skill-pipeline / agent-plan → skill 或 agent
+  if (primary === "skill-pipeline") {
     return "skill";
   }
 
-  // agent-plan + 无编排 → agent
-  if (primary === "agent-plan" && !input.studioOrchestrationActive) {
+  if (primary === "agent-plan") {
     return "agent";
   }
 
@@ -301,7 +275,6 @@ const SIGNAL_TOOLS_MAP: Record<string, string[]> = {
   "video-edit": ["video-edit"],
   "agent-plan": ["agent"],
   "skill-pipeline": ["skill"],
-  "drama-plan": ["drama"],
 };
 
 /** 根据意图信号列表生成推荐工具 ID（按优先级） */
@@ -359,7 +332,6 @@ function computeConfidence(
   if (input.focusEditActive && signals.includes("image-edit")) confidence += 0.2;
   if (input.hasReferenceImages && signals.includes("video-from-image")) confidence += 0.2;
   if (input.activeSkillId && signals.includes("skill-pipeline")) confidence += 0.2;
-  if (input.dramaSkillActive && signals.includes("drama-plan")) confidence += 0.2;
   if (input.submitVideo && (signals.includes("video-generate") || signals.includes("video-from-image"))) confidence += 0.15;
   if (input.hasSelectedCanvasItem && signals.includes("image-edit")) confidence += 0.1;
 

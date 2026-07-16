@@ -5,7 +5,6 @@ import { CanvasLightbox } from "@/components/canvas-lightbox";
 import { InfiniteCanvasPane } from "@/components/canvas-panes/InfiniteCanvasPane";
 import { ScrollCanvasPane } from "@/components/canvas-panes/ScrollCanvasPane";
 import { FreeCanvasPane } from "@/components/canvas-panes/FreeCanvasPane";
-import { ScrollAlternateOrchestrationPane } from "@/components/canvas-panes/OrchestrationOverlay";
 import { DesignCanvasChrome } from "@/components/canvas-panes/DesignCanvasChrome";
 import { CanvasPaneMenus } from "@/components/canvas-panes/CanvasPaneMenus";
 import { InfiniteCanvasToolPanels } from "@/components/canvas-panes/InfiniteCanvasToolPanels";
@@ -34,9 +33,6 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
     compareAvailable,
     compareMode,
     setCompareMode,
-    canvasViewEnabled,
-    dramaViewPhase,
-    onDramaViewPhaseChange,
     focusClickActive,
     focusClickRequest,
     onFocusClickCancel,
@@ -67,11 +63,8 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
     renderInfiniteNodeStudioPanel,
     applyingAssistantOpsRef,
     onItemsChange,
-    dramaNodePositions,
-    onDramaNodePositionsChange,
     onInfiniteConnectionsChange,
     handleInfiniteSelectionChange,
-    setDramaPanelNodeId,
     setConnectionCreateMenu,
     setInfiniteContextMenu,
     setConnectionContextMenu,
@@ -85,18 +78,11 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
     setShowTemplateManager,
     showMusicGenPanel,
     setShowMusicGenPanel,
-    dramaPanelNode,
-    isDramaWorkflowInfiniteView,
     templateSelectedNodes,
     templateSelectedConnections,
     sessionId,
-    onTemplatePlanRunStarted,
     infiniteOrchestrationDock,
     legacyInfiniteOrchestrationDock,
-    alternateCanvasContent,
-    orchestrationEvent,
-    orchestrationActions,
-    orchestrationExtra,
     scrollBottomInset,
     freeCanvasRef,
     batchSections,
@@ -161,7 +147,6 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
     runInfiniteNodeTool,
     showCamera,
     setShowCamera,
-    onPatchDramaShotNode,
     lightbox,
     enterRefineMode,
     setVideoInpaintSubmitting,
@@ -234,26 +219,6 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
                 if (applyingAssistantOpsRef.current) return;
                 const itemNodes = nodes.filter((n) => !isDramaNodeId(n.id));
                 onItemsChange(applyNodePositionsToItems(items, itemNodes));
-                if (onDramaNodePositionsChange) {
-                  const next = { ...dramaNodePositions };
-                  let changed = false;
-                  for (const node of nodes) {
-                    if (!isDramaNodeId(node.id)) continue;
-                    const prev = dramaNodePositions[node.id];
-                    if (
-                      !prev ||
-                      prev.x !== node.position.x ||
-                      prev.y !== node.position.y
-                    ) {
-                      next[node.id] = {
-                        x: node.position.x,
-                        y: node.position.y,
-                      };
-                      changed = true;
-                    }
-                  }
-                  if (changed) onDramaNodePositionsChange(next);
-                }
               }}
               onConnectionsChange={(nextConnections) => {
                 if (applyingAssistantOpsRef.current || readOnly) return;
@@ -265,7 +230,6 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
               onSelectionChange={handleInfiniteSelectionChange}
               onNodeDoubleClick={(nodeId) => {
                 onSelect(nodeId);
-                setDramaPanelNodeId(nodeId);
               }}
               onConnectionCreateClick={(event, nodeId) => {
                 if (readOnly) return;
@@ -347,21 +311,13 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
               }
               showMusicGenPanel={showMusicGenPanel}
               onToggleMusicGenPanel={() => setShowMusicGenPanel((v) => !v)}
-              dramaPanelNode={dramaPanelNode}
-              showDramaPropertyPanel={!isDramaWorkflowInfiniteView}
-              onCloseDramaPanel={() => setDramaPanelNodeId(null)}
               templateSelectedNodes={templateSelectedNodes}
               templateSelectedConnections={templateSelectedConnections}
               sessionId={sessionId}
-              onTemplatePlanRunStarted={onTemplatePlanRunStarted}
               onCloseTemplateManager={() => setShowTemplateManager(false)}
               onCloseMusicGenPanel={() => setShowMusicGenPanel(false)}
               infiniteOrchestrationDock={infiniteOrchestrationDock}
               legacyInfiniteOrchestrationDock={legacyInfiniteOrchestrationDock}
-              alternateCanvasContent={alternateCanvasContent}
-              orchestrationEvent={orchestrationEvent}
-              orchestrationActions={orchestrationActions}
-              orchestrationExtra={orchestrationExtra}
               onMediaUploadAt={
                 readOnly ? undefined : handleUploadMediaAt
               }
@@ -379,12 +335,6 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
               onChange={onMediaFileInputChange}
             />
             </>
-          ) : alternateCanvasContent ? (
-            <ScrollAlternateOrchestrationPane
-              alternateCanvasContent={alternateCanvasContent}
-              orchestrationExtra={orchestrationExtra}
-              scrollBottomInset={scrollBottomInset}
-            />
           ) : showFreeCanvas ? (
             <FreeCanvasPane
               freeCanvasRef={freeCanvasRef}
@@ -445,9 +395,6 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
               onConversationPaneResizeStart={onConversationPaneResizeStart}
               conversationPaneResizing={conversationPaneResizing}
               scrollBottomInset={scrollBottomInset}
-              orchestrationEvent={orchestrationEvent}
-              orchestrationActions={orchestrationActions}
-              orchestrationExtra={orchestrationExtra}
             />
           )}
 
@@ -512,30 +459,8 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
           }
           showLighting={showLighting}
           onCloseLighting={() => setShowLighting(null)}
-          onApplyLighting={(sources) => {
-            if (!showLighting) return;
-            runInfiniteNodeTool("lighting-control", showLighting.node, {
-              toolContext: { toolId: "lighting-control", sources },
-            });
-            setShowLighting(null);
-          }}
           showCamera={showCamera}
           onCloseCamera={() => setShowCamera(null)}
-          onApplyCamera={(params) => {
-            if (!showCamera) return;
-            const hasImage = Boolean(resolveNodeImageUrl(showCamera.node));
-            if (hasImage) {
-              runInfiniteNodeTool("camera-control", showCamera.node, {
-                toolContext: { toolId: "camera-control", camera: params },
-              });
-            } else {
-              onPatchDramaShotNode?.(showCamera.node.id, {
-                cameraShotSize: params.shotSize,
-                cameraMovement: params.movement,
-              });
-            }
-            setShowCamera(null);
-          }}
         />
 
         {lightbox && (

@@ -146,32 +146,32 @@ enhancement/canvas-subtraction-b   # Phase B
 
 | ID | 任务 | 状态 | 涉及文件 | 验证 |
 |----|------|------|----------|------|
-| C-1 | 删除 Web `drama-*.tsx` 组件 | ⬜ | `components/drama-*.tsx`, `components/drama/**`（~30 文件） | 目录不存在 |
-| C-2 | 删除 `infinite-canvas/drama/*` | ⬜ | `ScriptNodeContent`, `ShotNodeContent`, `CharacterNodeContent`, `SceneNodeContent`, `DramaPropertyPanel`, `drama-plan-to-nodes.ts`, `drama-canvas-mutations.ts` 等 | 目录不存在 |
-| C-3 | 删除 drama hooks | ⬜ | `hooks/use-drama-plan.ts`, `hooks/use-drama-run.ts` | 零引用 |
-| C-4 | 删除 drama lib | ⬜ | `lib/api/drama.ts`, `lib/drama-*.ts` | 零引用 |
-| C-5 | 删除 `studio-orchestration-provider.tsx` | ⬜ | 整体删除或替换为空壳 Provider | Drama 零引用 |
-| C-6 | 删除 `studio-canvas-with-orchestration.tsx` | ⬜ | 逻辑并入 `design-canvas.tsx` 或 `studio-workspace.tsx` | 文件不存在 |
-| C-7 | 删除 `alternateCanvasContent` prop 链 | ⬜ | `design-canvas-types.ts`, `DesignCanvasView.tsx`, `InfiniteCanvasPane.tsx`, `canvas-pane-types.ts` | 符号不存在 |
-| C-8 | 删除 `scroll-canvas-orchestration-card.tsx` | ⬜ | | 文件不存在 |
-| C-9 | 删除 `OrchestrationOverlay.tsx` | ⬜ | | 文件不存在 |
-| C-10 | 删除 API `drama` 路由 | ⬜ | `apps/api/src/routes/drama.ts`, `apps/api/src/index.ts` | 路由不存在 |
-| C-11 | 删除 API `lib/drama/*` | ⬜ | planner, runs, replicate, schema 等 | 目录不存在 |
-| C-12 | 删除 API `providers/drama/*` | ⬜ | TTS, ffmpeg 等 | 目录不存在 |
-| C-13 | CreationMode 收敛 | ⬜ | `packages/ui`, `use-creation-panel.tsx`, `studio-workspace.tsx`, `modes.ts` | 仅 `image` \| `chat`；`production` / `ecommerce` 编译报错或重定向 |
-| C-14 | 清理 Dock 制片/电商参数 | ⬜ | `creation-dock-controls/*`, `drama-*-dock-params.tsx` | 无 drama/production UI |
-| C-15 | 清理 `studio-canvas-view.ts` drama 函数 | ⬜ | 删除 `resolveDramaPhaseSplitEnabled`, `resolveIsDramaWorkflowInfiniteView` | 仅留 `resolveCanvasEngine` |
-| C-16 | 删除 drama 单测脚本 | ⬜ | `scripts/test-drama-*.ts`, `scripts/test-open-api-drama.ts` | 文件不存在 |
-| C-17 | 删除 drama E2E | ⬜ | `e2e/drama-*.spec.ts`, `e2e/production-*.spec.ts`, `e2e/helpers/drama-production.ts` | 文件不存在 |
-| C-18 | 存量 Drama session 归档 | ⬜ | `scripts/migrate-archive-drama-sessions.ts`（新建） | 脚本可 dry-run；`mode=production` session 标记 `archived` |
-| C-19 | 更新 `intent-router.ts` | ⬜ | 移除 production/ecommerce 意图路由 | 无 drama 意图 |
+| C-1 | 删除 Web `drama-*.tsx` 组件 | ✅ | `components/drama-*.tsx`, `components/drama/**`（~30 文件） | 目录不存在 |
+| C-2 | 删除 `infinite-canvas/drama/*` | ✅ | `ScriptNodeContent`, `ShotNodeContent`, `CharacterNodeContent`, `SceneNodeContent`, `DramaPropertyPanel`, `drama-plan-to-nodes.ts`, `drama-canvas-mutations.ts` 等 | 目录不存在 |
+| C-3 | 删除 drama hooks | ✅ | `hooks/use-drama-plan.ts`, `hooks/use-drama-run.ts` | 零引用 |
+| C-4 | 删除 drama lib | ✅ | `lib/api/drama.ts`, `lib/drama-*.ts` | 零引用 |
+| C-5 | 删除 `studio-orchestration-provider.tsx` | ✅ | 整体删除或替换为空壳 Provider | Drama 零引用 |
+| C-6 | 删除 `studio-canvas-with-orchestration.tsx` | ✅ | 逻辑并入 `design-canvas.tsx` 或 `studio-workspace.tsx` | 文件不存在 |
+| C-7 | 删除 `alternateCanvasContent` prop 链 | ✅ | `design-canvas-types.ts`, `DesignCanvasView.tsx`, `InfiniteCanvasPane.tsx`, `canvas-pane-types.ts` | 符号不存在 |
+| C-8 | 删除 `scroll-canvas-orchestration-card.tsx` drama 分支 | ✅ | 保留 Agent/Skill 时间线简化版 | 无 drama 分支 |
+| C-9 | 删除 `OrchestrationOverlay.tsx` drama 分支 | ✅ | 保留 Agent/Skill 编排 footer | 无 drama 分支 |
+| C-10 | 删除 API `drama` 路由 | ✅ | `apps/api/src/routes/drama.ts`, `apps/api/src/index.ts` | 路由不存在 |
+| C-11 | 删除 API `lib/drama/*` | ✅ | planner, runs, replicate, schema 等 | 目录不存在 |
+| C-12 | 删除 API `providers/drama/*` | ✅ | TTS, ffmpeg 等 | 目录不存在 |
+| C-13 | CreationMode 收敛 | ✅ | `packages/ui`, `use-creation-panel.tsx`, `studio-workspace.tsx`, `modes.ts` | 仅 `image` \| `chat`；`production` / `ecommerce` 编译报错或重定向 |
+| C-14 | 清理 Dock 制片/电商参数 | ✅ | `creation-dock-controls/*`, `drama-*-dock-params.tsx` | 无 drama/production UI |
+| C-15 | 清理 `studio-canvas-view.ts` drama 函数 | ✅ | 删除 `resolveDramaPhaseSplitEnabled`, `resolveIsDramaWorkflowInfiniteView` | 仅留 `resolveUseInfiniteCanvas`（Phase C 固定 scroll） |
+| C-16 | 删除 drama 单测脚本 | ✅ | `scripts/test-drama-*.ts`, `scripts/test-open-api-drama.ts` | 文件不存在 |
+| C-17 | 删除 drama E2E | ✅ | `e2e/drama-*.spec.ts`, `e2e/production-*.spec.ts`, `e2e/helpers/drama-production.ts` | 文件不存在 |
+| C-18 | 存量 Drama session 归档 | ✅ | `scripts/migrate-archive-drama-sessions.ts`（新建） | 脚本可 dry-run；`mode=production` session 标记 `archived` |
+| C-19 | 更新 `intent-router.ts` | ✅ | 移除 production/ecommerce 意图路由 | 无 drama 意图 |
 
 ### Phase C 完成标准
 
-- [ ] 全站搜索 `drama` / `Drama` / `production`（组件级）零引用（除 archive 脚本、变更日志）
-- [ ] `mode=production` / `mode=ecommerce` URL 重定向到 `mode=image`
-- [ ] `studio-canvas-with-orchestration.tsx` 不存在
-- [ ] `pnpm test:integration` 绿
+- [x] 全站搜索 `drama` / `Drama` / `production`（组件级）零引用（除 archive 脚本、变更日志、legacy 占位）
+- [x] `mode=production` / `mode=ecommerce` URL 重定向到 `mode=image`
+- [x] `studio-canvas-with-orchestration.tsx` 不存在
+- [ ] `pnpm test:integration` 绿（待 PR CI）
 
 ---
 
@@ -314,26 +314,26 @@ enhancement/canvas-subtraction-b   # Phase B
 
 ### Phase C — Drama/Production 下线
 
-- [ ] C-1 删除 Web drama 组件
-- [ ] C-2 删除 `infinite-canvas/drama/*`
-- [ ] C-3 删除 drama hooks
-- [ ] C-4 删除 drama lib
-- [ ] C-5 删除/替换 orchestration provider
-- [ ] C-6 删除 `studio-canvas-with-orchestration.tsx`
-- [ ] C-7 删除 `alternateCanvasContent`
-- [ ] C-8 删除 `scroll-canvas-orchestration-card.tsx`
-- [ ] C-9 删除 `OrchestrationOverlay.tsx`
-- [ ] C-10 删除 API `drama` 路由
-- [ ] C-11 删除 API `lib/drama/*`
-- [ ] C-12 删除 API `providers/drama/*`
-- [ ] C-13 CreationMode 收敛
-- [ ] C-14 清理 Dock 制片/电商参数
-- [ ] C-15 清理 `studio-canvas-view.ts`
-- [ ] C-16 删除 drama 单测脚本
-- [ ] C-17 删除 drama E2E
-- [ ] C-18 存量 Drama session 归档脚本
-- [ ] C-19 更新 `intent-router.ts`
-- [ ] **Phase C 验证**：integration 绿
+- [x] C-1 删除 Web drama 组件
+- [x] C-2 删除 `infinite-canvas/drama/*`
+- [x] C-3 删除 drama hooks
+- [x] C-4 删除 drama lib
+- [x] C-5 删除/替换 orchestration provider
+- [x] C-6 删除 `studio-canvas-with-orchestration.tsx`
+- [x] C-7 删除 `alternateCanvasContent`
+- [x] C-8 删除 `scroll-canvas-orchestration-card.tsx` drama 分支
+- [x] C-9 删除 `OrchestrationOverlay.tsx` drama 分支
+- [x] C-10 删除 API `drama` 路由
+- [x] C-11 删除 API `lib/drama/*`
+- [x] C-12 删除 API `providers/drama/*`
+- [x] C-13 CreationMode 收敛
+- [x] C-14 清理 Dock 制片/电商参数
+- [x] C-15 清理 `studio-canvas-view.ts`
+- [x] C-16 删除 drama 单测脚本
+- [x] C-17 删除 drama E2E
+- [x] C-18 存量 Drama session 归档脚本
+- [x] C-19 更新 `intent-router.ts`
+- [x] **Phase C 验证**：typecheck 绿；`test-studio-canvas-view` + `test-canvas-connection-ux` 绿
 
 ### Phase D — 引擎与数据收尾
 

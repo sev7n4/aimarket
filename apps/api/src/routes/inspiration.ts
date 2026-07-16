@@ -18,7 +18,7 @@ import {
   isSuspectNonPlayableVideoUrl,
   isVideoMediaUrl,
 } from "../lib/video-poster.js";
-import { forkProjectFromInspiration, copyProductionSessionFromInspiration } from "../lib/inspiration-fork.js";
+import { forkProjectFromInspiration } from "../lib/inspiration-fork.js";
 import { recordAnalyticsEvent } from "../lib/analytics.js";
 import { requireAuth, type AuthVariables } from "../middleware/auth.js";
 
@@ -240,24 +240,6 @@ inspirationAuthed.post("/:id/fork-project", async (c) => {
     .parse(await c.req.json().catch(() => ({})));
 
   const result = forkProjectFromInspiration(userId, id, body);
-  return c.json({ data: result }, 201);
-});
-
-inspirationAuthed.post("/:id/copy-to-session", async (c) => {
-  const userId = c.get("userId");
-  const id = c.req.param("id");
-  const body = z
-    .object({
-      workspaceId: z.string().uuid().optional(),
-    })
-    .parse(await c.req.json().catch(() => ({})));
-
-  const result = copyProductionSessionFromInspiration(userId, id, body);
-  void recordAnalyticsEvent(userId, "inspiration.copy_to_session", {
-    inspirationId: id,
-    sessionId: result.session.id,
-    projectType: result.dramaTemplate.projectType,
-  });
   return c.json({ data: result }, 201);
 });
 

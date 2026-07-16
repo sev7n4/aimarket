@@ -7,7 +7,6 @@ import type { CreationMode } from "@aimarket/ui";
 import { useAgentRun } from "@/hooks/use-agent-run";
 import { useSkillRun } from "@/hooks/use-skill-run";
 import { ECOMMERCE_SET_SKILL_ID } from "@/components/creation-dock-controls";
-import type { StudioOrchestrationContextValue } from "@/components/studio-orchestration-provider";
 import type { CreationLane } from "@/lib/creation-dock-prefs";
 import {
   isAgentAwaitingConfirm,
@@ -28,9 +27,6 @@ export type UseCreationPanelOrchestrationInput = {
   effectiveMode: CreationMode;
   skillsEnabled: boolean;
   agentEnabled: boolean;
-  studioOrchestrationActive: boolean;
-  studioOrch: StudioOrchestrationContextValue | null;
-  dramaOrchestrationActive: boolean;
   creationLane: CreationLane;
   activeSkillId: string | null;
   selectedSkillId: string | null;
@@ -55,9 +51,6 @@ export function useCreationPanelOrchestration(
     effectiveMode,
     skillsEnabled,
     agentEnabled,
-    studioOrchestrationActive,
-    studioOrch,
-    dramaOrchestrationActive,
     creationLane,
     activeSkillId,
     selectedSkillId,
@@ -84,7 +77,7 @@ export function useCreationPanelOrchestration(
     resetRun: resetSkillRun,
   } = useSkillRun({
     sessionId,
-    enabled: skillsEnabled && !studioOrchestrationActive,
+    enabled: skillsEnabled,
     onJobStarted,
     onRunSettled: (run) => {
       if (run.status === "completed") {
@@ -117,7 +110,7 @@ export function useCreationPanelOrchestration(
   } = useAgentRun({
     sessionId,
     mode: effectiveMode,
-    enabled: agentEnabled && !studioOrchestrationActive,
+    enabled: agentEnabled,
     onJobStarted,
     onRunSettled: (run) => {
       if (run.status === "completed") {
@@ -137,23 +130,9 @@ export function useCreationPanelOrchestration(
     },
   });
 
-  const orchSkillRun = studioOrchestrationActive
-    ? studioOrch!.skillRun
-    : skillRun;
-  const orchAgentRun = studioOrchestrationActive
-    ? studioOrch!.agentRun
-    : agentRun;
-  const orchSkillBusy = studioOrchestrationActive
-    ? studioOrch!.skillBusy
-    : skillBusy;
-  const orchAgentBusy = studioOrchestrationActive
-    ? studioOrch!.agentBusy
-    : agentBusy;
-
   const selectedSkill: AgentSkillPublic | null =
-    (studioOrchestrationActive ? studioOrch!.skillPackages : skillPackages).find(
-      (s) => s.id === (activeSkillId ?? selectedSkillId),
-    ) ?? null;
+    skillPackages.find((s) => s.id === (activeSkillId ?? selectedSkillId)) ??
+    null;
 
   const sessionResetKeyRef = useRef<string | null>(null);
   useEffect(() => {
@@ -161,10 +140,8 @@ export function useCreationPanelOrchestration(
     if (sessionResetKeyRef.current === resetKey) return;
     sessionResetKeyRef.current = resetKey;
     sessionEnsuredRef.current = false;
-    if (!studioOrchestrationActive) {
-      resetAgentRun();
-      resetSkillRun();
-    }
+    resetAgentRun();
+    resetSkillRun();
     setPrompt("");
     clearAttachmentState();
     setMentionedMasks([]);
@@ -174,7 +151,6 @@ export function useCreationPanelOrchestration(
     sessionId,
     resetAgentRun,
     resetSkillRun,
-    studioOrchestrationActive,
     setPrompt,
     clearAttachmentState,
     sessionEnsuredRef,
@@ -183,60 +159,20 @@ export function useCreationPanelOrchestration(
     setDockSkillId,
   ]);
 
-  useEffect(() => {
-    if (!studioOrchestrationActive || !studioOrch) return;
-    studioOrch.setInput({
-      prompt,
-      creationLane,
-      activeSkillId,
-      effectiveMode,
-      focusEditActive,
-    });
-  }, [
-    studioOrchestrationActive,
-    studioOrch,
-    prompt,
-    creationLane,
-    activeSkillId,
-    effectiveMode,
-    focusEditActive,
-  ]);
-
-  const orchestrationResetTick = studioOrch?.orchestrationResetTick ?? 0;
-  const lastOrchestrationResetRef = useRef(0);
-  useEffect(() => {
-    if (!studioOrchestrationActive) return;
-    if (orchestrationResetTick <= lastOrchestrationResetRef.current) return;
-    lastOrchestrationResetRef.current = orchestrationResetTick;
-    setPrompt("");
-    clearAttachmentState();
-    setMentionedMasks([]);
-    setSelectedSkillId(null);
-    setDockSkillId(null);
-  }, [
-    studioOrchestrationActive,
-    orchestrationResetTick,
-    setPrompt,
-    clearAttachmentState,
-    setMentionedMasks,
-    setSelectedSkillId,
-    setDockSkillId,
-  ]);
-
-  const skillAwaitingConfirm = isSkillAwaitingConfirm(orchSkillRun);
-  const skillInFlight = isSkillRunInFlight(orchSkillRun);
+  const skillAwaitingConfirm = isSkillAwaitingConfirm(skillRun);
+  const skillInFlight = isSkillRunInFlight(skillRun);
   const skillIdle =
-    !orchSkillRun ||
+    !skillRun ||
     (["completed", "failed", "cancelled"] as SkillRunStatus[]).includes(
-      orchSkillRun.status,
+      skillRun.status,
     );
 
-  const agentAwaitingConfirm = isAgentAwaitingConfirm(orchAgentRun);
-  const agentInFlight = isAgentRunInFlight(orchAgentRun);
+  const agentAwaitingConfirm = isAgentAwaitingConfirm(agentRun);
+  const agentInFlight = isAgentRunInFlight(agentRun);
   const agentIdle =
-    !orchAgentRun ||
+    !agentRun ||
     (["completed", "failed", "cancelled"] as AgentRunStatus[]).includes(
-      orchAgentRun.status,
+      agentRun.status,
     );
 
   const submitAriaLabel = skillAwaitingConfirm
@@ -244,9 +180,7 @@ export function useCreationPanelOrchestration(
     : agentAwaitingConfirm
       ? "确认执行"
       : creationLane === "agent"
-        ? dramaOrchestrationActive
-          ? "开始规划"
-          : "提交 Agent"
+        ? "提交 Agent"
         : activeSkillId === ECOMMERCE_SET_SKILL_ID
           ? "开始电商套图"
           : activeSkillId
@@ -266,10 +200,10 @@ export function useCreationPanelOrchestration(
     confirmAgentRunAction,
     cancelAgentRunAction,
     selectedSkill,
-    orchSkillRun,
-    orchAgentRun,
-    orchSkillBusy,
-    orchAgentBusy,
+    orchSkillRun: skillRun,
+    orchAgentRun: agentRun,
+    orchSkillBusy: skillBusy,
+    orchAgentBusy: agentBusy,
     skillAwaitingConfirm,
     skillInFlight,
     skillIdle,

@@ -21,7 +21,7 @@ export type InfiniteNodeMenuHandlerContext = {
   onOpenCamera: (node: CanvasNodeData) => void;
   onMusicGen: () => void;
   onRunInfiniteNodeTool: (toolId: string, node: CanvasNodeData) => void;
-  onEditDramaNode: (nodeId: string) => void;
+  onEditDramaNode?: (nodeId: string) => void;
   onExtractVideoLastFrame?: (item: CanvasItem) => void;
   onGenerateShotImage?: (node: CanvasNodeData) => void;
   onGenerateShotVideo?: (node: CanvasNodeData) => void;
@@ -96,10 +96,10 @@ export function buildInfiniteNodeMenuHandlers(
     onTurnaround360: () => onRunInfiniteNodeTool("turnaround-360", node),
     onLighting: () => onOpenLighting(node),
     onCamera: () => onOpenCamera(node),
-    onEditScript: () => onEditDramaNode(node.id),
-    onEditShot: () => onEditDramaNode(node.id),
-    onEditCharacter: () => onEditDramaNode(node.id),
-    onEditScene: () => onEditDramaNode(node.id),
+    onEditScript: ctx.onEditDramaNode ? () => ctx.onEditDramaNode!(node.id) : undefined,
+    onEditShot: ctx.onEditDramaNode ? () => ctx.onEditDramaNode!(node.id) : undefined,
+    onEditCharacter: ctx.onEditDramaNode ? () => ctx.onEditDramaNode!(node.id) : undefined,
+    onEditScene: ctx.onEditDramaNode ? () => ctx.onEditDramaNode!(node.id) : undefined,
     onGenerateShotImage: onGenerateShotImage
       ? () => onGenerateShotImage(node)
       : onGenerateShotsFromScript && node.type === CanvasNodeType.Script

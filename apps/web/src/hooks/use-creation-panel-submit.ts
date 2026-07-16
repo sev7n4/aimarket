@@ -6,8 +6,6 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "reac
 
 import { AUTO_MODEL_ID } from "@/components/model-picker";
 import type { CreationPanelHandle } from "@/components/creation-panel-types";
-import { DRAMA_SKILL_ID } from "@/components/creation-dock-controls";
-import type { StudioOrchestrationContextValue } from "@/components/studio-orchestration-provider";
 import type { AspectRatio } from "@/components/generation-settings-popover";
 import type { UploadPreviewItem } from "@/components/upload-preview-stack";
 import type {
@@ -49,7 +47,6 @@ export type UseCreationPanelSubmitInput = {
   polishCandidates: string[];
   onInteractionHint?: (hint: string) => void;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
-  submitEcommerce: boolean;
   activeSkillId: string | null;
   buildReferenceSources: () => ReferenceImageSources;
   resolveProductAssetId: () => string | null;
@@ -95,8 +92,6 @@ export type UseCreationPanelSubmitInput = {
   videoAutoMeta: VideoAutoMeta | null;
   referenceAssetId: string | null;
   productAssetId: string | null;
-  studioOrchestrationActive: boolean;
-  studioOrch: StudioOrchestrationContextValue | null;
   orchAgentRun: AgentRun | null;
   orchSkillRun: SkillRun | null;
   confirmAgentRun: () => Promise<unknown>;
@@ -118,7 +113,6 @@ export type UseCreationPanelSubmitInput = {
   agentEnabled: boolean;
   isDock: boolean;
   submitVideo: boolean;
-  dramaOrchestrationActive: boolean;
   setRouteHint: (hint: string | null) => void;
   setProductAssetId: (id: string | null) => void;
   setReferenceAssetId: (id: string | null) => void;
@@ -141,7 +135,6 @@ export function useCreationPanelSubmit(input: UseCreationPanelSubmitInput) {
     polishCandidates,
     onInteractionHint,
     textareaRef,
-    submitEcommerce,
     activeSkillId,
     buildReferenceSources,
     resolveProductAssetId,
@@ -178,8 +171,6 @@ export function useCreationPanelSubmit(input: UseCreationPanelSubmitInput) {
     videoAutoMeta,
     referenceAssetId,
     productAssetId,
-    studioOrchestrationActive,
-    studioOrch,
     orchAgentRun,
     orchSkillRun,
     confirmAgentRun,
@@ -194,7 +185,6 @@ export function useCreationPanelSubmit(input: UseCreationPanelSubmitInput) {
     agentEnabled,
     isDock,
     submitVideo,
-    dramaOrchestrationActive,
     setRouteHint,
     setProductAssetId,
     setReferenceAssetId,
@@ -211,12 +201,12 @@ export function useCreationPanelSubmit(input: UseCreationPanelSubmitInput) {
 
   async function handleSubmit() {
     if (readOnly) return;
-    if (!prompt.trim() && !submitEcommerce && !activeSkillId) {
+    if (!prompt.trim() && !activeSkillId) {
       onInteractionHint?.("请先输入描述，再点击生成");
       textareaRef.current?.focus();
       return;
     }
-    if (submitEcommerce || (activeSkillId && activeSkillId !== DRAMA_SKILL_ID)) {
+    if (activeSkillId) {
       if (prompt.trim().length < 10) {
         alert("请填写至少 10 字的产品卖点/描述");
         return;
@@ -370,8 +360,6 @@ export function useCreationPanelSubmit(input: UseCreationPanelSubmitInput) {
           videoAutoMeta,
           productAssetId: resolveProductAssetId(),
           referenceAssetId: referenceAssetId ?? undefined,
-          studioOrchestrationActive,
-          studioOrch: studioOrch ?? null,
           agentRun: orchAgentRun,
           skillRun: orchSkillRun,
           confirmAgentRun,
@@ -399,7 +387,7 @@ export function useCreationPanelSubmit(input: UseCreationPanelSubmitInput) {
 
     const focusEditActive = Boolean(focusEdit?.points.length);
     const submitPath = resolveCreationSubmitPathFromContext({
-      studioOrchestrationActive,
+      studioOrchestrationActive: false,
       skillsEnabled,
       agentEnabled,
       isDock,
@@ -408,9 +396,9 @@ export function useCreationPanelSubmit(input: UseCreationPanelSubmitInput) {
       focusEditActive,
       mentionedMasksCount: mentionedMasks.length,
       submitVideo,
-      submitEcommerce,
+      submitEcommerce: false,
       referenceImageSources,
-      dramaSkillActive: dramaOrchestrationActive,
+      dramaSkillActive: false,
     });
 
     setPending(true);
@@ -429,7 +417,6 @@ export function useCreationPanelSubmit(input: UseCreationPanelSubmitInput) {
         hasReferenceImages: hasRefs,
         productAssetId: resolveProductAssetId(),
         referenceAssetId: referenceAssetId ?? undefined,
-        studioOrch: studioOrch ?? null,
         agentRun: orchAgentRun,
         skillRun: orchSkillRun,
         confirmAgentRun,
@@ -450,7 +437,7 @@ export function useCreationPanelSubmit(input: UseCreationPanelSubmitInput) {
         },
         directGeneration: {
           submitVideo,
-          submitEcommerce,
+          submitEcommerce: false,
           modelId,
           aspectRatio,
           count,
@@ -477,9 +464,6 @@ export function useCreationPanelSubmit(input: UseCreationPanelSubmitInput) {
         },
       });
 
-      if (dispatchResult.kind === "orchestration" && dispatchResult.handled) {
-        return;
-      }
       if (dispatchResult.kind === "skill") {
         if (
           dispatchResult.result === "validation_failed" ||
@@ -500,10 +484,6 @@ export function useCreationPanelSubmit(input: UseCreationPanelSubmitInput) {
       if (dispatchResult.routeReason) setRouteHint(dispatchResult.routeReason);
       else if (dispatchResult.byokActive) {
         setRouteHint("BYOK 已启用 · 将使用您的 OpenAI Key");
-      }
-      if (submitEcommerce) {
-        setProductAssetId(null);
-        setReferenceAssetId(null);
       }
       if (homeDirectSubmit) {
         persistCreationLane("studio", creationLane);
@@ -536,7 +516,6 @@ export function useCreationPanelSubmit(input: UseCreationPanelSubmitInput) {
     if (readOnly || pending || streamBusy) return;
     if (
       !prompt.trim() &&
-      effectiveMode !== "ecommerce" &&
       !selectedSkillId
     ) {
       onInteractionHint?.("请先输入描述，再点击开始生成");

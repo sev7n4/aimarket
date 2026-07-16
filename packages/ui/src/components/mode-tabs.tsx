@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn";
 
-export type CreationMode = "chat" | "image" | "ecommerce" | "production";
+export type CreationMode = "chat" | "image";
 
 export interface ModeTabItem {
   id: CreationMode;

@@ -5,7 +5,6 @@ import { Bookmark, Music, Plus } from "lucide-react";
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
 import { InfiniteCanvasContainer } from "@/components/infinite-canvas/InfiniteCanvasContainer";
 import { InfiniteCanvasEmptyPrompt } from "@/components/infinite-canvas/InfiniteCanvasEmptyPrompt";
-import { DramaPropertyPanel } from "@/components/infinite-canvas/drama/DramaPropertyPanel";
 import { TemplateManager } from "@/components/infinite-canvas/TemplateManager";
 import { MusicGenPanel } from "@/components/music-gen-panel";
 import type { CanvasNodeMetadata, CanvasNodeData } from "@/components/infinite-canvas/types";
@@ -63,9 +62,6 @@ export function InfiniteCanvasPane({
   onToggleTemplateManager,
   showMusicGenPanel,
   onToggleMusicGenPanel,
-  dramaPanelNode,
-  showDramaPropertyPanel,
-  onCloseDramaPanel,
   templateSelectedNodes,
   templateSelectedConnections,
   sessionId,
@@ -74,10 +70,6 @@ export function InfiniteCanvasPane({
   onCloseMusicGenPanel,
   infiniteOrchestrationDock,
   legacyInfiniteOrchestrationDock,
-  alternateCanvasContent,
-  orchestrationEvent,
-  orchestrationActions,
-  orchestrationExtra,
   onMediaUploadAt,
   onAssetDropAt,
   multiSelectActions,
@@ -186,18 +178,12 @@ export function InfiniteCanvasPane({
           </button>
         </div>
         </div>
-        {dramaPanelNode && showDramaPropertyPanel ? (
-          <DramaPropertyPanel
-            node={dramaPanelNode}
-            onClose={onCloseDramaPanel}
-          />
-        ) : null}
         {showTemplateManager ? (
           <TemplateManager
             selectedNodes={templateSelectedNodes}
-            connections={templateSelectedConnections}
+            selectedConnections={templateSelectedConnections}
             sessionId={sessionId}
-            onRunStarted={onTemplatePlanRunStarted}
+            onPlanRunStarted={onTemplatePlanRunStarted}
             onClose={onCloseTemplateManager}
           />
         ) : null}
@@ -212,10 +198,6 @@ export function InfiniteCanvasPane({
       <InfiniteOrchestrationDock
         infiniteOrchestrationDock={infiniteOrchestrationDock}
         legacyInfiniteOrchestrationDock={legacyInfiniteOrchestrationDock}
-        alternateCanvasContent={alternateCanvasContent}
-        orchestrationEvent={orchestrationEvent}
-        orchestrationActions={orchestrationActions}
-        orchestrationExtra={orchestrationExtra}
       />
     </div>
   );

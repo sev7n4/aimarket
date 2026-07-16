@@ -5,15 +5,10 @@ import { sessionKindSchema } from "./session-kind.js";
 import type { SessionRecord } from "./session-access.js";
 import { resolveWorkspaceIdForUser } from "./workspaces.js";
 
-export const openSessionModeSchema = z.enum([
-  "chat",
-  "image",
-  "ecommerce",
-  "production",
-]);
+export const openSessionModeSchema = z.enum(["chat", "image"]);
 
 export const openSessionCreateBodySchema = z.object({
-  mode: openSessionModeSchema.default("production"),
+  mode: openSessionModeSchema.default("image"),
   title: z.string().trim().min(1).max(100).optional(),
   kind: sessionKindSchema.default("canvas"),
   workspaceId: z.string().uuid().optional(),
@@ -39,11 +34,7 @@ export function createOpenSession(
   const id = randomUUID();
   const title =
     input.title ??
-    (input.mode === "production"
-      ? "OpenAPI 制片"
-      : input.kind === "project"
-        ? "新建项目"
-        : "新建画布");
+    (input.kind === "project" ? "新建项目" : "新建画布");
   const workspaceId = resolveWorkspaceIdForUser(userId, input.workspaceId);
 
   db.prepare(

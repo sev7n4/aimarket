@@ -25,9 +25,7 @@ import {
   useCreationPanelModels,
 } from "@/hooks/use-creation-panel-catalog";
 import { AUTO_MODEL_ID } from "@/components/model-picker";
-import { useStudioOrchestrationOptional } from "@/components/studio-orchestration-provider";
 import { normalizeDockSkillId } from "@/components/creation-dock-controls";
-import { shouldUseDramaOrchestration } from "@/lib/drama-submit-routing";
 import { type CreationDockScope, type CreationLane } from "@/lib/creation-dock-prefs";
 import { useCreationLaneDrafts } from "@/hooks/use-creation-lane-drafts";
 import { useCreationPanelMention } from "@/hooks/use-creation-panel-mention";
@@ -80,9 +78,7 @@ export function useCreationPanel(
   agentSkills = false,
   onAgentRunComplete,
 }: CreationPanelProps, ref: Ref<CreationPanelHandle>): ReactNode {
-  const studioOrch = useStudioOrchestrationOptional();
   const isStudioDock = variant === "studio-dock";
-  const studioOrchestrationActive = isStudioDock && studioOrch != null;
   const shouldNavigateOnSubmit =
     navigateOnSubmit ?? (!sessionId && !homeDirectSubmit);
   const router = useRouter();
@@ -125,7 +121,7 @@ export function useCreationPanel(
    * dock 模式（首页 + Studio 工作台）下统一走简洁对话流程，
    * 不再渲染电商 Agent 表单 / 走电商套图提交分支。
    */
-  const effectiveMode: CreationMode = isDock && mode === "ecommerce" ? "chat" : mode;
+  const effectiveMode: CreationMode = mode;
   const agentEnabled =
     agentOrchestration &&
     Boolean(sessionId) &&
@@ -204,18 +200,6 @@ export function useCreationPanel(
   const normalizedDockSkillId = normalizeDockSkillId(dockSkillId);
   const activeSkillId = isDock ? normalizedDockSkillId : selectedSkillId;
 
-  const dramaOrchestrationActive = shouldUseDramaOrchestration({
-    creationLane,
-    activeSkillId,
-    prompt,
-    effectiveMode,
-    hasDramaSessionState: Boolean(
-      studioOrch?.dramaPlanRun ||
-        studioOrch?.dramaDraftProject ||
-        studioOrch?.dramaRun,
-    ),
-  });
-  const submitEcommerce = !isDock && effectiveMode === "ecommerce";
   const submitVideo = isDock ? creationLane === "video" : isVideoModel;
   const focusEditActive = Boolean(focusEdit?.points.length);
 
@@ -388,9 +372,6 @@ export function useCreationPanel(
     effectiveMode,
     skillsEnabled,
     agentEnabled,
-    studioOrchestrationActive,
-    studioOrch: studioOrch ?? null,
-    dramaOrchestrationActive,
     creationLane,
     activeSkillId,
     selectedSkillId,
@@ -430,12 +411,9 @@ export function useCreationPanel(
     selectedRefs,
     mentionedAssetIds,
     selectedCanvasItem,
-    dramaOrchestrationActive,
-    studioOrchestrationActive,
     skillsEnabled,
     agentEnabled,
     isDock,
-    submitEcommerce,
     modelId,
     aspectRatio,
   });
@@ -472,7 +450,7 @@ export function useCreationPanel(
         agentIdle &&
         (focusEdit
           ? focusEditReady && !focusEdit.recognizing
-          : activeSkillId || submitEcommerce
+          : activeSkillId
             ? prompt.trim().length >= 10 && Boolean(resolveProductAssetId())
             : prompt.trim().length > 0)));
 
@@ -503,7 +481,6 @@ export function useCreationPanel(
     polishCandidates,
     onInteractionHint,
     textareaRef,
-    submitEcommerce,
     activeSkillId,
     buildReferenceSources,
     resolveProductAssetId,
@@ -540,8 +517,6 @@ export function useCreationPanel(
     videoAutoMeta,
     referenceAssetId,
     productAssetId,
-    studioOrchestrationActive,
-    studioOrch: studioOrch ?? null,
     orchAgentRun,
     orchSkillRun,
     confirmAgentRun: confirmAgentRunAction,
@@ -556,7 +531,6 @@ export function useCreationPanel(
     agentEnabled,
     isDock,
     submitVideo,
-    dramaOrchestrationActive,
     setRouteHint,
     setProductAssetId,
     setReferenceAssetId,

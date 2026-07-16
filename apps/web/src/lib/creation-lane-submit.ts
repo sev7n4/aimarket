@@ -268,12 +268,9 @@ export function resolveCreationSubmitPathWithIntent(
     submitVideo: direct.submitVideo,
     hasReferenceImages: direct.hasReferenceImages,
     hasSelectedCanvasItem: hasSelectedCanvasItem ?? false,
-    dramaSkillActive: direct.activeSkillId !== null,
-    studioOrchestrationActive: direct.studioOrchestrationActive,
     skillsEnabled: direct.skillsEnabled,
     agentEnabled: direct.agentEnabled,
     isDock: direct.isDock,
-    submitEcommerce: direct.submitEcommerce,
   };
 
   const booleanPath = resolveCreationSubmitPath({

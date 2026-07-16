@@ -12,11 +12,9 @@ import { consumePendingAssets, type PendingAsset } from "@/lib/pending-assets";
 import { consumePendingInspiration, normalizePendingInspiration } from "@/lib/pending-inspiration";
 import {
   coerceInspirationAspect,
-  consumePendingDramaTemplate,
   importInspirationReferencesToCanvas,
   type StudioInspirationApply,
 } from "@/lib/inspiration-studio";
-import type { DramaTemplateMetadata } from "@/lib/types";
 import { persistCreationLane } from "@/lib/creation-dock-prefs";
 import { writeDraftSessionId } from "@/lib/studio-draft-session";
 import { type SessionKind } from "@/lib/session-kind";
@@ -40,9 +38,6 @@ export interface UseStudioSessionBootstrapParams {
   setInspirationApply: React.Dispatch<
     React.SetStateAction<StudioInspirationApply | null>
   >;
-  setDramaTemplateApply: React.Dispatch<
-    React.SetStateAction<DramaTemplateMetadata | null>
-  >;
   setStudioPrompt: React.Dispatch<React.SetStateAction<string>>;
   setSessions: React.Dispatch<React.SetStateAction<ImageSession[]>>;
   setTools: React.Dispatch<React.SetStateAction<StudioTool[]>>;
@@ -65,7 +60,6 @@ export function useStudioSessionBootstrap({
   setSelectedCanvasId,
   setRestoredAssets,
   setInspirationApply,
-  setDramaTemplateApply,
   setStudioPrompt,
   setSessions,
   setTools,
@@ -106,14 +100,6 @@ export function useStudioSessionBootstrap({
     const pendingInspiration = pendingRaw
       ? normalizePendingInspiration(pendingRaw)
       : null;
-    const pendingDramaTemplate = consumePendingDramaTemplate(sessionId);
-    if (pendingDramaTemplate) {
-      const { inspirationId: _inspId, title: _title, ...tpl } = pendingDramaTemplate;
-      setDramaTemplateApply(tpl);
-      if (tpl.userIdea) {
-        setStudioPrompt(tpl.userIdea);
-      }
-    }
     if (pendingInspiration) {
       persistCreationLane("studio", pendingInspiration.creationLane);
       setInspirationApply({
@@ -151,13 +137,6 @@ export function useStudioSessionBootstrap({
       setCanEdit(ensured.can_edit ?? true);
       if (!pendingInspiration && ensured.sourceInspiration) {
         applySourceInspiration(ensured.sourceInspiration);
-        if (
-          mode === "production" &&
-          ensured.sourceInspiration.dramaTemplate
-        ) {
-          setDramaTemplateApply(ensured.sourceInspiration.dramaTemplate);
-          setStudioPrompt(ensured.sourceInspiration.dramaTemplate.userIdea);
-        }
       }
       await loadCanvas();
       if (pendingInspiration?.referenceUrls.length) {
@@ -173,14 +152,6 @@ export function useStudioSessionBootstrap({
       if (existing.title) setFetchedSessionTitle(existing.title);
       if (!pendingInspiration && existing.sourceInspiration) {
         applySourceInspiration(existing.sourceInspiration);
-        if (
-          mode === "production" &&
-          existing.sourceInspiration.dramaTemplate &&
-          !pendingDramaTemplate
-        ) {
-          setDramaTemplateApply(existing.sourceInspiration.dramaTemplate);
-          setStudioPrompt(existing.sourceInspiration.dramaTemplate.userIdea);
-        }
       }
       await loadCanvas();
     } else {
@@ -210,7 +181,6 @@ export function useStudioSessionBootstrap({
     applySourceInspiration,
     setRestoredAssets,
     setInspirationApply,
-    setDramaTemplateApply,
     setStudioPrompt,
     setSessions,
     setTools,

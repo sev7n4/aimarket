@@ -11,7 +11,7 @@ import {
   writeDraftSessionId,
 } from "@/lib/studio-draft-session";
 
-const modes: CreationMode[] = ["chat", "image", "ecommerce", "production"];
+const modes: CreationMode[] = ["chat", "image"];
 
 function parseMode(value: string | null): CreationMode {
   if (value === "production" || value === "ecommerce") {

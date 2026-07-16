@@ -41,15 +41,15 @@ ok("resolve valid key", resolved?.userId === userId);
 ok("invalid key rejected", resolveOpenApiKey("moyu_sk_bad") === null);
 
 const session = createOpenSession(userId, {
-  mode: "production",
-  title: "外部 Agent 制片",
+  mode: "image",
+  title: "外部 Agent 画布",
   kind: "canvas",
 });
-ok("session mode production", session.mode === "production");
+ok("session mode image", session.mode === "image");
 ok("session has id", Boolean(session.id));
 
 const read = assertSessionRead(userId, session.id);
-ok("owner can read", serializeOpenSession(read).title === "外部 Agent 制片");
+ok("owner can read", serializeOpenSession(read).title === "外部 Agent 画布");
 
 const otherUser = createVerifiedUser();
 let otherReadFailed = false;

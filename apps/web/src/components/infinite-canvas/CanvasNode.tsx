@@ -4,10 +4,12 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronRight, Image as ImageIcon, Music2, Plus, RefreshCw, Star, Video } from "lucide-react";
 
-import { ScriptNodeContent } from "./drama/ScriptNodeContent";
-import { ShotNodeContent } from "./drama/ShotNodeContent";
-import { CharacterNodeContent } from "./drama/CharacterNodeContent";
-import { SceneNodeContent } from "./drama/SceneNodeContent";
+import {
+  ScriptNodeContent,
+  ShotNodeContent,
+  CharacterNodeContent,
+  SceneNodeContent,
+} from "./legacy-drama-node-content";
 import { canvasTheme } from "./canvas-theme";
 import { cn } from "@aimarket/ui";
 import { CanvasNodeType, type CanvasNodeData, type Position } from "./types";

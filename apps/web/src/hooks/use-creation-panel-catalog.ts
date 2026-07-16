@@ -103,13 +103,6 @@ export function useCreationPanelDataEffects(input: UseCreationPanelDataEffectsIn
     if (initialPrompt) setPrompt(initialPrompt);
   }, [initialPrompt, setPrompt]);
 
-  useEffect(() => {
-    if (effectiveMode === "ecommerce") {
-      setResolution("2k");
-      setCount(4);
-    }
-  }, [mode, effectiveMode, setResolution, setCount]);
-
   const canvasMentionSignature = useMemo(
     () =>
       canvasItems
@@ -141,21 +134,19 @@ export function useCreationPanelDataEffects(input: UseCreationPanelDataEffectsIn
       setEstimated(null);
       return;
     }
-    const effectiveCount = effectiveMode === "ecommerce" ? 4 : count;
+    const effectiveCount = count;
     const effectiveModel =
-      effectiveMode === "ecommerce"
-        ? "latest-v2-pro"
-        : modelId === AUTO_MODEL_ID
-          ? "omni-v2"
-          : modelId;
-    const effectiveRes = effectiveMode === "ecommerce" ? "2k" : resolution;
+      modelId === AUTO_MODEL_ID
+        ? "omni-v2"
+        : modelId;
+    const effectiveRes = resolution;
     estimatePoints(effectiveModel, effectiveCount, effectiveRes)
       .then(setEstimated)
       .catch(() => setEstimated(null));
   }, [user, modelId, count, resolution, mode, effectiveMode]);
 
   useEffect(() => {
-    if (!user || effectiveMode === "ecommerce") return;
+    if (!user) return;
     const refsForSuggest = buildReferenceSources();
     const hasRefsForSuggest = hasReferenceImages(refsForSuggest);
     const t = setTimeout(() => {

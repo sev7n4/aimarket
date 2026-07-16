@@ -12,7 +12,6 @@ import { fetchProviderStatus } from "@/lib/api/studio";
 import type { ImageModel, VideoModelRouteMeta, AgentRun, SkillRun } from "@/lib/types";
 import { resolveVideoSubmitModelId, type VideoAutoMeta } from "@/lib/video-auto-model";
 import { validateOmniVideoMentions } from "@/lib/video-mention";
-import type { StudioOrchestrationContextValue } from "@/components/studio-orchestration-provider";
 import {
   pendingLineageToApiFields,
   resolveSubmitBatchLineage,
@@ -38,7 +37,6 @@ import {
   type ReferenceImageSources,
 } from "@/lib/creation-lane-submit";
 import { AUTO_MODEL_ID } from "@/lib/creation-lane-drafts";
-import { shouldUseDramaOrchestration } from "@/lib/drama-submit-routing";
 
 const ASPECT_RATIOS: AspectRatio[] = [
   "auto",
@@ -291,7 +289,7 @@ export async function submitStudioDirectGeneration(
     count: toolEdit ? 1 : count,
     resolution,
     aspectRatio: coerceStudioAspectRatio(aspectRatio),
-    mode: mode === "ecommerce" ? "ecommerce" : "image",
+    mode: "image",
     assetIds: mergedAssetIds.length ? mergedAssetIds : undefined,
     referenceOutputIds: normalizeReferenceOutputIds(
       referenceImageSources.selectedRefIds,
@@ -345,8 +343,6 @@ export type RunStudioSubmitInput = {
   videoAutoMeta: VideoAutoMeta | null;
   productAssetId?: string | null;
   referenceAssetId?: string | null;
-  studioOrchestrationActive: boolean;
-  studioOrch: StudioOrchestrationContextValue | null;
   agentRun: AgentRun | null | undefined;
   skillRun: SkillRun | null | undefined;
   confirmAgentRun: () => Promise<unknown>;
@@ -398,8 +394,6 @@ export async function runStudioSubmit(
     videoAutoMeta,
     productAssetId,
     referenceAssetId,
-    studioOrchestrationActive,
-    studioOrch,
     agentRun,
     skillRun,
     confirmAgentRun,
@@ -440,36 +434,25 @@ export async function runStudioSubmit(
     }
   }
 
-  const effectiveMode: CreationMode = mode === "ecommerce" ? "chat" : mode;
-  const submitEcommerce = false;
+  const effectiveMode: CreationMode = mode;
   const submitVideo = creationLane === "video";
   const focusEditActive = false;
-
-  const dramaOrchestrationActive = shouldUseDramaOrchestration({
-    creationLane,
-    activeSkillId,
-    prompt,
-    effectiveMode,
-    hasDramaSessionState: Boolean(
-      studioOrch?.dramaPlanRun ||
-        studioOrch?.dramaDraftProject ||
-        studioOrch?.dramaRun,
-    ),
-  });
+  const skillsEnabled = creationLane === "agent" && Boolean(activeSkillId);
+  const agentEnabled = creationLane === "agent" && !activeSkillId;
 
   const submitPath = resolveCreationSubmitPathFromContext({
-    studioOrchestrationActive,
-    skillsEnabled: false,
-    agentEnabled: studioOrchestrationActive,
+    studioOrchestrationActive: false,
+    skillsEnabled,
+    agentEnabled,
     isDock: true,
     creationLane,
     activeSkillId,
     focusEditActive,
     mentionedMasksCount: mentionedMasks.length,
     submitVideo,
-    submitEcommerce,
+    submitEcommerce: false,
     referenceImageSources,
-    dramaSkillActive: dramaOrchestrationActive,
+    dramaSkillActive: false,
   });
 
   const dispatchResult = await dispatchCreationSubmit({
@@ -486,7 +469,6 @@ export async function runStudioSubmit(
     hasReferenceImages: hasRefs,
     productAssetId,
     referenceAssetId,
-    studioOrch,
     agentRun,
     skillRun,
     confirmAgentRun,
@@ -496,7 +478,7 @@ export async function runStudioSubmit(
     onAlert,
     directGeneration: {
       submitVideo,
-      submitEcommerce,
+      submitEcommerce: false,
       modelId,
       aspectRatio,
       count,
@@ -519,9 +501,6 @@ export async function runStudioSubmit(
     },
   });
 
-  if (dispatchResult.kind === "orchestration" && dispatchResult.handled) {
-    return { status: "orchestration" };
-  }
   if (dispatchResult.kind === "skill") {
     if (
       dispatchResult.result !== "started" &&

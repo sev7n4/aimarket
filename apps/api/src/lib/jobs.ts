@@ -45,14 +45,9 @@ import { assertToolProviderReady } from "./tool-preflight.js";
 import { recordProviderHealthFailure } from "./provider-health-cache.js";
 import { reconcileStaleGenerationJob } from "./job-watchdog.js";
 import { markGenerationJobFailed } from "./job-fail.js";
-import {
-  runConcat,
-  runLipSync,
-  runTts,
-} from "../providers/drama/registry.js";
 import { generateMusic } from "../providers/music-gen-provider.js";
 
-const DRAMA_MEDIA_TOOLS = new Set(["tts", "lipsync", "concat", "music-gen"]);
+const LEGACY_MEDIA_TOOLS = new Set(["music-gen"]);
 
 const delayMs = Number(process.env.MOCK_GENERATION_DELAY_MS ?? 2500);
 
@@ -121,7 +116,7 @@ export function createGenerationJob(input: CreateJobInput) {
   if (
     input.toolType &&
     !isEcommerceSetToolType(input.toolType) &&
-    !DRAMA_MEDIA_TOOLS.has(input.toolType) &&
+    !LEGACY_MEDIA_TOOLS.has(input.toolType) &&
     modelMeta?.type !== "video"
   ) {
     assertToolProviderReady(input.toolType, input.userId);
@@ -436,40 +431,10 @@ export async function processGenerationJob({
       }
     } else if (
       job.tool_type &&
-      DRAMA_MEDIA_TOOLS.has(job.tool_type)
+      LEGACY_MEDIA_TOOLS.has(job.tool_type)
     ) {
       const ctx = (toolContext ?? {}) as Record<string, unknown>;
-      if (job.tool_type === "tts") {
-        const result = await runTts({
-          text: job.prompt,
-          voiceStyle: ctx.voiceStyle as string | undefined,
-          voiceId: ctx.voiceId as string | undefined,
-          characterId: ctx.characterId as string | undefined,
-          jobId,
-        });
-        urls = [result.url];
-        imageProvider = result.provider;
-      } else if (job.tool_type === "lipsync") {
-        const result = await runLipSync({
-          videoUrl: String(ctx.videoUrl ?? ""),
-          audioUrl: String(ctx.audioUrl ?? ""),
-          jobId,
-        });
-        urls = [result.url];
-        imageProvider = result.provider;
-      } else if (job.tool_type === "concat") {
-        const result = await runConcat({
-          clipUrls: (ctx.clipUrls as string[]) ?? [],
-          subtitles: ctx.subtitles as
-            | Array<{ startSec: number; endSec: number; text: string }>
-            | undefined,
-          bgmUrl: ctx.bgmUrl as string | undefined,
-          narratorAudioUrl: ctx.narratorAudioUrl as string | undefined,
-          jobId,
-        });
-        urls = [result.url];
-        imageProvider = result.provider;
-      } else if (job.tool_type === "music-gen") {
+      if (job.tool_type === "music-gen") {
         const result = await generateMusic({
           style: (ctx.style as string) || job.prompt || "轻快电子乐",
           bpm: typeof ctx.bpm === "number" ? ctx.bpm : 120,

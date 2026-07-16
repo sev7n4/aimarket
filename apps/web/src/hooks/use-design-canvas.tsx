@@ -8,7 +8,8 @@ import {
   pickLatestBatchId,
   REFINE_SINGLE_OUTPUT_TOOL_IDS,
 } from "@/lib/canvas-tools";
-import { resolveIsDramaWorkflowInfiniteView } from "@/lib/studio-canvas-view";
+import { resolveUseInfiniteCanvas } from "@/lib/studio-canvas-view";
+import { isCanvasFlowMode } from "@/lib/modes";
 import type { ProductGalleryHandle } from "@/components/product-gallery";
 import type { FreeCanvasHandle } from "@/components/free-canvas";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
@@ -35,7 +36,6 @@ import {
 } from "@/components/infinite-canvas/migration";
 import type { CanvasNodeData, CanvasConnection, ViewportTransform, ContextMenuState } from "@/components/infinite-canvas/types";
 import { CanvasNodeType } from "@/components/infinite-canvas/types";
-import { extractDramaCanvasOps } from "@/components/infinite-canvas/drama/drama-canvas-mutations";
 import {
   buildAddNodeOp,
   buildDeleteConnectionOps,
@@ -62,8 +62,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       items,
       infiniteConnections = [],
       onInfiniteConnectionsChange,
-      dramaNodePositions = {},
-      onDramaNodePositionsChange,
       selectedId,
       onSelect,
       onItemsChange,
@@ -102,33 +100,20 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       pendingJobPrompt = null,
       jobStartedAt = null,
       scrollBottomInset = "",
-      orchestrationEvent = null,
-      orchestrationActions,
-      orchestrationExtra,
-      alternateCanvasContent,
-      useInfiniteCanvas = false,
+      useInfiniteCanvas: useInfiniteCanvasProp = false,
       conversationPaneEnabled = false,
       onConversationPaneActiveChange,
       conversationPaneWidth,
       onConversationPaneResizeStart,
       conversationPaneResizing = false,
       overlayBottomInsetPx = 0,
-      canvasViewEnabled = false,
-      dramaPhaseSplitEnabled = false,
-      dramaViewPhase = "agent",
-      onDramaViewPhaseChange,
       onInfiniteCanvasActiveChange,
       infiniteEmptyCreation,
-      dramaNodes = [],
-      dramaConnections = [],
-      assistantSnapshot,
-      onApplyAssistantOps,
-      onAgentExternalAction,
-      allowDramaNodeCreate = false,
       sessionId,
-      onPatchDramaShotNode,
-      onTemplatePlanRunStarted,
     } = props;
+    const useInfiniteCanvas =
+      useInfiniteCanvasProp &&
+      resolveUseInfiniteCanvas({ canvasFlowEnabled: isCanvasFlowMode() });
     const onCutoutItem = nodeActions?.onCutoutItem;
     const onExpandItem = nodeActions?.onExpandItem;
     const onRerun = nodeActions?.onRerun;
@@ -138,7 +123,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     const batchTools = nodeActions?.batchTools;
     const onRunInfiniteNodeTool = nodeActions?.onRunInfiniteNodeTool;
     const onAgentRunGeneration = nodeActions?.onAgentRunGeneration;
-    const dramaNodeActions = nodeActions?.drama;
 
     const scrollCanvasRef = useRef<ProductGalleryHandle>(null);
     const freeCanvasRef = useRef<FreeCanvasHandle>(null);
@@ -168,7 +152,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     const [compareMode, setCompareMode] = useState(false);
     const [infiniteViewport, setInfiniteViewport] = useState<ViewportTransform>({ x: 16, y: 16, k: 1 });
     const [infiniteSelectedIds, setInfiniteSelectedIds] = useState<string[]>([]);
-    const [dramaPanelNodeId, setDramaPanelNodeId] = useState<string | null>(null);
     const [showTemplateManager, setShowTemplateManager] = useState(false);
     const [showMusicGenPanel, setShowMusicGenPanel] = useState(false);
     const [multiSelectNotice, setMultiSelectNotice] = useState<string | null>(null);
@@ -229,12 +212,12 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       [onRunInfiniteNodeTool],
     );
     const allCanvasNodes = useMemo<CanvasNodeData[]>(
-      () => [...canvasItemsToNodeData(items), ...dramaNodes],
-      [items, dramaNodes],
+      () => canvasItemsToNodeData(items),
+      [items],
     );
     const canvasConnections = useMemo(
-      () => mergeCanvasConnections(items, infiniteConnections, dramaConnections),
-      [items, infiniteConnections, dramaConnections],
+      () => mergeCanvasConnections(items, infiniteConnections, []),
+      [items, infiniteConnections],
     );
     const allCanvasNodesRef = useRef<CanvasNodeData[]>(allCanvasNodes);
     const canvasConnectionsRef = useRef<CanvasConnection[]>(canvasConnections);
@@ -245,21 +228,11 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       canvasConnectionsRef.current = canvasConnections;
     }, [canvasConnections]);
 
-    // Compute the Drama node data for the right-side property panel
-    // (must look in all canvas nodes — including dramaNodes — since drama
-    // Script/Shot/Character/Scene only live in dramaNodes, not in items)
-    const dramaPanelNode = useMemo<CanvasNodeData | null>(() => {
-      if (!dramaPanelNodeId || !useInfiniteCanvas) return null;
-      return allCanvasNodes.find((n) => n.id === dramaPanelNodeId) ?? null;
-    }, [dramaPanelNodeId, allCanvasNodes, useInfiniteCanvas]);
-
-    // Phase 4 Task 4.3 — 选中的节点组（供 TemplateManager 序列化为模板）
     const templateSelectedNodes = useMemo<CanvasNodeData[]>(() => {
       if (!useInfiniteCanvas || infiniteSelectedIds.length === 0) return [];
-      const allNodes = [...canvasItemsToNodeData(items), ...dramaNodes];
       const idSet = new Set(infiniteSelectedIds);
-      return allNodes.filter((n) => idSet.has(n.id));
-    }, [useInfiniteCanvas, infiniteSelectedIds, items, dramaNodes]);
+      return allCanvasNodes.filter((n) => idSet.has(n.id));
+    }, [useInfiniteCanvas, infiniteSelectedIds, allCanvasNodes]);
 
     const templateSelectedConnections = useMemo<CanvasConnection[]>(() => {
       if (templateSelectedNodes.length === 0) return [];
@@ -274,60 +247,12 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       jobStreamStatus !== "succeeded" &&
       jobStreamStatus !== "failed";
 
-    // 短剧 workflow Infinite：侧栏 Drama/Assistant + orchestration dock（见 studio-canvas-view）
-    const isDramaWorkflowInfiniteView = resolveIsDramaWorkflowInfiniteView({
-      useInfiniteCanvas,
-      dramaPhaseSplitEnabled,
-      viewPhase: dramaViewPhase,
-    });
-
-    const showLegacyInfiniteOrchestration =
-      useInfiniteCanvas &&
-      !dramaPhaseSplitEnabled &&
-      Boolean(orchestrationEvent);
-
-    const infiniteOrchestrationDock =
-      isDramaWorkflowInfiniteView && Boolean(alternateCanvasContent);
-    const legacyInfiniteOrchestrationDock =
-      showLegacyInfiniteOrchestration &&
-      (Boolean(alternateCanvasContent) ||
-        Boolean(orchestrationEvent) ||
-        Boolean(orchestrationExtra));
+    const infiniteOrchestrationDock = false;
+    const legacyInfiniteOrchestrationDock = false;
 
     useEffect(() => {
       onInfiniteCanvasActiveChange?.(Boolean(useInfiniteCanvas));
     }, [useInfiniteCanvas, onInfiniteCanvasActiveChange]);
-
-    const activeInfiniteStudioNodeId = useMemo(() => {
-      if (!isDramaWorkflowInfiniteView || infiniteSelectedIds.length !== 1) return null;
-      return infiniteSelectedIds[0] ?? null;
-    }, [isDramaWorkflowInfiniteView, infiniteSelectedIds]);
-
-    useEffect(() => {
-      if (!isDramaWorkflowInfiniteView) return;
-      setDramaPanelNodeId(activeInfiniteStudioNodeId);
-    }, [activeInfiniteStudioNodeId, isDramaWorkflowInfiniteView]);
-
-    // Agent 面板使用实时画布快照（含 items + dramaNodes），而非 Studio 传入的空 nodes
-    const effectiveAssistantSnapshot = useMemo<CanvasAgentSnapshot | null>(() => {
-      if (!useInfiniteCanvas && !assistantSnapshot) return null;
-      return {
-        projectId: assistantSnapshot?.projectId ?? "",
-        title: assistantSnapshot?.title ?? "AIMarket Canvas",
-        nodes: [...canvasItemsToNodeData(items), ...dramaNodes],
-        connections: canvasConnections,
-        selectedNodeIds: infiniteSelectedIds,
-        viewport: infiniteViewport,
-      };
-    }, [
-      useInfiniteCanvas,
-      assistantSnapshot,
-      items,
-      dramaNodes,
-      canvasConnections,
-      infiniteSelectedIds,
-      infiniteViewport,
-    ]);
 
     const refineChainBeforeRef = useRef<Set<string>>(new Set());
     const refineJobMetaRef = useRef<{ toolName?: string } | null>(null);
@@ -376,11 +301,11 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     // Handle assistant ops - applies CanvasAgentOps to the canvas
     const handleApplyAssistantOps = useCallback((ops: CanvasAgentOp[]): CanvasAgentSnapshot => {
       const boundOps = bindRunGenerationNodeIds(ops);
-      const currentNodes = [...canvasItemsToNodeData(items), ...dramaNodes];
+      const currentNodes = canvasItemsToNodeData(items);
       const currentConnections = canvasConnections;
       const snapshot: CanvasAgentSnapshot = {
-        projectId: assistantSnapshot?.projectId ?? "",
-        title: assistantSnapshot?.title ?? "AIMarket Canvas",
+        projectId: "",
+        title: "AIMarket Canvas",
         nodes: currentNodes,
         connections: currentConnections,
         selectedNodeIds: infiniteSelectedIds,
@@ -391,7 +316,7 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       const canvasOps = boundOps.filter(isCanvasStateOp);
 
       for (const op of externalOps) {
-        onAgentExternalAction?.(op as AgentExternalAction);
+        void op;
       }
 
       const newSnapshot = applyCanvasAgentOps(snapshot, canvasOps);
@@ -405,11 +330,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       if (itemsChanged) {
         pushHistory(mergedItems);
         onItemsChange(mergedItems);
-      }
-
-      const dramaOps = extractDramaCanvasOps(canvasOps);
-      if (dramaOps.length > 0) {
-        onApplyAssistantOps?.(dramaOps);
       }
 
       const persistedConnections = extractPersistedConnections(
@@ -445,15 +365,11 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       return newSnapshot;
     }, [
       items,
-      dramaNodes,
       canvasConnections,
       infiniteConnections,
-      assistantSnapshot,
       infiniteSelectedIds,
       infiniteViewport,
       onItemsChange,
-      onApplyAssistantOps,
-      onAgentExternalAction,
       onInfiniteConnectionsChange,
       onAgentRunGeneration,
       readOnly,
@@ -751,7 +667,7 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
           connectionId,
           items,
           infiniteConnections,
-          dramaConnections,
+          [],
         );
         if (itemPatches) {
           pushHistory(itemPatches);
@@ -767,7 +683,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
         readOnly,
         items,
         infiniteConnections,
-        dramaConnections,
         pushHistory,
         onItemsChange,
         commitCanvasOps,
@@ -1243,7 +1158,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       conversationPaneEnabled &&
       !mobile &&
       !useInfiniteCanvas &&
-      !alternateCanvasContent &&
       !showFreeCanvas;
 
     useEffect(() => {
@@ -1282,15 +1196,7 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       onOpenCamera: (node) => setShowCamera({ node }),
       onMusicGen: () => setShowMusicGenPanel(true),
       onRunInfiniteNodeTool: runInfiniteNodeTool,
-      onEditDramaNode: (nodeId) => {
-        onSelect(nodeId);
-        setDramaPanelNodeId(nodeId);
-      },
       onExtractVideoLastFrame: batchTools?.onExtractVideoLastFrame,
-      onGenerateShotImage: dramaNodeActions?.onGenerateShotImage,
-      onGenerateShotVideo: dramaNodeActions?.onGenerateShotVideo,
-      onGenerateCharacterSheet: dramaNodeActions?.onGenerateCharacterSheet,
-      onGenerateShotsFromScript: dramaNodeActions?.onGenerateShotsFromScript,
     });
 
     const handleInfiniteSelectionChange = useCallback(
@@ -1312,9 +1218,9 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       (node: CanvasNodeData) => {
         if (!useInfiniteCanvas) return null;
         const snapshot: CanvasAgentSnapshot = {
-          projectId: assistantSnapshot?.projectId ?? "",
-          title: assistantSnapshot?.title ?? "AIMarket Canvas",
-          nodes: [...canvasItemsToNodeData(items), ...dramaNodes],
+          projectId: "",
+          title: "AIMarket Canvas",
+          nodes: canvasItemsToNodeData(items),
           connections: canvasConnections,
           selectedNodeIds: [node.id],
           viewport: infiniteViewport,
@@ -1344,9 +1250,7 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       },
       [
         useInfiniteCanvas,
-        assistantSnapshot,
         items,
-        dramaNodes,
         canvasConnections,
         infiniteViewport,
         handleApplyAssistantOps,
@@ -1361,7 +1265,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     const showInfiniteEmptyPrompt =
       useInfiniteCanvas &&
       items.length === 0 &&
-      dramaNodes.length === 0 &&
       Boolean(infiniteEmptyCreation);
 
     const openInfiniteCenterCreateMenu = useCallback(() => {
@@ -1459,9 +1362,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     compareAvailable,
     compareMode,
     setCompareMode,
-    canvasViewEnabled,
-    dramaViewPhase,
-    onDramaViewPhaseChange,
     focusClickActive,
     focusClickRequest,
     onFocusClickCancel,
@@ -1492,11 +1392,8 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     renderInfiniteNodeStudioPanel,
     applyingAssistantOpsRef,
     onItemsChange,
-    dramaNodePositions,
-    onDramaNodePositionsChange,
     onInfiniteConnectionsChange,
     handleInfiniteSelectionChange,
-    setDramaPanelNodeId,
     setConnectionCreateMenu,
     setInfiniteContextMenu,
     setConnectionContextMenu,
@@ -1510,20 +1407,12 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     setShowTemplateManager,
     showMusicGenPanel,
     setShowMusicGenPanel,
-    dramaPanelNode,
-    isDramaWorkflowInfiniteView,
-    effectiveAssistantSnapshot,
     handleApplyAssistantOps,
     templateSelectedNodes,
     templateSelectedConnections,
     sessionId,
-    onTemplatePlanRunStarted,
     infiniteOrchestrationDock,
     legacyInfiniteOrchestrationDock,
-    alternateCanvasContent,
-    orchestrationEvent,
-    orchestrationActions,
-    orchestrationExtra,
     scrollBottomInset,
     freeCanvasRef,
     batchSections,
@@ -1563,7 +1452,7 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     infiniteContextMenu,
     getInfiniteNodeMenuHandlers,
     paneCreateMenu,
-    allowDramaNodeCreate,
+    allowDramaNodeCreate: false,
     handleCreateNodeAt,
     handleApplyAsset,
     handleAssetDropAt,
@@ -1589,7 +1478,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     runInfiniteNodeTool,
     showCamera,
     setShowCamera,
-    onPatchDramaShotNode,
     lightbox,
     enterRefineMode,
     setVideoInpaintSubmitting,
