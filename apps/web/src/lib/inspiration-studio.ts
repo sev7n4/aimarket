@@ -1,7 +1,7 @@
 import type { AspectRatio } from "@/components/generation-settings-popover";
 import type { CreationLane } from "@/lib/creation-dock-prefs";
 import { persistCreationLane } from "@/lib/creation-dock-prefs";
-import type { DramaTemplateMetadata, InspirationDetail } from "@/lib/types";
+import type { InspirationDetail } from "@/lib/types";
 import { registerAssetFromUrl } from "@/lib/api/assets";
 import { buildStudioUrl } from "@/lib/studio-navigation";
 import {
@@ -100,7 +100,7 @@ export function buildInspirationStudioUrl(
   }
   return buildStudioUrl("project", {
     sessionId,
-    mode: "ecommerce",
+    mode: "image",
     title: detail.title,
     prompt: detail.prompt,
     inspirationId: detail.id,
@@ -155,54 +155,6 @@ export function applyInspirationToStudio(
   }
   clientNavigate(router, buildInspirationStudioUrl(detail, sessionId));
   return sessionId;
-}
-
-/** 制片模板：跳转 production Studio 并预填 Dock（PROD-B06） */
-export function applyDramaTemplateToStudio(
-  detail: Pick<InspirationDetail, "id" | "title" | "dramaTemplate">,
-  router: StudioRouter,
-  opts: { sessionId: string; dramaTemplate: DramaTemplateMetadata },
-) {
-  if (typeof sessionStorage !== "undefined") {
-    sessionStorage.setItem(
-      `aimarket_pending_drama_template_${opts.sessionId}`,
-      JSON.stringify({
-        inspirationId: detail.id,
-        title: detail.title,
-        ...opts.dramaTemplate,
-      }),
-    );
-  }
-  clientNavigate(
-    router,
-    buildStudioUrl("canvas", {
-      sessionId: opts.sessionId,
-      title: detail.title,
-      prompt: opts.dramaTemplate.userIdea,
-      inspirationId: detail.id,
-      newDraft: false,
-      mode: "image",
-    }),
-  );
-  return opts.sessionId;
-}
-
-export function consumePendingDramaTemplate(
-  sessionId: string,
-): (DramaTemplateMetadata & { inspirationId?: string; title?: string }) | null {
-  if (typeof sessionStorage === "undefined") return null;
-  const key = `aimarket_pending_drama_template_${sessionId}`;
-  const raw = sessionStorage.getItem(key);
-  if (!raw) return null;
-  sessionStorage.removeItem(key);
-  try {
-    return JSON.parse(raw) as DramaTemplateMetadata & {
-      inspirationId?: string;
-      title?: string;
-    };
-  } catch {
-    return null;
-  }
 }
 
 /** 灵感参考图入库并生成画布 item（role=reference） */

@@ -5,7 +5,6 @@ export * from "./auth";
 export * from "./billing";
 export * from "./canvas";
 export * from "./commerce";
-export * from "./drama";
 export * from "./generation";
 export * from "./inspiration";
 export * from "./marketplace";

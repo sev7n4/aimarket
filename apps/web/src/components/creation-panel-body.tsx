@@ -16,7 +16,7 @@ import {
   ModeTabs,
   type CreationMode,
 } from "@aimarket/ui";
-import { modeTabs, placeholders, PRODUCTION_DOCK_PLACEHOLDER } from "@/lib/modes";
+import { modeTabs, placeholders } from "@/lib/modes";
 import { getToken } from "@/lib/api/core";
 import { MentionPicker } from "@/components/mention-picker";
 import type { CanvasItem, CanvasMaskSelection } from "@/lib/canvas-tools";
@@ -385,25 +385,17 @@ export function CreationPanelBody(props: CreationPanelBodyProps) {
                 }}
                 placeholder={
                   isDock && !prompt.trim()
-                    ? mode === "production"
-                      ? rotatingPlaceholder
-                        ? rotatingText
-                        : PRODUCTION_DOCK_PLACEHOLDER
-                      : creationLane === "image" && rotatingPlaceholder
-                        ? rotatingText
-                        : CREATION_LANE_PLACEHOLDERS[creationLane]
-                    : effectiveMode === "ecommerce"
-                      ? placeholders.ecommerce
-                      : mode === "chat"
-                        ? "输入想要的修改效果，@ 可引用画布上的图片"
-                        : placeholders[mode]
+                    ? creationLane === "image" && rotatingPlaceholder
+                      ? rotatingText
+                      : CREATION_LANE_PLACEHOLDERS[creationLane]
+                    : mode === "chat"
+                      ? "输入想要的修改效果，@ 可引用画布上的图片"
+                      : placeholders[mode]
                 }
                 rows={
                   effectiveCollapsed
                     ? 1
-                    : effectiveMode === "ecommerce"
-                      ? 3
-                      : isDock
+                    : isDock
                         ? dockShouldExpand
                           ? 2
                           : 1
@@ -722,7 +714,7 @@ export function CreationPanelBody(props: CreationPanelBodyProps) {
               )}
               videoRoutes={videoRoutes}
             />
-          ) : effectiveMode !== "ecommerce" ? (
+          ) : (
             <>
               <ModelPicker
                 models={models}
@@ -739,13 +731,6 @@ export function CreationPanelBody(props: CreationPanelBodyProps) {
                 onAspectRatioChange={setAspectRatio}
                 videoMode={isVideoModel}
               />
-            </>
-          ) : (
-            <>
-              <CreationPanelPill>最新图片 V2 Pro · 4 张 · 2K</CreationPanelPill>
-              <CreationPanelPill>
-                智能 · {resolution.toUpperCase()} · 1:1 套图
-              </CreationPanelPill>
             </>
           )}
         </div>

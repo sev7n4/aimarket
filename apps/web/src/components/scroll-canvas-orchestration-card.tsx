@@ -1,7 +1,6 @@
 "use client";
 
 import { Check, Loader2, X } from "lucide-react";
-import { DramaPlanTimeline } from "@/components/drama-plan-timeline";
 import type {
   OrchestrationTimelineActions,
   OrchestrationTimelineEvent,
@@ -9,7 +8,6 @@ import type {
 
 const STATUS_LABEL: Record<string, string> = {
   preview: "计划预览",
-  planning: "规划中",
   queued: "排队中",
   waiting_confirm: "待确认",
   running: "执行中",
@@ -28,28 +26,6 @@ export function ScrollCanvasOrchestrationCard({
   event,
   actions,
 }: ScrollCanvasOrchestrationCardProps) {
-  if (event.runType === "drama_plan") {
-    return (
-      <DramaPlanTimeline
-        prompt={event.prompt}
-        currentAgent={event.dramaPlanCurrentAgent}
-        events={event.dramaPlanEvents ?? []}
-        status={
-          event.status === "failed"
-            ? "failed"
-            : event.status === "completed"
-              ? "completed"
-              : "planning"
-        }
-        error={event.error}
-        onRerunFromAgent={actions?.onRerunFromAgent}
-        rerunBusy={actions?.confirmBusy}
-      />
-    );
-  }
-
-  const isDramaRun = event.runType === "drama_run";
-
   const statusLabel = STATUS_LABEL[event.status] ?? event.status;
   const readOnly = actions?.readOnly ?? false;
   const confirmBusy = actions?.confirmBusy ?? false;
@@ -108,83 +84,56 @@ export function ScrollCanvasOrchestrationCard({
                 )}
               </span>
               <span>
-                {isDramaRun
-                  ? step.label
-                  : step.type === "tool"
-                    ? "工具"
-                    : step.type === "video"
-                      ? "视频"
-                      : step.type === "generate_set"
-                        ? "套图"
-                        : "生成"}
-                {!isDramaRun ? ` · ${step.label}` : ""}
+                {step.type === "tool"
+                  ? "工具"
+                  : step.type === "video"
+                    ? "视频"
+                    : step.type === "generate_set"
+                      ? "套图"
+                      : "生成"}
+                {" · "}
+                {step.label}
               </span>
             </li>
           ))}
         </ol>
       ) : null}
 
-      {event.estimatedPoints != null && !event.planLoading ? (
-        <p className="mt-2 text-[10px] text-zinc-600">
-          约 {event.estimatedPoints} 积分
-          {event.status === "preview" && event.showConfirm
-            ? " · 提交后将在时间线请求确认"
-            : ""}
-        </p>
-      ) : null}
-
-      {event.planReason && event.status === "preview" ? (
-        <p className="mt-2 text-[10px] text-zinc-600">{event.planReason}</p>
+      {event.planReason ? (
+        <p className="mt-2 text-[11px] text-zinc-500">{event.planReason}</p>
       ) : null}
 
       {event.error ? (
-        <p className="mt-2 text-[10px] text-red-400/90">{event.error}</p>
+        <p className="mt-2 text-[11px] text-red-300">{event.error}</p>
       ) : null}
 
-      {!readOnly && event.showConfirm && actions?.onConfirm ? (
-        <div className="mt-3 flex flex-wrap gap-2">
+      <footer className="mt-3 flex flex-wrap gap-2">
+        {event.showConfirm && !readOnly ? (
           <button
             type="button"
             disabled={confirmBusy}
-            onClick={() => actions.onConfirm?.()}
-            className="rounded-lg bg-orange-500/90 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-500 disabled:opacity-50"
+            onClick={() => void actions?.onConfirm?.()}
+            className="inline-flex h-8 items-center rounded-lg bg-orange-500 px-3 text-xs font-medium text-white transition hover:bg-orange-400 disabled:opacity-50"
           >
             {confirmBusy ? (
-              <span className="inline-flex items-center gap-1">
-                <Loader2 className="size-3 animate-spin" />
-                确认中…
-              </span>
+              <Loader2 className="size-3.5 animate-spin" />
             ) : (
               "确认执行"
             )}
           </button>
-          {actions.onCancel ? (
-            <button
-              type="button"
-              disabled={confirmBusy}
-              onClick={() => actions.onCancel?.()}
-              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-zinc-400 hover:bg-white/5"
-            >
-              取消
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      {!readOnly &&
-      event.showCancelActive &&
-      actions?.onCancel &&
-      !event.showConfirm ? (
-        <button
-          type="button"
-          onClick={() => actions.onCancel?.()}
-          disabled={confirmBusy}
-          className="mt-3 inline-flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 disabled:opacity-50"
-        >
-          <X className="size-3" />
-          取消任务
-        </button>
-      ) : null}
+        ) : null}
+        {(event.showConfirm || event.showCancelActive) && !readOnly ? (
+          <button
+            type="button"
+            disabled={confirmBusy}
+            onClick={() => void actions?.onCancel?.()}
+            className="inline-flex h-8 items-center gap-1 rounded-lg border border-white/10 px-3 text-xs text-zinc-400 transition hover:bg-white/5 hover:text-zinc-200 disabled:opacity-50"
+          >
+            <X className="size-3.5" />
+            取消
+          </button>
+        ) : null}
+      </footer>
     </article>
   );
 }

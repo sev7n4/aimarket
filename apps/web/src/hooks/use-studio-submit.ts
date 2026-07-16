@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { CreationMode } from "@aimarket/ui";
 
-import { useStudioOrchestrationOptional } from "@/components/studio-orchestration-provider";
 import { useCreationLaneDrafts } from "@/hooks/use-creation-lane-drafts";
 import {
   fetchModels,
@@ -42,7 +41,6 @@ export function useStudioSubmit({
   onPromptClear,
   onInteractionHint,
 }: UseStudioSubmitOptions) {
-  const studioOrch = useStudioOrchestrationOptional();
   const { creationLane, laneSettings } = useCreationLaneDrafts("studio", {
     agentLaneAvailable: true,
   });
@@ -127,15 +125,12 @@ export function useStudioSubmit({
         models,
         videoRoutes,
         videoAutoMeta,
-        studioOrchestrationActive: studioOrch != null,
-        studioOrch,
-        agentRun: studioOrch?.agentRun,
-        skillRun: studioOrch?.skillRun,
-        confirmAgentRun: () => studioOrch?.confirmOrchestration() ?? Promise.resolve(),
-        startAgentRun: (p) => studioOrch?.startAgentRun(p) ?? Promise.resolve(null),
-        confirmSkillRun: () => studioOrch?.confirmOrchestration() ?? Promise.resolve(),
-        startSkillRun: (skillId, payload) =>
-          studioOrch?.startSkillRun(skillId, payload) ?? Promise.resolve(null),
+        agentRun: null,
+        skillRun: null,
+        confirmAgentRun: async () => {},
+        startAgentRun: async () => {},
+        confirmSkillRun: async () => {},
+        startSkillRun: async () => {},
         onAlert: (message) => alert(message),
       });
 
@@ -168,7 +163,6 @@ export function useStudioSubmit({
     models,
     videoRoutes,
     videoAutoMeta,
-    studioOrch,
     onJobStarted,
     onAuthRequired,
     onPromptClear,

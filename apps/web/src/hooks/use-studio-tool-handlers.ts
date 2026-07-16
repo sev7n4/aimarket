@@ -320,7 +320,7 @@ export function useStudioToolHandlers(
           count: 1,
           resolution: "1k",
           aspectRatio: coerceStudioAspectRatio("1:1"),
-          mode: mode === "ecommerce" ? "ecommerce" : "image",
+          mode: "image",
           autoRoute: true,
           sourceLane: "image",
         });

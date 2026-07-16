@@ -1,6 +1,5 @@
 import type { CreationMode } from "@aimarket/ui";
 
-import type { StudioOrchestrationContextValue } from "@/components/studio-orchestration-provider";
 import { ensureSession } from "@/lib/api-client";
 import type { PendingBatchLineage } from "@/lib/canvas-tools";
 import type { CreationLane } from "@/lib/creation-dock-prefs";
@@ -31,7 +30,6 @@ export type DispatchCreationSubmitInput = {
   hasReferenceImages: boolean;
   productAssetId?: string | null;
   referenceAssetId?: string | null;
-  studioOrch: StudioOrchestrationContextValue | null;
   agentRun: AgentRun | null | undefined;
   skillRun: SkillRun | null | undefined;
   confirmAgentRun: () => Promise<unknown>;
@@ -52,7 +50,6 @@ export type DispatchCreationSubmitInput = {
 };
 
 export type DispatchCreationSubmitResult =
-  | { kind: "orchestration"; handled: boolean }
   | { kind: "skill"; result: OrchestrationSkillSubmitResult }
   | { kind: "agent"; result: OrchestrationAgentSubmitResult }
   | {
@@ -64,7 +61,7 @@ export type DispatchCreationSubmitResult =
     }
   | { kind: "unhandled" };
 
-/** 创作提交执行单入口：编排 / Skill / Agent / 直接生成 */
+/** 创作提交执行单入口：Skill / Agent / 直接生成 */
 export async function dispatchCreationSubmit(
   input: DispatchCreationSubmitInput,
 ): Promise<DispatchCreationSubmitResult> {
@@ -72,17 +69,10 @@ export async function dispatchCreationSubmit(
     submitPath,
     sessionId,
     mode,
-    effectiveMode,
     prompt,
-    creationLane,
     activeSkillId,
-    focusEditActive,
-    mentionedMasksCount,
-    submitVideo,
-    hasReferenceImages,
     productAssetId,
     referenceAssetId,
-    studioOrch,
     agentRun,
     skillRun,
     confirmAgentRun,
@@ -94,22 +84,6 @@ export async function dispatchCreationSubmit(
     onAgentStarted,
     onSkillStarted,
   } = input;
-
-  if (submitPath === "orchestration" && studioOrch) {
-    const handled = await studioOrch.dispatchSubmit({
-      prompt,
-      creationLane,
-      activeSkillId,
-      effectiveMode,
-      focusEditActive,
-      mentionedMasksCount,
-      submitVideo,
-      hasReferenceImages,
-      productAssetId: productAssetId ?? undefined,
-      referenceAssetId: referenceAssetId ?? undefined,
-    });
-    return { kind: "orchestration", handled };
-  }
 
   if (submitPath === "skill" && activeSkillId) {
     const result = await submitSkillOrchestration({
@@ -127,7 +101,7 @@ export async function dispatchCreationSubmit(
     return { kind: "skill", result };
   }
 
-  if (submitPath === "agent") {
+  if (submitPath === "agent" || submitPath === "orchestration") {
     const result = await submitAgentOrchestration({
       prompt,
       agentRun,
@@ -147,7 +121,7 @@ export async function dispatchCreationSubmit(
     sessionId,
     mode,
     prompt,
-    creationLane,
+    creationLane: input.creationLane,
     ...directGeneration,
   });
   return {

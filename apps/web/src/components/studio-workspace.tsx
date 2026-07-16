@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight } from "lucide-react";
-import type { DesignCanvasHandle } from "@/components/design-canvas";
 import { StudioCreationDock } from "@/components/studio-creation-dock";
 import { StudioInfiniteSubmitBridge } from "@/components/studio-infinite-submit-bridge";
 import { useStudioCanvasToolBridge } from "@/hooks/use-studio-canvas-tool-bridge";
@@ -35,8 +34,10 @@ import { hapticLight } from "@/lib/haptics";
 import { type CreationMode } from "@aimarket/ui";
 import type { ImageSession, StudioTool } from "@/lib/types";
 import type { CanvasItem } from "@/lib/canvas-tools";
-import { StudioOrchestrationProvider } from "@/components/studio-orchestration-provider";
-import { StudioCanvasWithOrchestration } from "@/components/studio-canvas-with-orchestration";
+import {
+  DesignCanvas,
+  type DesignCanvasHandle,
+} from "@/components/design-canvas";
 import { useAuth } from "@/lib/auth-context";
 import { listSessions } from "@/lib/api/sessions";
 import { trackEvent } from "@/lib/api/studio";
@@ -46,7 +47,6 @@ import {
 import {
   type StudioInspirationApply,
 } from "@/lib/inspiration-studio";
-import type { DramaTemplateMetadata } from "@/lib/types";
 import {
   prefetchSessionCanvasBundle,
   useSessionCanvas,
@@ -114,8 +114,6 @@ export function StudioWorkspace({
   const [restoredAssets, setRestoredAssets] = useState<PendingAsset[]>([]);
   const [inspirationApply, setInspirationApply] =
     useState<StudioInspirationApply | null>(null);
-  const [dramaTemplateApply, setDramaTemplateApply] =
-    useState<DramaTemplateMetadata | null>(null);
   const [selectSourceBanner, setSelectSourceBanner] = useState<string | null>(
     null,
   );
@@ -164,8 +162,6 @@ export function StudioWorkspace({
     setItems: setCanvasItems,
     infiniteConnections,
     setInfiniteConnections,
-    dramaNodePositions,
-    setDramaNodePositions,
     load: loadCanvas,
     registerBatchLineage,
     canEdit: canvasCanEdit,
@@ -259,7 +255,7 @@ export function StudioWorkspace({
       ? currentSession.title
       : fetchedSessionTitle && fetchedSessionTitle !== "未命名"
         ? fetchedSessionTitle
-        : initialTitle ?? (mode === "production" ? "未命名制片" : mode === "ecommerce" ? "电商套图" : "未命名");
+        : initialTitle ?? "未命名";
 
   /** 当前草稿尚未入库时，乐观插入侧栏列表顶部 */
   const displaySessions = useMemo(() => {
@@ -300,12 +296,7 @@ export function StudioWorkspace({
         mode,
         workspaceId: wsId,
         newDraft: true,
-        title:
-          mode === "production"
-            ? "未命名制片"
-            : mode === "ecommerce"
-              ? "电商套图"
-              : "未命名",
+        title: "未命名",
       }),
     );
   }, [router, mode, sessionKind, activeWorkspaceId]);
@@ -324,7 +315,6 @@ export function StudioWorkspace({
     setSelectedCanvasId,
     setRestoredAssets,
     setInspirationApply,
-    setDramaTemplateApply,
     setStudioPrompt,
     setSessions,
     setTools,
@@ -664,19 +654,6 @@ export function StudioWorkspace({
             </button>
           ) : null}
           <StudioToolHandlersProvider value={canvasToolBridge}>
-          <StudioOrchestrationProvider
-            sessionId={sessionId}
-            mode={mode}
-            readOnly={readOnly}
-            initialDramaTemplate={dramaTemplateApply}
-            onApplyDramaTemplate={(tpl) => setStudioPrompt(tpl.userIdea)}
-            onJobStarted={handleJobStarted}
-            onClearPrompt={() => setStudioPrompt("")}
-            onRunSettled={() => {
-              void loadCanvas({ force: true });
-              void refreshUser();
-            }}
-          >
             {infiniteCanvasActive ? (
               <StudioInfiniteSubmitBridge
                 sessionId={sessionId}
@@ -692,114 +669,112 @@ export function StudioWorkspace({
                 onReady={handleInfiniteSubmitReady}
               />
             ) : null}
-          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-            {readOnly ? (
-              <p className="shrink-0 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200/90">
-                只读：他人会话，仅创建者或管理员可编辑与生成
-              </p>
-            ) : null}
-            <StudioCanvasWithOrchestration
-              key={sessionId}
-              ref={canvasRef}
-              onInfiniteCanvasActiveChange={setInfiniteCanvasActive}
-              onConversationPaneActiveChange={setConversationPaneActive}
-              conversationPaneWidth={conversationPaneWidth}
-              onConversationPaneResizeStart={handleConversationPaneResizeStart}
-              conversationPaneResizing={conversationPaneResizing}
-              overlayBottomInsetPx={infiniteOverlayBottomInsetPx}
-              infiniteEmptyCreation={
-                infiniteCanvasActive
-                  ? {
-                      prompt: studioPrompt,
-                      onPromptChange: setStudioPrompt,
-                      onSubmit: () => void infiniteSubmitApi?.submit(),
-                      submitting:
-                        (infiniteSubmitApi?.submitting ?? false) ||
-                        infiniteEmptySubmitting,
-                    }
-                  : undefined
-              }
-              items={canvasItems}
-              infiniteConnections={infiniteConnections}
-              onInfiniteConnectionsChange={setInfiniteConnections}
-              dramaNodePositions={dramaNodePositions}
-              onDramaNodePositionsChange={setDramaNodePositions}
-              onJumpToParentBatch={handleJumpToParentBatch}
-              selectedId={selectedCanvasId}
-              onSelect={(id) => {
-                setSelectedCanvasId(id);
-                if (id) {
-                  hapticLight();
-                  setSelectSourceBanner(null);
-                }
-              }}
-              onItemsChange={setCanvasItems}
-              onUpload={handleCanvasUpload}
-              onDownload={() => void handleCanvasDownload()}
-              onDeleteSelected={handleDeleteCanvasItem}
-              emptyHint=""
-              scrollBottomInset={
-                infiniteCanvasActive ? "" : studioDockScrollInset(dockMode)
-              }
-              readOnly={readOnly}
-              jobStreamStatus={jobStreamStatus}
-              jobFailed={jobFailed}
-              jobErrorMessage={formatJobErrorMessage(jobError, {
-                toolType: jobFailedToolType,
-              })}
-              jobProgressCompleted={jobProgressCompleted}
-              jobProgressTotal={jobProgressTotal}
-              onCancelJob={handleCancelJob}
-              onDismissJobFailure={dismissJobFailure}
-              jobElapsedMs={jobElapsedMs}
-              queueAhead={queueAhead}
-              pendingJobPrompt={activeJobPrompt}
-              jobStartedAt={jobStartedAt}
-              selectSourceBanner={selectSourceBanner}
-              showFailureBannerDismiss={jobFailed}
-              statusChip={<ProviderStatusChip />}
-            />
-
-            {!infiniteCanvasActive ? (
-            <StudioDock
-              mode={dockMode}
-              onModeChange={setDockMode}
-              alignLeft={conversationPaneActive}
-              alignLeftWidth={conversationPaneWidth}
-            >
-              <StudioCreationDock
-                user={user}
-                ready={ready}
-                readOnly={readOnly}
-                mode={mode}
+            <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+              {readOnly ? (
+                <p className="shrink-0 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200/90">
+                  只读：他人会话，仅创建者或管理员可编辑与生成
+                </p>
+              ) : null}
+              <DesignCanvas
+                key={sessionId}
+                ref={canvasRef}
                 sessionId={sessionId}
-                initialPrompt={initialPrompt}
-                prompt={studioPrompt}
-                onPromptChange={setStudioPrompt}
-                restoredAssets={restoredAssets}
-                inspirationApply={inspirationApply}
-                onLogin={() => setLoginOpen(true)}
-                onJobStarted={handleJobStarted}
+                onInfiniteCanvasActiveChange={setInfiniteCanvasActive}
+                onConversationPaneActiveChange={setConversationPaneActive}
+                conversationPaneWidth={conversationPaneWidth}
+                onConversationPaneResizeStart={handleConversationPaneResizeStart}
+                conversationPaneResizing={conversationPaneResizing}
+                overlayBottomInsetPx={infiniteOverlayBottomInsetPx}
+                infiniteEmptyCreation={
+                  infiniteCanvasActive
+                    ? {
+                        prompt: studioPrompt,
+                        onPromptChange: setStudioPrompt,
+                        onSubmit: () => void infiniteSubmitApi?.submit(),
+                        submitting:
+                          (infiniteSubmitApi?.submitting ?? false) ||
+                          infiniteEmptySubmitting,
+                      }
+                    : undefined
+                }
+                items={canvasItems}
+                infiniteConnections={infiniteConnections}
+                onInfiniteConnectionsChange={setInfiniteConnections}
+                onJumpToParentBatch={handleJumpToParentBatch}
+                selectedId={selectedCanvasId}
+                onSelect={(id) => {
+                  setSelectedCanvasId(id);
+                  if (id) {
+                    hapticLight();
+                    setSelectSourceBanner(null);
+                  }
+                }}
+                onItemsChange={setCanvasItems}
+                onUpload={handleCanvasUpload}
+                onDownload={() => void handleCanvasDownload()}
+                onDeleteSelected={handleDeleteCanvasItem}
+                emptyHint=""
+                scrollBottomInset={
+                  infiniteCanvasActive ? "" : studioDockScrollInset(dockMode)
+                }
+                readOnly={readOnly}
                 jobStreamStatus={jobStreamStatus}
-                pollingJobId={pollingJobId}
+                jobFailed={jobFailed}
+                jobErrorMessage={formatJobErrorMessage(jobError, {
+                  toolType: jobFailedToolType,
+                })}
+                jobProgressCompleted={jobProgressCompleted}
+                jobProgressTotal={jobProgressTotal}
                 onCancelJob={handleCancelJob}
+                onDismissJobFailure={dismissJobFailure}
                 jobElapsedMs={jobElapsedMs}
                 queueAhead={queueAhead}
-                canvasItems={canvasItems}
-                selectedCanvasItem={selectedCanvasItem}
-                onClearCanvasSelection={() => setSelectedCanvasId(null)}
-                mentionItemRequest={mentionItemRequest}
-                onUploadToCanvas={handleUploadToCanvas}
-                onDockModeChange={setDockMode}
-                dockExpanded={dockMode === "expanded" && mode === "production"}
-                focusEdit={focusEditDockProps}
-                onFocusEditSubmit={handleFocusEditSubmit}
-                autoSubmitOnce={autoSubmitOnce}
+                pendingJobPrompt={activeJobPrompt}
+                jobStartedAt={jobStartedAt}
+                selectSourceBanner={selectSourceBanner}
+                showFailureBannerDismiss={jobFailed}
+                statusChip={<ProviderStatusChip />}
               />
-            </StudioDock>
-            ) : null}
-          </div>
-          </StudioOrchestrationProvider>
+
+              {!infiniteCanvasActive ? (
+                <StudioDock
+                  mode={dockMode}
+                  onModeChange={setDockMode}
+                  alignLeft={conversationPaneActive}
+                  alignLeftWidth={conversationPaneWidth}
+                >
+                  <StudioCreationDock
+                    user={user}
+                    ready={ready}
+                    readOnly={readOnly}
+                    mode={mode}
+                    sessionId={sessionId}
+                    initialPrompt={initialPrompt}
+                    prompt={studioPrompt}
+                    onPromptChange={setStudioPrompt}
+                    restoredAssets={restoredAssets}
+                    inspirationApply={inspirationApply}
+                    onLogin={() => setLoginOpen(true)}
+                    onJobStarted={handleJobStarted}
+                    jobStreamStatus={jobStreamStatus}
+                    pollingJobId={pollingJobId}
+                    onCancelJob={handleCancelJob}
+                    jobElapsedMs={jobElapsedMs}
+                    queueAhead={queueAhead}
+                    canvasItems={canvasItems}
+                    selectedCanvasItem={selectedCanvasItem}
+                    onClearCanvasSelection={() => setSelectedCanvasId(null)}
+                    mentionItemRequest={mentionItemRequest}
+                    onUploadToCanvas={handleUploadToCanvas}
+                    onDockModeChange={setDockMode}
+                    dockExpanded={dockMode === "expanded"}
+                    focusEdit={focusEditDockProps}
+                    onFocusEditSubmit={handleFocusEditSubmit}
+                    autoSubmitOnce={autoSubmitOnce}
+                  />
+                </StudioDock>
+              ) : null}
+            </div>
           </StudioToolHandlersProvider>
         </div>
       </div>

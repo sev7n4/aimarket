@@ -81,9 +81,6 @@ export type InfiniteCanvasPaneProps = CanvasPaneBaseProps & {
   onToggleTemplateManager: () => void;
   showMusicGenPanel: boolean;
   onToggleMusicGenPanel: () => void;
-  dramaPanelNode: CanvasNodeData | null;
-  showDramaPropertyPanel: boolean;
-  onCloseDramaPanel: () => void;
   onApplyAsset?: (itemId: string) => void;
   onAssetDropAt?: (itemId: string, world: { x: number; y: number }) => void;
   templateSelectedNodes: CanvasNodeData[];

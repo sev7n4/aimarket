@@ -1,13 +1,6 @@
 import { buildJobObservation } from "./job-observation.js";
 import { resumeAgentRunOnJobCompleted } from "./runner.js";
 import { resumeSkillRunOnJobCompleted } from "./skill-executor.js";
-import { resumeCharacterTurnaroundOnJobCompleted } from "../drama/character-turnaround.js";
-import {
-  notifyPlanningTurnaroundProgress,
-  notifyPlanningSceneRefProgress,
-} from "../drama/planning-character-assets.js";
-import { resumeSceneRefOnJobCompleted } from "../drama/scene-ref.js";
-import { resumeDramaRunOnJobCompleted } from "../drama/executor.js";
 
 export { buildJobObservation } from "./job-observation.js";
 
@@ -15,43 +8,11 @@ export function notifyAgentJobCompleted(jobId: string) {
   const observation = buildJobObservation(jobId);
   if (!observation) return;
 
-  void resumeAgentRunOnJobCompleted(jobId, observation).catch((err) => {
+  void resumeAgentRunOnJobCompleted(jobId, observation).catch((err: unknown) => {
     console.warn("[agent] resume on job completed failed:", err);
   });
 
-  void resumeSkillRunOnJobCompleted(jobId).catch((err) => {
+  void resumeSkillRunOnJobCompleted(jobId).catch((err: unknown) => {
     console.warn("[skill] resume on job completed failed:", err);
   });
-
-  void resumeDramaRunOnJobCompleted(jobId).catch((err) => {
-    console.warn("[drama] resume on job completed failed:", err);
-  });
-
-  void resumeCharacterTurnaroundOnJobCompleted(jobId)
-    .then((result) => {
-      if (!result) return;
-      notifyPlanningTurnaroundProgress(
-        result.userId,
-        result.projectId,
-        result.characterId,
-        result.failed,
-      );
-    })
-    .catch((err) => {
-      console.warn("[drama] turnaround resume on job completed failed:", err);
-    });
-
-  void resumeSceneRefOnJobCompleted(jobId)
-    .then((result) => {
-      if (!result) return;
-      notifyPlanningSceneRefProgress(
-        result.userId,
-        result.projectId,
-        result.sceneId,
-        result.failed,
-      );
-    })
-    .catch((err) => {
-      console.warn("[drama] scene ref resume on job completed failed:", err);
-    });
 }

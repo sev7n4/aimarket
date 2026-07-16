@@ -30,12 +30,9 @@ export type UseCreationPanelPolishInput = {
   selectedRefs: { id: string }[];
   mentionedAssetIds: string[];
   selectedCanvasItem: CanvasItem | null | undefined;
-  dramaOrchestrationActive: boolean;
-  studioOrchestrationActive: boolean;
   skillsEnabled: boolean;
   agentEnabled: boolean;
   isDock: boolean;
-  submitEcommerce: boolean;
   modelId: string;
   aspectRatio: AspectRatio;
 };
@@ -71,12 +68,9 @@ export function useCreationPanelPolish(input: UseCreationPanelPolishInput) {
     selectedRefs,
     mentionedAssetIds,
     selectedCanvasItem,
-    dramaOrchestrationActive,
-    studioOrchestrationActive,
     skillsEnabled,
     agentEnabled,
     isDock,
-    submitEcommerce,
     modelId,
     aspectRatio,
   } = input;
@@ -104,12 +98,9 @@ export function useCreationPanelPolish(input: UseCreationPanelPolishInput) {
       submitVideo,
       hasReferenceImages: hasRefs,
       hasSelectedCanvasItem: Boolean(selectedCanvasItem),
-      dramaSkillActive: dramaOrchestrationActive,
-      studioOrchestrationActive,
       skillsEnabled,
       agentEnabled,
       isDock,
-      submitEcommerce,
     });
     setPolishCandidates([]);
     setPolishCandidateIndex(0);
@@ -156,12 +147,9 @@ export function useCreationPanelPolish(input: UseCreationPanelPolishInput) {
     mentionedMasks.length,
     submitVideo,
     selectedCanvasItem,
-    dramaOrchestrationActive,
-    studioOrchestrationActive,
     skillsEnabled,
     agentEnabled,
     isDock,
-    submitEcommerce,
     user,
     modelId,
     aspectRatio,
