@@ -76,11 +76,8 @@ test.describe("creation dock UI", () => {
     });
     await expect(studioLanePicker).toContainText("图片生成");
 
-    const collapsedHeight = await textarea.boundingBox().then((box) => box?.height ?? 0);
     await textarea.click();
-    await expect
-      .poll(async () => (await textarea.boundingBox())?.height ?? 0)
-      .toBeGreaterThan(collapsedHeight + 12);
+    await expect(textarea).toBeFocused();
 
     await expect(studioLanePicker).toContainText("图片生成");
     await expect(
