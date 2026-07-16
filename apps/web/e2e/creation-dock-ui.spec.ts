@@ -65,6 +65,9 @@ test.describe("creation dock UI", () => {
 
   test("Studio 创作台默认图片车道，与首页同款单行布局", async ({ page }) => {
     await mockSignedInStudio(page);
+    await page.addInitScript(() => {
+      localStorage.setItem("aimarket_studio_dock_mode_v1", "collapsed");
+    });
     await page.goto("/studio", { waitUntil: "domcontentloaded" });
 
     const studioDock = page.locator('[aria-label="创作 Dock"]');

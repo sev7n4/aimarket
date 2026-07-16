@@ -1164,7 +1164,7 @@ async function main() {
         method: "POST",
         headers: { "X-Api-Key": apiKey },
         body: JSON.stringify({
-          mode: "production",
+          mode: "image",
           title: "OpenAPI smoke",
           kind: "canvas",
         }),
@@ -1172,7 +1172,7 @@ async function main() {
       ok(
         "POST open/sessions",
         openCreate.res.status === 201 &&
-          openCreate.json?.data?.mode === "production",
+          openCreate.json?.data?.mode === "image",
         `id=${openCreate.json?.data?.id}`,
       );
       const openSessionId = openCreate.json?.data?.id;
