@@ -2,22 +2,19 @@ import {
   CanvasNodeType,
   type CanvasNodeData,
 } from "@/components/infinite-canvas/types";
-import {
-  getWorkflowTool,
-  isWorkflowToolId,
-  type WorkflowMediaKind,
-} from "@/lib/workflow-tool-registry";
 
 export type ConnectionDropIntent = "connect" | "create-at-drop" | "cancel";
 
-const MEDIA_KIND_LABELS: Record<WorkflowMediaKind, string> = {
+type MediaKind = "image" | "video" | "audio" | "text";
+
+const MEDIA_KIND_LABELS: Record<MediaKind, string> = {
   image: "图片",
   video: "视频",
   audio: "音频",
   text: "文本",
 };
 
-function mediaKindFromNodeType(type: CanvasNodeType): WorkflowMediaKind | null {
+function mediaKindFromNodeType(type: CanvasNodeType): MediaKind | null {
   switch (type) {
     case CanvasNodeType.Image:
       return "image";
@@ -32,22 +29,12 @@ function mediaKindFromNodeType(type: CanvasNodeType): WorkflowMediaKind | null {
   }
 }
 
-function getNodeOutputKind(node: CanvasNodeData): WorkflowMediaKind | null {
-  const toolType = node.metadata?.workflowToolType;
-  if (toolType && isWorkflowToolId(toolType)) {
-    const tool = getWorkflowTool(toolType);
-    if (tool?.outputKind) return tool.outputKind;
-  }
+function getNodeOutputKind(node: CanvasNodeData): MediaKind | null {
   return mediaKindFromNodeType(node.type);
 }
 
-function getNodeInputKinds(node: CanvasNodeData): WorkflowMediaKind[] | null {
-  const toolType = node.metadata?.workflowToolType;
-  if (!toolType || !isWorkflowToolId(toolType)) {
-    return null;
-  }
-  const tool = getWorkflowTool(toolType);
-  return tool?.inputKinds ?? null;
+function getNodeInputKinds(_node: CanvasNodeData): MediaKind[] | null {
+  return null;
 }
 
 export function canConnectNodes(

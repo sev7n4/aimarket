@@ -1,16 +1,13 @@
 "use client";
 
 import { Bookmark, Music, Plus } from "lucide-react";
-import { cn } from "@aimarket/ui";
 
 import { CanvasJobOverlay } from "@/components/canvas-job-overlay";
 import { InfiniteCanvasContainer } from "@/components/infinite-canvas/InfiniteCanvasContainer";
 import { InfiniteCanvasEmptyPrompt } from "@/components/infinite-canvas/InfiniteCanvasEmptyPrompt";
 import { DramaPropertyPanel } from "@/components/infinite-canvas/drama/DramaPropertyPanel";
-import { CanvasAssistantPanel } from "@/components/infinite-canvas/agent/CanvasAssistantPanel";
 import { TemplateManager } from "@/components/infinite-canvas/TemplateManager";
 import { MusicGenPanel } from "@/components/music-gen-panel";
-import { WorkflowLeftPanel } from "@/components/workflows/WorkflowLeftPanel";
 import type { CanvasNodeMetadata, CanvasNodeData } from "@/components/infinite-canvas/types";
 
 import type { InfiniteCanvasPaneProps } from "./canvas-pane-types";
@@ -69,15 +66,6 @@ export function InfiniteCanvasPane({
   dramaPanelNode,
   showDramaPropertyPanel,
   onCloseDramaPanel,
-  assistantSnapshot,
-  showAssistantPanel,
-  onApplyAssistantOps,
-  workflowShell = false,
-  onAddWorkflowTool,
-  onApplyAsset,
-  agentPanelWidth = 520,
-  agentPanelDragging = false,
-  onAgentPanelResizeStart,
   templateSelectedNodes,
   templateSelectedConnections,
   sessionId,
@@ -101,21 +89,8 @@ export function InfiniteCanvasPane({
       className="flex min-h-0 flex-1 flex-col overflow-hidden"
       data-testid="infinite-canvas-pane"
     >
-      <div
-        className={cn(
-          "relative flex min-h-0 flex-1",
-          workflowShell ? "flex-row" : "",
-        )}
-      >
+      <div className="relative flex min-h-0 flex-1">
         <div className="relative min-h-0 flex-1 flex min-w-0">
-          {workflowShell && onAddWorkflowTool && onApplyAsset ? (
-            <WorkflowLeftPanel
-              items={items}
-              onAddTool={onAddWorkflowTool}
-              onApplyAsset={onApplyAsset}
-              readOnly={readOnly}
-            />
-          ) : null}
           <div className="relative min-h-0 min-w-0 flex-1">
           {jobOverlay.show || jobOverlay.failed ? (
             <CanvasJobOverlay
@@ -141,7 +116,6 @@ export function InfiniteCanvasPane({
             onDeleteConnection={onDeleteConnection}
             onTitleChange={onTitleChange}
             overlayBottomInsetPx={overlayBottomInsetPx}
-            workflowShell={workflowShell}
             renderPanel={renderNodeStudioPanel}
             onNodesChange={onNodesChange}
             onConnectionsChange={onConnectionsChange}
@@ -218,44 +192,12 @@ export function InfiniteCanvasPane({
             onClose={onCloseDramaPanel}
           />
         ) : null}
-        {workflowShell && assistantSnapshot && showAssistantPanel && onAgentPanelResizeStart ? (
-          <button
-            type="button"
-            aria-label="拖拽调整 Agent 面板宽度"
-            onMouseDown={onAgentPanelResizeStart}
-            className={cn(
-              "z-30 hidden w-1 shrink-0 cursor-col-resize transition-colors hover:bg-indigo-500/40 lg:block",
-              agentPanelDragging ? "bg-indigo-500/60" : "bg-white/5",
-            )}
-            data-testid="workflow-agent-resize-handle"
-          />
-        ) : null}
-        {assistantSnapshot && showAssistantPanel ? (
-          <CanvasAssistantPanel
-            snapshot={assistantSnapshot}
-            onApplyOps={onApplyAssistantOps}
-            initialCollapsed={!workflowShell}
-            variant={workflowShell ? "docked" : "floating"}
-            width={workflowShell ? agentPanelWidth : undefined}
-            confirmTools={workflowShell}
-            workflowShell={workflowShell}
-            sessionId={sessionId}
-          />
-        ) : null}
         {showTemplateManager ? (
           <TemplateManager
             selectedNodes={templateSelectedNodes}
             connections={templateSelectedConnections}
             sessionId={sessionId}
-            variant={workflowShell ? "workflow" : "drama"}
             onRunStarted={onTemplatePlanRunStarted}
-            onApplyTemplate={
-              workflowShell
-                ? (ops) => {
-                    onApplyAssistantOps(ops);
-                  }
-                : undefined
-            }
             onClose={onCloseTemplateManager}
           />
         ) : null}

@@ -5,7 +5,6 @@
  */
 import { CanvasNodeType } from "../apps/web/src/components/infinite-canvas/types.ts";
 import { applyCanvasAgentOps, type CanvasAgentSnapshot } from "../apps/web/src/components/infinite-canvas/utils.ts";
-import { onlineToolToOps } from "../apps/web/src/components/infinite-canvas/agent/agent-tools.ts";
 
 const results: { name: string; pass: boolean }[] = [];
 
@@ -65,16 +64,6 @@ assert(
 const label = grouped.nodes.find((n) => n.metadata?.isAgentGroupLabel);
 assert("creates label node when title provided", Boolean(label) && label?.metadata?.content === "产品素材");
 assert("selects grouped nodes and label", grouped.selectedNodeIds.length === 4);
-
-const toolOps = onlineToolToOps(
-  "canvas_group_nodes",
-  { ids: ["n1", "missing", "n2"], title: "批次" },
-  baseSnapshot,
-);
-assert("canvas_group_nodes filters missing ids", toolOps.length === 1 && toolOps[0]?.type === "group_nodes");
-if (toolOps[0]?.type === "group_nodes") {
-  assert("canvas_group_nodes keeps existing ids", toolOps[0].ids.length === 2 && toolOps[0].ids.includes("n1"));
-}
 
 const failed = results.filter((r) => !r.pass);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);

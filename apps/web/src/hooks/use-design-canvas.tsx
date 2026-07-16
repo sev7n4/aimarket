@@ -9,8 +9,6 @@ import {
   REFINE_SINGLE_OUTPUT_TOOL_IDS,
 } from "@/lib/canvas-tools";
 import { resolveIsDramaWorkflowInfiniteView } from "@/lib/studio-canvas-view";
-import { WORKFLOW_AGENT_PANEL } from "@/lib/workflow-shell";
-import { useResizablePanelWidth } from "@/hooks/use-resizable-panel-width";
 import type { ProductGalleryHandle } from "@/components/product-gallery";
 import type { FreeCanvasHandle } from "@/components/free-canvas";
 import { MOBILE_BREAKPOINT } from "@/lib/breakpoints";
@@ -45,31 +43,6 @@ import {
   isDramaNodeId,
   mergeSnapshotToCanvasItems,
 } from "@/components/infinite-canvas/sync-infinite-snapshot";
-import {
-  buildWorkflowToolNodeOp,
-  getWorkflowTool,
-  type WorkflowToolId,
-} from "@/lib/workflow-tool-registry";
-import { buildWorkflowNodeKey, buildWorkflowConnectionSyncOps } from "@/lib/workflow-graph-sync";
-import {
-  pollWorkflowGenerationStatuses,
-  isWorkflowGenerationToolNode,
-} from "@/lib/workflow-generation-poller";
-import { topoSortWorkflowNodes } from "@/lib/workflow-topo-sort";
-import {
-  storyCanvasRunByEndpoint,
-} from "@/lib/api/story-canvas-run";
-import {
-  resolveWorkflowRunEndpoint,
-  workflowRunRequiresReference,
-  workflowRunRequiresLipSyncSources,
-} from "@/lib/workflow-tool-run";
-import {
-  WORKFLOW_RUN_NODE_EVENT,
-  WORKFLOW_RUN_ALL_EVENT,
-  dispatchWorkflowRunAllProgress,
-  dispatchWorkflowToast,
-} from "@/components/workflows/WorkflowToolNodeContent";
 import {
   applyCanvasAgentOps,
   isCanvasStateOp,
@@ -155,7 +128,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       sessionId,
       onPatchDramaShotNode,
       onTemplatePlanRunStarted,
-      workflowShell = false,
     } = props;
     const onCutoutItem = nodeActions?.onCutoutItem;
     const onExpandItem = nodeActions?.onExpandItem;
@@ -360,16 +332,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     const refineChainBeforeRef = useRef<Set<string>>(new Set());
     const refineJobMetaRef = useRef<{ toolName?: string } | null>(null);
     const mobile = useIsMobile(MOBILE_BREAKPOINT);
-    const {
-      width: agentPanelWidth,
-      dragging: agentPanelDragging,
-      onResizeStart: onAgentPanelResizeStart,
-    } = useResizablePanelWidth({
-      storageKey: WORKFLOW_AGENT_PANEL.storageKey,
-      defaultWidth: WORKFLOW_AGENT_PANEL.defaultWidth,
-      minWidth: WORKFLOW_AGENT_PANEL.minWidth,
-      maxWidth: WORKFLOW_AGENT_PANEL.maxWidth,
-    });
     // Ref to prevent feedback loop when applying assistant ops
     const applyingAssistantOpsRef = useRef(false);
 
@@ -413,24 +375,7 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
 
     // Handle assistant ops - applies CanvasAgentOps to the canvas
     const handleApplyAssistantOps = useCallback((ops: CanvasAgentOp[]): CanvasAgentSnapshot => {
-      const boundOps = bindRunGenerationNodeIds(ops).map((op) => {
-        if (
-          workflowShell &&
-          sessionId &&
-          op.type === "add_node" &&
-          op.metadata?.workflowToolType &&
-          op.id
-        ) {
-          return {
-            ...op,
-            metadata: {
-              ...op.metadata,
-              workflowNodeKey: buildWorkflowNodeKey(sessionId, op.id),
-            },
-          };
-        }
-        return op;
-      });
+      const boundOps = bindRunGenerationNodeIds(ops);
       const currentNodes = [...canvasItemsToNodeData(items), ...dramaNodes];
       const currentConnections = canvasConnections;
       const snapshot: CanvasAgentSnapshot = {
@@ -446,36 +391,10 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       const canvasOps = boundOps.filter(isCanvasStateOp);
 
       for (const op of externalOps) {
-        if (op.type === "run_workflow_node" && workflowShell) {
-          const node = allCanvasNodesRef.current.find((n) => n.id === op.nodeId);
-          if (node) {
-            document.dispatchEvent(
-              new CustomEvent(WORKFLOW_RUN_NODE_EVENT, { detail: { node } }),
-            );
-          }
-          continue;
-        }
         onAgentExternalAction?.(op as AgentExternalAction);
       }
 
-      let newSnapshot = applyCanvasAgentOps(snapshot, canvasOps);
-
-      if (workflowShell && canvasOps.some((op) => op.type === "connect_nodes")) {
-        const syncPatches = buildWorkflowConnectionSyncOps(
-          newSnapshot.nodes,
-          newSnapshot.connections,
-        );
-        if (syncPatches.length > 0) {
-          newSnapshot = applyCanvasAgentOps(
-            newSnapshot,
-            syncPatches.map(({ nodeId, patch }) => ({
-              type: "update_node",
-              id: nodeId,
-              patch: { metadata: patch },
-            })),
-          );
-        }
-      }
+      const newSnapshot = applyCanvasAgentOps(snapshot, canvasOps);
 
       applyingAssistantOpsRef.current = true;
 
@@ -540,7 +459,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       readOnly,
       pushHistory,
       onSelect,
-      workflowShell,
       sessionId,
     ]);
 
@@ -629,37 +547,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       });
     }, [paneCreateMenu, openMediaUploadPicker]);
 
-    const handleAddWorkflowTool = useCallback(
-      (toolId: WorkflowToolId) => {
-        const tool = getWorkflowTool(toolId);
-        if (!tool || readOnly) return;
-        const area = infiniteCanvasAreaRef.current;
-        const cx = area ? area.clientWidth / 2 : 400;
-        const cy = area ? area.clientHeight / 2 : 300;
-        const worldX =
-          (-infiniteViewport.x + cx) / Math.max(infiniteViewport.k, 0.05);
-        const worldY =
-          (-infiniteViewport.y + cy) / Math.max(infiniteViewport.k, 0.05);
-        const offset = allCanvasNodes.length * 28;
-        const op = buildWorkflowToolNodeOp(tool, worldX + offset, worldY + offset);
-        if (sessionId && op.type === "add_node" && op.id) {
-          op.metadata = {
-            ...op.metadata,
-            workflowNodeKey: buildWorkflowNodeKey(sessionId, op.id),
-          };
-        }
-        commitCanvasOps([op]);
-      },
-      [
-        readOnly,
-        sessionId,
-        infiniteCanvasAreaRef,
-        infiniteViewport,
-        allCanvasNodes.length,
-        commitCanvasOps,
-      ],
-    );
-
     const resolveViewportCenterWorld = useCallback(() => {
       const area = infiniteCanvasAreaRef.current;
       const cx = area ? area.clientWidth / 2 : 400;
@@ -702,266 +589,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
       },
       [readOnly, useInfiniteCanvas, items, commitCanvasOps],
     );
-
-    const handleRunWorkflowNode = useCallback(
-      async (node: CanvasNodeData) => {
-        if (readOnly || !sessionId) return;
-        const toolType = node.metadata?.workflowToolType;
-        const nodeKey =
-          node.metadata?.workflowNodeKey ?? buildWorkflowNodeKey(sessionId, node.id);
-        const prompt =
-          node.metadata?.prompt?.trim() ||
-          node.title?.trim() ||
-          "根据工作流节点生成";
-        const referenceUrls = node.metadata?.connectedImageUrls;
-        const videoUrl = node.metadata?.connectedVideoUrls?.[0];
-        const audioUrl = node.metadata?.connectedAudioUrls?.[0];
-
-        if (
-          workflowRunRequiresLipSyncSources(toolType) &&
-          (!videoUrl || !audioUrl)
-        ) {
-          commitCanvasOps([
-            {
-              type: "update_node",
-              id: node.id,
-              patch: {
-                metadata: {
-                  ...node.metadata,
-                  status: "error",
-                  errorDetails: "请先连接上游视频与音频节点",
-                },
-              },
-            },
-          ]);
-          return;
-        }
-
-        if (
-          workflowRunRequiresReference(toolType) &&
-          !(referenceUrls?.length ?? 0) &&
-          toolType !== "MOTION_CONTROL"
-        ) {
-          commitCanvasOps([
-            {
-              type: "update_node",
-              id: node.id,
-              patch: {
-                metadata: {
-                  ...node.metadata,
-                  status: "error",
-                  errorDetails: "请先连接上游图片节点",
-                },
-              },
-            },
-          ]);
-          return;
-        }
-
-        if (
-          toolType === "MOTION_CONTROL" &&
-          !(referenceUrls?.length ?? 0) &&
-          !videoUrl
-        ) {
-          commitCanvasOps([
-            {
-              type: "update_node",
-              id: node.id,
-              patch: {
-                metadata: {
-                  ...node.metadata,
-                  status: "error",
-                  errorDetails: "请先连接上游图片或视频节点作为运镜参考",
-                },
-              },
-            },
-          ]);
-          return;
-        }
-
-        commitCanvasOps([
-          {
-            type: "update_node",
-            id: node.id,
-            patch: {
-              metadata: {
-                ...node.metadata,
-                status: "loading",
-                workflowNodeKey: nodeKey,
-              },
-            },
-          },
-        ]);
-
-        try {
-          const endpoint = resolveWorkflowRunEndpoint({
-            workflowToolType: toolType,
-            nodeType: node.type,
-          });
-          const result = await storyCanvasRunByEndpoint(endpoint, {
-            sessionId,
-            nodeKey,
-            prompt,
-            workflowToolType: toolType,
-            referenceUrls:
-              toolType === "MOTION_CONTROL" && !referenceUrls?.length && videoUrl
-                ? [videoUrl]
-                : referenceUrls,
-            videoUrl,
-            audioUrl,
-          });
-          commitCanvasOps([
-            {
-              type: "update_node",
-              id: node.id,
-              patch: {
-                metadata: {
-                  ...node.metadata,
-                  status: "loading",
-                  workflowNodeKey: nodeKey,
-                  workflowJobId: result.jobId,
-                },
-              },
-            },
-          ]);
-        } catch (err) {
-          commitCanvasOps([
-            {
-              type: "update_node",
-              id: node.id,
-              patch: {
-                metadata: {
-                  ...node.metadata,
-                  status: "error",
-                  errorDetails:
-                    err instanceof Error ? err.message : "生成请求失败",
-                },
-              },
-            },
-          ]);
-        }
-      },
-      [readOnly, sessionId, commitCanvasOps],
-    );
-
-    const waitForWorkflowNodeSettled = useCallback(
-      async (nodeId: string) => {
-        if (!sessionId) return;
-        const deadline = Date.now() + 30 * 60 * 1000;
-        while (Date.now() < deadline) {
-          const node = allCanvasNodesRef.current.find((n) => n.id === nodeId);
-          const status = node?.metadata?.status;
-          if (status === "success" || status === "error") return;
-
-          const patches = await pollWorkflowGenerationStatuses(
-            sessionId,
-            allCanvasNodesRef.current,
-          );
-          if (patches.length > 0) {
-            handleApplyAssistantOps(
-              patches.map(({ nodeId: patchNodeId, patch }) => ({
-                type: "update_node" as const,
-                id: patchNodeId,
-                patch: { metadata: patch },
-              })),
-            );
-          }
-
-          const updated = allCanvasNodesRef.current.find((n) => n.id === nodeId);
-          const nextStatus = updated?.metadata?.status;
-          if (nextStatus === "success" || nextStatus === "error") return;
-
-          await new Promise((resolve) => window.setTimeout(resolve, 1500));
-        }
-      },
-      [sessionId, handleApplyAssistantOps],
-    );
-
-    const runAllWorkflowNodes = useCallback(async () => {
-      if (readOnly || !sessionId || !workflowShell) return;
-      const nodes = allCanvasNodesRef.current;
-      const edges = canvasConnectionsRef.current;
-      const { order, cycle } = topoSortWorkflowNodes(nodes, edges);
-      if (cycle) {
-        dispatchWorkflowToast("工作流存在循环依赖，无法全部运行");
-        return;
-      }
-
-      const nodeById = new Map(nodes.map((n) => [n.id, n]));
-      const toolNodes = order
-        .map((id) => nodeById.get(id))
-        .filter(
-          (node): node is CanvasNodeData =>
-            Boolean(node && isWorkflowGenerationToolNode(node)),
-        );
-
-      if (toolNodes.length === 0) {
-        dispatchWorkflowToast("没有可运行的工具节点");
-        return;
-      }
-
-      dispatchWorkflowRunAllProgress({ current: 0, total: toolNodes.length });
-      try {
-        for (let i = 0; i < toolNodes.length; i++) {
-          const node = toolNodes[i]!;
-          dispatchWorkflowRunAllProgress({
-            current: i + 1,
-            total: toolNodes.length,
-          });
-          await handleRunWorkflowNode(node);
-          await waitForWorkflowNodeSettled(node.id);
-        }
-      } finally {
-        dispatchWorkflowRunAllProgress(null);
-      }
-    }, [
-      readOnly,
-      sessionId,
-      workflowShell,
-      handleRunWorkflowNode,
-      waitForWorkflowNodeSettled,
-    ]);
-
-    useEffect(() => {
-      if (!workflowShell) return;
-      const onRun = (event: Event) => {
-        const detail = (event as CustomEvent<{ node?: CanvasNodeData }>).detail;
-        if (detail?.node) void handleRunWorkflowNode(detail.node);
-      };
-      const onRunAll = () => {
-        void runAllWorkflowNodes();
-      };
-      document.addEventListener(WORKFLOW_RUN_NODE_EVENT, onRun);
-      document.addEventListener(WORKFLOW_RUN_ALL_EVENT, onRunAll);
-      return () => {
-        document.removeEventListener(WORKFLOW_RUN_NODE_EVENT, onRun);
-        document.removeEventListener(WORKFLOW_RUN_ALL_EVENT, onRunAll);
-      };
-    }, [workflowShell, handleRunWorkflowNode, runAllWorkflowNodes]);
-
-    useEffect(() => {
-      if (!workflowShell || !sessionId || readOnly) return;
-      let cancelled = false;
-
-      const tick = async () => {
-        const nodes = allCanvasNodesRef.current;
-        const patches = await pollWorkflowGenerationStatuses(sessionId, nodes);
-        if (cancelled || patches.length === 0) return;
-        handleApplyAssistantOps(
-          patches.map(({ nodeId, patch }) => ({
-            type: "update_node" as const,
-            id: nodeId,
-            patch: { metadata: patch },
-          })),
-        );
-      };
-
-      const id = window.setInterval(() => void tick(), 3000);
-      return () => {
-        cancelled = true;
-        window.clearInterval(id);
-      };
-    }, [workflowShell, sessionId, readOnly, handleApplyAssistantOps]);
 
     const handleCreateDownstreamNode = useCallback(
       (
@@ -1938,7 +1565,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     paneCreateMenu,
     allowDramaNodeCreate,
     handleCreateNodeAt,
-    handleAddWorkflowTool,
     handleApplyAsset,
     handleAssetDropAt,
     handleUploadMediaAt,
@@ -1967,10 +1593,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     lightbox,
     enterRefineMode,
     setVideoInpaintSubmitting,
-    workflowShell,
-    agentPanelWidth,
-    agentPanelDragging,
-    onAgentPanelResizeStart,
   };}
 
 export type DesignCanvasViewModel = ReturnType<typeof useDesignCanvas>;

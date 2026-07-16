@@ -137,7 +137,6 @@ export interface DesignCanvasProps {
   dramaNodes?: CanvasNodeData[];
   /** Drama 节点间连线 */
   dramaConnections?: CanvasConnection[];
-  /** Agent 对话面板快照（用于 CanvasAssistantPanel） */
   assistantSnapshot?: CanvasAgentSnapshot | null;
   /** Agent 应用 Ops 时的回调（Drama 草稿写回） */
   onApplyAssistantOps?: (ops: CanvasAgentOp[]) => void;
@@ -162,7 +161,5 @@ export interface DesignCanvasProps {
       visualPrompt?: string;
     },
   ) => void;
-  /** NeoWOW 式 /workflow 壳：左画布 + 右 Agent 分栏 */
-  workflowShell?: boolean;
 }
 

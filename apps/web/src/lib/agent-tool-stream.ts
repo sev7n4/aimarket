@@ -1,11 +1,29 @@
 import { resolveApiBase } from "@/lib/api-base";
 import { getToken } from "@/lib/api-client";
-import type {
-  OrchestratorMessage,
-  OrchestratorToolCall,
-  OrchestratorToolChoice,
-  OrchestratorToolDefinition,
-} from "@/components/infinite-canvas/agent/types";
+
+export type OrchestratorMessage = {
+  role: "system" | "user" | "assistant";
+  content: string;
+};
+
+export type OrchestratorToolCall = {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+};
+
+export type OrchestratorToolDefinition = {
+  name: string;
+  description: string;
+  parameters: {
+    type: "object";
+    properties: Record<string, unknown>;
+    required?: string[];
+    additionalProperties?: boolean;
+  };
+};
+
+export type OrchestratorToolChoice = "none" | "auto" | "required";
 
 const API_BASE = resolveApiBase();
 
