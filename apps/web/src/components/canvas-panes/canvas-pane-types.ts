@@ -2,10 +2,6 @@ import type { ReactNode, RefObject } from "react";
 
 import type { CanvasItem } from "@/lib/canvas-tools";
 import type {
-  CanvasAgentSnapshot,
-  CanvasAgentOp,
-} from "@/components/infinite-canvas/utils";
-import type {
   CanvasConnection,
   CanvasNodeData,
   ContextMenuState,
@@ -88,19 +84,8 @@ export type InfiniteCanvasPaneProps = CanvasPaneBaseProps & {
   dramaPanelNode: CanvasNodeData | null;
   showDramaPropertyPanel: boolean;
   onCloseDramaPanel: () => void;
-  assistantSnapshot: CanvasAgentSnapshot | null;
-  showAssistantPanel: boolean;
-  onApplyAssistantOps: (ops: CanvasAgentOp[]) => CanvasAgentSnapshot;
-  /** NeoWOW workflow 壳：右栏 Agent 分栏 + 可拖拽调宽 */
-  workflowShell?: boolean;
-  onAddWorkflowTool?: (
-    toolId: import("@/lib/workflow-tool-registry").WorkflowToolId,
-  ) => void;
   onApplyAsset?: (itemId: string) => void;
   onAssetDropAt?: (itemId: string, world: { x: number; y: number }) => void;
-  agentPanelWidth?: number;
-  agentPanelDragging?: boolean;
-  onAgentPanelResizeStart?: (event: React.MouseEvent) => void;
   templateSelectedNodes: CanvasNodeData[];
   templateSelectedConnections: CanvasConnection[];
   sessionId?: string;

@@ -42,7 +42,6 @@ type StudioCanvasProps = Omit<
   "orchestrationEvent" | "orchestrationActions" | "orchestrationExtra" | "alternateCanvasContent"
 > & {
   onInfiniteCanvasActiveChange?: (active: boolean) => void;
-  workflowShell?: boolean;
 };
 
 /** Studio 画布：编排状态来自 Provider，与 Dock 输入解耦 */
@@ -50,7 +49,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
   DesignCanvasHandle,
   StudioCanvasProps
 >(function StudioCanvasWithOrchestration(props, ref) {
-  const { workflowShell = false, ...canvasProps } = props;
+  const canvasProps = props;
   const {
     timelineEvent,
     timelineActions,
@@ -152,15 +151,13 @@ export const StudioCanvasWithOrchestration = forwardRef<
   }, []);
 
   /** Infinite 下是否叠加短剧节点面板：仅 Agent 车道 + 制片模式 */
-  const dramaPhaseSplitEnabled = workflowShell
-    ? false
-    : resolveDramaPhaseSplitEnabled({
-        creationLane,
-        studioMode,
-        canvasFlowEnabled,
-      });
+  const dramaPhaseSplitEnabled = resolveDramaPhaseSplitEnabled({
+    creationLane,
+    studioMode,
+    canvasFlowEnabled,
+  });
 
-  const viewPhase: DramaStudioViewPhase = workflowShell ? "workflow" : "agent";
+  const viewPhase: DramaStudioViewPhase = "agent";
 
   const isDramaPlanActive =
     dramaLaneActive &&
@@ -169,20 +166,17 @@ export const StudioCanvasWithOrchestration = forwardRef<
         !dramaRun &&
         Boolean(dramaDraftProject ?? dramaPlanPartialProject)));
 
-  const useInfiniteCanvas = workflowShell
-    ? canvasFlowEnabled && !isDramaPlanActive
-    : resolveUseInfiniteCanvas({
-        canvasFlowEnabled,
-        viewPhase,
-        isDramaPlanActive,
-      });
+  const useInfiniteCanvas = resolveUseInfiniteCanvas({
+    canvasFlowEnabled,
+    viewPhase,
+    isDramaPlanActive,
+  });
 
   const showAgentPlanWorkspace =
     dramaLaneActive &&
     isDramaPlanActive &&
     !showFinalVideo &&
-    !showProductionTimeline &&
-    !(studioMode === "production" && dramaPhaseSplitEnabled && viewPhase === "workflow");
+    !showProductionTimeline;
 
   const planWorkspaceProject =
     dramaPlanPartialProject ?? dramaDraftProject?.project ?? null;
@@ -437,10 +431,7 @@ export const StudioCanvasWithOrchestration = forwardRef<
     [dramaDraftProject?.project, dramaRun?.project, saveDramaDraft],
   );
 
-  const panelPresentation: "agent" | "workflow" =
-    dramaPhaseSplitEnabled && viewPhase === "workflow" && useInfiniteCanvas
-      ? "workflow"
-      : "agent";
+  const panelPresentation: "agent" | "workflow" = "agent";
 
   const showDramaStudioPanel =
     dramaLaneActive && Boolean(dramaRun || dramaDraftProject) && !showAgentPlanWorkspace;
@@ -635,10 +626,9 @@ export const StudioCanvasWithOrchestration = forwardRef<
       ref={ref}
       {...toolCtx}
       {...canvasProps}
-      workflowShell={workflowShell}
       nodeActions={mergedNodeActions}
       useInfiniteCanvas={useInfiniteCanvas}
-      conversationPaneEnabled={workflowShell ? false : dramaLaneActive}
+      conversationPaneEnabled={dramaLaneActive}
       canvasViewEnabled={false}
       dramaPhaseSplitEnabled={dramaPhaseSplitEnabled}
       onInfiniteCanvasActiveChange={props.onInfiniteCanvasActiveChange}

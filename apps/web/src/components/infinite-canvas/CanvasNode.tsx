@@ -8,7 +8,6 @@ import { ScriptNodeContent } from "./drama/ScriptNodeContent";
 import { ShotNodeContent } from "./drama/ShotNodeContent";
 import { CharacterNodeContent } from "./drama/CharacterNodeContent";
 import { SceneNodeContent } from "./drama/SceneNodeContent";
-import { WorkflowToolNodeContent } from "@/components/workflows/WorkflowToolNodeContent";
 import { canvasTheme } from "./canvas-theme";
 import { cn } from "@aimarket/ui";
 import { CanvasNodeType, type CanvasNodeData, type Position } from "./types";
@@ -418,7 +417,7 @@ function NodeContent(props: NodeContentRendererProps) {
             return <ErrorContent node={props.node} theme={props.theme} onRetry={props.onRetry} />;
         }
         if (!props.node.metadata?.content?.trim()) {
-            return <WorkflowToolNodeContent node={props.node} />;
+            return <EmptyImageContent {...props} isBatchRoot={false} />;
         }
     }
     if (props.isBatchRoot) return <ImageNodeContent {...props} />;

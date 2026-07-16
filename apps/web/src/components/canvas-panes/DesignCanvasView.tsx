@@ -12,7 +12,6 @@ import { InfiniteCanvasToolPanels } from "@/components/canvas-panes/InfiniteCanv
 import { resolveNodeImageUrl } from "@/lib/infinite-node-tool-run";
 import { applyNodePositionsToItems } from "@/components/infinite-canvas/migration";
 import { extractPersistedConnections, isDramaNodeId } from "@/components/infinite-canvas/sync-infinite-snapshot";
-import { buildWorkflowConnectionSyncOps } from "@/lib/workflow-graph-sync";
 import type { CanvasNodeData } from "@/components/infinite-canvas/types";
 import type { ContextMenuState } from "@/components/infinite-canvas/types";
 import type { DesignCanvasViewModel } from "@/hooks/use-design-canvas";
@@ -88,12 +87,6 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
     setShowMusicGenPanel,
     dramaPanelNode,
     isDramaWorkflowInfiniteView,
-    effectiveAssistantSnapshot,
-    handleApplyAssistantOps,
-    workflowShell,
-    agentPanelWidth,
-    agentPanelDragging,
-    onAgentPanelResizeStart,
     templateSelectedNodes,
     templateSelectedConnections,
     sessionId,
@@ -145,7 +138,6 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
     paneCreateMenu,
     allowDramaNodeCreate,
     handleCreateNodeAt,
-    handleAddWorkflowTool,
     handleApplyAsset,
     handleAssetDropAt,
     handleUploadMediaAt,
@@ -268,21 +260,6 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
                 onInfiniteConnectionsChange?.(
                   extractPersistedConnections(nextConnections, items),
                 );
-                if (workflowShell) {
-                  const syncOps = buildWorkflowConnectionSyncOps(
-                    allCanvasNodesRef.current,
-                    nextConnections,
-                  );
-                  if (syncOps.length > 0) {
-                    handleApplyAssistantOps(
-                      syncOps.map(({ nodeId, patch }) => ({
-                        type: "update_node" as const,
-                        id: nodeId,
-                        patch: { metadata: patch },
-                      })),
-                    );
-                  }
-                }
               }}
               onViewportChange={setInfiniteViewport}
               onSelectionChange={handleInfiniteSelectionChange}
@@ -373,16 +350,6 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
               dramaPanelNode={dramaPanelNode}
               showDramaPropertyPanel={!isDramaWorkflowInfiniteView}
               onCloseDramaPanel={() => setDramaPanelNodeId(null)}
-              assistantSnapshot={effectiveAssistantSnapshot}
-              showAssistantPanel={workflowShell || !isDramaWorkflowInfiniteView}
-              onApplyAssistantOps={handleApplyAssistantOps}
-              workflowShell={workflowShell}
-              onAddWorkflowTool={handleAddWorkflowTool}
-              onApplyAsset={handleApplyAsset}
-              onAssetDropAt={handleAssetDropAt}
-              agentPanelWidth={agentPanelWidth}
-              agentPanelDragging={agentPanelDragging}
-              onAgentPanelResizeStart={onAgentPanelResizeStart}
               templateSelectedNodes={templateSelectedNodes}
               templateSelectedConnections={templateSelectedConnections}
               sessionId={sessionId}
@@ -398,6 +365,7 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
               onMediaUploadAt={
                 readOnly ? undefined : handleUploadMediaAt
               }
+              onAssetDropAt={handleAssetDropAt}
               multiSelectActions={multiSelectActions}
               multiSelectNotice={multiSelectNotice}
             />

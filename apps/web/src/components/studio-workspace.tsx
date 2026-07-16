@@ -11,7 +11,6 @@ import { StudioToolHandlersProvider } from "@/components/studio-tool-handlers-pr
 import { StudioDock, studioDockOverlayInsetPx, studioDockScrollInset } from "@/components/studio-dock";
 import { StudioCoach } from "@/components/studio-coach";
 import { StudioHeader } from "@/components/studio-header";
-import { WorkflowTopBar } from "@/components/workflows/WorkflowTopBar";
 import {
   APP_LEFT_RAIL_PAD_CLASS,
   AppLeftRail,
@@ -81,7 +80,6 @@ export function StudioWorkspace({
   initialJobId,
   initialToolId,
   autoSubmitOnce = false,
-  workflowShell = false,
 }: StudioWorkspaceProps) {
   const router = useRouter();
   const mobile = useIsMobile(MOBILE_BREAKPOINT);
@@ -98,7 +96,7 @@ export function StudioWorkspace({
   const clearBrushRef = useRef<(() => void) | null>(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [workspaceCollapsed, setWorkspaceCollapsed] = useState(workflowShell);
+  const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
   const [dockMode, setDockMode] = useState<StudioDockMode>("expanded");
   const [infiniteCanvasActive, setInfiniteCanvasActive] = useState(false);
   const [infiniteSubmitApi, setInfiniteSubmitApi] = useState<{
@@ -572,28 +570,18 @@ export function StudioWorkspace({
     [sessionId, mode, sessionKind, router, activeWorkspaceId],
   );
 
-  /** 移动端与收起工作区时展示顶栏；workflow 壳始终展示极简顶栏 */
-  const showTopBar = workflowShell || mobile || workspaceCollapsed;
+  /** 移动端与收起工作区时展示顶栏 */
+  const showTopBar = mobile || workspaceCollapsed;
 
   return (
     <WorkspaceProvider onWorkspaceChange={handleWorkspaceChange}>
-      {!workflowShell ? (
-        <AppLeftRail
-          variant="studio"
-          onOpenWorkspace={() => setSidebarOpen(true)}
-          onLogin={() => setLoginOpen(true)}
-        />
-      ) : null}
+      <AppLeftRail
+        variant="studio"
+        onOpenWorkspace={() => setSidebarOpen(true)}
+        onLogin={() => setLoginOpen(true)}
+      />
 
-      {workflowShell ? (
-        <WorkflowTopBar
-          sessionId={user ? sessionId : undefined}
-          sessionTitle={sessionTitle}
-          readOnly={readOnly}
-          layoutSaving={layoutSaving}
-          onTitleSaved={handleTitleSaved}
-        />
-      ) : showTopBar ? (
+      {showTopBar ? (
         <StudioHeader
           sessionId={user ? sessionId : undefined}
           sessionTitle={sessionTitle}
@@ -629,12 +617,12 @@ export function StudioWorkspace({
       <StudioCoach />
 
       <div
-        className={`relative flex min-h-0 flex-1 ${workflowShell ? "" : APP_LEFT_RAIL_PAD_CLASS}`}
+        className={`relative flex min-h-0 flex-1 ${APP_LEFT_RAIL_PAD_CLASS}`}
       >
         <StudioWorkspaceSidebar
           showTopBar={showTopBar}
-          sidebarOpen={workflowShell ? false : sidebarOpen}
-          workspaceCollapsed={workflowShell ? true : workspaceCollapsed}
+          sidebarOpen={sidebarOpen}
+          workspaceCollapsed={workspaceCollapsed}
           workspaceWidth={workspaceWidth}
           sessionId={sessionId}
           sessionTitle={sessionTitle}
@@ -713,7 +701,6 @@ export function StudioWorkspace({
             <StudioCanvasWithOrchestration
               key={sessionId}
               ref={canvasRef}
-              workflowShell={workflowShell}
               onInfiniteCanvasActiveChange={setInfiniteCanvasActive}
               onConversationPaneActiveChange={setConversationPaneActive}
               conversationPaneWidth={conversationPaneWidth}
@@ -773,7 +760,7 @@ export function StudioWorkspace({
               statusChip={<ProviderStatusChip />}
             />
 
-            {!infiniteCanvasActive && !workflowShell ? (
+            {!infiniteCanvasActive ? (
             <StudioDock
               mode={dockMode}
               onModeChange={setDockMode}

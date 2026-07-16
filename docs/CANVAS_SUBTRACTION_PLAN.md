@@ -35,7 +35,7 @@
 | Phase | 主题 | 状态 | 目标分支 / PR | 预估 |
 |-------|------|------|---------------|------|
 | **A** | 入口清零 | ✅ 完成 | `enhancement/canvas-subtraction-a` | 2–3 天 |
-| **B** | Workflow 产品线下线 | ⬜ 待开始 | `enhancement/canvas-subtraction-b` | 3–5 天 |
+| **B** | Workflow 产品线下线 | ✅ 完成 | `enhancement/canvas-subtraction-b` | 3–5 天 |
 | **C** | Drama/Production 产品线下线 | ⬜ 待开始 | `enhancement/canvas-subtraction-c` | 5–7 天 |
 | **D** | 引擎与数据收尾 | ⬜ 待开始 | `enhancement/canvas-subtraction-d` | 3–5 天 |
 | **E** | Infinite 引擎去留（可选） | ⬜ 待定 | `enhancement/canvas-subtraction-e` | 2–3 天 |
@@ -115,19 +115,19 @@ enhancement/canvas-subtraction-b   # Phase B
 
 | ID | 任务 | 状态 | 涉及文件 | 验证 |
 |----|------|------|----------|------|
-| B-1 | 删除 `components/workflows/*` | ⬜ | `WorkflowTopBar`, `WorkflowCard`, `CreateWorkflowButton`, `WorkflowLeftPanel`, `WorkflowToolPalette`, `WorkflowToolNodeContent` | 目录不存在 |
-| B-2 | 删除 workflow lib | ⬜ | `workflow-shell.ts`, `workflow-tool-run.ts`, `workflow-graph-sync.ts`, `workflow-generation-poller.ts`, `workflow-template-apply.ts` | 零引用 |
-| B-3 | 删除 workflow API client | ⬜ | `lib/api/workflow-agent.ts`, `lib/api/workflow-templates.ts`, `lib/api/story-canvas*.ts` | 零引用 |
-| B-4 | 删除 `workflowShell` prop 链 | ⬜ | `studio-workspace.tsx`, `studio-workspace-types.ts`, `studio-canvas-with-orchestration.tsx`, `design-canvas-types.ts` | 无 `workflowShell` 符号 |
-| B-5 | 删除 Infinite Workflow Agent 面板 | ⬜ | `infinite-canvas/agent/*` | 目录不存在 |
-| B-6 | 清理 `InfiniteCanvasPane` workflow 分支 | ⬜ | `canvas-panes/InfiniteCanvasPane.tsx` | 无 `WorkflowLeftPanel` 引用 |
-| B-7 | 清理 `CanvasNode` 工具节点 | ⬜ | `infinite-canvas/CanvasNode.tsx` | 无 `WorkflowToolNodeContent` |
-| B-8 | 删除 API `workflow-agent` 路由 | ⬜ | `apps/api/src/routes/workflow-agent.ts`, `apps/api/src/index.ts` | 路由不存在 |
-| B-9 | 删除 API `workflow-templates` 路由 | ⬜ | `apps/api/src/routes/workflow-templates.ts` | 路由不存在 |
-| B-10 | 删除 API `story-canvas` 路由 | ⬜ | `apps/api/src/routes/story-canvas.ts`, `story-canvas-share.ts` | 路由不存在 |
-| B-11 | 删除 workflow 单测脚本 | ⬜ | `scripts/test-workflow-*.ts` | 文件不存在 |
-| B-12 | 删除 workflow E2E | ⬜ | `e2e/workflow-*.spec.ts`, `e2e/workflows-list.spec.ts` | 文件不存在 |
-| B-13 | 清理 `TemplateManager` workflow 引用 | ⬜ | `infinite-canvas/TemplateManager.tsx` | 无 workflow 模板逻辑或整文件删除 |
+| B-1 | 删除 `components/workflows/*` | ✅ | `WorkflowTopBar`, `WorkflowCard`, `CreateWorkflowButton`, `WorkflowLeftPanel`, `WorkflowToolPalette`, `WorkflowToolNodeContent` | 目录不存在 |
+| B-2 | 删除 workflow lib | ✅ | `workflow-shell.ts`, `workflow-tool-run.ts`, `workflow-graph-sync.ts`, `workflow-generation-poller.ts`, `workflow-template-apply.ts` | 零引用 |
+| B-3 | 删除 workflow API client | ✅ | `lib/api/workflow-agent.ts`, `lib/api/workflow-templates.ts`, `lib/api/story-canvas*.ts` | 零引用 |
+| B-4 | 删除 `workflowShell` prop 链 | ✅ | `studio-workspace.tsx`, `studio-workspace-types.ts`, `studio-canvas-with-orchestration.tsx`, `design-canvas-types.ts` | 无 `workflowShell` 符号 |
+| B-5 | 删除 Infinite Workflow Agent 面板 | ✅ | `infinite-canvas/agent/*` | 目录不存在 |
+| B-6 | 清理 `InfiniteCanvasPane` workflow 分支 | ✅ | `canvas-panes/InfiniteCanvasPane.tsx` | 无 `WorkflowLeftPanel` 引用 |
+| B-7 | 清理 `CanvasNode` 工具节点 | ✅ | `infinite-canvas/CanvasNode.tsx` | 无 `WorkflowToolNodeContent` |
+| B-8 | 删除 API `workflow-agent` 路由 | ✅ | `apps/api/src/routes/workflow-agent.ts`, `apps/api/src/index.ts` | 路由不存在 |
+| B-9 | 删除 API `workflow-templates` 路由 | ✅ | `apps/api/src/routes/workflow-templates.ts` | 路由不存在 |
+| B-10 | 删除 API `story-canvas` 路由 | ✅ | `apps/api/src/routes/story-canvas.ts`, `story-canvas-share.ts` | 路由不存在 |
+| B-11 | 删除 workflow 单测脚本 | ✅ | `scripts/test-workflow-*.ts` | 文件不存在 |
+| B-12 | 删除 workflow E2E | ✅ | `e2e/workflow-*.spec.ts`, `e2e/workflows-list.spec.ts` | 文件不存在 |
+| B-13 | 清理 `TemplateManager` workflow 引用 | ✅ | `infinite-canvas/TemplateManager.tsx` | 无 workflow 模板逻辑或整文件删除 |
 
 ### Phase B 完成标准
 
@@ -297,20 +297,20 @@ enhancement/canvas-subtraction-b   # Phase B
 
 ### Phase B — Workflow 下线
 
-- [ ] B-1 删除 `components/workflows/*`
-- [ ] B-2 删除 workflow lib
-- [ ] B-3 删除 workflow API client
-- [ ] B-4 删除 `workflowShell` prop 链
-- [ ] B-5 删除 `infinite-canvas/agent/*`
-- [ ] B-6 清理 `InfiniteCanvasPane`
-- [ ] B-7 清理 `CanvasNode` 工具节点
-- [ ] B-8 删除 API `workflow-agent`
-- [ ] B-9 删除 API `workflow-templates`
-- [ ] B-10 删除 API `story-canvas`
-- [ ] B-11 删除 workflow 单测脚本
-- [ ] B-12 删除 workflow E2E
-- [ ] B-13 清理 `TemplateManager`
-- [ ] **Phase B 验证**：integration 绿
+- [x] B-1 删除 `components/workflows/*`
+- [x] B-2 删除 workflow lib
+- [x] B-3 删除 workflow API client
+- [x] B-4 删除 `workflowShell` prop 链
+- [x] B-5 删除 `infinite-canvas/agent/*`
+- [x] B-6 清理 `InfiniteCanvasPane`
+- [x] B-7 清理 `CanvasNode` 工具节点
+- [x] B-8 删除 API `workflow-agent`
+- [x] B-9 删除 API `workflow-templates`
+- [x] B-10 删除 API `story-canvas`
+- [x] B-11 删除 workflow 单测脚本
+- [x] B-12 删除 workflow E2E
+- [x] B-13 清理 `TemplateManager`
+- [x] **Phase B 验证**：typecheck 绿
 
 ### Phase C — Drama/Production 下线
 
@@ -406,7 +406,7 @@ enhancement/canvas-subtraction-b   # Phase B
 | 日期 | PR | 内容 |
 |------|-----|------|
 | 2026-07-14 | — | 创建计划文档；方案评审通过 |
-| 2026-07-14 | enhancement/canvas-subtraction-a | Phase A 入口清零实施中 |
+| 2026-07-16 | enhancement/canvas-subtraction-b | Phase B Workflow 产品线下线 |
 
 ---
 

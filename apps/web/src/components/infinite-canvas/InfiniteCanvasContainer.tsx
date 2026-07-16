@@ -18,9 +18,6 @@ import {
   canConnectNodes,
 } from "@/lib/canvas-connection-ux";
 import { canvasTheme, type CanvasBackgroundMode } from "./canvas-theme";
-import { CanvasChromeBar } from "./CanvasChromeBar";
-import { CanvasGuideCapsule } from "./CanvasGuideCapsule";
-import { infiniteLeftChromeBottom } from "./infinite-canvas-layout";
 import { InfiniteCanvas } from "./InfiniteCanvas";
 import { CanvasNode } from "./CanvasNode";
 import { ConnectionPath, ActiveConnectionPath, getConnectionPathGeometry } from "./CanvasConnections";
@@ -78,8 +75,6 @@ export type InfiniteCanvasContainerProps = {
   showZoomControls?: boolean;
   /** 左下角控件需额外抬高的像素（避开 StudioDock） */
   overlayBottomInsetPx?: number;
-  /** 工作流壳层：为 true 时显示左下 guide + chrome */
-  workflowShell?: boolean;
   readOnly?: boolean;
   /** 拖入/粘贴媒体文件时在落点上传并创建节点 */
   onMediaUploadAt?: (files: File[], world: Position) => void;
@@ -151,7 +146,6 @@ export function InfiniteCanvasContainer({
   showMiniMap: showMiniMapProp,
   showZoomControls: showZoomControlsProp,
   overlayBottomInsetPx = 0,
-  workflowShell = false,
   readOnly = false,
   onMediaUploadAt,
   onAssetDropAt,
@@ -1266,29 +1260,6 @@ export function InfiniteCanvasContainer({
           bottomInsetPx={overlayBottomInsetPx}
         />
       )}
-
-      {/* Left-bottom guide + chrome toggles (workflow shell only) */}
-      {workflowShell ? (
-        <div
-          className="absolute left-4 z-50 flex items-end gap-2"
-          style={{ bottom: infiniteLeftChromeBottom(overlayBottomInsetPx) }}
-          data-canvas-no-zoom
-          onMouseDown={(event) => event.stopPropagation()}
-          onPointerDown={(event) => event.stopPropagation()}
-        >
-          <CanvasGuideCapsule workflowShell={workflowShell} />
-          <CanvasChromeBar
-            gridOn={gridOn}
-            snapOn={snapOn}
-            edgeAnimOn={edgeAnimOn}
-            viewLocked={viewLocked}
-            onGridChange={setGridOn}
-            onSnapChange={setSnapOn}
-            onEdgeAnimChange={setEdgeAnimOn}
-            onViewLockedChange={setViewLocked}
-          />
-        </div>
-      ) : null}
 
       {/* Zoom controls */}
       {showZoomControlsProp !== false && (

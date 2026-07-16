@@ -38,20 +38,15 @@ const audioSource = node({
 });
 
 const imageSink = node({
-  id: "img-tool-1",
+  id: "img-1",
   type: CanvasNodeType.Image,
-  title: "文生图",
-  metadata: { workflowToolType: "TEXT_TO_IMAGE" },
+  title: "图片",
 });
 
-const audioToImage = canConnectNodes(audioSource, imageSink);
-assert(
-  "AUDIO→IMAGE workflow tool rejects",
-  !audioToImage.ok && audioToImage.reason?.includes("音频"),
-);
+assert("AUDIO→IMAGE allows (workflow rules removed)", canConnectNodes(audioSource, imageSink).ok === true);
 
 const imageSource = node({
-  id: "img-1",
+  id: "img-2",
   type: CanvasNodeType.Image,
   title: "参考图",
 });
@@ -60,33 +55,14 @@ const outpaintTarget = node({
   id: "outpaint-1",
   type: CanvasNodeType.Image,
   title: "扩图",
-  metadata: { workflowToolType: "IMAGE_OUTPAINTING" },
 });
 
-assert(
-  "IMAGE→IMAGE_OUTPAINTING allows",
-  canConnectNodes(imageSource, outpaintTarget).ok === true,
-);
+assert("IMAGE→IMAGE allows", canConnectNodes(imageSource, outpaintTarget).ok === true);
 
-const poseTarget = node({
-  id: "pose-1",
-  type: CanvasNodeType.Image,
-  title: "姿势参考",
-  metadata: { workflowToolType: "POSE_REFERENCE" },
-});
+assert("self-connect rejects", !canConnectNodes(imageSource, imageSource).ok);
 
 assert(
-  "IMAGE→POSE_REFERENCE allows",
-  canConnectNodes(imageSource, poseTarget).ok === true,
-);
-
-assert(
-  "self-connect rejects",
-  !canConnectNodes(imageSource, imageSource).ok,
-);
-
-assert(
-  "generic image target allows audio (unsure)",
+  "generic image target allows audio",
   canConnectNodes(
     audioSource,
     node({ id: "plain-img", type: CanvasNodeType.Image }),
