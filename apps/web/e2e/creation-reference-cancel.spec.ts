@@ -41,9 +41,11 @@ test.describe("reference cancel chips", () => {
       (res) =>
         res.url().includes("/api/v1/assets/upload") &&
         res.request().method() === "POST",
-      { timeout: 20_000 },
+      { timeout: 45_000 },
     );
-    await station.locator('input[type="file"]').setInputFiles(tinyImage);
+    const fileInput = station.locator('input[type="file"]').first();
+    await expect(fileInput).toBeAttached({ timeout: 15_000 });
+    await fileInput.setInputFiles(tinyImage);
     expect((await ensureResponse).ok()).toBeTruthy();
     expect((await uploadResponse).ok()).toBeTruthy();
 

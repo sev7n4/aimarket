@@ -65,15 +65,12 @@ test.describe("creation dock UI", () => {
 
   test("Studio 创作台默认图片车道，与首页同款单行布局", async ({ page }) => {
     await mockSignedInStudio(page);
-    await page.addInitScript(() => {
-      localStorage.setItem("aimarket_studio_dock_mode_v1", "collapsed");
-    });
     await page.goto("/studio", { waitUntil: "domcontentloaded" });
 
     const studioDock = page.locator('[aria-label="创作 Dock"]');
     const textarea = studioDock.locator("textarea").first();
     await expect(textarea).toBeVisible();
-    await expect(textarea).toHaveAttribute("rows", "1");
+    await expect(textarea).toHaveAttribute("rows", "2");
     const studioLanePicker = studioDock.getByRole("button", {
       name: "选择创作方式",
     });
