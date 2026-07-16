@@ -34,7 +34,7 @@ export function CanvasContextMenu({
         {groups.map((group) => (
           <div key={group.id}>
             {group.actions.map((action) => {
-              const Icon = action.icon as LucideIcon;
+              const Icon = action.icon as LucideIcon | undefined;
               const disabled = !action.onClick;
               return (
                 <div key={action.id}>
@@ -47,7 +47,9 @@ export function CanvasContextMenu({
                     onClick={action.onClick}
                   >
                     <span className="inline-flex items-center gap-2">
-                      <Icon className="size-3.5 shrink-0" />
+                      {Icon ? (
+                        <Icon className="size-3.5 shrink-0" />
+                      ) : null}
                       {action.label}
                     </span>
                   </button>

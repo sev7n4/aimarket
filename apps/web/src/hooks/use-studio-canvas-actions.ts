@@ -12,7 +12,7 @@ import {
   createUploadCanvasItem,
 } from "@/lib/canvas-tools";
 import { extractVideoLastFrame } from "@/lib/video-frame-extract";
-import type { StudioMentionItemRequest } from "@/lib/canvas-node-handlers";
+import type { StudioMentionItemRequest } from "@/lib/studio-tool-handler-types";
 import { hapticLight } from "@/lib/haptics";
 
 export interface UseStudioCanvasActionsParams {

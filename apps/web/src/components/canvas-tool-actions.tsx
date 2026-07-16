@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import type { OverflowIconAction } from "@/components/overflow-icon-row";
 import type { CanvasItem } from "@/lib/canvas-tools";
 import { studioToolIcon } from "@/lib/studio-tool-icons";
+import { OFFLINE_CANVAS_TOOLS } from "@/lib/studio-tool-interaction";
 import { toolShortLabel } from "@/lib/studio-tool-meta";
 import type { StudioTool } from "@/lib/types";
 
@@ -18,7 +19,7 @@ export function buildCanvasToolActions(opts: {
   const actions: OverflowIconAction[] = [];
 
   const visibleTools = tools
-    .filter((t) => !t.clientOnly)
+    .filter((t) => !t.clientOnly && !OFFLINE_CANVAS_TOOLS.has(t.id))
     .sort((a, b) => {
       if (a.id === "focus-edit") return -1;
       if (b.id === "focus-edit") return 1;

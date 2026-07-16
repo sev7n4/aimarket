@@ -1,6 +1,6 @@
 # Infinite Canvas 集成 Spec
 
-> **归档（2026-07-16）**：Phase D 已完成 Scroll-only 收敛；FreeCanvas 已删除，InfiniteCanvasPane 不再挂载。本 spec 仅作历史参考，Phase E 将决定 `infinite-canvas/` 目录去留。见 [CANVAS_SUBTRACTION_PLAN.md](../../../docs/CANVAS_SUBTRACTION_PLAN.md)。
+> **归档（2026-07-16，Phase E）**：Infinite 引擎已删除；Studio 仅 ScrollCanvas。本 spec 仅作历史参考。见 [CANVAS_SUBTRACTION_PLAN.md](../../../docs/CANVAS_SUBTRACTION_PLAN.md)。
 
 ## Why
 LibTV 已建立"无限画布 + 节点式工作流 + Agent Skill 开放生态"壁垒。AIMarket 现有三套割裂画布（ScrollCanvas / FreeCanvas / CanvasFlow），Drama 组件通过 `alternateCanvasContent` 替换式注入，前端无 Agent 对话循环。需借鉴 `/Users/4seven/workspace/infinite-canvas` 开源仓库，统一画布引擎，实现 Drama 节点化和 Agent 对话式操控。

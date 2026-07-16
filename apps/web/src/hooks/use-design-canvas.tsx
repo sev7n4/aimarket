@@ -48,7 +48,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
   } = props;
 
   const onCutoutItem = nodeActions?.onCutoutItem;
-  const onExpandItem = nodeActions?.onExpandItem;
   const onRerun = nodeActions?.onRerun;
   const onDownloadItem = nodeActions?.onDownloadItem;
   const onShareItem = nodeActions?.onShareItem;
@@ -223,7 +222,6 @@ export function useDesignCanvas(props: DesignCanvasProps, ref: Ref<DesignCanvasH
     setContextMenu,
     onDownload,
     onCutoutItem,
-    onExpandItem,
     onDeleteSelected,
     selectionToolbar,
     statusChip,

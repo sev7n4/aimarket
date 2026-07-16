@@ -14,7 +14,7 @@ import {
   type FocusEditSession,
   type FocusPointChip,
 } from "@/lib/focus-edit";
-import type { StudioMentionItemRequest } from "@/lib/canvas-node-handlers";
+import type { StudioMentionItemRequest } from "@/lib/studio-tool-handler-types";
 import { focusIndexLabel } from "@/lib/focus-index-labels";
 import { resolveToolResolution } from "@/lib/tool-resolution";
 import { hapticLight } from "@/lib/haptics";
@@ -35,7 +35,6 @@ export interface UseStudioFocusEditParams {
   setDockMode: React.Dispatch<
     React.SetStateAction<import("@/lib/studio-dock-state").StudioDockMode>
   >;
-  clearBrushRequest?: () => void;
   canvasRef: RefObject<DesignCanvasHandle | null>;
   registerToolBatchLineage: (
     jobId: string,
@@ -55,7 +54,6 @@ export function useStudioFocusEdit({
   setMentionItemRequest,
   setSelectedCanvasId,
   setDockMode,
-  clearBrushRequest,
   canvasRef,
   registerToolBatchLineage,
   setPollingJobId,
@@ -82,7 +80,6 @@ export function useStudioFocusEdit({
       item: CanvasItem,
       opts?: { intent?: "edit" | "replace"; promptHint?: string },
     ) => {
-      clearBrushRequest?.();
       setFocusEditSession({
         itemId: item.id,
         points: [],
@@ -104,7 +101,6 @@ export function useStudioFocusEdit({
       hapticLight();
     },
     [
-      clearBrushRequest,
       setMentionItemRequest,
       setSelectSourceBanner,
       setSelectedCanvasId,

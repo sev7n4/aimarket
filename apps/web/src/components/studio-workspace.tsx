@@ -64,7 +64,7 @@ import {
   STUDIO_SIDEBAR_SESSION_LIMIT,
   useStudioSessionBootstrap,
 } from "@/hooks/use-studio-session-bootstrap";
-import type { StudioMentionItemRequest } from "@/lib/canvas-node-handlers";
+import type { StudioMentionItemRequest } from "@/lib/studio-tool-handler-types";
 
 import type { StudioWorkspaceProps } from "@/components/studio-workspace-types";
 
@@ -92,7 +92,6 @@ export function StudioWorkspace({
   const { user, loading: authLoading, refreshUser } = useAuth();
   const uploadRef = useRef<HTMLInputElement>(null);
   const bgmInputRef = useRef<HTMLInputElement>(null);
-  const clearBrushRef = useRef<(() => void) | null>(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
@@ -154,8 +153,6 @@ export function StudioWorkspace({
     const {
     items: canvasItems,
     setItems: setCanvasItems,
-    infiniteConnections,
-    setInfiniteConnections,
     load: loadCanvas,
     registerBatchLineage,
     canEdit: canvasCanEdit,
@@ -414,7 +411,6 @@ export function StudioWorkspace({
     setMentionItemRequest,
     setSelectedCanvasId,
     setDockMode,
-    clearBrushRequest: () => clearBrushRef.current?.(),
     canvasRef,
     registerToolBatchLineage,
     setPollingJobId,
@@ -425,14 +421,8 @@ export function StudioWorkspace({
     toolConfirm,
     toolConfirmPending,
     setToolConfirm,
-    brushRequest,
-    setBrushRequest,
-    expandRequest,
-    setExpandRequest,
     runSelectionTool,
     runQuickToolFromCanvas,
-    runInfiniteNodeTool,
-    runAgentGeneration,
     executeDirectTool,
     confirmTool,
   } = useStudioToolHandlers({
@@ -452,8 +442,6 @@ export function StudioWorkspace({
     setMentionItemRequest,
     startFocusEditMode,
   });
-
-  clearBrushRef.current = () => setBrushRequest(null);
 
   const {
     videoActionBusy,
@@ -492,16 +480,10 @@ export function StudioWorkspace({
     canvasItems,
     selectedCanvasItem,
     pendingToolId,
-    brushRequest,
-    setBrushRequest,
-    expandRequest,
-    setExpandRequest,
     focusClickRequest,
     handleFocusImageClick,
     runSelectionTool,
     runQuickToolFromCanvas,
-    runInfiniteNodeTool,
-    runAgentGeneration,
     executeDirectTool,
     handleRerun,
     handleExtractVideoLastFrame,
@@ -648,8 +630,6 @@ export function StudioWorkspace({
                 onConversationPaneResizeStart={handleConversationPaneResizeStart}
                 conversationPaneResizing={conversationPaneResizing}
                 items={canvasItems}
-                infiniteConnections={infiniteConnections}
-                onInfiniteConnectionsChange={setInfiniteConnections}
                 onJumpToParentBatch={handleJumpToParentBatch}
                 selectedId={selectedCanvasId}
                 onSelect={(id) => {

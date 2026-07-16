@@ -19,7 +19,6 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
     onSelect,
     onDownload,
     onCutoutItem,
-    onExpandItem,
     onDeleteSelected,
     scrollCanvasRef,
     productGalleryProps,
@@ -68,20 +67,6 @@ export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
         onDownload={onDownload}
         onDeleteSelected={onDeleteSelected}
         onCutoutItem={onCutoutItem}
-        onExpandItem={onExpandItem}
-        infiniteContextMenu={null}
-        onCloseInfiniteContextMenu={() => {}}
-        getInfiniteNodeMenuHandlers={() => ({})}
-        paneCreateMenu={null}
-        onClosePaneCreateMenu={() => {}}
-        allowDramaNodeCreate={false}
-        onCreateNodeAt={() => {}}
-        connectionCreateMenu={null}
-        onCloseConnectionCreateMenu={() => {}}
-        onCreateDownstreamNode={() => {}}
-        connectionContextMenu={null}
-        onCloseConnectionContextMenu={() => {}}
-        onDeleteConnection={() => {}}
       />
 
       {lightbox ? (

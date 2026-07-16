@@ -15,6 +15,11 @@ const BANNED = [
   "FreeCanvasPane",
   "isRefineMode",
   "showFreeCanvas",
+  "infinite-canvas/",
+  "InfiniteCanvasPane",
+  "expand-frame-overlay",
+  "useMaskBrush",
+  "use-mask-brush",
 ] as const;
 
 const results: { name: string; pass: boolean; detail?: string }[] = [];

@@ -15,17 +15,12 @@ import {
 } from "@/lib/studio-tool-meta";
 import { resolveToolResolution } from "@/lib/tool-resolution";
 import {
-  EXPAND_ASPECT_PRESETS,
-  type ExpandAspectPreset,
-} from "@/lib/expand-frame";
-import {
   TEXT_FONT_OPTIONS,
   TEXT_SIZE_OPTIONS,
   buildTextToolPrompt,
   type TextFontId,
   type TextSizeId,
 } from "@/lib/text-tool-options";
-import type { ExpandExtend } from "@/lib/expand-extend";
 
 export interface ToolConfirmRequest {
   tool: StudioTool;
@@ -39,10 +34,6 @@ export interface ToolConfirmOptions {
   prompt?: string;
   scale?: "2x" | "4x";
   intent?: "edit" | "replace";
-  /** 扩图方向 → API extend.direction（旧版方向选择，画布扩图框优先） */
-  expandDirection?: string | null;
-  expandExtend?: ExpandExtend;
-  expandAspectPreset?: ExpandAspectPreset;
   textFontId?: TextFontId;
   textSizeId?: TextSizeId;
 }
@@ -56,33 +47,6 @@ interface ToolConfirmDialogProps {
 
 const VARIATION_COUNTS = [1, 2, 4] as const;
 const UPSCALE_SCALES = ["2x", "4x"] as const;
-
-function OptionChip({
-  active,
-  disabled,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={`rounded-lg border px-2.5 py-1.5 text-xs transition ${
-        active
-          ? "border-orange-500/60 bg-orange-500/15 text-orange-200"
-          : "border-white/10 text-zinc-400 hover:border-white/20 disabled:opacity-50"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
 
 function ToolPreview({ item }: { item: CanvasItem }) {
   return (
@@ -131,8 +95,6 @@ export function ToolConfirmDialog({
   const [scale, setScale] = useState<"2x" | "4x">("2x");
   const [intent, setIntent] = useState<"edit" | "replace">("edit");
   const [prompt, setPrompt] = useState("");
-  const [expandAspectPreset, setExpandAspectPreset] =
-    useState<ExpandAspectPreset>("free");
   const [textFontId, setTextFontId] = useState<TextFontId>("sans");
   const [textSizeId, setTextSizeId] = useState<TextSizeId>("md");
 
@@ -142,7 +104,6 @@ export function ToolConfirmDialog({
     setScale("2x");
     setIntent("edit");
     setPrompt("");
-    setExpandAspectPreset("free");
     setTextFontId("sans");
     setTextSizeId("md");
   }, [request?.tool.id, request?.item.id]);
@@ -172,11 +133,9 @@ export function ToolConfirmDialog({
     resolved;
 
   const resolvedPrompt =
-    tool.id === "expand"
-      ? prompt.trim() || tool.defaultPrompt
-      : tool.id === "text" && prompt.trim()
-        ? buildTextToolPrompt(prompt, textFontId, textSizeId)
-        : prompt.trim();
+    tool.id === "text" && prompt.trim()
+      ? buildTextToolPrompt(prompt, textFontId, textSizeId)
+      : prompt.trim();
 
   const confirmDisabled =
     pending || (tool.id === "text" && !prompt.trim());
@@ -187,8 +146,6 @@ export function ToolConfirmDialog({
       prompt: resolvedPrompt || undefined,
       scale: tool.id === "upscale" ? scale : undefined,
       intent: tool.id === "focus-edit" ? intent : undefined,
-      expandAspectPreset:
-        tool.id === "expand" ? expandAspectPreset : undefined,
       textFontId: tool.id === "text" ? textFontId : undefined,
       textSizeId: tool.id === "text" ? textSizeId : undefined,
     });
@@ -290,58 +247,6 @@ export function ToolConfirmDialog({
         {tool.id === "enhance" ? (
           <div className="mt-3 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[11px] text-zinc-500">
             适合预览稿、截图或轻度模糊图；不会大幅改变构图与色彩风格。
-          </div>
-        ) : null}
-
-        {tool.id === "expand" ? (
-          <div className="mt-3 space-y-2">
-            <p className="text-[11px] text-zinc-500">画布比例（拖拽外框时可锁定）</p>
-            <div className="flex flex-wrap gap-1.5">
-              {EXPAND_ASPECT_PRESETS.map((p) => (
-                <OptionChip
-                  key={p.id}
-                  active={expandAspectPreset === p.id}
-                  disabled={pending}
-                  onClick={() => setExpandAspectPreset(p.id)}
-                >
-                  {p.label}
-                </OptionChip>
-              ))}
-            </div>
-            <div className="rounded-lg border border-dashed border-orange-500/25 bg-orange-500/[0.06] px-3 py-2 text-[11px] text-orange-200/90">
-              下一步：在画布上拖拽四角与四边调整扩图范围
-            </div>
-            <textarea
-              value={prompt}
-              disabled={pending}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder={placeholder}
-              rows={2}
-              className="w-full resize-none rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:border-orange-500/40 focus:outline-none"
-            />
-          </div>
-        ) : null}
-
-        {tool.id === "erase" || tool.id === "inpaint" ? (
-          <div className="mt-3 space-y-2">
-            <div className="rounded-lg border border-dashed border-orange-500/25 bg-orange-500/[0.06] px-3 py-2 text-[11px] text-orange-200/90">
-              下一步：在画布上用画笔涂抹
-              {tool.id === "erase" ? "要消除" : "要修改"}的区域（支持滑块调画笔、撤销/重做/清空）
-            </div>
-            {tool.id === "erase" ? (
-              <textarea
-                value={prompt}
-                disabled={pending}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder={placeholder}
-                rows={1}
-                className="w-full resize-none rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:border-orange-500/40 focus:outline-none"
-              />
-            ) : (
-              <p className="text-[10px] text-zinc-600">
-                局改：先完成圈选，再在工作台填写修改提示词
-              </p>
-            )}
           </div>
         ) : null}
 

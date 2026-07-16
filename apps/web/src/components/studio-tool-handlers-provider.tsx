@@ -7,15 +7,9 @@ import type { DesignCanvasProps } from "@/components/design-canvas-types";
 export type StudioCanvasToolProps = Pick<
   DesignCanvasProps,
   | "nodeActions"
-  | "brushRequest"
-  | "expandRequest"
   | "focusClickRequest"
   | "onFocusImageClick"
   | "onFocusClickCancel"
-  | "onExpandCancel"
-  | "onExpandComplete"
-  | "onBrushCancel"
-  | "onBrushComplete"
   | "selectionToolbar"
 >;
 
