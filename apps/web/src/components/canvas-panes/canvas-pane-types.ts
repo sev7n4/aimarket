@@ -111,6 +111,3 @@ export type InfiniteCanvasPaneProps = CanvasPaneBaseProps & {
 
 /** Scroll 画布 Pane（P3-3）— 见 ScrollCanvasPane.tsx */
 export type { ScrollCanvasPaneProps } from "./ScrollCanvasPane";
-
-/** Free / Refine 画布 Pane（P3-4）— 见 FreeCanvasPane.tsx */
-export type { FreeCanvasPaneProps } from "./FreeCanvasPane";

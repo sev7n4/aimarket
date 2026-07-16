@@ -1,485 +1,96 @@
 "use client";
 
-import { CanvasToolbar } from "@/components/canvas-toolbar";
 import { CanvasLightbox } from "@/components/canvas-lightbox";
-import { InfiniteCanvasPane } from "@/components/canvas-panes/InfiniteCanvasPane";
 import { ScrollCanvasPane } from "@/components/canvas-panes/ScrollCanvasPane";
-import { FreeCanvasPane } from "@/components/canvas-panes/FreeCanvasPane";
 import { DesignCanvasChrome } from "@/components/canvas-panes/DesignCanvasChrome";
 import { CanvasPaneMenus } from "@/components/canvas-panes/CanvasPaneMenus";
-import { InfiniteCanvasToolPanels } from "@/components/canvas-panes/InfiniteCanvasToolPanels";
-import { resolveNodeImageUrl } from "@/lib/infinite-node-tool-run";
-import { applyNodePositionsToItems } from "@/components/infinite-canvas/migration";
-import { extractPersistedConnections, isDramaNodeId } from "@/components/infinite-canvas/sync-infinite-snapshot";
-import type { CanvasNodeData } from "@/components/infinite-canvas/types";
-import type { ContextMenuState } from "@/components/infinite-canvas/types";
 import type { DesignCanvasViewModel } from "@/hooks/use-design-canvas";
 
 export function DesignCanvasView({ vm }: { vm: DesignCanvasViewModel }) {
   const {
     mobile,
-    showFreeCanvas,
-    tool,
-    gridOn,
-    handleTool,
-    canUndo,
-    canRedo,
     selectSourceBanner,
     showFailureBannerDismiss,
     onDismissJobFailure,
-    isRefineMode,
-    exitRefineMode,
-    refineCompleteNotice,
-    compareAvailable,
-    compareMode,
-    setCompareMode,
     focusClickActive,
     focusClickRequest,
     onFocusClickCancel,
-    useInfiniteCanvas,
-    items,
     selectedId,
     onSelect,
-    readOnly,
-    infiniteCanvasAreaRef,
-    allCanvasNodes,
-    canvasConnections,
-    infiniteViewport,
-    setInfiniteViewport,
-    infiniteSelectedIds,
-    multiSelectActions,
-    multiSelectNotice,
-    overlayBottomInsetPx,
-    showInfiniteJobOverlay,
-    jobFailed,
-    jobStreamStatus,
-    jobErrorMessage,
-    jobProgressCompleted,
-    jobProgressTotal,
-    jobElapsedMs,
-    queueAhead,
-    onOpenChatPanel,
-    onCancelJob,
-    renderInfiniteNodeStudioPanel,
-    applyingAssistantOpsRef,
-    onItemsChange,
-    onInfiniteConnectionsChange,
-    handleInfiniteSelectionChange,
-    setConnectionCreateMenu,
-    setInfiniteContextMenu,
-    setConnectionContextMenu,
-    setPaneCreateMenu,
-    allCanvasNodesRef,
-    showInfiniteEmptyPrompt,
-    infiniteEmptyCreation,
-    openInfiniteCenterCreateMenu,
-    handleNodeCreateToggleClick,
-    showTemplateManager,
-    setShowTemplateManager,
-    showMusicGenPanel,
-    setShowMusicGenPanel,
-    templateSelectedNodes,
-    templateSelectedConnections,
-    sessionId,
-    infiniteOrchestrationDock,
-    legacyInfiniteOrchestrationDock,
-    scrollBottomInset,
-    freeCanvasRef,
-    batchSections,
-    handleItemsChangeWithHistory,
-    emptyHint,
-    pulseId,
-    refineItemId,
-    refineRootItemId,
-    refineChain,
-    selectRefineTarget,
-    comparePair,
-    setLightbox,
-    setContextMenu,
-    onJumpToParentBatch,
+    onDownload,
+    onCutoutItem,
+    onExpandItem,
     onDeleteSelected,
-    onRerun,
-    setTool,
-    brushRequest,
-    onBrushComplete,
-    onBrushCancel,
-    expandRequest,
-    onExpandComplete,
-    onExpandCancel,
-    onFocusImageClick,
-    selectionToolbar,
-    statusChip,
     scrollCanvasRef,
     productGalleryProps,
     conversationPaneActive,
     conversationPaneWidth,
     onConversationPaneResizeStart,
     conversationPaneResizing,
+    scrollBottomInset,
     contextMenu,
-    onDownload,
-    onCutoutItem,
-    onExpandItem,
-    infiniteContextMenu,
-    getInfiniteNodeMenuHandlers,
-    paneCreateMenu,
-    allowDramaNodeCreate,
-    handleCreateNodeAt,
-    handleApplyAsset,
-    handleAssetDropAt,
-    handleUploadMediaAt,
-    mediaUploadInputRef,
-    onMediaFileInputChange,
-    handlePaneUploadMedia,
-    connectionCreateMenu,
-    handleCreateDownstreamNode,
-    connectionContextMenu,
-    handleDeleteConnection,
-    selectedConnectionId,
-    setSelectedConnectionId,
-    handleNodeTitleChange,
-    showVideoInpaint,
-    setShowVideoInpaint,
-    videoInpaintSubmitting,
-    onRunInfiniteNodeTool,
-    contextMenuForItem,
-    showLighting,
-    setShowLighting,
-    runInfiniteNodeTool,
-    showCamera,
-    setShowCamera,
+    setContextMenu,
     lightbox,
-    enterRefineMode,
-    setVideoInpaintSubmitting,
+    setLightbox,
   } = vm;
+
   return (
-      <div
-        className={`flex min-h-0 min-w-0 flex-1 overflow-hidden bg-[#0d0d0d] ${
-          mobile ? "flex-col" : "flex-row"
-        }`}
-      >
-        {!mobile && showFreeCanvas ? (
-          <CanvasToolbar
-            active={tool}
-            gridOn={gridOn}
-            onTool={handleTool}
-            layoutMode="free"
-            canUndo={canUndo}
-            canRedo={canRedo}
-          />
-        ) : null}
-
-        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-          <DesignCanvasChrome
-            selectSourceBanner={selectSourceBanner}
-            showFailureBannerDismiss={showFailureBannerDismiss}
-            onDismissJobFailure={onDismissJobFailure}
-            isRefineMode={isRefineMode}
-            onExitRefineMode={exitRefineMode}
-            refineCompleteNotice={refineCompleteNotice}
-            compareAvailable={compareAvailable}
-            compareMode={compareMode}
-            onToggleCompareMode={() => setCompareMode((v) => !v)}
-            focusClickActive={focusClickActive}
-            focusClickRequest={focusClickRequest}
-            onFocusClickCancel={onFocusClickCancel}
-          />
-
-          {useInfiniteCanvas ? (
-            <>
-            <InfiniteCanvasPane
-              items={items}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              readOnly={readOnly}
-              areaRef={infiniteCanvasAreaRef}
-              nodes={allCanvasNodes}
-              connections={canvasConnections}
-              viewport={infiniteViewport}
-              selectedNodeIds={infiniteSelectedIds}
-              selectedConnectionId={selectedConnectionId}
-              onSelectedConnectionChange={setSelectedConnectionId}
-              onDeleteConnection={handleDeleteConnection}
-              onTitleChange={handleNodeTitleChange}
-              overlayBottomInsetPx={overlayBottomInsetPx}
-              jobOverlay={{
-                show: showInfiniteJobOverlay,
-                failed: jobFailed,
-                status: jobStreamStatus ?? null,
-                errorMessage: jobErrorMessage,
-                completed: jobProgressCompleted,
-                total: jobProgressTotal,
-                elapsedMs: jobElapsedMs,
-                queueAhead,
-                onOpenChat: onOpenChatPanel,
-                onCancel: onCancelJob,
-                onDismissFailure: onDismissJobFailure,
-              }}
-              renderNodeStudioPanel={renderInfiniteNodeStudioPanel}
-              onNodesChange={(nodes: CanvasNodeData[]) => {
-                if (applyingAssistantOpsRef.current) return;
-                const itemNodes = nodes.filter((n) => !isDramaNodeId(n.id));
-                onItemsChange(applyNodePositionsToItems(items, itemNodes));
-              }}
-              onConnectionsChange={(nextConnections) => {
-                if (applyingAssistantOpsRef.current || readOnly) return;
-                onInfiniteConnectionsChange?.(
-                  extractPersistedConnections(nextConnections, items),
-                );
-              }}
-              onViewportChange={setInfiniteViewport}
-              onSelectionChange={handleInfiniteSelectionChange}
-              onNodeDoubleClick={(nodeId) => {
-                onSelect(nodeId);
-              }}
-              onConnectionCreateClick={(event, nodeId) => {
-                if (readOnly) return;
-                setConnectionCreateMenu({
-                  sourceNodeId: nodeId,
-                  x: event.clientX,
-                  y: event.clientY,
-                  connectAs: "downstream",
-                });
-              }}
-              onConnectionDropAtEmpty={({ fromNodeId, handleType, world, client }) => {
-                if (readOnly) return;
-                setConnectionCreateMenu({
-                  sourceNodeId: fromNodeId,
-                  x: client.x,
-                  y: client.y,
-                  worldX: world.x,
-                  worldY: world.y,
-                  connectAs: handleType === "source" ? "downstream" : "upstream",
-                });
-              }}
-              onCanvasDoubleClick={(world, client) => {
-                if (readOnly) return;
-                setInfiniteContextMenu(null);
-                setConnectionContextMenu(null);
-                setConnectionCreateMenu(null);
-                setPaneCreateMenu({
-                  x: client.x,
-                  y: client.y,
-                  worldX: world.x,
-                  worldY: world.y,
-                });
-              }}
-              onContextMenu={(state: ContextMenuState | null) => {
-                if (state?.type === "node") {
-                  setPaneCreateMenu(null);
-                  const target = allCanvasNodesRef.current.find(
-                    (n) => n.id === state.nodeId,
-                  );
-                  if (target) {
-                    setInfiniteContextMenu({
-                      node: target,
-                      x: state.x,
-                      y: state.y,
-                    });
-                  }
-                } else if (state?.type === "pane") {
-                  if (readOnly) return;
-                  setInfiniteContextMenu(null);
-                  setConnectionContextMenu(null);
-                  setPaneCreateMenu({
-                    x: state.x,
-                    y: state.y,
-                    worldX: state.worldX,
-                    worldY: state.worldY,
-                  });
-                } else if (state?.type === "connection") {
-                  if (readOnly) return;
-                  setInfiniteContextMenu(null);
-                  setPaneCreateMenu(null);
-                  setConnectionContextMenu({
-                    connectionId: state.connectionId,
-                    x: state.x,
-                    y: state.y,
-                  });
-                } else {
-                  setInfiniteContextMenu(null);
-                  setPaneCreateMenu(null);
-                  setConnectionContextMenu(null);
-                }
-              }}
-              showEmptyPrompt={showInfiniteEmptyPrompt}
-              emptyCreation={infiniteEmptyCreation}
-              onOpenCenterCreateMenu={openInfiniteCenterCreateMenu}
-              onNodeCreateToggleClick={handleNodeCreateToggleClick}
-              showTemplateManager={showTemplateManager}
-              onToggleTemplateManager={() =>
-                setShowTemplateManager((v) => !v)
-              }
-              showMusicGenPanel={showMusicGenPanel}
-              onToggleMusicGenPanel={() => setShowMusicGenPanel((v) => !v)}
-              templateSelectedNodes={templateSelectedNodes}
-              templateSelectedConnections={templateSelectedConnections}
-              sessionId={sessionId}
-              onCloseTemplateManager={() => setShowTemplateManager(false)}
-              onCloseMusicGenPanel={() => setShowMusicGenPanel(false)}
-              infiniteOrchestrationDock={infiniteOrchestrationDock}
-              legacyInfiniteOrchestrationDock={legacyInfiniteOrchestrationDock}
-              onMediaUploadAt={
-                readOnly ? undefined : handleUploadMediaAt
-              }
-              onAssetDropAt={handleAssetDropAt}
-              multiSelectActions={multiSelectActions}
-              multiSelectNotice={multiSelectNotice}
-            />
-            <input
-              ref={mediaUploadInputRef}
-              type="file"
-              accept="image/*,video/*"
-              multiple
-              className="hidden"
-              data-testid="canvas-media-upload-input"
-              onChange={onMediaFileInputChange}
-            />
-            </>
-          ) : showFreeCanvas ? (
-            <FreeCanvasPane
-              freeCanvasRef={freeCanvasRef}
-              items={items}
-              batchSections={batchSections}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              onItemsChangeWithHistory={handleItemsChangeWithHistory}
-              readOnly={readOnly}
-              emptyHint={emptyHint}
-              pulseId={pulseId}
-              isRefineMode
-              refineItemId={refineItemId}
-              refineRootItemId={refineRootItemId}
-              refineChain={refineChain}
-              onRefineTargetSelect={selectRefineTarget}
-              compareMode={compareMode}
-              comparePair={comparePair}
-              onCompareModeChange={setCompareMode}
-              onExitRefineMode={exitRefineMode}
-              onSetLightbox={setLightbox}
-              onSetContextMenu={setContextMenu}
-              onJumpToParentBatch={onJumpToParentBatch}
-              onDeleteSelected={onDeleteSelected}
-              onRerun={(item) => onRerun?.(item)}
-              tool={tool}
-              onToolChange={setTool}
-              gridOn={gridOn}
-              brushRequest={brushRequest}
-              onBrushComplete={onBrushComplete}
-              onBrushCancel={onBrushCancel}
-              expandRequest={expandRequest}
-              onExpandComplete={onExpandComplete}
-              onExpandCancel={onExpandCancel}
-              focusClickRequest={focusClickRequest}
-              onFocusImageClick={onFocusImageClick}
-              onFocusClickCancel={onFocusClickCancel}
-              selectionToolbar={selectionToolbar}
-              statusChip={statusChip}
-              jobStreamStatus={jobStreamStatus}
-              jobFailed={jobFailed}
-              jobErrorMessage={jobErrorMessage}
-              jobProgressCompleted={jobProgressCompleted}
-              jobProgressTotal={jobProgressTotal}
-              onOpenChatPanel={onOpenChatPanel}
-              onCancelJob={onCancelJob}
-              onDismissJobFailure={onDismissJobFailure}
-              jobElapsedMs={jobElapsedMs}
-              queueAhead={queueAhead}
-              mobile={mobile}
-            />
-          ) : (
-            <ScrollCanvasPane
-              scrollCanvasRef={scrollCanvasRef}
-              productGalleryProps={productGalleryProps}
-              conversationPaneActive={conversationPaneActive}
-              conversationPaneWidth={conversationPaneWidth}
-              onConversationPaneResizeStart={onConversationPaneResizeStart}
-              conversationPaneResizing={conversationPaneResizing}
-              scrollBottomInset={scrollBottomInset}
-            />
-          )}
-
-        </div>
-
-        <CanvasPaneMenus
-          contextMenu={contextMenu}
-          onCloseContextMenu={() => setContextMenu(null)}
-          onSelect={onSelect}
-          onDownload={onDownload}
-          onDeleteSelected={onDeleteSelected}
-          onCutoutItem={onCutoutItem}
-          onExpandItem={onExpandItem}
-          infiniteContextMenu={infiniteContextMenu}
-          onCloseInfiniteContextMenu={() => setInfiniteContextMenu(null)}
-          getInfiniteNodeMenuHandlers={getInfiniteNodeMenuHandlers}
-          paneCreateMenu={paneCreateMenu}
-          onClosePaneCreateMenu={() => setPaneCreateMenu(null)}
-          allowDramaNodeCreate={allowDramaNodeCreate}
-          onCreateNodeAt={handleCreateNodeAt}
-          onUploadMedia={readOnly ? undefined : handlePaneUploadMedia}
-          connectionCreateMenu={connectionCreateMenu}
-          onCloseConnectionCreateMenu={() => setConnectionCreateMenu(null)}
-          onCreateDownstreamNode={handleCreateDownstreamNode}
-          connectionContextMenu={connectionContextMenu}
-          onCloseConnectionContextMenu={() => setConnectionContextMenu(null)}
-          onDeleteConnection={handleDeleteConnection}
+    <div
+      className={`flex min-h-0 min-w-0 flex-1 overflow-hidden bg-[#0d0d0d] ${
+        mobile ? "flex-col" : "flex-row"
+      }`}
+    >
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+        <DesignCanvasChrome
+          selectSourceBanner={selectSourceBanner}
+          showFailureBannerDismiss={showFailureBannerDismiss}
+          onDismissJobFailure={onDismissJobFailure}
+          focusClickActive={focusClickActive}
+          focusClickRequest={focusClickRequest}
+          onFocusClickCancel={onFocusClickCancel}
         />
 
-        <InfiniteCanvasToolPanels
-          showVideoInpaint={showVideoInpaint}
-          onCloseVideoInpaint={() => setShowVideoInpaint(null)}
-          videoInpaintSubmitting={videoInpaintSubmitting}
-          onVideoInpaintSubmit={(payload) => {
-            if (!onRunInfiniteNodeTool || !showVideoInpaint) return;
-            setVideoInpaintSubmitting(true);
-            onRunInfiniteNodeTool({
-              toolId: "video-inpaint",
-              node: showVideoInpaint.node,
-              prompt: payload.prompt,
-              toolContext: {
-                toolId: "video-inpaint",
-                timestampSec: payload.timestampSec ?? 0,
-                masks: [
-                  {
-                    itemId: showVideoInpaint.node.id,
-                    mode: "brush",
-                    maskDataUrl: payload.maskDataUrl,
-                    bbox: payload.maskBbox,
-                    normalizedBbox: payload.maskNormalizedBbox,
-                  },
-                ],
-              },
-            });
-            setVideoInpaintSubmitting(false);
-            setShowVideoInpaint(null);
-          }}
-          resolveVideoUrl={(node) =>
-            contextMenuForItem(node)?.url ??
-            node.metadata?.content ??
-            undefined
-          }
-          showLighting={showLighting}
-          onCloseLighting={() => setShowLighting(null)}
-          showCamera={showCamera}
-          onCloseCamera={() => setShowCamera(null)}
+        <ScrollCanvasPane
+          scrollCanvasRef={scrollCanvasRef}
+          productGalleryProps={productGalleryProps}
+          conversationPaneActive={conversationPaneActive}
+          conversationPaneWidth={conversationPaneWidth}
+          onConversationPaneResizeStart={onConversationPaneResizeStart}
+          conversationPaneResizing={conversationPaneResizing}
+          scrollBottomInset={scrollBottomInset}
         />
-
-        {lightbox && (
-          <CanvasLightbox
-            items={lightbox.items}
-            initialIndex={lightbox.index}
-            onClose={() => setLightbox(null)}
-            onRefine={
-              !readOnly
-                ? () => {
-                    const item = lightbox.items[lightbox.index];
-                    if (!item || item.isVideo) return;
-                    setLightbox(null);
-                    enterRefineMode(item.id);
-                  }
-                : undefined
-            }
-          />
-        )}
       </div>
+
+      <CanvasPaneMenus
+        contextMenu={contextMenu}
+        onCloseContextMenu={() => setContextMenu(null)}
+        onSelect={onSelect}
+        onDownload={onDownload}
+        onDeleteSelected={onDeleteSelected}
+        onCutoutItem={onCutoutItem}
+        onExpandItem={onExpandItem}
+        infiniteContextMenu={null}
+        onCloseInfiniteContextMenu={() => {}}
+        getInfiniteNodeMenuHandlers={() => ({})}
+        paneCreateMenu={null}
+        onClosePaneCreateMenu={() => {}}
+        allowDramaNodeCreate={false}
+        onCreateNodeAt={() => {}}
+        connectionCreateMenu={null}
+        onCloseConnectionCreateMenu={() => {}}
+        onCreateDownstreamNode={() => {}}
+        connectionContextMenu={null}
+        onCloseConnectionContextMenu={() => {}}
+        onDeleteConnection={() => {}}
+      />
+
+      {lightbox ? (
+        <CanvasLightbox
+          items={lightbox.items}
+          initialIndex={lightbox.index}
+          onClose={() => setLightbox(null)}
+        />
+      ) : null}
+    </div>
   );
 }

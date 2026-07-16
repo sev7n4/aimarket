@@ -9,7 +9,6 @@ import {
   Share2,
   Sparkles,
   Trash2,
-  Wand2,
 } from "lucide-react";
 import type { CanvasItem } from "@/lib/canvas-tools";
 import type { StudioTool } from "@/lib/types";
@@ -24,7 +23,6 @@ interface ScrollCanvasItemChromeProps {
   tools?: StudioTool[];
   pendingToolId?: string | null;
   onPreview: () => void;
-  onRefine: () => void;
   onRerun: () => void;
   onDelete: () => void;
   onDownload?: () => void;
@@ -45,7 +43,6 @@ export function ScrollCanvasItemChrome({
   tools = [],
   pendingToolId = null,
   onPreview,
-  onRefine,
   onRerun,
   onDelete,
   onDownload,
@@ -73,17 +70,6 @@ export function ScrollCanvasItemChrome({
       title: isVideo ? "全屏播放" : "预览大图（双击图片）",
       onClick: onPreview,
     },
-    ...(isVideo
-      ? []
-      : [
-          {
-            id: "canvas-refine",
-            icon: Wand2,
-            title: "进入精修：圈选、对比、连续迭代",
-            tone: "orange" as const,
-            onClick: onRefine,
-          },
-        ]),
     {
       id: "canvas-delete",
       icon: Trash2,

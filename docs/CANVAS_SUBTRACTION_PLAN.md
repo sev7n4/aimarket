@@ -37,7 +37,7 @@
 | **A** | 入口清零 | ✅ 完成 | `enhancement/canvas-subtraction-a` | 2–3 天 |
 | **B** | Workflow 产品线下线 | ✅ 完成 | `enhancement/canvas-subtraction-b` | 3–5 天 |
 | **C** | Drama/Production 产品线下线 | ⬜ 待开始 | `enhancement/canvas-subtraction-c` | 5–7 天 |
-| **D** | 引擎与数据收尾 | ⬜ 待开始 | `enhancement/canvas-subtraction-d` | 3–5 天 |
+| **D** | 引擎与数据收尾 | ✅ 完成 | `enhancement/canvas-subtraction-d` | 3–5 天 |
 | **E** | Infinite 引擎去留（可选） | ⬜ 待定 | `enhancement/canvas-subtraction-e` | 2–3 天 |
 
 **Phase 完成标准（全局）**
@@ -183,21 +183,21 @@ enhancement/canvas-subtraction-b   # Phase B
 
 | ID | 任务 | 状态 | 涉及文件 | 验证 |
 |----|------|------|----------|------|
-| D-1 | 删除 `free-canvas.tsx` | ⬜ | ~1300 行 | 文件不存在 |
-| D-2 | 删除 `FreeCanvasPane.tsx` | ⬜ | | 文件不存在 |
-| D-3 | 删除 refine 模式分支 | ⬜ | `use-design-canvas.tsx`, `DesignCanvasView.tsx`, `DesignCanvasChrome.tsx` | 无 `isRefineMode` / `showFreeCanvas` |
-| D-4 | 清理 lightbox 精修入口 | ⬜ | `canvas-lightbox.tsx` | 无「进入自由画布精修」 |
-| D-5 | `resolveCanvasEngine()` 固定 `"scroll"` | ⬜ | `lib/studio-canvas-view.ts` | 函数 ≤15 行；单测更新 |
-| D-6 | 删除 `DesignCanvasView` Infinite/Free 分支 | ⬜ | 仅渲染 `ScrollCanvasPane` | 无 `InfiniteCanvasPane` / `FreeCanvasPane` import |
-| D-7 | 删除 `InfiniteCanvasPane.tsx`（若不挂载） | ⬜ | 与 Phase E 联动 | — |
-| D-8 | Web 停止写 `canvas_flow` | ⬜ | `use-session-canvas.ts`, `lib/api/canvas.ts` | 无 PUT `canvas-flow` |
-| D-9 | API `canvas_flow` 标记 deprecated | ⬜ | `apps/api/src/routes/sessions.ts`, `db` migration | 写接口返回 410 或忽略 |
-| D-10 | 存量 workflow session 迁移 | ⬜ | `scripts/migrate-workflow-sessions-to-studio.ts`（新建） | dry-run 通过；layout 数据完整 |
-| D-11 | 更新 `STUDIO_CANVAS_MODES.md` | ⬜ | 重写为单引擎模型 | 文档与代码一致 |
-| D-12 | 更新 `.trae/specs/infinite-canvas-integration/` | ⬜ | 标记 spec 归档 | — |
-| D-13 | 更新 `scripts/test-studio-canvas-view.ts` | ⬜ | 仅测 `resolveCanvasEngine` | 单测绿 |
-| D-14 | 更新剩余 E2E | ⬜ | `canvas-infinite-production.spec.ts`, `canvas-node-crud.spec.ts`, `drama-canvas-e2e.spec.ts` | 删除或改为 scroll-only 断言 |
-| D-15 | `studio-workspace.tsx` 瘦身 | ⬜ | 删除 `infiniteCanvasActive`、workflow 残留 | 行数下降 |
+| D-1 | 删除 `free-canvas.tsx` | ✅ | ~1300 行 | 文件不存在 |
+| D-2 | 删除 `FreeCanvasPane.tsx` | ✅ | | 文件不存在 |
+| D-3 | 删除 refine 模式分支 | ✅ | `use-design-canvas.tsx`, `DesignCanvasView.tsx`, `DesignCanvasChrome.tsx` | 无 `isRefineMode` / `showFreeCanvas` |
+| D-4 | 清理 lightbox 精修入口 | ✅ | `canvas-lightbox.tsx` | 无「进入自由画布精修」 |
+| D-5 | `resolveCanvasEngine()` 固定 `"scroll"` | ✅ | `lib/studio-canvas-view.ts` | 函数 ≤15 行；单测更新 |
+| D-6 | 删除 `DesignCanvasView` Infinite/Free 分支 | ✅ | 仅渲染 `ScrollCanvasPane` | 无 `InfiniteCanvasPane` / `FreeCanvasPane` import |
+| D-7 | 删除 `InfiniteCanvasPane.tsx`（若不挂载） | ✅ | 与 Phase E 联动 | 保留文件、DesignCanvasView 不引用 |
+| D-8 | Web 停止写 `canvas_flow` | ✅ | `use-session-canvas.ts`, `lib/api/canvas.ts` | 无 PUT `canvas-flow` |
+| D-9 | API `canvas_flow` 标记 deprecated | ✅ | `apps/api/src/routes/sessions.ts`, `db` migration | 写接口返回 410 或忽略 |
+| D-10 | 存量 workflow session 迁移 | ✅ | `scripts/migrate-workflow-sessions-to-studio.ts`（新建） | dry-run 通过；layout 数据完整 |
+| D-11 | 更新 `STUDIO_CANVAS_MODES.md` | ✅ | 重写为单引擎模型 | 文档与代码一致 |
+| D-12 | 更新 `.trae/specs/infinite-canvas-integration/` | ✅ | 标记 spec 归档 | — |
+| D-13 | 更新 `scripts/test-studio-canvas-view.ts` | ✅ | 仅测 `resolveCanvasEngine` | 单测绿 |
+| D-14 | 更新剩余 E2E | ✅ | `canvas-infinite-production.spec.ts`, `canvas-node-crud.spec.ts`, `drama-canvas-e2e.spec.ts` | 删除或改为 scroll-only 断言 |
+| D-15 | `studio-workspace.tsx` 瘦身 | ✅ | 删除 `infiniteCanvasActive`、workflow 残留 | 行数下降 |
 
 ### Phase D 完成标准
 
@@ -337,22 +337,22 @@ enhancement/canvas-subtraction-b   # Phase B
 
 ### Phase D — 引擎与数据收尾
 
-- [ ] D-1 删除 `free-canvas.tsx`
-- [ ] D-2 删除 `FreeCanvasPane.tsx`
-- [ ] D-3 删除 refine 模式分支
-- [ ] D-4 清理 lightbox 精修入口
-- [ ] D-5 `resolveCanvasEngine()` 固定 scroll
-- [ ] D-6 `DesignCanvasView` 仅 Scroll 分支
-- [ ] D-7 删除 `InfiniteCanvasPane`（按需）
-- [ ] D-8 Web 停止写 `canvas_flow`
-- [ ] D-9 API `canvas_flow` deprecated
-- [ ] D-10 存量 workflow session 迁移脚本
-- [ ] D-11 更新 `STUDIO_CANVAS_MODES.md`
-- [ ] D-12 归档 infinite-canvas spec
-- [ ] D-13 更新 `test-studio-canvas-view.ts`
-- [ ] D-14 更新剩余 E2E
-- [ ] D-15 `studio-workspace.tsx` 瘦身
-- [ ] **Phase D 验证**：typecheck + integration + E2E 全绿
+- [x] D-1 删除 `free-canvas.tsx`
+- [x] D-2 删除 `FreeCanvasPane.tsx`
+- [x] D-3 删除 refine 模式分支
+- [x] D-4 清理 lightbox 精修入口
+- [x] D-5 `resolveCanvasEngine()` 固定 scroll
+- [x] D-6 `DesignCanvasView` 仅 Scroll 分支
+- [x] D-7 保留 `InfiniteCanvasPane`（未挂载）
+- [x] D-8 Web 停止写 `canvas_flow`
+- [x] D-9 API `canvas_flow` deprecated
+- [x] D-10 存量 workflow session 迁移脚本
+- [x] D-11 更新 `STUDIO_CANVAS_MODES.md`
+- [x] D-12 归档 infinite-canvas spec
+- [x] D-13 更新 `test-studio-canvas-view.ts`
+- [x] D-14 更新剩余 E2E
+- [x] D-15 `studio-workspace.tsx` 瘦身
+- [x] **Phase D 验证**：typecheck 绿
 
 ### Phase E — Infinite 去留（可选）
 
@@ -406,7 +406,7 @@ enhancement/canvas-subtraction-b   # Phase B
 | 日期 | PR | 内容 |
 |------|-----|------|
 | 2026-07-14 | — | 创建计划文档；方案评审通过 |
-| 2026-07-16 | enhancement/canvas-subtraction-b | Phase B Workflow 产品线下线 |
+| 2026-07-16 | enhancement/canvas-subtraction-d | Phase D 引擎与数据收尾：Scroll-only、FreeCanvas 删除、canvas_flow 写废弃 |
 
 ---
 

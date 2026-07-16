@@ -1,19 +1,9 @@
 "use client";
 
-import { ArrowLeft, Columns2 } from "lucide-react";
-
-import { TOOL_DISPLAY_NAMES } from "@/lib/studio-tool-meta";
-
 export type DesignCanvasChromeProps = {
   selectSourceBanner?: string | null;
   showFailureBannerDismiss?: boolean;
   onDismissJobFailure?: () => void;
-  isRefineMode: boolean;
-  onExitRefineMode: () => void;
-  refineCompleteNotice: { count: number; toolName?: string } | null;
-  compareAvailable: boolean;
-  compareMode: boolean;
-  onToggleCompareMode: () => void;
   focusClickActive: boolean;
   focusClickRequest: { toolName: string } | null;
   onFocusClickCancel?: () => void;
@@ -23,12 +13,6 @@ export function DesignCanvasChrome({
   selectSourceBanner,
   showFailureBannerDismiss,
   onDismissJobFailure,
-  isRefineMode,
-  onExitRefineMode,
-  refineCompleteNotice,
-  compareAvailable,
-  compareMode,
-  onToggleCompareMode,
   focusClickActive,
   focusClickRequest,
   onFocusClickCancel,
@@ -50,48 +34,6 @@ export function DesignCanvasChrome({
           ) : null}
         </div>
       ) : null}
-
-      <div className="absolute left-2 top-2 z-20 flex flex-wrap items-center gap-2">
-        {isRefineMode ? (
-          <button
-            type="button"
-            onClick={onExitRefineMode}
-            className="flex items-center gap-1.5 rounded-lg bg-orange-500/20 px-3 py-1.5 text-xs text-orange-300 transition hover:bg-orange-500/30 hover:text-orange-100"
-          >
-            <ArrowLeft className="size-3.5" />
-            <span>返回纵向模式</span>
-          </button>
-        ) : null}
-        {isRefineMode && refineCompleteNotice ? (
-          <div
-            data-testid="refine-complete-notice"
-            className="max-w-md rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-100/90"
-          >
-            精修完成
-            {refineCompleteNotice.toolName
-              ? ` · ${TOOL_DISPLAY_NAMES[refineCompleteNotice.toolName] ?? refineCompleteNotice.toolName}`
-              : ""}
-            {refineCompleteNotice.count > 1
-              ? ` · 共 ${refineCompleteNotice.count} 张，可在下方胶片切换`
-              : " · 已切换到最新结果"}
-          </div>
-        ) : null}
-        {isRefineMode && compareAvailable ? (
-          <button
-            type="button"
-            data-testid="refine-compare-toggle"
-            onClick={onToggleCompareMode}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition ${
-              compareMode
-                ? "bg-orange-500/25 text-orange-200"
-                : "bg-white/10 text-zinc-300 hover:bg-white/15"
-            }`}
-          >
-            <Columns2 className="size-3.5" />
-            <span>{compareMode ? "退出对比" : "Before/After"}</span>
-          </button>
-        ) : null}
-      </div>
 
       {focusClickActive && focusClickRequest ? (
         <div

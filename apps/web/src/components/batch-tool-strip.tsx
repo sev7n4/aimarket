@@ -1,6 +1,6 @@
 "use client";
 
-import { AtSign, Loader2, Wand2 } from "lucide-react";
+import { AtSign, Loader2 } from "lucide-react";
 import type { CanvasItem } from "@/lib/canvas-tools";
 import { studioToolIcon } from "@/lib/studio-tool-icons";
 import { toolShortLabel } from "@/lib/studio-tool-meta";
@@ -29,7 +29,6 @@ interface BatchToolStripProps {
   pendingToolId?: string | null;
   onRunTool: (tool: StudioTool, item: CanvasItem) => void;
   onMentionItem?: (item: CanvasItem) => void;
-  onEnterRefineMode?: (itemId: string) => void;
 }
 
 export function BatchToolStrip({
@@ -40,7 +39,6 @@ export function BatchToolStrip({
   pendingToolId = null,
   onRunTool,
   onMentionItem,
-  onEnterRefineMode,
 }: BatchToolStripProps) {
   if (readOnly) return null;
 
@@ -48,11 +46,7 @@ export function BatchToolStrip({
   if (!referenceItem) return null;
 
   const visibleTools = tools.filter((t) => !t.clientOnly);
-  if (
-    visibleTools.length === 0 &&
-    !onMentionItem &&
-    !onEnterRefineMode
-  ) {
+  if (visibleTools.length === 0 && !onMentionItem) {
     return null;
   }
 
@@ -69,18 +63,6 @@ export function BatchToolStrip({
           </span>
           <span className="uppercase tracking-wider">AI 工具链</span>
         </div>
-        {onEnterRefineMode ? (
-          <button
-            type="button"
-            data-testid="batch-enter-refine"
-            title="进入精修模式：单图深度编辑、圈选对比、连续迭代"
-            onClick={() => onEnterRefineMode(referenceItem.id)}
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-orange-400/40 bg-orange-500/15 px-2.5 py-1 text-[11px] font-medium text-orange-100 transition hover:border-orange-300/60 hover:bg-orange-500/25"
-          >
-            <Wand2 className="size-3.5" strokeWidth={1.6} />
-            <span className="whitespace-nowrap">进入精修</span>
-          </button>
-        ) : null}
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         {onMentionItem ? (

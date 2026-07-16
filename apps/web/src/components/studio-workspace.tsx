@@ -4,10 +4,9 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { StudioCreationDock } from "@/components/studio-creation-dock";
-import { StudioInfiniteSubmitBridge } from "@/components/studio-infinite-submit-bridge";
 import { useStudioCanvasToolBridge } from "@/hooks/use-studio-canvas-tool-bridge";
 import { StudioToolHandlersProvider } from "@/components/studio-tool-handlers-provider";
-import { StudioDock, studioDockOverlayInsetPx, studioDockScrollInset } from "@/components/studio-dock";
+import { StudioDock, studioDockScrollInset } from "@/components/studio-dock";
 import { StudioCoach } from "@/components/studio-coach";
 import { StudioHeader } from "@/components/studio-header";
 import {
@@ -98,11 +97,6 @@ export function StudioWorkspace({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
   const [dockMode, setDockMode] = useState<StudioDockMode>("expanded");
-  const [infiniteCanvasActive, setInfiniteCanvasActive] = useState(false);
-  const [infiniteSubmitApi, setInfiniteSubmitApi] = useState<{
-    submit: () => Promise<void>;
-    submitting: boolean;
-  } | null>(null);
   const [conversationPaneActive, setConversationPaneActive] = useState(false);
   const {
     width: conversationPaneWidth,
@@ -274,20 +268,6 @@ export function StudioWorkspace({
     return [draftSession, ...sessions];
   }, [sessions, sessionId, sessionTitle, mode, sessionKind]);
 
-  const infiniteOverlayBottomInsetPx =
-    infiniteCanvasActive ? 0 : studioDockOverlayInsetPx(dockMode);
-
-  const handleInfiniteSubmitReady = useCallback(
-    (api: { submit: () => Promise<void>; submitting: boolean }) => {
-      setInfiniteSubmitApi((prev) =>
-        prev?.submit === api.submit && prev.submitting === api.submitting
-          ? prev
-          : api,
-      );
-    },
-    [],
-  );
-
   const openNewStudio = useCallback(() => {
     const wsId = activeWorkspaceId ?? getActiveWorkspaceId();
     clientNavigate(
@@ -367,7 +347,6 @@ export function StudioWorkspace({
     jobError,
     jobFailedToolType,
     jobElapsedMs,
-    infiniteEmptySubmitting,
     activeJobPrompt,
     jobStartedAt,
     dismissJobFailure,
@@ -654,21 +633,6 @@ export function StudioWorkspace({
             </button>
           ) : null}
           <StudioToolHandlersProvider value={canvasToolBridge}>
-            {infiniteCanvasActive ? (
-              <StudioInfiniteSubmitBridge
-                sessionId={sessionId}
-                mode={mode}
-                prompt={studioPrompt}
-                readOnly={readOnly}
-                user={user}
-                canvasItems={canvasItems}
-                onJobStarted={handleJobStarted}
-                onAuthRequired={() => setLoginOpen(true)}
-                onPromptClear={() => setStudioPrompt("")}
-                onInteractionHint={(message) => setSelectSourceBanner(message)}
-                onReady={handleInfiniteSubmitReady}
-              />
-            ) : null}
             <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
               {readOnly ? (
                 <p className="shrink-0 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200/90">
@@ -679,24 +643,10 @@ export function StudioWorkspace({
                 key={sessionId}
                 ref={canvasRef}
                 sessionId={sessionId}
-                onInfiniteCanvasActiveChange={setInfiniteCanvasActive}
                 onConversationPaneActiveChange={setConversationPaneActive}
                 conversationPaneWidth={conversationPaneWidth}
                 onConversationPaneResizeStart={handleConversationPaneResizeStart}
                 conversationPaneResizing={conversationPaneResizing}
-                overlayBottomInsetPx={infiniteOverlayBottomInsetPx}
-                infiniteEmptyCreation={
-                  infiniteCanvasActive
-                    ? {
-                        prompt: studioPrompt,
-                        onPromptChange: setStudioPrompt,
-                        onSubmit: () => void infiniteSubmitApi?.submit(),
-                        submitting:
-                          (infiniteSubmitApi?.submitting ?? false) ||
-                          infiniteEmptySubmitting,
-                      }
-                    : undefined
-                }
                 items={canvasItems}
                 infiniteConnections={infiniteConnections}
                 onInfiniteConnectionsChange={setInfiniteConnections}
@@ -714,9 +664,7 @@ export function StudioWorkspace({
                 onDownload={() => void handleCanvasDownload()}
                 onDeleteSelected={handleDeleteCanvasItem}
                 emptyHint=""
-                scrollBottomInset={
-                  infiniteCanvasActive ? "" : studioDockScrollInset(dockMode)
-                }
+                scrollBottomInset={studioDockScrollInset(dockMode)}
                 readOnly={readOnly}
                 jobStreamStatus={jobStreamStatus}
                 jobFailed={jobFailed}
@@ -736,14 +684,13 @@ export function StudioWorkspace({
                 statusChip={<ProviderStatusChip />}
               />
 
-              {!infiniteCanvasActive ? (
-                <StudioDock
-                  mode={dockMode}
-                  onModeChange={setDockMode}
-                  alignLeft={conversationPaneActive}
-                  alignLeftWidth={conversationPaneWidth}
-                >
-                  <StudioCreationDock
+              <StudioDock
+                mode={dockMode}
+                onModeChange={setDockMode}
+                alignLeft={conversationPaneActive}
+                alignLeftWidth={conversationPaneWidth}
+              >
+                <StudioCreationDock
                     user={user}
                     ready={ready}
                     readOnly={readOnly}
@@ -771,9 +718,8 @@ export function StudioWorkspace({
                     focusEdit={focusEditDockProps}
                     onFocusEditSubmit={handleFocusEditSubmit}
                     autoSubmitOnce={autoSubmitOnce}
-                  />
-                </StudioDock>
-              ) : null}
+                />
+              </StudioDock>
             </div>
           </StudioToolHandlersProvider>
         </div>
